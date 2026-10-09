@@ -1,0 +1,12 @@
+assets/ui/merchant.png
+assets/ui/chest.png
+assets/ui/title.png
+assets/weapons/pistol.png
+assets/weapons/revolver.png
+assets/ui/hero.png
+assets/weapons/shotgun.png
+assets/weapons/smg.png
+assets/weapons/minigun.png
+assets/weapons/sniper.png
+assets/weapons/rocket.png
+assets/weapons/tesla.png

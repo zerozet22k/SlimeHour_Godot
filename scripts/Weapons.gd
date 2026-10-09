@@ -1,0 +1,561 @@
+extends RefCounted
+## Gun behaviour. Each gun has a "kind" that decides how it fires; volley() decides the
+## pattern (fan, parallel, rear, side, burst, echo, ghost twin) and emit() spawns one unit.
+
+const Combat = preload("res://scripts/Combat.gd")
+const Effects = preload("res://scripts/Effects.gd")
+
+const EVOLVED_NAMES = {"pistol": "Pea-ndemic", "revolver": "High Noon", "shotgun": "Boomstick 9000",
+	"smg": "Hornet Nest", "minigun": "Lawnmower Deluxe", "sniper": "Final Goodbye", "rocket": "Party Apocalypse",
+	"grenade": "Bouncy Castle Siege", "laser": "Beam Me Up", "tesla": "Thunder Lunchbox", "flame": "Volcano Breath",
+	"disc": "Discus Maximus", "boomerang": "Boomerangutan", "rail": "Planet Cracker", "bees": "Swarm Queen",
+	"bowling": "Perfect Game", "nailgun": "Rivet Rapture", "chicken": "Chicken Apocalypse", "bubble": "Bubble Prison",
+	"pinball": "TILT", "splitbow": "Hydra Bow", "snow": "Ice Age"}
+
+static func new_gun(g, id: String, tier: int = 0) -> Dictionary:
+	var w = {"id": id, "lvl": 1, "tier": clampi(tier, 0, 5), "ammo": 0, "reload": 0.0, "reload_max": 1.0, "cd": 0.0, "spin": 0.0, "heat": 0.0,
+		"over": false, "charge": 0.0, "count": 0, "evolved": false, "wm": {}, "mag_max": 1, "flash": 0.0}
+	w["mag_max"] = mag_size(g, w)
+	w["ammo"] = w["mag_max"]
+	return w
+
+static func display_name(g, w: Dictionary) -> String:
+	if bool(w["evolved"]):
+		return str(EVOLVED_NAMES.get(w["id"], "EX " + str(g.weapon_db[w["id"]]["name"])))
+	return str(g.weapon_db[w["id"]]["name"])
+
+static func wm(w: Dictionary, k: String) -> float:
+	return float(w["wm"].get(k, 0.0))
+
+static func kind_of(g, w: Dictionary) -> String:
+	return str(g.weapon_db[w["id"]]["kind"])
+
+static func mag_size(g, w: Dictionary) -> int:
+	var d = g.weapon_db[w["id"]]
+	var k = str(d["kind"])
+	if k in ["disc", "boomerang"]:
+		return int(d["mag"]) + int(wm(w, "mag")) + int(g.st("mult")) + (1 if int(w["lvl"]) >= 3 else 0)
+	if k == "beam":
+		return 1
+	var m = float(d["mag"]) * (1.0 + g.st("mag") + wm(w, "mag"))
+	if w["id"] == "smg" and int(w["lvl"]) >= 3:
+		m *= 1.5
+	return maxi(1, roundi(m))
+
+## Gun tier raises base damage/rate (like a higher-rarity unit), it is not a damage modifier.
+const TIER_DMG = [1.0, 1.1, 1.22, 1.36, 1.55, 1.8]
+const TIER_RATE = [1.0, 1.03, 1.06, 1.1, 1.14, 1.2]
+const LEVEL_DMG = 0.15
+const EVOLVE_MORE = 1.3
+
+static func base_damage(g, w: Dictionary) -> float:
+	return float(g.weapon_db[w["id"]]["dmg"]) * TIER_DMG[clampi(int(w.get("tier", 0)), 0, 5)]
+
+## Additive "+% damage" for this gun: card damage, gun level and weapon mastery all add up.
+static func dmg_pool(g, w: Dictionary) -> float:
+	return g.dmg_pool(LEVEL_DMG * (int(w["lvl"]) - 1) + wm(w, "dmg"))
+
+static func shot_damage(g, w: Dictionary) -> float:
+	var dmg = base_damage(g, w) * dmg_pool(g, w) * g.more_mult()
+	if bool(w["evolved"]):
+		dmg *= EVOLVE_MORE
+	return dmg * g.sector_scale()
+
+static func fire_rate(g, w: Dictionary) -> float:
+	var d = g.weapon_db[w["id"]]
+	var r = float(d["rate"]) * maxf(0.25, 1.0 + 0.06 * (int(w["lvl"]) - 1) + wm(w, "rate") + g.st("rate"))
+	r *= TIER_RATE[clampi(int(w.get("tier", 0)), 0, 5)]
+	if bool(w["evolved"]):
+		r *= 1.2
+	return r
+
+static func reload_time(g, w: Dictionary) -> float:
+	var d = g.weapon_db[w["id"]]
+	return maxf(0.15, float(d["reload"]) / maxf(0.3, 1.0 + g.st("reload") + wm(w, "reload")))
+
+static func hand_pos(g, slot: int) -> Vector2:
+	var aim: Vector2 = g.hero["aim"]
+	var side = [11.0, -11.0, 0.0][clampi(slot, 0, 2)]
+	var back = -6.0 if slot == 2 else 0.0
+	return g.hero["pos"] + aim.orthogonal() * side + aim * back
+
+# ================================================================= per frame
+static func update(g, dt: float) -> void:
+	var aim: Vector2 = g.hero["aim"]
+	for b in g.beams:
+		b["t"] = float(b["t"]) - dt
+	g.beams = g.beams.filter(func(b): return float(b["t"]) > 0.0)
+	for i in range(g.guns.size()):
+		var w = g.guns[i]
+		var d = g.weapon_db[w["id"]]
+		var kind = str(d["kind"])
+		var want = g.fire_wanted(i)
+		w["cd"] = float(w["cd"]) - dt
+		w["flash"] = maxf(0.0, float(w["flash"]) - dt)
+		var muzzle = hand_pos(g, i) + aim * 22.0
+		if kind == "spin":
+			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3
+			if wm(w, "prespun") > 0:
+				w["spin"] = 1.0 if want else maxf(0.0, float(w["spin"]) - dt)
+			elif want and float(w["reload"]) <= 0.0:
+				w["spin"] = minf(1.0, float(w["spin"]) + dt * spin_speed)
+			else:
+				w["spin"] = maxf(0.0, float(w["spin"]) - dt * 1.5)
+		if kind == "beam":
+			update_beam(g, w, i, dt, want, muzzle, aim)
+			continue
+		if float(w["reload"]) > 0.0:
+			w["reload"] = float(w["reload"]) - dt
+			if float(w["reload"]) <= 0.0:
+				finish_reload(g, w)
+			continue
+		if kind == "rail":
+			if want and int(w["ammo"]) > 0:
+				var charge_speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5)
+				w["charge"] = minf(1.0, float(w["charge"]) + dt * charge_speed)
+			else:
+				w["charge"] = maxf(0.0, float(w["charge"]) - dt * 2.0)
+			if float(w["charge"]) < 1.0:
+				continue
+		if not want or float(w["cd"]) > 0.0 or int(w["ammo"]) <= 0:
+			continue
+		var rate = fire_rate(g, w)
+		if kind == "spin":
+			rate *= lerpf(0.18, 1.0, float(w["spin"]))
+		w["cd"] = float(w["cd"]) + 1.0 / maxf(0.2, rate)
+		if float(w["cd"]) < -0.2:
+			w["cd"] = 0.0
+		if kind == "rail":
+			w["charge"] = 0.0
+		var mul = 1.0
+		if w["id"] == "pistol" and int(w["ammo"]) == 1:
+			mul = 3.0
+		if g.st("goldshot") > 0 and g.gold > 0:
+			g.gold -= 1
+			mul *= 1.0 + 0.6 / dmg_pool(g, w)
+		volley(g, w, i, muzzle, aim, {"mul": mul})
+		if kind in ["disc", "boomerang"]:
+			w["ammo"] = int(w["ammo"]) - 1
+		elif g.st("infammo") <= 0:
+			w["ammo"] = int(w["ammo"]) - 1
+			if int(w["ammo"]) <= 0:
+				start_reload(g, w)
+
+static func start_reload(g, w: Dictionary) -> void:
+	w["reload"] = reload_time(g, w)
+	w["reload_max"] = w["reload"]
+	g.sfx.play("reload")
+	if w["id"] == "revolver" and int(w["lvl"]) >= 5:
+		var aim: Vector2 = g.hero["aim"]
+		for k in range(6):
+			emit(g, w, g.hero["pos"] + aim * 20.0, aim.rotated((k - 2.5) * 0.16), shot_damage(g, w), {"free": true})
+	Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": g.hero["aim"]})
+
+static func finish_reload(g, w: Dictionary) -> void:
+	var k = kind_of(g, w)
+	if k in ["disc", "boomerang"]:
+		return
+	w["reload"] = 0.0
+	w["mag_max"] = mag_size(g, w)
+	w["ammo"] = w["mag_max"]
+
+# ================================================================= volleys
+static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, opts: Dictionary) -> void:
+	var d = g.weapon_db[w["id"]]
+	var kind = str(d["kind"])
+	var dmg = shot_damage(g, w) * float(opts.get("mul", 1.0))
+	var echo = bool(opts.get("echo", false))
+	w["count"] = int(w["count"]) + 1
+	if not echo:
+		g.volley_count += 1
+	var big = false
+	if g.st("bigshot") > 0 and g.volley_count % 5 == 0 and not echo:
+		big = true
+		dmg *= 2.0 + g.st("bigshot")
+	var mult = int(g.st("mult"))
+	var pellets = int(d["pellets"]) + int(wm(w, "pellets"))
+	if bool(w["evolved"]) and kind not in ["disc", "boomerang"]:
+		pellets += 1
+	var n = pellets + mult
+	match kind:
+		"pellet":
+			n = pellets + 2 * mult + (3 if int(w["lvl"]) >= 3 else 0)
+		"bees":
+			n = pellets + 2 * mult + (2 if int(w["lvl"]) >= 3 else 0)
+		"disc", "boomerang":
+			n = 1
+		"rocket":
+			n = pellets + mult + (1 if int(w["lvl"]) >= 3 else 0)
+		"grenade":
+			n = pellets + mult + (2 if int(w["lvl"]) >= 5 else 0)
+		"ball":
+			n = pellets + mult + (1 if int(w["lvl"]) >= 3 else 0)
+		"beam":
+			n = pellets + mult + (1 if int(w["lvl"]) >= 3 else 0)
+		_:
+			if w["id"] == "pistol" and int(w["lvl"]) >= 3:
+				n += 1
+	n = maxi(n, 1)
+	var lines = 1 + int(g.st("par"))
+	var rear = mini(int(g.st("rear")), 6)
+	var side = mini(int(g.st("side")), 4)
+	# The volley budget rises with sectors; excess multishot becomes damage.
+	var units = n * lines + rear + side * 2
+	var max_units = g.volley_cap()
+	if units > max_units:
+		var before = units
+		while n * lines + rear + side * 2 > max_units:
+			if lines > 1 and lines * 3 >= n:
+				lines -= 1
+			elif n > 1:
+				n -= 1
+			elif rear > 0:
+				rear -= 1
+			else:
+				side = maxi(0, side - 1)
+		dmg *= float(before) / float(n * lines + rear + side * 2)
+	if g.shots.size() > g.shot_cap() - 40 and kind not in ["beam", "chain", "rail"]:
+		return
+	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
+	var random_spread = kind in ["pellet", "flame"]
+	if n > 1 and not random_spread:
+		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
+	var perp = dir.orthogonal()
+	var eopts = {"big": big, "free": bool(opts.get("free", false)), "o": base_opts(g, w, d)}
+	for j in range(n):
+		var a = 0.0
+		if random_spread:
+			a = randf_range(-spread * 0.5, spread * 0.5)
+		elif n > 1:
+			a = -spread * 0.5 + spread * float(j) / float(n - 1)
+		for k in range(lines):
+			var off = (float(k) - float(lines - 1) * 0.5) * 13.0
+			emit(g, w, origin + perp * off, dir.rotated(a), dmg, eopts)
+	for j in range(rear):
+		emit(g, w, origin - dir * 30.0, (-dir).rotated((float(j) - float(rear - 1) * 0.5) * 0.2), dmg, eopts)
+	for j in range(side):
+		var a2 = (float(j) - float(side - 1) * 0.5) * 0.2
+		emit(g, w, origin, perp.rotated(a2), dmg, eopts)
+		emit(g, w, origin, (-perp).rotated(a2), dmg, eopts)
+	# Weapon perks that count volleys.
+	if w["id"] == "pistol" and int(w["lvl"]) >= 5 and int(w["count"]) % 6 == 0:
+		for k in range(8):
+			emit(g, w, origin, Vector2.from_angle(k * TAU / 8.0), dmg * 0.7, eopts)
+	if echo:
+		return
+	w["flash"] = 0.06
+	var recoil = float(d["recoil"]) * (1.0 + wm(w, "recoil"))
+	if recoil > 0.0:
+		g.hero["push"] -= dir * recoil
+		g.add_shake(recoil / 60.0)
+		if wm(w, "recoilblast") > 0:
+			Combat.fragments(g, origin - dir * 20.0, 8, dmg * 0.6, "forward", -dir, 1, null, false, Color("ffc66b"))
+	var snd = str(d.get("sfx", ""))
+	if snd != "":
+		g.sfx.play(snd)
+	# Burst/echo on 20-shots-a-second guns would flood the screen; scale by chance instead (same DPS).
+	var copy_chance = minf(1.0, 5.0 / maxf(1.0, fire_rate(g, w)))
+	for b in range(int(g.st("burst"))):
+		if randf() < copy_chance:
+			g.delayed.append({"t": 0.07 * (b + 1), "fn": "burst", "slot": slot, "mul": 1.0 / copy_chance})
+	for e in range(int(g.st("echo"))):
+		if randf() < copy_chance:
+			g.delayed.append({"t": 0.35 * (e + 1), "fn": "echo", "slot": slot, "pos": origin, "dir": dir, "mul": 0.6 / copy_chance})
+	if g.st("ghost") > 0:
+		var mirror = Vector2(-origin.x, origin.y)
+		var mdir = Vector2(-dir.x, dir.y)
+		volley(g, w, slot, mirror, mdir, {"echo": true, "mul": 0.7, "free": true})
+	# Fast guns (minigun, flamer, beam) would fire "on volley" cards 20-30x a second; cap at 4/s.
+	if g.run_time >= float(w.get("proc_t", -1.0)):
+		w["proc_t"] = g.run_time + 0.25
+		Effects.trigger(g, "fire", {"pos": origin, "dir": dir, "gen": 0, "dmg": dmg})
+
+static func free_volley(g, dir: Vector2, gen: int) -> void:
+	for i in range(g.guns.size()):
+		var w = g.guns[i]
+		volley(g, w, i, hand_pos(g, i) + dir * 22.0, dir, {"echo": true, "free": true})
+
+static func burst(g, slot: int, item_mul: float = 1.0) -> void:
+	if slot >= g.guns.size():
+		return
+	var w = g.guns[slot]
+	var aim: Vector2 = g.hero["aim"]
+	volley(g, w, slot, hand_pos(g, slot) + aim * 22.0, aim, {"echo": true, "free": true, "mul": float(item_mul)})
+
+static func echo(g, item: Dictionary) -> void:
+	var slot = int(item["slot"])
+	if slot >= g.guns.size():
+		return
+	g.fx.append({"kind": "ghostflash", "pos": item["pos"], "vel": Vector2.ZERO, "t": 0.0, "life": 0.25, "color": Color("9fb8ff"), "size": 18.0})
+	volley(g, g.guns[slot], slot, item["pos"], item["dir"], {"echo": true, "mul": float(item.get("mul", 0.6)), "free": true})
+
+# ================================================================= emitting
+static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
+	var lvl = int(w["lvl"])
+	var evolved = bool(w["evolved"])
+	var size = float(d["size"]) * (1.0 + g.st("size") * 0.6 + wm(w, "size")) * (1.3 if evolved else 1.0)
+	var o = {
+		"kind": str(d["kind"]), "speed": float(d["speed"]) * maxf(0.3, 1.0 + g.st("pspeed") + wm(w, "speed")),
+		"life": float(d["life"]) * maxf(0.3, 1.0 + g.st("range") + wm(w, "life")), "r": size,
+		"pierce": int(d["pierce"]) + int(g.st("pierce")) + int(wm(w, "pierce")),
+		"bounce": int(d["bounce"]) + int(g.st("bounce")) + int(wm(w, "bounce")),
+		"rico": int(d["rico"]) + int(g.st("rico")) + int(wm(w, "rico")),
+		"homing": g.st("homing"), "boomer": g.st("boomer") > 0, "wave": g.st("wave"), "curve": g.st("curve"),
+		"accel": g.st("accel") > 0, "split": int(g.st("split")) + int(wm(w, "split")),
+		"knock": float(d["knock"]), "crit": float(d["crit"]) + wm(w, "crit"),
+		"blast": float(d["blast"]) * (1.0 + wm(w, "blast")) * (1.0 + g.st("area")),
+		"src": w["id"], "color": Color("ffd75e") if evolved else Color(str(d["color"])), "gen": 0, "lvl": lvl, "pool": dmg_pool(g, w),
+		"st": {}, "flags": {}, "gun": w,
+	}
+	var flags = o["flags"]
+	match w["id"]:
+		"revolver":
+			if lvl >= 3:
+				o["pierce"] += 2
+		"shotgun":
+			if lvl >= 5:
+				o["rico"] += 1
+		"minigun":
+			if lvl >= 5:
+				o["rico"] += 1
+		"sniper":
+			flags["full_bonus"] = true
+			if lvl >= 3:
+				flags["killshot"] = true
+			if lvl >= 5:
+				flags["pierce_boom"] = true
+		"rocket":
+			if lvl >= 5:
+				flags["fire_puddle"] = true
+			if wm(w, "cluster") > 0:
+				flags["cluster"] = true
+		"grenade":
+			if lvl >= 3:
+				flags["bomblets"] = true
+			if wm(w, "sticky") > 0:
+				flags["sticky"] = true
+		"flame":
+			o["st"] = {"burn": 1.0}
+			if lvl >= 3:
+				o["life"] *= 1.4
+			if wm(w, "dragon") > 0:
+				flags["dragon"] = true
+		"tesla":
+			o["st"] = {"shock": 1.0}
+		"bees":
+			o["st"] = {"poison": 0.7}
+			if lvl >= 5:
+				flags["bee_kill"] = true
+		"bowling":
+			flags["fling"] = true
+			if lvl >= 5:
+				flags["wall_split3"] = true
+		"nailgun":
+			flags["pin"] = (0.7 if lvl >= 3 else 0.35) + wm(w, "pin")
+			if lvl >= 5:
+				flags["pin_bonus"] = true
+		"chicken":
+			if lvl >= 3:
+				o["rico"] += 3
+			if lvl >= 5:
+				flags["eggs"] = true
+		"bubble":
+			o["st"] = {"wet": 1.0}
+			flags["trap"] = (3 if lvl >= 3 else 1) + int(wm(w, "trap"))
+			if lvl >= 5:
+				flags["minibubbles"] = true
+		"pinball":
+			flags["bounce_dmg"] = true
+			if lvl >= 3:
+				o["bounce"] += 4
+			if lvl >= 5:
+				flags["wallsplit"] = 1
+			if wm(w, "multiball") > 0:
+				flags["multiball"] = true
+		"splitbow":
+			flags["split_first"] = (5 if lvl >= 3 else 3) + int(wm(w, "split"))
+			if lvl >= 5:
+				flags["frag_split"] = true
+			if wm(w, "fraghome") > 0:
+				flags["frag_home"] = true
+		"snow":
+			o["st"] = {"freeze": 1.0}
+			flags["grow"] = 2.5 if lvl < 5 else 4.0
+			if lvl >= 3:
+				flags["shatter_aoe"] = true
+			if wm(w, "instafreeze") > 0:
+				flags["instafreeze"] = true
+		"smg":
+			if lvl >= 5:
+				flags["every8"] = true
+		"disc":
+			if lvl >= 5:
+				o["rico"] += 2
+		"boomerang":
+			if lvl >= 5:
+				flags["grow_back"] = true
+	if wm(w, "critpierce") > 0:
+		flags["critpierce"] = true
+	return o
+
+static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts: Dictionary) -> void:
+	var d = g.weapon_db[w["id"]]
+	var kind = str(d["kind"])
+	match kind:
+		"beam":
+			fire_beam(g, w, pos, dir, dmg)
+			return
+		"chain":
+			fire_chain(g, w, pos, dir, dmg)
+			return
+		"rail":
+			fire_rail(g, w, pos, dir, dmg)
+			return
+	var o = eopts["o"].duplicate() if eopts.has("o") else base_opts(g, w, d)
+	if kind == "pellet":
+		o["speed"] *= randf_range(0.82, 1.15)
+		o["life"] *= randf_range(0.85, 1.1)
+	if kind == "flame":
+		o["speed"] *= randf_range(0.8, 1.2)
+	if bool(eopts.get("big", false)):
+		o["r"] *= 2.5
+		o["knock"] *= 2.0
+		o["flags"]["big"] = true
+	if w["id"] == "smg" and o["flags"].has("every8") and int(w["count"]) % 8 == 0:
+		o["blast"] = 45.0
+	if kind in ["disc", "boomerang"]:
+		o["flags"]["owner"] = not bool(eopts.get("free", false))
+	if kind == "bubble":
+		o["flags"]["trapped"] = 0
+	Combat.shot(g, pos, dir, dmg, o)
+
+static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzzle: Vector2, aim: Vector2) -> void:
+	var lvl = int(w["lvl"])
+	var no_heat = lvl >= 5 or g.st("infammo") > 0
+	if bool(w["over"]):
+		w["heat"] = float(w["heat"]) - dt * 1.4
+		if float(w["heat"]) <= 0.0:
+			w["heat"] = 0.0
+			w["over"] = false
+		return
+	if not want:
+		w["heat"] = maxf(0.0, float(w["heat"]) - dt * 1.6)
+		return
+	if not no_heat:
+		w["heat"] = float(w["heat"]) + dt
+		if float(w["heat"]) >= 3.0:
+			w["over"] = true
+			w["heat"] = 1.2
+			g.sfx.play("deny")
+			Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": aim})
+			return
+	if float(w["cd"]) > 0.0:
+		# Keep drawing the beam between damage ticks.
+		var n_vis = 1 + int(g.st("mult")) + int(wm(w, "pellets")) + (1 if lvl >= 3 else 0)
+		for j in range(n_vis):
+			var a = 0.0 if n_vis == 1 else (-0.18 * (n_vis - 1) * 0.5 + 0.18 * j)
+			beam_visual(g, w, muzzle, aim.rotated(a))
+		return
+	w["cd"] = 1.0 / fire_rate(g, w)
+	volley(g, w, slot, muzzle, aim, {})
+
+static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
+	var length = 560.0 * (1.0 + g.st("range"))
+	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
+	g.beams.append({"a": a, "b": a + dir * length, "t": 0.05, "w": width,
+		"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
+
+static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	var length = 560.0 * (1.0 + g.st("range"))
+	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
+	var b = a + dir * length
+	var hits = []
+	for e in g.enemies_near(a + dir * length * 0.5, length * 0.5 + 20.0):
+		if bool(e["dead"]):
+			continue
+		if Combat.seg_dist2(a, b, e["pos"]) < pow(float(e["r"]) + width, 2):
+			hits.append(e)
+	hits.sort_custom(func(x, y): return a.distance_squared_to(x["pos"]) < a.distance_squared_to(y["pos"]))
+	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
+	var end = b
+	for i in range(mini(max_hits, hits.size())):
+		var e = hits[i]
+		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": dir, "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
+		if g.st("split") > 0 and randf() < 0.25:
+			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", dir, 1, null, false, Color("d9b8ff"))
+	if hits.size() > max_hits:
+		end = hits[max_hits - 1]["pos"]
+	g.beams.append({"a": a, "b": end, "t": 0.07, "w": width,
+		"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
+
+static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	var lvl = int(w["lvl"])
+	var reach = 330.0 * (1.0 + g.st("range"))
+	var first = null
+	var best = INF
+	for e in g.enemies_near(a, reach):
+		if bool(e["dead"]) or float(e["charm"]) > 0.0:
+			continue
+		var off: Vector2 = e["pos"] - a
+		var dist = off.length()
+		if dist > reach:
+			continue
+		var score = dist * (1.0 + (1.0 - off.normalized().dot(dir)) * 1.5)
+		if score < best:
+			best = score
+			first = e
+	if first == null:
+		g.beams.append({"a": a, "b": a + dir * reach * 0.6, "t": 0.06, "w": 3.0, "color": Color("8fc8ff"), "zig": true})
+		return
+	var jumps = int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0)
+	chain_from(g, a, first, jumps, dmg, lvl >= 5, {})
+
+static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float, fork: bool, visited: Dictionary) -> void:
+	var cur = first
+	var prev = a
+	for j in range(jumps + 1):
+		if cur == null:
+			break
+		visited[cur["id"]] = true
+		g.beams.append({"a": prev, "b": cur["pos"], "t": 0.1, "w": 3.5, "color": Color("9fd8ff"), "zig": true})
+		Combat.hit(g, cur, dmg, {"pos": cur["pos"], "gen": 0, "dir": (cur["pos"] - prev).normalized(), "knock": 40.0, "st": {"shock": 1.0}, "src": "tesla"})
+		prev = cur["pos"]
+		var nxt = null
+		var best = 175.0 * 175.0
+		for e in g.enemies_near(prev, 175.0):
+			if bool(e["dead"]) or visited.has(e["id"]):
+				continue
+			var dd = prev.distance_squared_to(e["pos"])
+			if dd < best:
+				best = dd
+				nxt = e
+		if fork and nxt != null and j < 3:
+			var alt = null
+			for e in g.enemies_near(prev, 175.0):
+				if not bool(e["dead"]) and not visited.has(e["id"]) and e != nxt:
+					alt = e
+					break
+			if alt != null:
+				visited[alt["id"]] = true
+				g.beams.append({"a": prev, "b": alt["pos"], "t": 0.1, "w": 2.5, "color": Color("c8e8ff"), "zig": true})
+				Combat.hit(g, alt, dmg * 0.6, {"pos": alt["pos"], "gen": 1, "dir": Vector2.ZERO, "knock": 20.0, "st": {"shock": 1.0}})
+		dmg *= 0.92
+		cur = nxt
+	g.sfx.play("zap")
+
+static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	var length = 1100.0
+	var b = a + dir * length
+	var width = 14.0 * (1.0 + g.st("size") * 0.5)
+	for e in g.enemies_near(a + dir * length * 0.5, length * 0.5 + 30.0):
+		if bool(e["dead"]):
+			continue
+		if Combat.seg_dist2(a, b, e["pos"]) < pow(float(e["r"]) + width, 2):
+			Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": dir, "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
+	for br in g.barrels:
+		if Combat.seg_dist2(a, b, br["pos"]) < pow(22.0 + width, 2):
+			br["hp"] = 0.0
+	g.beams.append({"a": a, "b": b, "t": 0.22, "w": width * 1.6, "color": Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff"), "rail": true})
+	g.flash_screen(Color("bfefff"), 0.08)
+	if int(w["lvl"]) >= 5:
+		g.add_zone("lightning", a, 14.0, 1.5, {"a": a, "b": b})
