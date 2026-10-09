@@ -1,0 +1,4 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+Godot_v4.7.2-stable_win64.exe filter=lfs diff=lfs merge=lfs -text
+build/CrowdRush-debug.apk filter=lfs diff=lfs merge=lfs -text
