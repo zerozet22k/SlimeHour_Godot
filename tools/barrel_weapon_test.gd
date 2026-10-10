@@ -96,8 +96,9 @@ func _run() -> void:
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(not unlit.contains("M108 9L119 0") and lit.contains("M108 9L119 0"),
 		"Default barrel artwork is unlit; armed artwork contains the fuse spark")
-	check(visuals.contains('"res://assets/ui/barrel.svg" if armed else "res://assets/ui/barrel_unlit.svg"'),
-		"Barrel renderer uses the unlit sprite until actually armed")
+	check(visuals.contains('var image = g.tex("res://assets/ui/barrel_unlit.svg")') and
+		visuals.contains('var spark_pos = p + Vector2(6.5, -23.0)'),
+		"Both barrel states use identical base sprite; fuse spark is a separate armed overlay")
 	g.free()
 	print("BARREL WEAPON TESTS: ", "PASS" if failures == 0 else str(failures) + " failed")
 	quit(1 if failures > 0 else 0)
