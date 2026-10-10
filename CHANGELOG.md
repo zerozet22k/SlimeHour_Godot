@@ -1,3 +1,13 @@
+## v0.1.43 — Anatomical enemy hybrids and one consistent unlit barrel
+
+- Remove Nurse and Laser Larry from the actual 27-enemy database, not just the default spawn table. Retire all existing Nurse/Larry combinations during old-profile migration; preserve unrelated Bestiary history.
+- Remove Nurse/Larry from automated sector and soak spawns so testing cannot reintroduce them.
+- Replace whole-face/"chimera" compositing with a single inherited secondary-parent body part: ears, horns, antennae, wings, tail, shell, buds, shoulder armor, head crest, spikes, legs, claws, fins or tentacles. The base monster keeps its face and distinctive silhouette.
+- Preserve both parents' existing combat abilities, but introduce named anatomical variants and selectable inherited features per encounter. Sector-40 hybrid frequency increases gradually to 43%; new main enemy types still appear on their own before becoming eligible to mix.
+- Bestiary thumbnails and enemy portraits use the same inherited part system; hybrid descriptions explain the inherited feature and danger instead of generic pasted-face mashups.
+- A barrel now uses ONE identical unlit sprite whether armed or dormant. The burning fuse is added as a small overlay only after a real hit, followed by the existing countdown and explosion.
+- Add regression coverage for all 210 possible main-enemy pairings, retired profile entries, parent-face preservation and anatomical rendering. Update the barrel sprite consistency test.
+
 ## v0.1.42 — Unlit explosive barrels and consistent hits from all 22 guns
 
 - Add a dedicated unlit explosive barrel SVG; the default world sprite has no burning fuse or ignition spark. Swap to the original lit artwork only when a weapon, dash or explosion actually arms the barrel.
