@@ -1208,6 +1208,7 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e["charge"]) > 0.0 and not disabled:
 			e["vel"] = e["cdir"] * 560.0
 		var skitter_dashing = str(e["kind"]) == "skitter" and float(e["charge"]) > 0.0 and not disabled
+		var before_dash_move: Vector2 = e["pos"]
 		e["pos"] += (e["vel"] + e["kb"]) * dt
 		var kb_len = e["kb"].length()
 		e["kb"] = e["kb"] * exp(-5.5 * dt)
@@ -1223,7 +1224,11 @@ static func update_enemies(g, dt: float) -> void:
 		# Dense trees, medians and parked traffic block monsters as well.
 		var before_obstacle_push: Vector2 = e["pos"]
 		if not g.obstacles.is_empty():
-			e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
+			if skitter_dashing:
+				# Sweep the dash to prevent tunneling through thin obstacles.
+				e["pos"] = RoadObstacles.resolve_movement(before_dash_move, e["pos"], float(e["r"]), g.obstacles)
+			else:
+				e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
 		# Skitter flies past the player, stopping only on a solid obstacle or road edge.
 		# The charge timer is a safety limit for long empty stretches, not a short lunge.
 		if skitter_dashing and (absf(e["pos"].x) >= g.road_half - float(e["r"]) - 0.5 or e["pos"].distance_squared_to(before_obstacle_push) > 0.25):
