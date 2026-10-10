@@ -1,3 +1,11 @@
+## v0.1.48 — Fix invisible gameplay world
+
+- Fix a GDScript parse error in `scripts/Visuals.gd` that prevented Godot from attaching the world renderer. Symptoms: the HUD remained visible but the road, player, enemies, pickups and attacks disappeared into the background.
+- Preserve enemy anatomical mixing by renaming the incompatible hybrid-drawing parameter identifiers; no new enemy behavior or balance changes.
+- Add a graphical Xvfb/Godot regression test that instantiates the real game scene and verifies multiple visible road pixels instead of a blank viewport.
+- Add a headless scene-compile regression to the Windows release gate so a broken `Visuals.gd` can no longer silently ship despite other gameplay tests passing.
+- Keep Cinder's v0.1.47 nerf, Infinite Ammo, modern enemy generation and updater persistence unchanged.
+
 ## v0.1.47 — Cinder balance and repository branch consolidation
 
 - Adjust Cinder's base direct flame tick from 4.0 to 3.6 damage (-10%) and its maximum enemies hit per tick from 24 to 20; keep its 30-Hz fire rhythm, range, fuel, burn application and visual flame effects unchanged.
