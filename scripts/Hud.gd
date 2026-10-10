@@ -250,6 +250,8 @@ func _draw() -> void:
 	match g.state:
 		"menu":
 			paint_menu()
+		"updating":
+			paint_update_screen()
 		"collection":
 			paint_collection()
 		"bestiary":
@@ -1252,6 +1254,57 @@ func paint_menu() -> void:
 		button(Rect2(510, 577, 260, 42), "UPDATE " + g.update_version, "update", true, 19)
 	goo_chip(Vector2(640, 635))
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
+
+## Fully in-game update panel: accurate bytes, source, download stage,
+## recovery and explicit verified install. No console or external browser.
+func paint_update_screen() -> void:
+	paint_menu_bg()
+	var client = g.in_game_updater
+	var r = Rect2(326, 75, 628, 566)
+	panel(r, Color("101b34"), Color("5ce5e9"), 3.0)
+	glitch_txt("GAME UPDATE", Vector2(640, 172), 64, Color.WHITE)
+	txt("SLIME HOUR  " + str(client.local_version) + "  ->  " + str(client.latest),
+		Vector2(640, 225), 21, Color("ffd24d"), 1, bold)
+	var phase_text = str(client.status)
+	var headline = "GETTING READY"
+	match phase_text:
+		"checking": headline = "FINDING THE BEST DOWNLOAD"
+		"downloading": headline = "DOWNLOADING UPDATE"
+		"verifying": headline = "VERIFYING FILE INTEGRITY"
+		"ready": headline = "UPDATE VERIFIED"
+		"error": headline = "UPDATE INTERRUPTED"
+		"installing": headline = "RESTARTING SLIME HOUR"
+		"available": headline = "UPDATE AVAILABLE"
+	txt(headline, Vector2(640, 301), 27, Color("83f2ff") if phase_text != "error" else Color("ff718b"), 1, bold)
+	var downloaded = float(client.transferred_bytes)
+	var total = float(client.total_bytes)
+	var ratio = clampf(downloaded / maxf(1.0, total), 0.0, 1.0)
+	var line = Rect2(392, 335, 496, 30)
+	rbox(line, Color("263752"), 10.0)
+	if phase_text in ["downloading", "verifying", "ready", "installing"] and total > 0.0:
+		rbox(Rect2(line.position, Vector2(maxf(6.0, line.size.x * ratio), line.size.y)),
+			Color("6cefee") if phase_text != "ready" else Color("a4ff99"), 8.0)
+	var percent = int(round(ratio * 100.0))
+	var size_label = ""
+	if total > 0.0:
+		size_label = "%.1f / %.1f MiB   (%d%%)" % [downloaded / 1048576.0, total / 1048576.0, percent]
+	else:
+		size_label = "CHECKING RELEASE..."
+	txt(size_label, Vector2(640, 400), 21, Color("dde9f5"), 1, bold)
+	var description = str(client.message)
+	wrap_text(description, 402, 424, 470, 20, Color("acc1d3"), 26, body, false, 3)
+	var foot = "VERIFIED GITHUB RELEASE  /  SHA-256 CHECKED"
+	txt(foot, Vector2(640, 509), 17, Color("89a8bf"), 1, body)
+	match phase_text:
+		"ready":
+			button(Rect2(414, 548, 452, 64), "INSTALL & RESTART", "update_restart", true, 28)
+		"error":
+			button(Rect2(414, 548, 218, 62), "RETRY", "update_retry", true, 22)
+			button(Rect2(649, 548, 218, 62), "BACK", "update_cancel", false, 22)
+		"installing":
+			txt("CLOSING THE GAME SAFELY...", Vector2(640, 581), 20, Color("9bffd6"), 1, bold)
+		_:
+			button(Rect2(414, 548, 452, 62), "CANCEL", "update_cancel", false, 23)
 
 func paint_pause() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.75))

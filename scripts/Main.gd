@@ -9,7 +9,8 @@ const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const RouteFlow = preload("res://scripts/RouteFlow.gd")
-const GAME_VERSION = "v0.1.16"
+const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
+const GAME_VERSION = "v0.1.17"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -71,6 +72,7 @@ var autotest = ""
 var no_save = false            # tool scripts set this so checks never touch the real save
 var update_available = false
 var update_version = ""
+var in_game_updater: Node = null
 var autotest_t = 0.0
 var shot_queue: Array = []
 
@@ -237,6 +239,9 @@ func _ready() -> void:
 		enemy_db[str(e["id"])] = e
 	sfx = SfxScript.new()
 	add_child(sfx)
+	in_game_updater = InGameUpdater.new()
+	add_child(in_game_updater)
+	in_game_updater.update_found.connect(_on_ingame_update_found)
 	var args = OS.get_cmdline_user_args()
 	portrait_preview = args.has("--portrait-preview")
 	load_options()
@@ -258,25 +263,12 @@ func _ready() -> void:
 		check_for_updates()
 
 func check_for_updates() -> void:
-	var request = HTTPRequest.new()
-	request.timeout = 10.0
-	add_child(request)
-	request.request_completed.connect(_on_update_checked.bind(request))
-	var headers = PackedStringArray(["User-Agent: SlimeHour-Game", "Accept: application/vnd.github+json"])
-	if request.request(RELEASE_API, headers) != OK:
-		request.queue_free()
+	if in_game_updater != null:
+		in_game_updater.check(GAME_VERSION)
 
-func _on_update_checked(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest) -> void:
-	request.queue_free()
-	if response_code != 200:
-		return
-	var release = JSON.parse_string(body.get_string_from_utf8())
-	if not release is Dictionary:
-		return
-	var latest = str(release.get("tag_name", ""))
-	if latest.begins_with("v") and version_is_newer(latest, GAME_VERSION):
-		update_version = latest
-		update_available = true
+func _on_ingame_update_found(version: String) -> void:
+	update_version = version
+	update_available = true
 
 ## Compare numeric major.minor.patch so old releases never appear as upgrades.
 static func version_is_newer(candidate: String, installed: String) -> bool:
@@ -293,14 +285,22 @@ static func version_is_newer(candidate: String, installed: String) -> bool:
 			return next_value > current_value
 	return false
 
+## The entire download and checksum verification happens in this screen.
+## Only the final file swap runs after exit, silently, because Windows locks the EXE.
 func install_update() -> void:
-	var updater = OS.get_executable_path().get_base_dir().path_join("update_and_run.ps1")
-	if FileAccess.file_exists(updater):
-		var args = PackedStringArray(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", updater])
-		if OS.create_process("powershell.exe", args) != -1:
-			get_tree().quit()
-			return
-	OS.shell_open(RELEASE_URL)
+	if in_game_updater == null:
+		return
+	state = "updating"
+	in_game_updater.begin_download()
+
+func restart_with_update() -> void:
+	if in_game_updater != null and in_game_updater.install_and_restart():
+		get_tree().quit()
+
+func cancel_update() -> void:
+	if in_game_updater != null:
+		in_game_updater.cancel()
+	state = "menu"
 
 # ================================================================= frame loop
 func _process(delta: float) -> void:
@@ -2449,6 +2449,13 @@ func do_action(action: String) -> void:
 			get_tree().quit()
 		"update":
 			install_update()
+		"update_restart":
+			restart_with_update()
+		"update_retry":
+			if in_game_updater != null:
+				in_game_updater.retry()
+		"update_cancel":
+			cancel_update()
 		"resume":
 			state = "playing"
 		"menu":
