@@ -189,7 +189,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Slime Hour $RELEASE_TAG" \
-            --notes "Slime Hour $RELEASE_TAG Windows. All eight bosses now have distinct arena mechanics and sustained bullet-hell patterns, with clearer attack indicators and visible dodge routes. First install: download the full ZIP, extract and launch Start_Slime_Hour.bat. Future updates are checked automatically and downloaded as verified changed chunks when available, with a full-download fallback."
+            --notes "Slime Hour $RELEASE_TAG. Skitter dashes are now constrained to playable road and sector boundaries. Off-screen enemies that get stranded or leave the playable map are cleaned up without blocking sector completion. Directional arrows now identify off-screen enemies only during the final five monsters of a wave, once spawning is complete. Bosses have twice their previous HP on Normal and Hard; regular enemy HP is unchanged. Includes the distinct boss arena attack systems from v0.1.62. Windows: download the full ZIP, extract it and run Start_Slime_Hour.bat. Android APK will be attached after its separate build. Future Windows updates can use verified delta downloads or a full-download fallback."
 
       # One-time repository cleanup requested after auditing all four old
       # branches. Only remove a branch if its HEAD is exactly the audited SHA.

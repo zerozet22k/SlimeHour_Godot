@@ -1,3 +1,11 @@
+## v0.1.63 — Skitter bounds, last-enemy arrows, and boss HP
+
+- Keep Skitter's committed through-player dash, but stop it at the road edge, forward pursuit limit, and rear sector barrier, including after crowd separation.
+- Remove broken or unreachable off-screen enemies after a grace period without awarding kill rewards, and preserve sector-clear progress for budget-spawned enemies.
+- Show grouped directional arrows to off-screen monsters only after all wave spawns are complete and five or fewer living threats remain; no arrows during the boss intro.
+- Double the final HP of bosses on Normal and Hard, leaving regular enemies' HP unchanged.
+- Extend the automated Skitter regression suite to cover boundaries, stranded-enemy cleanup, boss exceptions and arrow thresholds.
+
 ## v0.1.62 — Boss fights and projectile trails
 
 - Add a three-phase boss fight director with distinct attacks, counterplay, bounded bullet patterns, and new boss models.
