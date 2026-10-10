@@ -1360,9 +1360,78 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 			target + Vector2(span, span * turn), 20.0 + stage * 2.0,
 			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
 
+## Authored mutations have one signature behavior instead of simply running
+## the full A and B enemy brains together. Their body part is inherited for
+## appearance, but the attack must remain legible, warned and bounded.
+static func mutation_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
+	var style = str(g.enemy_db[str(e["kind"])].get("fusion_style", ""))
+	var target: Vector2 = g.hero["pos"]
+	e["cd"] = float(e["cd"]) - dt
+	if charmed:
+		return dir
+	var hard_factor = 0.80 if g.hard_mode else 1.0
+	match style:
+		"flank":
+			if float(e.get("charge", 0.0)) > 0.0:
+				e["charge"] = maxf(0.0, float(e["charge"]) - dt)
+				return Vector2.ZERO
+			if float(e.get("wind", 0.0)) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					e["charge"] = 0.24
+					e["cdir"] = (e.get("lock", target) - e["pos"]).normalized()
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist < 500.0:
+				e["cd"] = 3.9 * hard_factor
+				e["wind"] = 0.69
+				e["lock"] = target + g.hero["vel"] * 0.26
+				return Vector2.ZERO
+			return (dir * 0.72 + dir.orthogonal() * sin(float(e["t"]) * 3.6) * 0.75).normalized()
+		"mine":
+			if float(e["cd"]) <= 0.0 and dist < 650.0:
+				e["cd"] = 3.65 * hard_factor
+				if g.delayed.size() < 125:
+					var impact = target + g.hero["vel"] * 0.32
+					impact.x = clampf(impact.x, -g.road_half + 35.0, g.road_half - 35.0)
+					schedule_boss_blast(g, impact, 49.0, float(e["dmg"]) * 0.83, 1.18, "f2ad6b")
+			return (dir * 0.45 + dir.orthogonal() * sin(float(e["t"]) * 2.1) * 0.85).normalized()
+		"echo":
+			if float(e.get("wind", 0.0)) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var aim = (e.get("lock", target) - e["pos"]).normalized()
+					if aim.length_squared() < 0.05:
+						aim = dir
+					enemy_fire(g, e, aim, 3 if not g.hard_mode else 5,
+						0.42 if not g.hard_mode else 0.68, 285.0, 5.2)
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist < 620.0:
+				e["cd"] = 3.7 * hard_factor
+				e["wind"] = 0.79
+				e["lock"] = target + g.hero["vel"] * 0.30
+				return Vector2.ZERO
+			return dir * 0.68
+		"brood":
+			if float(e["cd"]) <= 0.0 and dist < 600.0:
+				e["cd"] = 5.8 * hard_factor
+				var count = 2 if g.hard_mode else 1
+				for k in range(count):
+					if g.enemies.size() >= g.enemy_cap():
+						break
+					var spawn_pos: Vector2 = e["pos"] + Vector2(40.0 if k == 0 else -40.0, 30.0)
+					var child = g.spawn_enemy("mini", spawn_pos, false, false)
+					child["summon"] = true
+				g.spawn_ring_fx(e["pos"], Color("c58dff"), 56.0)
+			return dir * 0.55
+	return dir
+
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
 	if kind.begins_with("mix_"):
+		if str(g.enemy_db[kind].get("fusion_style", "")) != "":
+			return mutation_ai(g, e, dir, dist, dt, charmed)
+		# Legacy already-discovered cross-product hybrids keep their original
+		# behavior for backward-compatible saves and Debug Lab.
 		var pair: Array = g.enemy_db[kind]["mix"]
 		var motion = Vector2.ZERO
 		var shown_wind = 0.0
