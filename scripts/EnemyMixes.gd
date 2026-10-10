@@ -123,6 +123,22 @@ const RECIPES = [
 	{"a": "mama", "b": "mitosis", "name": "Brood Queen", "style": "brood"}
 ]
 
+static func unlock_sector(index: int, hard_mode: bool = false) -> int:
+	return FIRST_FUSION_SECTOR + index * (HARD_FUSION_SPACING if hard_mode else NORMAL_FUSION_SPACING)
+
+static func recipe_id(index: int) -> String:
+	var item: Dictionary = RECIPES[index]
+	return id_for(str(item["a"]), str(item["b"]))
+
+static func recipe_for_id(kind: String) -> Dictionary:
+	for i in range(RECIPES.size()):
+		if recipe_id(i) == kind:
+			var result: Dictionary = RECIPES[i].duplicate()
+			result["normal_sector"] = unlock_sector(i, false)
+			result["hard_sector"] = unlock_sector(i, true)
+			return result
+	return {}
+
 static func unlock_count(sector: int, hard_mode: bool = false) -> int:
 	if sector < FIRST_FUSION_SECTOR:
 		return 0
