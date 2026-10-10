@@ -100,44 +100,6 @@
     "color": "ff9157"
   },
   {
-    "id": "nurse",
-    "name": "Nurse",
-    "hp": 50,
-    "speed": 70,
-    "dmg": 8,
-    "r": 16,
-    "xp": 3,
-    "mass": 1,
-    "color": "ffffff",
-    "range": 200,
-    "look": {
-      "body": "round",
-      "face": "white",
-      "gear": [
-        "medic_cap"
-      ]
-    }
-  },
-  {
-    "id": "larry",
-    "name": "Laser Larry",
-    "hp": 40,
-    "speed": 60,
-    "dmg": 22,
-    "r": 15,
-    "xp": 3,
-    "mass": 1,
-    "color": "ff5a8a",
-    "range": 430,
-    "look": {
-      "body": "round",
-      "face": "visor",
-      "gear": [
-        "laser_lens"
-      ]
-    }
-  },
-  {
     "id": "mama",
     "name": "Mama Blob",
     "hp": 150,
