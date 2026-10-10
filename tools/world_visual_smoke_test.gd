@@ -50,7 +50,9 @@ func _run() -> void:
 		var road_expected: Color = Color("111c33")
 		print("WORLD COLOR at ", px, ": ", road, " expected road ", road_expected)
 		# A uniformly dark frame (like the reported screenshot) is a failure.
-		check(road.distance_to(road_expected) < 0.17 and road.distance_to(background) > 0.035,
+		var diff_road = absf(road.r - road_expected.r) + absf(road.g - road_expected.g) + absf(road.b - road_expected.b)
+		var diff_bg = absf(road.r - background.r) + absf(road.g - background.g) + absf(road.b - background.b)
+		check(diff_road < 0.17 and diff_bg > 0.035,
 			"Centre of gameplay viewport visibly shows the road, not an empty background")
 	var script_text = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(script_text.contains("paint_road()") and script_text.contains("paint_hero()"),
