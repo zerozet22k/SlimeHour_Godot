@@ -8,6 +8,12 @@ const Bestiary = preload("res://scripts/Bestiary.gd")
 ## Leaving to the menu restores the original profile/records and clears the sandbox.
 const MAX_DEBUG_SECTOR = 100
 const ITEM_PAGE_SIZE = 10
+# Search aliases let players find enemies by their gameplay role as well as
+# the displayed Bestiary title. These do not change the combat abilities.
+const ENEMY_SEARCH_ALIASES = {
+	"blob": "chaser melee barrier formation",
+	"chonkzilla": "earthbreaker seismic stomp",
+}
 
 static func enter(g) -> void:
 	if g.debug_session:
@@ -194,7 +200,7 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 				result.append({
 					"id": kind, "label": str(monster.get("name", id)),
 					"category": group, "detail": str(notes[0]),
-					"search_extra": "%s %s %s" % [notes[0], notes[1], notes[2]]
+					"search_extra": "%s %s %s %s" % [notes[0], notes[1], notes[2], str(ENEMY_SEARCH_ALIASES.get(kind, ""))]
 				})
 				seen[kind] = true
 			# Include every authored mutation, even if this run has not yet
