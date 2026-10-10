@@ -62,6 +62,18 @@ static func parse_checksum(body: String, file_name: String) -> String:
 static func zip_use_memory(size: int) -> bool:
 	return size > 0 and size <= MAX_MEMORY_ZIP
 
+static func cached_archive_matches(path: String, size: int, expected_sha: String) -> bool:
+	if size <= 0 or expected_sha.length() != 64 or not FileAccess.file_exists(path):
+		return false
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var actual_size = file.get_length()
+	file.close()
+	if actual_size != size:
+		return false
+	return FileAccess.get_sha256(path).to_lower() == expected_sha.to_lower()
+
 static func disk_body_limit() -> int:
 	return -1
 
@@ -172,11 +184,7 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 			# checksum already match the exact expected release asset.
 			if FileAccess.file_exists(pending_zip):
 				var size = int(_asset(download_name).get("size", 0))
-				var existing = FileAccess.open(pending_zip, FileAccess.READ)
-				var valid_size = existing != null and existing.get_length() == size
-				if existing != null:
-					existing.close()
-				if valid_size and FileAccess.get_sha256(pending_zip).to_lower() == sha256:
+				if cached_archive_matches(pending_zip, size, sha256):
 					total_bytes = size
 					transferred_bytes = size
 					_set_status("ready", "Previous verified download found. Install and restart.")
