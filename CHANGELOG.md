@@ -1,3 +1,13 @@
+## v0.1.33 — Weapon identities and playable starting characters
+
+- Replace placeholder and overly jokey gun names with concise distinctive names, without changing stable weapon IDs or artwork paths.
+- Service Nine (formerly Peashooter) keeps its accurate baseline and triple-damage last round. Cyclone SMG now tightens its spray after sustained fire.
+- Gauss Lance (Railgun) charges for a single immediate hitscan attack. It no longer adds a second firing cooldown after charging. On mouse/keyboard each hold fires one charged shot until released; accessibility auto-fire and touch repeat charges automatically. Its magazine still reloads normally.
+- Character selection before Standard or Hard Mode: Scout / Service Nine (+4% sidearm damage), Ember / Cinder (+6% flamethrower damage, -3% run XP), Ace / Deadeye (+3 percentage points revolver crit, -2% run XP), Vector / Cyclone (+5% SMG fire rate, -3% run XP), Coil / Gauss Lance (-5% charge time, -5% run XP).
+- Character affinity applies only to the listed signature weapon, including if found later; it does not globally increase damage. All five share standard HP, dashes, economy rules and permanent-unlock progress.
+- Retain the previously selected runner in user settings, fallback safely for older saves, and apply distinct costume colors in combat.
+- Add character and gun regression tests to the Windows release workflow.
+
 ## v0.1.29 — Midgame pressure rebalance and four new mob families
 
 - Smooth the rapid HP scaling at Sectors 9–11, reduce their attack damage, soften elite frequency, and delay double-affix elites until Sector 13.

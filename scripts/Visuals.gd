@@ -871,7 +871,18 @@ func paint_hero() -> void:
 	var facing_side = absf(aim.x) > 0.55
 	var side = aim.orthogonal().normalized()
 	var step = sin(g.anim_t * 13.0) * (3.0 if bool(h["moving"]) else 0.0)
-	var coat = Color("9a5c35")
+	# Character colors carry through to the playable hero, not just the select screen.
+	var character_colors = {
+		"scout": ["9a5c35", "e83f50", "8e552f"],
+		"ember": ["a64b32", "ff933c", "81362a"],
+		"ace": ["755d4c", "ffd080", "9b7542"],
+		"vector": ["28675f", "71deb1", "24584d"],
+		"coil": ["514f85", "aaa5ff", "373d77"]
+	}
+	var colors: Array = character_colors.get(g.selected_character, character_colors["scout"])
+	var coat = Color(str(colors[0]))
+	var scarf_color = Color(str(colors[1]))
+	var hat_color = Color(str(colors[2]))
 	if blink:
 		coat.a = 0.48
 	if float(h["flash"]) > 0.0:
@@ -883,7 +894,7 @@ func paint_hero() -> void:
 		draw_circle(foot + aim * 2.0, 3.8, Color("6e4530"))
 	var scarf_tail = -aim * 25.0 + side * sin(g.anim_t * 11.0) * 5.0
 	draw_line(-aim * 5.0, scarf_tail, Color("751f30"), 9.0)
-	draw_line(-aim * 5.0, scarf_tail, Color("e83f50"), 6.0)
+	draw_line(-aim * 5.0, scarf_tail, scarf_color, 6.0)
 	draw_circle(Vector2.ZERO, 17.0, Color("211c29"))
 	draw_circle(Vector2.ZERO, 14.5, coat)
 	draw_line(-side * 9.0 - aim * 4.0, side * 9.0 - aim * 4.0, Color("d7985a"), 2.0)
@@ -891,7 +902,7 @@ func paint_hero() -> void:
 		draw_circle(side * s * 13.0 + aim * 3.0, 5.3, Color("302734"))
 		draw_circle(side * s * 13.0 + aim * 3.0, 3.4, coat.lightened(0.16))
 	# The red neckerchief stays visible even when the back faces the camera.
-	draw_arc(aim * 2.0, 12.0, aim.angle() - 1.0, aim.angle() + 1.0, 14, Color("d53245"), 5.0)
+	draw_arc(aim * 2.0, 12.0, aim.angle() - 1.0, aim.angle() + 1.0, 14, scarf_color.darkened(0.18), 5.0)
 	var head = aim * 4.5
 	draw_circle(head, 9.2, Color("322329"))
 	draw_circle(head, 7.6, Color("965a37") if facing_back else Color("edb184"))
@@ -907,10 +918,10 @@ func paint_hero() -> void:
 	# Hat brim lies across the sight line; crown and goggles move behind it.
 	var hat = head - aim * 4.0
 	draw_line(hat - side * 14.0, hat + side * 14.0, Color("2c2026"), 9.0)
-	draw_line(hat - side * 14.0, hat + side * 14.0, Color("8c542f"), 6.0)
+	draw_line(hat - side * 14.0, hat + side * 14.0, hat_color, 6.0)
 	draw_circle(hat - aim * 3.0, 7.0, Color("2c2026"))
-	draw_circle(hat - aim * 3.0, 5.5, Color("8e552f"))
-	draw_line(hat - side * 5.0 - aim * 2.0, hat + side * 5.0 - aim * 2.0, Color("e4ae58"), 2.0)
+	draw_circle(hat - aim * 3.0, 5.5, hat_color)
+	draw_line(hat - side * 5.0 - aim * 2.0, hat + side * 5.0 - aim * 2.0, scarf_color.lightened(0.2), 2.0)
 	for s in [-1.0, 1.0]:
 		draw_circle(hat + side * s * 3.0 - aim * 2.0, 2.5, Color("2b2631"))
 		draw_circle(hat + side * s * 3.0 - aim * 2.0, 1.6, Color("a6e1e9"))

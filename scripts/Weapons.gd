@@ -6,17 +6,18 @@ const Combat = preload("res://scripts/Combat.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 const Effects = preload("res://scripts/Effects.gd")
+const Characters = preload("res://scripts/Characters.gd")
 
-const EVOLVED_NAMES = {"pistol": "Pea-ndemic", "revolver": "High Noon", "shotgun": "Boomstick 9000",
-	"smg": "Hornet Nest", "minigun": "Lawnmower Deluxe", "sniper": "Final Goodbye", "rocket": "Party Apocalypse",
-	"grenade": "Bouncy Castle Siege", "laser": "Beam Me Up", "tesla": "Thunder Lunchbox", "flame": "Volcano Breath",
-	"disc": "Discus Maximus", "boomerang": "Boomerangutan", "rail": "Planet Cracker", "bees": "Swarm Queen",
-	"bowling": "Perfect Game", "nailgun": "Rivet Rapture", "chicken": "Chicken Apocalypse", "bubble": "Bubble Prison",
-	"pinball": "TILT", "splitbow": "Hydra Bow", "snow": "Ice Age"}
+const EVOLVED_NAMES = {"pistol": "Service Nine Mk II", "revolver": "Deadeye Prime", "shotgun": "Breachmaster",
+	"smg": "Cyclone X", "minigun": "Vulcan Overdrive", "sniper": "Last Word", "rocket": "Payload Zero",
+	"grenade": "Ricochet Storm", "laser": "Prism Core", "tesla": "Arc Reactor", "flame": "Inferno",
+	"disc": "Razorstorm", "boomerang": "Return Protocol", "rail": "Gauss Breaker", "bees": "Hive Mind",
+	"bowling": "Impact Prime", "nailgun": "Rivetstorm", "chicken": "Fowl Play", "bubble": "Pressure Chamber",
+	"pinball": "Overdrive", "splitbow": "Hydra Bow", "snow": "Absolute Zero"}
 
 static func new_gun(g, id: String, tier: int = 0) -> Dictionary:
 	var w = {"id": id, "lvl": 1, "tier": clampi(tier, 0, 5), "ammo": 0, "reload": 0.0, "reload_max": 1.0, "cd": 0.0, "spin": 0.0, "heat": 0.0,
-		"over": false, "charge": 0.0, "count": 0, "evolved": false, "wm": {}, "mag_max": 1, "flash": 0.0}
+		"over": false, "charge": 0.0, "rail_needs_release": false, "focus": 0.0, "count": 0, "evolved": false, "wm": {}, "mag_max": 1, "flash": 0.0}
 	w["mag_max"] = mag_size(g, w)
 	w["ammo"] = w["mag_max"]
 	return w
@@ -57,11 +58,21 @@ static func base_damage(g, w: Dictionary) -> float:
 static func dmg_pool(g, w: Dictionary) -> float:
 	return g.dmg_pool(LEVEL_DMG * (int(w["lvl"]) - 1) + wm(w, "dmg"))
 
+static func character_id(g) -> String:
+	var value = g.get("selected_character")
+	return str(value) if value != null else Characters.DEFAULT
+
 static func shot_damage(g, w: Dictionary) -> float:
 	var dmg = base_damage(g, w) * dmg_pool(g, w) * g.more_mult()
 	if bool(w["evolved"]):
 		dmg *= EVOLVE_MORE
-	return dmg * g.sector_scale()
+	return dmg * g.sector_scale() * Characters.affinity(character_id(g), str(w["id"]), "weapon_damage")
+
+static func rail_charge_seconds(g, w: Dictionary) -> float:
+	# One wind-up is the only rate limit between individual Railgun shots.
+	var bonus = Characters.affinity(character_id(g), "rail", "rail_charge")
+	var speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5) * bonus
+	return 1.0 / maxf(0.2, speed)
 
 static func fire_rate(g, w: Dictionary) -> float:
 	var d = g.weapon_db[w["id"]]
@@ -69,7 +80,7 @@ static func fire_rate(g, w: Dictionary) -> float:
 	r *= TIER_RATE[clampi(int(w.get("tier", 0)), 0, 5)]
 	if bool(w["evolved"]):
 		r *= 1.2
-	return r
+	return r * Characters.affinity(character_id(g), str(w["id"]), "weapon_rate")
 
 static func reload_time(g, w: Dictionary) -> float:
 	var d = g.weapon_db[w["id"]]
@@ -105,6 +116,9 @@ static func update(g, dt: float) -> void:
 		var d = g.weapon_db[w["id"]]
 		var kind = str(d["kind"])
 		var want = g.fire_wanted(i)
+		# Sustained SMG fire tightens its spray; lifting the trigger resets control.
+		if w["id"] == "smg":
+			w["focus"] = minf(1.0, float(w.get("focus", 0.0)) + dt * 0.8) if want else maxf(0.0, float(w.get("focus", 0.0)) - dt * 2.2)
 		w["cd"] = float(w["cd"]) - dt
 		w["flash"] = maxf(0.0, float(w["flash"]) - dt)
 		var gun_aim = aim_for_slot(g, i)
@@ -126,25 +140,32 @@ static func update(g, dt: float) -> void:
 				finish_reload(g, w)
 			continue
 		if kind == "rail":
-			if want and int(w["ammo"]) > 0:
-				if float(w["charge"]) < 0.08:
-					g.sfx.play_projectile("rail_charge")
-				var charge_speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5)
-				w["charge"] = minf(1.0, float(w["charge"]) + dt * charge_speed)
-			else:
+			# No second post-shot cooldown. In manual mode, one press = one charged shot.
+			# Auto-fire/mobile may charge the next round without releasing.
+			var auto_rail = bool(g.settings.get("autofire", false)) or g.is_touch_active() or g.autotest != ""
+			if not want:
+				w["rail_needs_release"] = false
 				w["charge"] = maxf(0.0, float(w["charge"]) - dt * 2.0)
-			if float(w["charge"]) < 1.0:
+			elif not bool(w.get("rail_needs_release", false)) or auto_rail:
+				if int(w["ammo"]) > 0:
+					if float(w["charge"]) <= 0.001:
+						g.sfx.play_projectile("rail_charge")
+					w["charge"] = minf(1.0, float(w["charge"]) + dt / rail_charge_seconds(g, w))
+			if float(w["charge"]) < 1.0 or (bool(w.get("rail_needs_release", false)) and not auto_rail):
 				continue
-		if not want or float(w["cd"]) > 0.0 or int(w["ammo"]) <= 0:
+		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or int(w["ammo"]) <= 0:
 			continue
 		var rate = fire_rate(g, w)
 		if kind == "spin":
 			rate *= lerpf(0.18, 1.0, float(w["spin"]))
-		w["cd"] = float(w["cd"]) + 1.0 / maxf(0.2, rate)
-		if float(w["cd"]) < -0.2:
-			w["cd"] = 0.0
 		if kind == "rail":
+			w["cd"] = 0.0
 			w["charge"] = 0.0
+			w["rail_needs_release"] = true
+		else:
+			w["cd"] = float(w["cd"]) + 1.0 / maxf(0.2, rate)
+			if float(w["cd"]) < -0.2:
+				w["cd"] = 0.0
 		var mul = 1.0
 		if w["id"] == "pistol" and int(w["ammo"]) == 1:
 			mul = 3.0
@@ -235,7 +256,9 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	if g.shots.size() > g.shot_cap() - 40 and kind not in ["beam", "chain", "rail"]:
 		return
 	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
-	var random_spread = kind in ["pellet", "flame"]
+	if w["id"] == "smg":
+		spread *= lerpf(1.0, 0.55, float(w.get("focus", 0.0)))
+	var random_spread = kind in ["pellet", "flame"] or w["id"] == "smg" and n == 1
 	if n > 1 and not random_spread:
 		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
 	var perp = dir.orthogonal()
@@ -350,6 +373,7 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 	var flags = o["flags"]
 	match w["id"]:
 		"revolver":
+			o["crit"] += Characters.affinity(character_id(g), "revolver", "crit", 0.0)
 			if lvl >= 3:
 				o["pierce"] += 2
 		"shotgun":

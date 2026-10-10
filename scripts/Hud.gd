@@ -3,6 +3,7 @@ extends Node2D
 ## frame while drawing; click() resolves them.
 
 const Weapons = preload("res://scripts/Weapons.gd")
+const Characters = preload("res://scripts/Characters.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const CollectionPaging = preload("res://scripts/CollectionPaging.gd")
 const Effects = preload("res://scripts/Effects.gd")
@@ -263,6 +264,8 @@ func _draw() -> void:
 	match g.state:
 		"menu":
 			paint_menu()
+		"characters":
+			paint_characters()
 		"updating":
 			paint_update_screen()
 		"collection":
@@ -371,6 +374,8 @@ func paint_portrait() -> void:
 			txt(best, Vector2(360, h - 133), 21, Color("ffd24d"), 1, bold)
 			txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(360, h - 34), 18, Color("9db2ce"), 1, bold)
 			button(Rect2(16, 22, 174, 44), "DEBUG LAB", "debug_open", false, 18)
+		"characters":
+			paint_portrait_characters()
 		"playing":
 			paint_portrait_hud()
 		"paused":
@@ -1371,6 +1376,65 @@ func paint_menu() -> void:
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
 	txt(g.GAME_VERSION, Vector2(1244, 699), 16, Color("adc0d7"), 2, bold)
 	button(Rect2(32, 640, 175, 44), "DEBUG LAB  F3", "debug_open", false, 17)
+
+
+## Character identities are presentation/data, not permanent power unlocks.
+func paint_characters() -> void:
+	paint_menu_bg()
+	panel(Rect2(28, 38, 1224, 632), Color("0a1020", 0.95), Color("467f95"), 2)
+	txt("CHOOSE YOUR RUNNER", Vector2(640, 112), 54, Color.WHITE, 1, bold, 4)
+	txt(("HARD ROAD" if g.hard_mode else "STANDARD ROAD") + "  /  STARTING WEAPON AND A SMALL TRADE-OFF", Vector2(640, 148), 18, Color("a4bed2"), 1, bold)
+	var selected = Characters.get_character(g.selected_character)
+	for i in range(Characters.ROSTER.size()):
+		var ch = Characters.ROSTER[i]
+		var active = g.selected_character == str(ch["id"])
+		var x = 55.0 + i * 236.0
+		var y = 182.0
+		var r = Rect2(x, y, 222.0, 315.0)
+		var accent = Color(str(ch["color"]))
+		rbox(r, Color("243750") if active else Color("111b2c"), 14, accent if active else Color("3a4e65"), 3 if active else 1)
+		draw_circle(Vector2(x + 111, y + 58), 38, Color("101a2c"))
+		draw_circle(Vector2(x + 111, y + 58), 27, accent.darkened(0.25))
+		draw_circle(Vector2(x + 100, y + 53), 4, Color.WHITE)
+		draw_circle(Vector2(x + 122, y + 53), 4, Color.WHITE)
+		draw_line(Vector2(x + 104, y + 72), Vector2(x + 118, y + 72), Color("152035"), 3.0)
+		var art = g.tex("res://assets/weapons/%s.png" % str(ch["weapon"]))
+		if art != null:
+			draw_texture_rect(art, Rect2(x + 137, y + 48, 57, 57), false)
+		txt(str(ch["name"]), Vector2(x + 111, y + 135), 25, Color.WHITE, 1, bold)
+		txt(str(ch["role"]).to_upper(), Vector2(x + 111, y + 158), fit(str(ch["role"]), 196, 14, bold, 11), accent, 1, bold)
+		txt(str(g.weapon_db[ch["weapon"]]["name"]).to_upper(), Vector2(x + 111, y + 189), 17, Color("e3ecf5"), 1, bold)
+		txt(str(ch["perks"]), Vector2(x + 111, y + 224), fit(str(ch["perks"]), 198, 16, body, 12), Color("b0f4c0"), 1, body)
+		txt(str(ch["tradeoff"]), Vector2(x + 111, y + 253), fit(str(ch["tradeoff"]), 198, 16, body, 12), Color("ffbaad") if str(ch["tradeoff"]) != "No drawback" else MUTED, 1, body)
+		button(Rect2(x + 15, y + 270, 192, 35), "SELECTED" if active else "SELECT", "character_pick_" + str(ch["id"]), active, 15)
+	txt("STARTING WEAPONS DO NOT PERMANENTLY UNLOCK THE GUN", Vector2(640, 533), 16, Color("92aec4"), 1, body)
+	txt("READY:  " + str(selected["name"]) + "  /  " + str(g.weapon_db[selected["weapon"]]["name"]), Vector2(640, 567), 20, Color("e9fbff"), 1, bold)
+	button(Rect2(370, 592, 540, 59), "START RUN", "character_start", true, 26)
+	button(Rect2(73, 593, 235, 54), "BACK", "character_back", false, 21)
+
+func paint_portrait_characters() -> void:
+	var h = g.ui_height
+	portrait_bg()
+	txt("CHOOSE YOUR RUNNER", Vector2(360, 90), 42, Color.WHITE, 1, bold, 3)
+	txt("SMALL AFFINITIES  /  BALANCED STARTS", Vector2(360, 124), 19, Color("9db4c9"), 1, bold)
+	var row_h = minf(155.0, maxf(94.0, (h - 355.0) / 5.0 - 10.0))
+	var top = 150.0
+	for i in range(Characters.ROSTER.size()):
+		var ch = Characters.ROSTER[i]
+		var active = g.selected_character == str(ch["id"])
+		var y = top + i * (row_h + 8.0)
+		var accent = Color(str(ch["color"]))
+		rbox(Rect2(30.0, y, 660.0, row_h), Color("243750") if active else Color("111b2c"), 13, accent if active else Color("405670"), 3 if active else 1)
+		draw_circle(Vector2(83.0, y + 43.0), 27.0, accent.darkened(0.28))
+		draw_circle(Vector2(74.0, y + 37.0), 3.6, Color.WHITE)
+		draw_circle(Vector2(92.0, y + 37.0), 3.6, Color.WHITE)
+		txt(str(ch["name"]) + "   /   " + str(g.weapon_db[ch["weapon"]]["name"]), Vector2(137.0, y + 29.0), fit(str(ch["name"]) + str(g.weapon_db[ch["weapon"]]["name"]), 340, 22, bold, 15), Color.WHITE, 0, bold)
+		txt(str(ch["perks"]), Vector2(137.0, y + 56.0), 17, Color("b0f4c0"), 0, body)
+		txt(str(ch["tradeoff"]), Vector2(137.0, y + 80.0), 16, Color("ffbaad") if str(ch["tradeoff"]) != "No drawback" else MUTED, 0, body)
+		button(Rect2(505, y + row_h * 0.5 - 23.0, 160, 46), "SELECTED" if active else "SELECT", "character_pick_" + str(ch["id"]), active, 17)
+	txt("GUN CHOICES DO NOT GRANT UNLOCKS", Vector2(360, h - 191.0), 15, Color("95b0c4"), 1, body)
+	button(Rect2(67, h - 164.0, 585, 75.0), "START RUN", "character_start", true, 29)
+	button(Rect2(170, h - 79.0, 380, 54.0), "BACK", "character_back", false, 19)
 
 ## Fully in-game update panel: accurate bytes, source, download stage,
 ## recovery and explicit verified install. No console or external browser.

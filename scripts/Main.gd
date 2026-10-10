@@ -13,7 +13,8 @@ const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
-const GAME_VERSION = "v0.1.32"
+const Characters = preload("res://scripts/Characters.gd")
+const GAME_VERSION = "v0.1.33"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -55,6 +56,7 @@ var unlock_level: Dictionary = {}
 var unlocked_guns: Array = []
 var sealed: Dictionary = {}
 var hard_mode = false
+var selected_character = Characters.DEFAULT
 var run_awarded = false
 var last_award: Dictionary = {}
 var run_unlocks: Array = []          # {"type": "card"|"gun", "id"} unlocked during this run
@@ -588,7 +590,7 @@ func start_run() -> void:
 		"iframe": 0.0, "shield": 0, "shield_t": 0.0, "dash_t": 0.0, "dash_dir": Vector2.UP, "dash_charges": 1,
 		"dash_cd": 0.0, "dash_window": 0.0, "perfect_used": false, "bash_cd": 0.0, "bash_t": 0.0, "bash_dir": Vector2.UP, "aim": Vector2.UP, "moving": false,
 		"flash": 0.0, "revives": 0, "dash_hits": {}, "trail_acc": 0.0, "last_pos": Vector2.ZERO}
-	guns = [Weapons.new_gun(self, "pistol")]
+	guns = [Weapons.new_gun(self, str(Characters.get_character(selected_character)["weapon"]))]
 	sector = 1
 	kills = 0
 	gold = 0
@@ -2115,7 +2117,7 @@ func collect(p: Dictionary) -> void:
 			sfx.play("chest")
 
 func gain_xp(amount: float) -> void:
-	xp += amount * 0.7 * (1.0 + st("xp")) * float(route.get("xpmul", 1.0))
+	xp += amount * 0.7 * (1.0 + st("xp")) * float(route.get("xpmul", 1.0)) * Characters.xp_multiplier(selected_character)
 	while xp >= xp_need:
 		xp -= xp_need
 		level += 1
@@ -2354,8 +2356,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		match state:
 			"menu":
-				if code in [KEY_ENTER]:
+				if code == KEY_ENTER:
+					do_action("play")
+			"characters":
+				if code == KEY_ESCAPE:
+					state = "menu"
+				elif code == KEY_ENTER:
 					start_run()
+				elif code in [KEY_LEFT, KEY_A, KEY_RIGHT, KEY_D]:
+					var idx = 0
+					for ci in range(Characters.ROSTER.size()):
+						if str(Characters.ROSTER[ci]["id"]) == selected_character:
+							idx = ci
+							break
+					var delta_char = -1 if code in [KEY_LEFT, KEY_A] else 1
+					selected_character = str(Characters.ROSTER[posmod(idx + delta_char, Characters.ROSTER.size())]["id"])
 			"playing":
 				if dying_t > 0.0:
 					return
@@ -2565,12 +2580,16 @@ func do_action(action: String) -> void:
 			if debug_session:
 				DebugLab.restore(self)
 			hard_mode = false
-			start_run()
+			state = "characters"
 		"play_hard":
 			if debug_session:
 				DebugLab.restore(self)
 			hard_mode = true
+			state = "characters"
+		"character_start":
 			start_run()
+		"character_back":
+			state = "menu"
 		"settings":
 			settings_back = state
 			state = "settings"
@@ -2664,7 +2683,13 @@ func do_action(action: String) -> void:
 		"keep":
 			after_offer()
 		_:
-			if action.begins_with("offer"):
+			if action.begins_with("character_pick_"):
+				var pick = action.trim_prefix("character_pick_")
+				if Characters.valid(pick):
+					selected_character = pick
+					sfx.play("pick")
+					save_options()
+			elif action.begins_with("offer"):
 				choose_offer(int(action.trim_prefix("offer")))
 			elif action.begins_with("event_opt_"):
 				event_choose(int(action.trim_prefix("event_opt_")))
@@ -2753,7 +2778,7 @@ func save_options() -> void:
 		return
 	var f = FileAccess.open("user://slime_hour_options.json", FileAccess.WRITE)
 	if f != null:
-		f.store_string(JSON.stringify({"settings": settings, "best": best, "profile": profile}))
+		f.store_string(JSON.stringify({"settings": settings, "best": best, "profile": profile, "selected_character": selected_character}))
 
 func load_options() -> void:
 	if not FileAccess.file_exists("user://slime_hour_options.json"):
@@ -2766,6 +2791,8 @@ func load_options() -> void:
 		return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string("user://slime_hour_options.json"))
 	if parsed is Dictionary:
+		var preferred = str(parsed.get("selected_character", Characters.DEFAULT))
+		selected_character = preferred if Characters.valid(preferred) else Characters.DEFAULT
 		var s = parsed.get("settings", {})
 		if s is Dictionary:
 			if not s.has("controls_v2"):
