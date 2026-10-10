@@ -7,7 +7,7 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
-const GAME_VERSION = "v0.1.1"
+const GAME_VERSION = "v0.1.2"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 

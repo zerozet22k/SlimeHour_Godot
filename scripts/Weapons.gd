@@ -462,31 +462,107 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
 	var length = 560.0 * (1.0 + g.st("range"))
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
-	g.beams.append({"a": a, "b": a + dir * length, "t": 0.05, "w": width,
-		"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
+	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
+		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.05, "w": width,
+			"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
+
+static func line_bounces(g, w: Dictionary) -> int:
+	return mini(12, maxi(0, int(g.weapon_db[w["id"]]["bounce"]) + int(g.st("bounce")) + int(wm(w, "bounce"))))
+
+static func line_ricochets(g, w: Dictionary) -> int:
+	return mini(12, maxi(0, int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico"))))
+
+## Instant-hit weapons need their own wall path; they never create Combat.shot projectiles.
+static func line_segments(g, from: Vector2, direction: Vector2, length: float, bounces: int) -> Array:
+	var segments = []
+	var start = from
+	var dir = direction.normalized()
+	var remaining = length
+	var wall = float(g.ROAD_HALF) - 5.0
+	for i in range(bounces + 1):
+		if remaining <= 0.1:
+			break
+		var to_wall = INF
+		if absf(dir.x) > 0.0001:
+			to_wall = ((wall if dir.x > 0.0 else -wall) - start.x) / dir.x
+		var distance = minf(remaining, to_wall)
+		if distance <= 0.001:
+			break
+		var finish = start + dir * distance
+		segments.append({"a": start, "b": finish})
+		remaining -= distance
+		if to_wall >= distance and remaining > 0.1:
+			start = finish
+			dir.x = -dir.x
+		else:
+			break
+	return segments
+
+static func line_targets(g, segments: Array, width: float, limit: int) -> Array:
+	var targets = []
+	var seen = {}
+	for segment in segments:
+		var start: Vector2 = segment["a"]
+		var finish: Vector2 = segment["b"]
+		var length = start.distance_to(finish)
+		var candidates = []
+		for e in g.enemies_near((start + finish) * 0.5, length * 0.5 + 30.0):
+			if bool(e["dead"]) or seen.has(e["id"]):
+				continue
+			if Combat.seg_dist2(start, finish, e["pos"]) < pow(float(e["r"]) + width, 2):
+				candidates.append(e)
+		candidates.sort_custom(func(x, y): return start.distance_squared_to(x["pos"]) < start.distance_squared_to(y["pos"]))
+		for e in candidates:
+			seen[e["id"]] = true
+			targets.append({"enemy": e, "dir": (finish - start).normalized()})
+			if targets.size() >= limit:
+				return targets
+	return targets
+
+static func chain_line(g, targets: Array, jumps: int, dmg: float, knock: float, source: String, pool: float, color: Color) -> void:
+	if jumps <= 0 or targets.is_empty():
+		return
+	var seen = {}
+	for target in targets:
+		seen[target["enemy"]["id"]] = true
+	var from: Vector2 = targets[-1]["enemy"]["pos"]
+	for i in range(jumps):
+		var next = next_chain_target(g, from, seen)
+		if next == null:
+			break
+		seen[next["id"]] = true
+		var direction: Vector2 = (next["pos"] - from).normalized()
+		g.beams.append({"a": from, "b": next["pos"], "t": 0.12, "w": 5.0, "color": color})
+		Combat.hit(g, next, dmg * pow(0.7, i + 1), {"pos": next["pos"], "gen": 1, "dir": direction, "knock": knock, "src": source, "pool": pool})
+		from = next["pos"]
+
+static func next_chain_target(g, from: Vector2, seen: Dictionary) -> Variant:
+	var nearest = null
+	var best = 260.0 * 260.0
+	for e in g.enemies_near(from, 260.0):
+		if bool(e["dead"]) or seen.has(e["id"]):
+			continue
+		var distance = from.distance_squared_to(e["pos"])
+		if distance < best:
+			best = distance
+			nearest = e
+	return nearest
 
 static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	var length = 560.0 * (1.0 + g.st("range"))
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
-	var b = a + dir * length
-	var hits = []
-	for e in g.enemies_near(a + dir * length * 0.5, length * 0.5 + 20.0):
-		if bool(e["dead"]):
-			continue
-		if Combat.seg_dist2(a, b, e["pos"]) < pow(float(e["r"]) + width, 2):
-			hits.append(e)
-	hits.sort_custom(func(x, y): return a.distance_squared_to(x["pos"]) < a.distance_squared_to(y["pos"]))
+	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
-	var end = b
-	for i in range(mini(max_hits, hits.size())):
-		var e = hits[i]
-		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": dir, "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
+	var targets = line_targets(g, segments, width, max_hits)
+	for target in targets:
+		var e = target["enemy"]
+		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
 		if g.st("split") > 0 and randf() < 0.25:
-			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", dir, 1, null, false, Color("d9b8ff"))
-	if hits.size() > max_hits:
-		end = hits[max_hits - 1]["pos"]
-	g.beams.append({"a": a, "b": end, "t": 0.07, "w": width,
-		"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
+			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
+	var color = Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))
+	for segment in segments:
+		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.07, "w": width, "color": color})
+	chain_line(g, targets, line_ricochets(g, w), dmg, 14.0, str(w["id"]), dmg_pool(g, w), color)
 
 static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	var lvl = int(w["lvl"])
@@ -545,17 +621,19 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 
 static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	var length = 1100.0
-	var b = a + dir * length
 	var width = 14.0 * (1.0 + g.st("size") * 0.5)
-	for e in g.enemies_near(a + dir * length * 0.5, length * 0.5 + 30.0):
-		if bool(e["dead"]):
-			continue
-		if Combat.seg_dist2(a, b, e["pos"]) < pow(float(e["r"]) + width, 2):
-			Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": dir, "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
-	for br in g.barrels:
-		if Combat.seg_dist2(a, b, br["pos"]) < pow(22.0 + width, 2):
-			br["hp"] = 0.0
-	g.beams.append({"a": a, "b": b, "t": 0.22, "w": width * 1.6, "color": Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff"), "rail": true})
+	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
+	var targets = line_targets(g, segments, width, 999)
+	for target in targets:
+		var e = target["enemy"]
+		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
+	var color = Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff")
+	for segment in segments:
+		for br in g.barrels:
+			if Combat.seg_dist2(segment["a"], segment["b"], br["pos"]) < pow(22.0 + width, 2):
+				br["hp"] = 0.0
+		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.22, "w": width * 1.6, "color": color, "rail": true})
+		if int(w["lvl"]) >= 5:
+			g.add_zone("lightning", segment["a"], 14.0, 1.5, {"a": segment["a"], "b": segment["b"]})
+	chain_line(g, targets, line_ricochets(g, w), dmg, float(g.weapon_db["rail"]["knock"]), "rail", dmg_pool(g, w), color)
 	g.flash_screen(Color("bfefff"), 0.08)
-	if int(w["lvl"]) >= 5:
-		g.add_zone("lightning", a, 14.0, 1.5, {"a": a, "b": b})
