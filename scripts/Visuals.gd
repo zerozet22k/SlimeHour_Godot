@@ -440,6 +440,16 @@ func paint_telegraphs() -> void:
 				var dest = P(e.get("lock", g.hero["pos"]))
 				draw_arc(dest, 22.0, 0, TAU, 24, Color(0.8, 0.55, 1.0, 0.5 + 0.5 * fmod(g.anim_t * 6.0, 1.0)), 3.0)
 				draw_line(p, dest, Color(0.8, 0.55, 1.0, 0.25), 2.0)
+			elif e["kind"] == "leech":
+				var drain_to = P(e.get("lock", g.hero["pos"]))
+				var pulse = 0.34 + 0.26 * sin(g.anim_t * 14.0)
+				draw_line(p, drain_to, Color(0.84, 0.34, 1.0, pulse), 4.5)
+				draw_arc(drain_to, 27.0, 0, TAU, 30, Color("d9a3ff", 0.80), 3.0)
+				draw_arc(p, float(e["r"]) + 8.0, 0, TAU, 24, Color("d9a3ff", 0.90), 3.5)
+			elif e["kind"] == "spitter":
+				var spit_to = P(e.get("lock", g.hero["pos"]))
+				draw_line(p, spit_to, Color("a2ff83", 0.33), 2.0)
+				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, Color("a2ff83", 0.80), 2.5)
 			elif enemy_has_role(e, "mirror"):
 				var dest = P(e.get("lock", g.hero["pos"]))
 				var central = (dest - p).normalized()
@@ -466,7 +476,15 @@ func paint_enemies() -> void:
 		var r = float(e["r"])
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
 			continue
+		if bool(e.get("burrowing", false)):
+			# Actual underground phase: render the entrance crater, not the
+			# same standing slime. The destination and tunnel are shown above.
+			draw_circle(p, r + 4.0, Color("312920", 0.8))
+			draw_arc(p, r + 8.0, 0, TAU, 24, Color("e4b873", 0.8), 2.5)
+			continue
 		draw_enemy(e, p, r)
+		if float(e.get("sprint_t", 0.0)) > 0.0:
+			draw_arc(p, r + 6.0, 0, TAU, 20, Color("ffbc66", 0.75), 2.5)
 		# Allies protected by a nearby Hype Totem must look protected.
 		# Draw only a thin, translucent outline to keep mass encounters fast.
 		if not Combat.protecting_totem(g, e).is_empty():

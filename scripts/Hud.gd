@@ -1786,6 +1786,8 @@ func bestiary_entries() -> Array:
 		return g.mutation_book_ids()
 	var entries: Array = []
 	for kind in g.mob_order():
+		if str(kind).begins_with("mix_"):
+			continue # Historical mutations belong to the dedicated book.
 		var is_boss = bool(g.enemy_db[kind].get("boss", false))
 		var found = int(g.profile["mobs"].get(kind, 0)) > 0
 		if bestiary_filter == "BOSSES" and not is_boss:
@@ -1804,7 +1806,11 @@ func bestiary_select(index: int, page_size: int) -> void:
 		bestiary_selected = str(entries[idx])
 
 func bestiary_filters(x: float, y: float, tile_width: float) -> void:
-	var filters = ["ALL", "STREET", "BOSSES", "FOUND", "MUTATIONS"]
+	# Mutation Book is a separate menu destination, not a Bestiary tab.
+	if bestiary_filter == "MUTATIONS":
+		txt("MUTATIONS ARE NOT BASE SPECIES", Vector2(x + 3, y + 24), 16, Color("8feaba"), 0, bold)
+		return
+	var filters = ["ALL", "STREET", "BOSSES", "FOUND"]
 	for i in range(filters.size()):
 		var key = str(filters[i])
 		var r = Rect2(x + float(i) * (tile_width + 7.0), y, tile_width, 34)
@@ -1882,7 +1888,8 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 	var y = r.position.y
 	var ww = r.size.x
 	var art_h = minf(154.0, r.size.y * 0.29)
-	txt("BOSS" if bool(enemy.get("boss", false)) else "MONSTER", Vector2(x + 22, y + 27), 16, Color("ffb1c1") if bool(enemy.get("boss", false)) else Color("8ed8ff"), 0, bold)
+	var species_label = "MUTATION" if not recipe.is_empty() else ("BOSS" if bool(enemy.get("boss", false)) else "MONSTER")
+	txt(species_label, Vector2(x + 22, y + 27), 16, Color("8feaba") if not recipe.is_empty() else (Color("ffb1c1") if bool(enemy.get("boss", false)) else Color("8ed8ff")), 0, bold)
 	enemy_icon(kind, Rect2(x + ww * 0.3, y + 34, ww * 0.4, art_h))
 	var title = str(enemy["name"]).to_upper()
 	txt(title, Vector2(r.get_center().x, y + art_h + 61), fit(title, ww - 30, 28, bold, 15), Color.WHITE, 1, bold)
@@ -2448,7 +2455,7 @@ func award_line() -> String:
 	return t
 
 func unlock_name(u: Dictionary) -> String:
-	if u["type"] in ["enemy", "mob", "mutation"]:
+	if u["type"] in ["enemy", "mob", "mutation", "mutation_found"]:
 		return str(g.enemy_db[u["id"]]["name"])
 	if u["type"] == "gun":
 		return str(g.weapon_db[u["id"]].get("name", u["id"]))
@@ -2556,13 +2563,13 @@ func paint_unlock_toast(center_x: float, y: float) -> void:
 	var slide = clampf((2.6 - t) * 6.0, 0.0, 1.0) * clampf(t * 6.0, 0.0, 1.0)
 	var r = Rect2(center_x - 190, y - 40 + slide * 40, 380, 64)
 	var col = {"gun": Color("ffcf4d"), "enemy": ALERT, "mob": Color("7dff9a"),
-		"mutation": Color("80eec4")}.get(u["type"], NEON)
+		"mutation": Color("80eec4"), "mutation_found": Color("80eec4")}.get(u["type"], NEON)
 	cbox(r, Color(0.03, 0.05, 0.08, 0.94 * slide), 12, Color(col, slide), 2)
 	draw_rect(Rect2(r.position.x + 6, r.position.y + 14, 4, r.size.y - 22), Color(col, slide))
 	var label = {"gun": "UNLOCKED // NEW GUN", "enemy": "BOSS DOWN // NEW THREAT",
-		"mob": "BESTIARY // NEW ENTRY", "mutation": "MUTATION BOOK // UNLOCKED"}.get(u["type"], "UNLOCKED // NEW CARD")
+		"mob": "BESTIARY // NEW ENTRY", "mutation": "MUTATION BOOK // RUN UNLOCKED", "mutation_found": "MUTATION BOOK // DISCOVERED"}.get(u["type"], "UNLOCKED // NEW CARD")
 	txt(label, r.position + Vector2(22, 24), 15, Color(col, slide), 0, bold)
-	if u["type"] in ["enemy", "mob", "mutation"]:
+	if u["type"] in ["enemy", "mob", "mutation", "mutation_found"]:
 		enemy_icon(u["id"], Rect2(r.end.x - 62, r.position.y + 4, 56, 56), slide)
 	var nm = unlock_name(u).to_upper()
 	txt(nm, r.position + Vector2(22, 52), fit(nm, 330, 26), Color(1, 1, 1, slide), 0, bold)

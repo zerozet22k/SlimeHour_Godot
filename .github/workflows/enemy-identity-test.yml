@@ -1,0 +1,46 @@
+name: Test Enemy Identity and Mutation Separation
+on:
+  push:
+    branches:
+      - fix/separate-bestiary-monster-mechanics-20261010
+    paths:
+      - scripts/**
+      - tools/enemy_identity_test.gd
+      - tools/bestiary_test.gd
+      - tools/boss_aggression_test.gd
+      - .github/workflows/enemy-identity-test.yml
+  pull_request:
+    paths:
+      - scripts/**
+      - tools/enemy_identity_test.gd
+      - tools/bestiary_test.gd
+      - tools/boss_aggression_test.gd
+      - .github/workflows/enemy-identity-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monster-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip -oq /tmp/godot.zip -d /tmp/godot
+          mv /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 ./godot-ci
+          chmod +x ./godot-ci
+      - name: Parse scenes and load resources
+        run: timeout 240 ./godot-ci --headless --path . --editor --import --quit
+      - name: Check Bestiary layout
+        run: timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
+      - name: Verify enemy attacks and mutation separation
+        run: timeout 120 ./godot-ci --headless --path . --script tools/enemy_identity_test.gd
+      - name: Recheck boss phases and burrower warnings
+        run: timeout 120 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
+      - name: Preserve Skitter collision and overshoot
+        run: timeout 120 ./godot-ci --headless --path . --script tools/skitter_dash_test.gd

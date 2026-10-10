@@ -2003,7 +2003,9 @@ func note_mob(kind: String) -> void:
 	if first_discovery:
 		mobs[kind] = 0
 		if autotest == "":
-			unlock_toasts.append({"type": "mob", "id": kind, "t": 2.6})
+			# A mutation belongs to the separate Mutation Book, never the species Bestiary.
+			var discovery_type = "mutation_found" if kind.begins_with("mix_") else "mob"
+			unlock_toasts.append({"type": discovery_type, "id": kind, "t": 2.6})
 			profile["announced_mobs"][kind] = true
 	mobs[kind] = int(mobs[kind]) + 1
 	if first_discovery and not EnemyMixes.recipe_for_id(kind).is_empty():
@@ -2027,10 +2029,8 @@ func mutation_is_discovered(kind: String) -> bool:
 func mob_order() -> Array:
 	var out = STARTER_ENEMIES.duplicate()
 	out.append_array(ROUTE_INTRO_ORDER)
-	# Encountered hybrids, not an enormous list of theoretical possibilities.
-	for kind in enemy_db:
-		if str(kind).begins_with("mix_") and EnemyMixes.usable(str(kind)) and profile.get("mobs", {}).has(kind):
-			out.append(kind)
+	# Only true enemy species live in the Bestiary. Curated or historic
+	# hybrids are recorded exclusively in the separate Mutation Book.
 	out.append_array(["mini", "goblin"])
 	for kind in enemy_db:
 		if bool(enemy_db[kind].get("boss", false)):
