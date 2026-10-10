@@ -1,3 +1,11 @@
+## v0.1.42 — Unlit explosive barrels and consistent hits from all 22 guns
+
+- Add a dedicated unlit explosive barrel SVG; the default world sprite has no burning fuse or ignition spark. Swap to the original lit artwork only when a weapon, dash or explosion actually arms the barrel.
+- Fix missing barrel hit detection for continuous Cinder flame cones, Prism Beam hitscan segments and refractions, Arc Caster lightning chains (including barrels without nearby enemies), and Gauss Lance's rail segments.
+- Give Gauss Lance's lingering ionized corridor and weapon shockwaves the same barrel ignition behavior.
+- Preserve the existing 0.85-second warning fuse and chain reactions rather than detonating immediately on contact. Ignore falling/previously armed barrels and require true geometrical intersection.
+- Add a dedicated barrel-weapon regression script covering projectile guns, each nonprojectile weapon type, barrel geometry, the fuse timer and unlit/lit asset selection.
+
 ## v0.1.41 — Readable gun notes, identifiable evolutions, fixed ion scars and safe update caching
 
 - Rebuild the Collection's desktop weapon inspector so Level 3 and Level 5 notes fit inside the right-hand panel, fully above the Back button. Portrait gun inspection also reserves space for upgrade notes.
