@@ -6,6 +6,7 @@ const Effects = preload("res://scripts/Effects.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
+const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const CELL = 72.0
 const TOTEM_R = 230.0
 const STATUSES = ["burn", "freeze", "shock", "poison", "bleed", "slow", "charm", "wet", "mark"]
@@ -146,6 +147,8 @@ static func update_delayed(g, dt: float) -> void:
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a Volatile elite")
+			"payload_vacuum":
+				WeaponSignatures.vacuum(g, item["pos"])
 
 # ================================================================= projectiles
 static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Variant:
@@ -210,7 +213,8 @@ static func update_shots(g, dt: float) -> void:
 			s["dmg"] = float(s["dmg"]) * (1.0 + 0.6 * dt)
 		match kind:
 			"grenade", "egg":
-				vel *= exp(-2.4 * dt)
+				# Guided max-level bankshots stay fast enough to reach their locked prey.
+				vel *= exp((-0.3 if s["flags"].has("guided") else -2.4) * dt)
 				if s["flags"].has("stuck"):
 					var host = s["flags"]["stuck"]
 					if host != null and not bool(host["dead"]):
@@ -243,12 +247,13 @@ static func update_shots(g, dt: float) -> void:
 				else:
 					var to_hero = hero_pos - s["pos"]
 					vel = vel.lerp(to_hero.normalized() * float(s["speed"]) * 1.15, minf(1.0, dt * 7.0))
+					WeaponSignatures.disc_recall(g, s, dt)
 					if to_hero.length() < 26.0:
-						catch(g, s)
+						catch(g, s, true)
 						continue
 				s["life"] = maxf(float(s["life"]), 0.5)
 				if float(s["t"]) > 4.0:
-					catch(g, s)
+					catch(g, s, false)
 					continue
 			"car":
 				pass
@@ -263,6 +268,21 @@ static func update_shots(g, dt: float) -> void:
 			var tgt = null
 			if s["friendly"]:
 				tgt = g.nearest_enemy(s["pos"], 300.0)
+				if s["flags"].has("hydra_seek"):
+					var best_dist = INF
+					for candidate in query(g, s["pos"], 300.0):
+						if bool(candidate["dead"]) or s["hit"].has(candidate["id"]):
+							continue
+						var dist2 = s["pos"].distance_squared_to(candidate["pos"])
+						if dist2 < best_dist:
+							best_dist = dist2
+							tgt = candidate
+				elif s["flags"].has("hive_scent"):
+					for candidate in query(g, s["pos"], 300.0):
+						if bool(candidate["dead"]) or s["hit"].has(candidate["id"]) or float(candidate.get("hive_scent", 0.0)) < g.run_time:
+							continue
+						tgt = candidate
+						break
 			elif not g.hero.is_empty():
 				tgt = g.hero
 			if tgt != null:
@@ -317,7 +337,8 @@ static func update_shots(g, dt: float) -> void:
 		else:
 			collide_hero(g, s)
 
-static func catch(g, s: Dictionary) -> void:
+static func catch(g, s: Dictionary, caught: bool = true) -> void:
+	WeaponSignatures.return_catch(g, s, caught)
 	s["dead"] = true
 	var w = s.get("gun")
 	if w != null and bool(s["flags"].get("owner", false)):
@@ -334,6 +355,8 @@ static func expire(g, s: Dictionary) -> void:
 		"grenade", "egg", "rocket", "chicken":
 			var r = float(s["blast"]) if float(s["blast"]) > 0.0 else 60.0
 			explode(g, s["pos"], r, float(s["dmg"]), int(s["gen"]), Color(s["color"]))
+			if kind == "rocket":
+				WeaponSignatures.rocket_collapse(g, s, s["pos"])
 			if s["flags"].has("bomblets"):
 				fragments(g, s["pos"], 4, float(s["dmg"]) * 0.45, "ring", Vector2.UP, int(s["gen"]) + 1, null, false, Color("b5ff6b"), "grenade")
 		"bubble":
@@ -348,6 +371,7 @@ static func on_wall(g, s: Dictionary) -> void:
 	ProjectileVfx.ricochet(g, s["pos"], s["vel"], str(s.get("vfx_style", "ricochet")))
 	g.sfx.play_projectile("bounce", str(s.get("vfx_style", "ricochet")))
 	var f = s["flags"]
+	WeaponSignatures.wall_bounce(g, s)
 	if f.has("bounce_dmg"):
 		s["dmg"] = float(s["dmg"]) * 1.15
 	var ws = int(g.st("wallsplit")) + int(f.get("wallsplit", 0))
@@ -423,6 +447,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	if f.has("fling"):
 		ctx["fling"] = true
 	var crit = hit(g, e, float(s["dmg"]), ctx)
+	WeaponSignatures.projectile_hit(g, s, e, impact)
 	if crit:
 		ProjectileVfx.critical(g, impact, dir, maxf(12.0, float(s["r"]) * 2.6))
 	else:
@@ -430,6 +455,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	match kind:
 		"rocket":
 			explode(g, impact, maxf(40.0, float(s["blast"])), float(s["dmg"]), int(s["gen"]), Color("ff8f6b"))
+			WeaponSignatures.rocket_collapse(g, s, impact)
 			if f.has("fire_puddle"):
 				g.add_zone("fire", impact, 55.0, 3.0)
 			if f.has("cluster"):
@@ -450,6 +476,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 			e["bubble_dmg"] = float(s["dmg"])
 			e["bubble_r"] = maxf(45.0, float(s["blast"]))
 			e["bubble_mini"] = f.has("minibubbles")
+			e["bubble_chain"] = int(f.get("pressure_chain", 0))
 			if trapped >= int(f.get("trap", 1)):
 				s["dead"] = true
 			return
@@ -467,8 +494,9 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 					var ang = (float(k) - float(nsplit - 1) * 0.5) * 0.35
 					var o2 = {"kind": "frag", "speed": float(s["speed"]) * 0.8, "life": 0.5, "r": 3.5, "gen": int(s["gen"]) + 1,
 						"color": s["color"], "knock": 50.0, "frag": true, "homing": 5.0 if f.has("frag_home") else 0.0}
-					if f.has("frag_split"):
-						o2["split"] = 2
+					if f.has("hydra_seek"):
+						o2["homing"] = 6.0
+						o2["flags"] = {"hydra_seek": true}
 					var fs = shot(g, impact, dir.rotated(ang), float(s["dmg"]) * 0.5, o2)
 					if fs != null:
 						fs["hit"][e["id"]] = 9999.0
@@ -478,8 +506,6 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 				e["stun"] = maxf(float(e["stun"]), 0.5)
 	if float(s["blast"]) > 0.0 and kind in ["bullet", "spin", "pellet", "frag"]:
 		explode(g, impact, float(s["blast"]), float(s["dmg"]) * 0.8, int(s["gen"]) + 1, Color("ffb07a"))
-	if f.has("pierce_boom"):
-		explode(g, impact, 55.0, float(s["dmg"]) * 0.4, int(s["gen"]) + 1, Color("d8b8ff"))
 	# Splitting: fragments carry this projectile's payload.
 	var split = int(s["split"])
 	if split > 0 and int(s["gen"]) < Effects.max_gen(g) and g.shots.size() < g.shot_cap() - 200:
@@ -595,6 +621,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 		pool = g.dmg_pool()
 	var amount = dmg * (1.0 + (m - 1.0) / pool)
 	if crit:
+		WeaponSignatures.critical_hit(g, e, ctx)
 		var cm = 2.0 + g.st("critdmg")
 		if str(ctx.get("src", "")) == "revolver":
 			cm += 1.0
@@ -841,10 +868,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 					if not bool(o["dead"]) and o["pos"].distance_to(pos) < 95.0:
 						apply_status(g, o, "burn", 1.0)
 				g.spawn_ring_fx(pos, Color("ff8a3d"), 95.0)
-			for w in g.guns:
-				if w["id"] == "flame" and int(w["lvl"]) >= 5:
-					explode(g, pos, 60.0, Weapons.shot_damage(g, w) * 3.0, gen + 1, Color("ff8a3d"))
-					break
+			WeaponSignatures.flame_death(g, e, pos)
 		if float(e["poison"]) > 0.0 and g.st("plague") > 0.0:
 			var z = g.add_zone("poison", pos, 70.0, 3.0)
 			z["gen"] = gen + 1
@@ -864,8 +888,6 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 				var nxt = g.nearest_enemy(pos, 500.0, e)
 				if nxt != null:
 					shot(g, pos, (nxt["pos"] - pos).normalized(), float(shot_ref["base_dmg"]), {"kind": "bullet", "speed": 1800.0, "life": 0.5, "r": 4.0, "pierce": 2, "gen": gen + 1, "color": Color("d8b8ff"), "knock": 120.0})
-			if shot_ref["flags"].has("bee_kill") or str(shot_ref["kind"]) == "bee" and shot_ref["flags"].has("bee_kill"):
-				add_bees(g, pos, 1, float(shot_ref["base_dmg"]), gen + 1)
 	if g.st("overkill") > 0.0 and overkill > 1.0:
 		var o2 = g.nearest_enemy(pos, 220.0, e)
 		if o2 != null:
@@ -1048,6 +1070,7 @@ static func update_enemies(g, dt: float) -> void:
 			e["bubble"] = float(e["bubble"]) - dt
 			if float(e["bubble"]) <= 0.0:
 				pop_bubble(g, e["pos"], float(e.get("bubble_dmg", 20.0)), float(e.get("bubble_r", 50.0)), 1, bool(e.get("bubble_mini", false)))
+				WeaponSignatures.bubble_transfer(g, e)
 		var disabled = float(e["frozen"]) > 0.0 or float(e["stun"]) > 0.0 or float(e["bubble"]) > 0.0 or float(e["pinned"]) > 0.0
 		var speed_mul = 1.0
 		# Siren pulse speeds up nearby ordinary mobs briefly, not bosses.

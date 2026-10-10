@@ -23,7 +23,7 @@
   "color": "8ff8ff",
   "blast": 0,
   "lv3": "+1 bullet per shot",
-  "lv5": "Every 6th shot also fires a ring of 8 bullets",
+  "lv5": "VERDICT — Every sixth shot becomes a piercing tracer that marks targets for focused damage.",
   "sfx": "pew"
  },
  {
@@ -50,7 +50,7 @@
   "color": "ffe28a",
   "blast": 0,
   "lv3": "+2 pierce",
-  "lv5": "Starting a reload fans 6 shots in an arc",
+  "lv5": "SHOWDOWN — Critical hits stun their target; a duel is won by precision, not reloading.",
   "sfx": "bang"
  },
  {
@@ -77,7 +77,7 @@
   "color": "ffc66b",
   "blast": 0,
   "lv3": "+3 pellets",
-  "lv5": "Pellets ricochet once",
+  "lv5": "BREACH KICK — Point-blank pellet hits stagger enemies and blast them backward.",
   "sfx": "boom"
  },
  {
@@ -104,7 +104,7 @@
   "color": "9ff0ff",
   "blast": 0,
   "lv3": "+50% magazine",
-  "lv5": "Every 8th bullet explodes",
+  "lv5": "SUPPRESSION — Every hit briefly slows its victim; lock down a horde through sustained fire.",
   "sfx": "tick"
  },
  {
@@ -131,7 +131,7 @@
   "color": "ffe9a8",
   "blast": 0,
   "lv3": "Spins up twice as fast",
-  "lv5": "Bullets ricochet once",
+  "lv5": "FULL SPOOL — At peak barrel speed, rounds penetrate and sweep targets sideways.",
   "sfx": "tick"
  },
  {
@@ -158,7 +158,7 @@
   "color": "d8b8ff",
   "blast": 0,
   "lv3": "Kills fire a free shot at the next target",
-  "lv5": "Shots explode on every enemy they pierce",
+  "lv5": "COLLATERAL — Every enemy pierced empowers that same round as it travels onward.",
   "sfx": "snipe"
  },
  {
@@ -185,7 +185,7 @@
   "color": "ff8f6b",
   "blast": 78,
   "lv3": "+1 rocket per shot",
-  "lv5": "Explosions leave burning puddles",
+  "lv5": "THERMOBARIC — The initial rocket blast is followed by a telegraphed vacuum that pulls and slows enemies.",
   "sfx": "rocket"
  },
  {
@@ -212,7 +212,7 @@
   "color": "b5ff6b",
   "blast": 92,
   "lv3": "Explodes into 4 bomblets",
-  "lv5": "+2 grenades per throw",
+  "lv5": "SMART BANK — A grenade that hits a wall locks onto a nearby enemy and guides itself home.",
   "sfx": "thunk"
  },
  {
@@ -239,7 +239,7 @@
   "color": "c58cff",
   "blast": 0,
   "lv3": "+1 beam",
-  "lv5": "Never overheats and the beam is twice as wide",
+  "lv5": "PRISMATIC — First contact refracts into two angled damage rays; continuous fire no longer overheats.",
   "sfx": ""
  },
  {
@@ -266,7 +266,7 @@
   "color": "8fc8ff",
   "blast": 0,
   "lv3": "+3 chain jumps",
-  "lv5": "Every arc forks into two",
+  "lv5": "STATIC OVERLOAD — Every third target reached by the chain is briefly stunned.",
   "sfx": "zap"
  },
  {
@@ -293,7 +293,7 @@
   "color": "ff9d4d",
   "blast": 0,
   "lv3": "+40% range",
-  "lv5": "Burning enemies explode when they die",
+  "lv5": "FLASHOVER — Burning targets send branching embers to up to three unburned enemies on death.",
   "sfx": ""
  },
  {
@@ -320,7 +320,7 @@
   "color": "7dffb2",
   "blast": 0,
   "lv3": "+1 disc",
-  "lv5": "Discs ricochet between enemies",
+  "lv5": "VORTEX RECALL — Returning blades drag nearby enemies into their cutting path.",
   "sfx": "whoosh"
  },
  {
@@ -347,7 +347,7 @@
   "color": "ffcf6b",
   "blast": 0,
   "lv3": "+1 boomerang",
-  "lv5": "Boomerangs double in size on the way back",
+  "lv5": "PERFECT CATCH — Catch returning throws to build up to +45% damage for the next throw.",
   "sfx": "whoosh"
  },
  {
@@ -374,7 +374,7 @@
   "color": "7fd8ff",
   "blast": 0,
   "lv3": "Charges twice as fast",
-  "lv5": "Leaves a lightning line for 1.5s",
+  "lv5": "ION SCAR — A charged rail strike leaves a shocking lightning corridor for 1.5 seconds.",
   "sfx": "rail"
  },
  {
@@ -401,7 +401,7 @@
   "color": "ffd94d",
   "blast": 0,
   "lv3": "+2 bees",
-  "lv5": "Kills release a bee",
+  "lv5": "PHEROMONES — Bee stings mark enemies as scent targets, drawing in the rest of the swarm.",
   "sfx": "buzz"
  },
  {
@@ -428,7 +428,7 @@
   "color": "d9b3ff",
   "blast": 0,
   "lv3": "+1 ball",
-  "lv5": "Balls split into 3 when they hit a wall",
+  "lv5": "PERFECT STRIKE — Hit three enemies with one ball to throw nearby enemies away in a kinetic wave.",
   "sfx": "thunk"
  },
  {
@@ -455,7 +455,7 @@
   "color": "e8e8e8",
   "blast": 0,
   "lv3": "Pins 70% of the time",
-  "lv5": "Pinned enemies take +60% damage",
+  "lv5": "RIVET TETHER — Pin one enemy and briefly tether a second nearby target in place.",
   "sfx": "tick"
  },
  {
@@ -482,7 +482,7 @@
   "color": "fff27a",
   "blast": 60,
   "lv3": "+3 bounces",
-  "lv5": "Every bounce drops an egg grenade",
+  "lv5": "POULTRY PANIC — A direct chicken hit panics nearby enemies into attacking their own team.",
   "sfx": "honk"
  },
  {
@@ -509,7 +509,7 @@
   "color": "9fe8ff",
   "blast": 55,
   "lv3": "Bubbles trap up to 3 enemies",
-  "lv5": "Pops release 6 mini bubbles",
+  "lv5": "PRESSURE TRANSFER — Trapped enemies pass their bubble to another victim when it pops, up to two times.",
   "sfx": "bloop"
  },
  {
@@ -536,7 +536,7 @@
   "color": "ff9df0",
   "blast": 0,
   "lv3": "+4 wall bounces",
-  "lv5": "Every wall bounce splits the ball",
+  "lv5": "PERFECT BANK — Each wall bank charges an increasingly powerful stunning knockback on the next hit.",
   "sfx": "ping"
  },
  {
@@ -563,7 +563,7 @@
   "color": "9dffa8",
   "blast": 0,
   "lv3": "Splits into 5",
-  "lv5": "Fragments split again",
+  "lv5": "HYDRA HUNTERS — Splinter bolts steer toward fresh targets rather than splitting again.",
   "sfx": "twang"
  },
  {
@@ -590,7 +590,7 @@
   "color": "e6fbff",
   "blast": 0,
   "lv3": "Frozen enemies shatter for area damage",
-  "lv5": "Snowballs grow twice as big",
+  "lv5": "WHITEOUT — Your first snowball impact opens a lingering frost field that chills surrounding enemies.",
   "sfx": "thunk"
  }
 ]

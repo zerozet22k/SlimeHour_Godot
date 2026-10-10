@@ -1,3 +1,13 @@
+## v0.1.34 — Twenty-two signature max-level weapon mechanics
+
+- Replace generic Level 5 damage splashes, multishot counts, reload triggers and extra ricochets with separate behavioral signatures for all 22 guns.
+- Service Nine's sixth shot now fires a marking piercing tracer; Deadeye crits stun; Breacher gives point-blank crowd stagger; Cyclone suppresses/slow; Vulcan at full spin shoves enemies sideways; Longshot gains collateral damage across successive pierced targets.
+- Payload's explosion gets a telegraphed non-damaging vacuum phase rather than just a fire puddle. Rebound banks into a guided grenade, retaining its Level 3 bomblets.
+- Prism Beam now refracts at first impact, Arc Caster overloads every third chained victim, Cinder spreads ember links instead of death explosions.
+- Razor Disc's return pulls in monsters. Returner's caught boomerangs build power up to +45%, with misses resetting the streak. Gauss Lance keeps its charged persistent lightning corridor.
+- Swarmcaster uses true homing bee projectiles and pheromone target prioritization. Impact Cannon's third strike creates a kinetic blast. Rivet Driver tethers enemies, Fowl Play panics foes into infighting, Pressure Pop transfers its trap, Ricochet charges banked stun, Hydra Bow fragments hunt fresh targets, and Frostcaster lays down a freezing whiteout zone.
+- Update all in-game Level 5 descriptions to describe these actual effects, and add a dedicated weapon-signature regression test to the Windows build.
+
 ## v0.1.33 — Weapon identities and playable starting characters
 
 - Replace placeholder and overly jokey gun names with concise distinctive names, without changing stable weapon IDs or artwork paths.

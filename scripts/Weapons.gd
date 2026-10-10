@@ -184,10 +184,6 @@ static func start_reload(g, w: Dictionary) -> void:
 	w["reload"] = reload_time(g, w)
 	w["reload_max"] = w["reload"]
 	g.sfx.play("reload")
-	if w["id"] == "revolver" and int(w["lvl"]) >= 5:
-		var aim: Vector2 = g.hero["aim"]
-		for k in range(6):
-			emit(g, w, g.hero["pos"] + aim * 20.0, aim.rotated((k - 2.5) * 0.16), shot_damage(g, w), {"free": true})
 	Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": g.hero["aim"]})
 
 static func finish_reload(g, w: Dictionary) -> void:
@@ -204,6 +200,9 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	var kind = str(d["kind"])
 	var dmg = shot_damage(g, w) * float(opts.get("mul", 1.0))
 	var echo = bool(opts.get("echo", false))
+	# A perfect returning catch builds momentum for the NEXT throw.
+	if w["id"] == "boomerang" and int(w["lvl"]) >= 5 and not echo:
+		dmg *= 1.0 + 0.15 * float(w.get("catch_streak", 0))
 	w["count"] = int(w["count"]) + 1
 	if not echo:
 		g.volley_count += 1
@@ -263,6 +262,11 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
 	var perp = dir.orthogonal()
 	var eopts = {"big": big, "free": bool(opts.get("free", false)), "o": base_opts(g, w, d)}
+	if w["id"] == "pistol" and int(w["lvl"]) >= 5 and int(w["count"]) % 6 == 0:
+		# A marked precision tracer replaces the old generic eight-bullet radial spam.
+		eopts["o"]["flags"]["verdict"] = true
+		eopts["o"]["pierce"] = int(eopts["o"]["pierce"]) + 3
+		eopts["o"]["color"] = Color("fff6ad")
 	# Patterns describe the actual fired geometry; never infer parallel from a sprite.
 	var fire_pattern = str(opts.get("pattern", ""))
 	if fire_pattern == "":
@@ -288,10 +292,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		var a2 = (float(j) - float(side - 1) * 0.5) * 0.2
 		emit(g, w, origin, perp.rotated(a2), dmg, eopts)
 		emit(g, w, origin, (-perp).rotated(a2), dmg, eopts)
-	# Weapon perks that count volleys.
-	if w["id"] == "pistol" and int(w["lvl"]) >= 5 and int(w["count"]) % 6 == 0:
-		for k in range(8):
-			emit(g, w, origin, Vector2.from_angle(k * TAU / 8.0), dmg * 0.7, eopts)
+	# Weapon-specific max level upgrades are applied through projectile signatures.
 	if echo:
 		# Burst echoes have their own sharp double impulse; routine ghost echoes stay quiet.
 		if fire_pattern == "burst":
@@ -376,26 +377,31 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 			o["crit"] += Characters.affinity(character_id(g), "revolver", "crit", 0.0)
 			if lvl >= 3:
 				o["pierce"] += 2
+			if lvl >= 5:
+				flags["duelist"] = true
 		"shotgun":
 			if lvl >= 5:
-				o["rico"] += 1
+				flags["breach"] = true
 		"minigun":
-			if lvl >= 5:
-				o["rico"] += 1
+			if lvl >= 5 and float(w["spin"]) >= 0.92:
+				flags["vulcan_sweep"] = true
+				o["pierce"] += 1
 		"sniper":
 			flags["full_bonus"] = true
 			if lvl >= 3:
 				flags["killshot"] = true
 			if lvl >= 5:
-				flags["pierce_boom"] = true
+				flags["collateral"] = true
 		"rocket":
 			if lvl >= 5:
-				flags["fire_puddle"] = true
+				flags["thermobaric"] = true
 			if wm(w, "cluster") > 0:
 				flags["cluster"] = true
 		"grenade":
 			if lvl >= 3:
 				flags["bomblets"] = true
+			if lvl >= 5:
+				flags["bank_guidance"] = true
 			if wm(w, "sticky") > 0:
 				flags["sticky"] = true
 		"flame":
@@ -409,55 +415,57 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"bees":
 			o["st"] = {"poison": 0.7}
 			if lvl >= 5:
-				flags["bee_kill"] = true
+				flags["hive_scent"] = true
 		"bowling":
 			flags["fling"] = true
 			if lvl >= 5:
-				flags["wall_split3"] = true
+				flags["perfect_strike"] = true
 		"nailgun":
 			flags["pin"] = (0.7 if lvl >= 3 else 0.35) + wm(w, "pin")
 			if lvl >= 5:
-				flags["pin_bonus"] = true
+				flags["rivet_tether"] = true
 		"chicken":
 			if lvl >= 3:
 				o["rico"] += 3
 			if lvl >= 5:
-				flags["eggs"] = true
+				flags["panic"] = true
 		"bubble":
 			o["st"] = {"wet": 1.0}
 			flags["trap"] = (3 if lvl >= 3 else 1) + int(wm(w, "trap"))
 			if lvl >= 5:
-				flags["minibubbles"] = true
+				flags["pressure_chain"] = 2
 		"pinball":
 			flags["bounce_dmg"] = true
 			if lvl >= 3:
 				o["bounce"] += 4
 			if lvl >= 5:
-				flags["wallsplit"] = 1
+				flags["perfect_bank"] = true
 			if wm(w, "multiball") > 0:
 				flags["multiball"] = true
 		"splitbow":
 			flags["split_first"] = (5 if lvl >= 3 else 3) + int(wm(w, "split"))
 			if lvl >= 5:
-				flags["frag_split"] = true
+				flags["hydra_seek"] = true
 			if wm(w, "fraghome") > 0:
 				flags["frag_home"] = true
 		"snow":
 			o["st"] = {"freeze": 1.0}
-			flags["grow"] = 2.5 if lvl < 5 else 4.0
+			flags["grow"] = 2.5
 			if lvl >= 3:
 				flags["shatter_aoe"] = true
+			if lvl >= 5:
+				flags["whiteout"] = true
 			if wm(w, "instafreeze") > 0:
 				flags["instafreeze"] = true
 		"smg":
 			if lvl >= 5:
-				flags["every8"] = true
+				flags["suppress"] = true
 		"disc":
 			if lvl >= 5:
-				o["rico"] += 2
+				flags["vortex_recall"] = true
 		"boomerang":
 			if lvl >= 5:
-				flags["grow_back"] = true
+				flags["momentum_catch"] = true
 	if wm(w, "critpierce") > 0:
 		flags["critpierce"] = true
 	return o
@@ -484,12 +492,14 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 		o["life"] *= randf_range(0.85, 1.1)
 	if kind == "flame":
 		o["speed"] *= randf_range(0.8, 1.2)
+	if kind == "bees":
+		# Bee bullets are true homing bee actors, not generic straight projectiles.
+		o["kind"] = "bee"
+		o["homing"] = maxf(float(o["homing"]), 5.0)
 	if bool(eopts.get("big", false)):
 		o["r"] *= 2.5
 		o["knock"] *= 2.0
 		o["flags"]["big"] = true
-	if w["id"] == "smg" and o["flags"].has("every8") and int(w["count"]) % 8 == 0:
-		o["blast"] = 45.0
 	if kind in ["disc", "boomerang"]:
 		o["flags"]["owner"] = not bool(eopts.get("free", false))
 	if kind == "bubble":
@@ -631,6 +641,23 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 		var e = target["enemy"]
 		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
 		ProjectileVfx.impact(g, e["pos"], target["dir"], "fire", 7.0)
+	# Max-level prism catches the first enemy and refracts into two short, weaker side-rays.
+	# Unlike increasing width, this attacks new angles; only one fork per beam tick.
+	if int(w["lvl"]) >= 5 and not targets.is_empty():
+		var fork_at: Vector2 = targets[0]["enemy"]["pos"]
+		var seen = {targets[0]["enemy"]["id"]: true}
+		for target in targets:
+			seen[target["enemy"]["id"]] = true
+		for side in [-1.0, 1.0]:
+			var fork_dir = dir.rotated(side * 0.65)
+			var ray = line_segments(g, fork_at, fork_dir, 220.0, 0)
+			for hit_info in line_targets(g, ray, 9.0, 2):
+				var victim = hit_info["enemy"]
+				if seen.has(victim["id"]):
+					continue
+				seen[victim["id"]] = true
+				Combat.hit(g, victim, dmg * 0.45, {"pos": victim["pos"], "gen": 1, "dir": fork_dir, "knock": 8.0, "src": "laser", "pool": dmg_pool(g, w), "noproc": true})
+			g.beams.append({"a": fork_at, "b": fork_at + fork_dir * 220.0, "t": 0.1, "w": 4.0, "color": Color("e5baff")})
 		if g.st("split") > 0 and randf() < 0.25:
 			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))
@@ -680,17 +707,11 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 			if dd < best:
 				best = dd
 				nxt = e
-		if fork and nxt != null and j < 3:
-			var alt = null
-			for e in g.enemies_near(prev, 175.0):
-				if not bool(e["dead"]) and not visited.has(e["id"]) and e != nxt:
-					alt = e
-					break
-			if alt != null:
-				visited[alt["id"]] = true
-				g.beams.append({"a": prev, "b": alt["pos"], "t": 0.1, "w": 2.5, "color": Color("c8e8ff"), "zig": true})
-				Combat.hit(g, alt, dmg * 0.6, {"pos": alt["pos"], "gen": 1, "dir": Vector2.ZERO, "knock": 20.0, "st": {"shock": 1.0}})
-				ProjectileVfx.impact(g, alt["pos"], Vector2.UP, "shock", 6.0)
+		# Level-five conductor: every third connected victim gets a brief static stun.
+		if fork and j > 0 and j % 3 == 2 and not bool(cur["dead"]):
+			cur["stun"] = maxf(float(cur["stun"]), 0.12 if bool(cur["boss"]) else 0.65)
+			g.spawn_ring_fx(cur["pos"], Color("e4f7ff"), 58.0)
+			g.sfx.play_projectile("status", "shock", "", 0.5)
 		dmg *= 0.92
 		cur = nxt
 	g.sfx.play("zap")
