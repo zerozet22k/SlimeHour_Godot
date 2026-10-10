@@ -47,7 +47,7 @@ func _run() -> void:
 		check(not before["flags"].has(flag), id + ": no max-level signature at level 4")
 		check(after["flags"].has(flag), id + ": max-level behavior is armed at level 5")
 	# Evolution is a weapon mechanic, not a generic 20% rate change.
-	check(Weapons.EVOLUTION_DESCRIPTIONS.size() == 22, "All 22 weapons have distinctive evolution descriptions")
+	check(Weapons.EVOLUTION_DESCRIPTIONS.size() == 22 and Weapons.EVOLVED_COLORS.size() == 22, "All 22 weapons have distinctive evolution descriptions and visual palettes")
 	for id in g.weapon_db.keys():
 		var desc = Weapons.evolution_description(Weapons.new_gun(g, str(id)))
 		check(not desc.contains("count stays") and not desc.contains("Same "), str(id) + ": no misleading fixed-projectile evolution wording")
@@ -58,6 +58,10 @@ func _run() -> void:
 	var evolved_cyclone = Weapons.base_opts(g, cyclone, g.weapon_db["smg"])
 	check(not ordinary["flags"].has("cyclone_tracer") and evolved_cyclone["flags"].has("cyclone_tracer"), "Cyclone X gains its own six-shot tracer")
 	check(int(evolved_cyclone["pierce"]) >= int(ordinary["pierce"]) + 2, "Cyclone X tracer penetrates two extra enemies")
+	check(evolved_cyclone["color"] != ordinary["color"], "Cyclone X has a distinct evolved tracer palette")
+	check(Weapons.EVOLVED_COLORS["smg"] != Weapons.EVOLVED_COLORS["minigun"], "SMG and Vulcan visual signatures are distinct")
+	cyclone["count"] = 7
+	check(not Weapons.base_opts(g, cyclone, g.weapon_db["smg"])["flags"].has("cyclone_tracer"), "Cyclone X fires a periodic tracer, not permanent unlimited pierce")
 	var regular_shotgun = Weapons.new_gun(g, "shotgun")
 	var ordinary_pellets = Weapons.base_opts(g, regular_shotgun, g.weapon_db["shotgun"])
 	regular_shotgun["evolved"] = true
