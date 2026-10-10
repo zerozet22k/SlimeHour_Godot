@@ -26,6 +26,7 @@ func _run() -> void:
 	check(Paging.range_indices(6, 2, 2) == [2, 3], "portrait sequence matches catalog order")
 	check(Updater.zip_use_memory(865288), "GitHub's 0.8 MB delta uses safe memory path")
 	check(not Updater.zip_use_memory(305951030), "large Windows ZIP streams to disk")
+	check(Updater.disk_body_limit() == -1, "full downloads have NO HTTP size-limit restriction")
 	check(Updater.describe_result(HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN).find("file") >= 0, "file-open errors have specific diagnostics")
 	check(Updater.describe_result(HTTPRequest.RESULT_CONNECTION_ERROR).find("connection") >= 0, "network errors are distinguished from HTTP status")
 	print("COLLECTION / DOWNLOAD: ", "PASS" if failed == 0 else str(failed) + " failures")

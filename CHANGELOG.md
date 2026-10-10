@@ -1,3 +1,10 @@
+## v0.1.27 — Mirrored gun-holding pose and full-update transfer repair
+
+- Add mirrored L-shaped left and reverse-L-shaped right support arms and hands to the MC, matching the weapons' existing muzzle locations, including a center-slot brace.
+- Preserve exact cursor, beam and projectile alignment; the holding arms only affect the visuals and are tested with four aim directions.
+- Fix the HTTP 200 / 0% download failure for full Windows archives: Godot's HTTPRequest `body_size_limit = 0` disallowed all bytes. Use -1 for unlimited streaming instead, retaining a bounded memory fallback for small incremental patches.
+- Extend headless regression tests for mirrored gun grips, forearm bends, and large-file download limits.
+
 ## v0.1.26 — Horizontal Collection browsing and Windows patch-download repair
 
 - Make the Collection truly horizontal: desktop shows four cards left-to-right and portrait shows two side-by-side; Next/Previous advances by one item instead of jumping an entire 12-card page.

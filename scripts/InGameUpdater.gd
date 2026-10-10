@@ -62,6 +62,9 @@ static func parse_checksum(body: String, file_name: String) -> String:
 static func zip_use_memory(size: int) -> bool:
 	return size > 0 and size <= MAX_MEMORY_ZIP
 
+static func disk_body_limit() -> int:
+	return -1
+
 static func describe_result(code: int) -> String:
 	match code:
 		HTTPRequest.RESULT_SUCCESS: return "success"
@@ -111,7 +114,9 @@ func _send(step: String, url: String, max_body: int = 0, output: String = "") ->
 	# stream to disk without buffering hundreds of megabytes.
 	zip_in_memory = step == "zip" and zip_use_memory(total_bytes)
 	http.download_file = "" if zip_in_memory else output
-	http.body_size_limit = (total_bytes + 1) if zip_in_memory else max_body
+	# In Godot, -1 disables the response size limit. Zero means ZERO bytes,
+	# which caused the old full-game downloader to fail at HTTP 200 / 0%.
+	http.body_size_limit = (total_bytes + 1) if zip_in_memory else (disk_body_limit() if step == "zip" else max_body)
 	http.timeout = 900.0 if step == "zip" else 30.0
 	var headers = PackedStringArray(["User-Agent: SlimeHour-InGame-Updater", "Accept: application/vnd.github+json"])
 	var result = http.request(url, headers)

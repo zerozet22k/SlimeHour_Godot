@@ -841,6 +841,19 @@ func paint_hero() -> void:
 		for radius in [56.0, 77.0, 90.0]:
 			draw_arc(p, radius, swing, swing + half, 20, Color(1.0, 0.96, 0.65, 0.7 * (1.0 - phase)), 8.0 if radius == 77.0 else 3.0)
 		draw_line(p + dir * 17.0, p + dir.rotated(-0.28 + phase * 0.56) * 68.0, Color("fff5c2", 0.72 * (1.0 - phase)), 8.0)
+	# Mirrored L / reverse-L supporting arms behind the weapon art.
+	# The real barrel origin is unchanged, so the pose never spoils cursor aim.
+	for i in range(g.guns.size()):
+		var grip: Vector2 = Weapons.hand_pos(g, i)
+		var arm: PackedVector2Array = WeaponAim.arm_pose(hp, aim, i, grip)
+		for joint in range(arm.size() - 1):
+			var start = P(arm[joint])
+			var finish = P(arm[joint + 1])
+			draw_line(start, finish, Color("251d2a"), 11.0, true)
+			draw_line(start, finish, Color("9a603d") if not blink else Color("db876d", 0.5), 7.0, true)
+		var wrist = P(arm[arm.size() - 1])
+		draw_circle(wrist, 5.5, Color("261d27"))
+		draw_circle(wrist, 3.8, Color("ebb27d") if not blink else Color("ebb27d", 0.55))
 	# Guns in hand, using the generated weapon art.
 	for i in range(g.guns.size()):
 		var w = g.guns[i]

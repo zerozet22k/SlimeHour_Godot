@@ -39,3 +39,19 @@ static func barrel_axis(rotation: float, weapon_id: String, mirrored: bool) -> V
 
 static func sprite_anchor(muzzle_point: Vector2, direction: Vector2) -> Vector2:
 	return muzzle_point - direction.normalized() * SPRITE_TIP_DISTANCE
+
+## The two visible support arms bend outward, then forward to grip the gun.
+## Left/right slots deliberately form opposite L silhouettes. They are
+## decorative and never modify the real muzzle or projectile trajectory.
+static func arm_pose(center: Vector2, aim: Vector2, slot: int, hand: Vector2) -> PackedVector2Array:
+	var forward = aim.normalized()
+	if forward.length_squared() < 0.01:
+		forward = Vector2.RIGHT
+	var side = forward.orthogonal()
+	var sign = 1.0 if slot == 0 else (-1.0 if slot == 1 else 0.0)
+	if sign == 0.0:
+		return PackedVector2Array([center + forward * 7.0, hand + forward * 2.0])
+	var shoulder = center + side * sign * 11.0 - forward * 5.0
+	var elbow = center + side * sign * 24.0 - forward * 5.0
+	var grip = hand + forward * 7.0
+	return PackedVector2Array([shoulder, elbow, grip])

@@ -52,5 +52,17 @@ func _run() -> void:
 	var muzzle = Vector2(45, 20)
 	var gun_dir = Vector2.LEFT.rotated(0.27)
 	verify((WeaponAim.sprite_anchor(muzzle, gun_dir) + gun_dir * WeaponAim.SPRITE_TIP_DISTANCE).distance_to(muzzle) < 0.001, "sprite muzzle and shot origin share anchor")
+	var facing = [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]
+	for direction in facing:
+		var ortho = direction.orthogonal()
+		var left_grip = direction * 6.0 + ortho * 11.0
+		var right_grip = direction * 6.0 - ortho * 11.0
+		var arm_l = WeaponAim.arm_pose(Vector2.ZERO, direction, 0, left_grip)
+		var arm_r = WeaponAim.arm_pose(Vector2.ZERO, direction, 1, right_grip)
+		verify(arm_l.size() == 3 and arm_r.size() == 3, "opposite L-shaped arms have elbows")
+		verify(absf(arm_l[0].dot(ortho) + arm_r[0].dot(ortho)) < 0.001, "left and right shoulder symmetry")
+		verify(absf(arm_l[1].dot(ortho) + arm_r[1].dot(ortho)) < 0.001, "reverse-L elbow symmetry")
+		verify(absf(arm_l[2].dot(ortho) + arm_r[2].dot(ortho)) < 0.001, "gun grips mirrored evenly")
+		verify(arm_l[1].distance_to(arm_l[2]) > 9.0, "arms keep visible elbow bends")
 	print("WEAPON AIM TESTS: " + ("PASS" if failed == 0 else str(failed) + " failed"))
 	quit(1 if failed else 0)
