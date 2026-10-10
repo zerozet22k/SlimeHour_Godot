@@ -1378,44 +1378,48 @@ func paint_beams() -> void:
 		var c: Color = b["color"]
 		var w = float(b["w"])
 		if bool(b.get("flame_stream", false)):
-			# Cinder is a damage CONE, never a bullet. Draw a soft layered plume
-			# using a few polygon fills, not the old giant triangle/solid end arc.
-			# Geometry follows the exact length and half-width passed by Weapons.
+			# Animated Cinder fire: rolling yellow/orange tongues and airborne
+			# embers, rather than a rigid triangle or invisible collision bullets.
+			# The single damage cone is still calculated by Weapons.fire_flame.
 			var length = a.distance_to(e)
 			if length < 1.0:
 				continue
 			var forward = (e - a) / length
 			var side = forward.orthogonal()
 			var fade = clampf(float(b["t"]) / 0.095, 0.0, 1.0)
-			var phase = g.anim_t * 12.0 + a.x * 0.017 + a.y * 0.009
-			var outer = PackedVector2Array()
-			var inner = PackedVector2Array()
-			var upper = PackedVector2Array()
-			var lower = PackedVector2Array()
-			var upper_inner = PackedVector2Array()
-			var lower_inner = PackedVector2Array()
-			var segments = 12
-			for j in range(segments + 1):
-				var k = float(j) / float(segments)
-				var distance = length * k
-				# Narrow nozzle, full-width heat at mid-range, rounded tip.
-				var envelope = k * (1.0 - 0.20 * smoothstep(0.88, 1.0, k))
-				var turbulence = 1.0 + 0.065 * sin(phase + k * 15.0) + 0.04 * sin(phase * 0.63 - k * 24.0)
-				var half_width = maxf(1.5, w * envelope * turbulence)
-				var center = a + forward * distance + side * (sin(phase + k * 8.0) * 2.0 * k)
-				upper.append(center + side * half_width)
-				lower.append(center - side * half_width)
-				upper_inner.append(center + side * half_width * 0.52)
-				lower_inner.append(center - side * half_width * 0.52)
-			for j in range(segments + 1):
-				outer.append(upper[j])
-				inner.append(upper_inner[j])
-			for j in range(segments, -1, -1):
-				outer.append(lower[j])
-				inner.append(lower_inner[j])
-			draw_colored_polygon(outer, Color("ff662e", 0.18 * fade))
-			draw_colored_polygon(inner, Color("ffb34f", 0.20 * fade))
-			draw_line(a, a + forward * minf(length * 0.40, 85.0), Color("fff3b1", 0.18 * fade), 3.0)
+			var phase = g.anim_t * 10.0 + a.x * 0.013 + a.y * 0.009
+			# A very faint hot-air envelope gives coverage without hiding foes.
+			var envelope = PackedVector2Array([a, e + side * w * 0.72, e - side * w * 0.72])
+			draw_colored_polygon(envelope, Color("ff5226", 0.055 * fade))
+			# Flame tongues travel from the nozzle towards the visible edge.
+			# All vertices are drawn directly on the GPU; no physics objects.
+			for strand in range(15):
+				var seed = float(strand)
+				var progress = fposmod(seed * 0.173 + g.anim_t * (1.2 + 0.08 * sin(seed * 2.1)), 1.0)
+				var advance = length * (0.05 + progress * 0.90)
+				var flare = maxf(2.5, w * progress * 0.83)
+				var lateral = sin(seed * 2.71 + phase * 0.62) * flare * 0.75
+				var center = a + forward * advance + side * lateral
+				var size = maxf(5.0, length * (0.085 + 0.04 * sin(seed * 4.3)) * (1.0 - 0.40 * progress))
+				var radius = maxf(2.5, flare * (0.22 + 0.11 * sin(seed * 1.8)))
+				var sway = side * sin(phase + seed * 3.17) * radius * 0.9
+				var tail = center - forward * size * 0.52
+				var tip = center + forward * size * 0.72 + sway
+				var left = tail + side * radius
+				var right = tail - side * radius
+				var hue = strand % 3
+				var ember = Color("ff6127") if hue == 0 else (Color("ff9b32") if hue == 1 else Color("ffd25b"))
+				var alpha = (1.0 - progress * 0.57) * fade
+				draw_colored_polygon(PackedVector2Array([left, tip, right, center - forward * size * 0.1]), Color(ember, 0.40 * alpha))
+				if strand % 2 == 0:
+					var hot_tip = center + forward * size * 0.47 + sway * 0.5
+					draw_colored_polygon(PackedVector2Array([center + side * radius * 0.42, hot_tip, center - side * radius * 0.42]), Color("fff1a4", 0.43 * alpha))
+				# Floating embers are smaller farther from the hot core.
+				if strand % 3 == 0:
+					var spark = center + side * sin(seed * 4.61 + phase) * radius * 1.2
+					draw_circle(spark, maxf(1.1, 2.6 * (1.0 - progress)), Color("ffe7a0", 0.45 * alpha))
+			# White-hot ignition near the muzzle, fading into the larger flames.
+			draw_line(a, a + forward * minf(42.0, length * 0.3), Color("fff0aa", 0.46 * fade), 4.5)
 		elif bool(b.get("zig", false)):
 			zigzag(a, e, c, w)
 		elif bool(b.get("rail", false)):
