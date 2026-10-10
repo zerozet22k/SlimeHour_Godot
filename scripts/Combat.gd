@@ -165,9 +165,15 @@ static func update_delayed(g, dt: float) -> void:
 					elif connected and style == "tidal_surge":
 						owner["r"] = minf(90.0, float(owner["r"]) + 3.5)
 					elif connected and style == "venom_collapse":
-						# Corrosive aftermath punishes a missed dash by following
-						# with a real status effect, not just extra HP damage.
-						g.add_zone("poison", player_pos, 64.0, 1.9)
+						# Debuff the PLAYER, not the friendly weapon-zone system.
+						g.hero["arena_corrosion_t"] = 2.2
+					elif connected and style == "rift_implosion":
+						# Violently drag the player toward the rift's owner.
+						var pull: Vector2 = owner["pos"] - player_pos
+						if pull.length_squared() > 1.0:
+							g.hero["push"] = g.hero.get("push", Vector2.ZERO) + pull.normalized() * 410.0
+					elif connected and style == "piston_lockdown":
+						g.hero["arena_stagger_t"] = 1.1
 			"boss_blast":
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
