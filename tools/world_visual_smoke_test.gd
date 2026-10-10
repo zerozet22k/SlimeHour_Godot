@@ -44,16 +44,27 @@ func _run() -> void:
 	var snap: Image = vp.get_texture().get_image()
 	check(snap != null and snap.get_width() >= 1280 and snap.get_height() >= 720, "Rendered window framebuffer is readable")
 	if snap != null and snap.get_width() >= 1280 and snap.get_height() >= 720:
-		var px = Vector2i(snap.get_width() / 2, snap.get_height() / 2)
-		var road: Color = snap.get_pixelv(px)
 		var background: Color = Color("0a1020")
 		var road_expected: Color = Color("111c33")
-		print("WORLD COLOR at ", px, ": ", road, " expected road ", road_expected)
-		# A uniformly dark frame (like the reported screenshot) is a failure.
-		var diff_road = absf(road.r - road_expected.r) + absf(road.g - road_expected.g) + absf(road.b - road_expected.b)
-		var diff_bg = absf(road.r - background.r) + absf(road.g - background.g) + absf(road.b - background.b)
-		check(diff_road < 0.17 and diff_bg > 0.035,
-			"Centre of gameplay viewport visibly shows the road, not an empty background")
+		var cx = snap.get_width() / 2
+		var cy = snap.get_height() / 2
+		# Player, health bar, sector banner, mobs or scenery can occlude any
+		# single sampled pixel. Find actual road-colored pixels in an interior grid.
+		var good_road = 0
+		var inspected = 0
+		for dy in [-180, -105, -45, 70, 145, 210]:
+			for dx in [-250, -175, -90, 90, 175, 250]:
+				var px = Vector2i(cx + dx, cy + dy)
+				if px.x < 0 or px.y < 0 or px.x >= snap.get_width() or px.y >= snap.get_height():
+					continue
+				var col: Color = snap.get_pixelv(px)
+				var diff_road = absf(col.r - road_expected.r) + absf(col.g - road_expected.g) + absf(col.b - road_expected.b)
+				var diff_bg = absf(col.r - background.r) + absf(col.g - background.g) + absf(col.b - background.b)
+				if diff_road < 0.17 and diff_bg > 0.035:
+					good_road += 1
+				inspected += 1
+		print("VISIBLE ROAD PIXELS: ", good_road, " / ", inspected)
+		check(good_road >= 4, "Actual road geometry is visible in multiple framebuffer locations")
 	var script_text = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(script_text.contains("paint_road()") and script_text.contains("paint_hero()"),
 		"World painter still draws road and hero")
