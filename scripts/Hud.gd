@@ -428,7 +428,8 @@ func paint_portrait() -> void:
 			button(Rect2(130, h * 0.39 + 102, 460, 66), "HARD MODE", "play_hard", false, 28)
 			button(Rect2(130, h * 0.39 + 183, 460, 66), "UPGRADES", "upgrades", false, 28)
 			button(Rect2(130, h * 0.39 + 264, 460, 66), "COLLECTION", "collection", false, 28)
-			button(Rect2(130, h * 0.39 + 345, 460, 66), "BESTIARY", "bestiary", false, 28)
+			button(Rect2(130, h * 0.39 + 345, 224, 66), "BESTIARY", "bestiary", false, 25)
+			button(Rect2(366, h * 0.39 + 345, 224, 66), "MUTATION BOOK", "mutation_book", false, 20)
 			button(Rect2(130, h * 0.39 + 426, 460, 66), "SETTINGS", "settings", false, 28)
 			goo_chip(Vector2(360, h * 0.39 + 530))
 			profile_bar(Vector2(360, h * 0.39 - 72), 460.0)
@@ -1459,8 +1460,9 @@ func paint_menu() -> void:
 	button(Rect2(450, 290, 380, 70), "PLAY", "play", true, 34)
 	button(Rect2(450, 376, 185, 56), "HARD MODE", "play_hard", false, 22)
 	button(Rect2(645, 376, 185, 56), "UPGRADES", "upgrades", false, 22)
-	button(Rect2(450, 448, 185, 56), "COLLECTION", "collection", false, 22)
-	button(Rect2(645, 448, 185, 56), "BESTIARY", "bestiary", false, 22)
+	button(Rect2(450, 448, 121, 56), "COLLECTION", "collection", false, 17)
+	button(Rect2(580, 448, 121, 56), "BESTIARY", "bestiary", false, 17)
+	button(Rect2(710, 448, 121, 56), "MUTATIONS", "mutation_book", false, 16)
 	button(Rect2(450, 520, 185, 50), "SETTINGS", "settings", false, 20)
 	button(Rect2(645, 520, 185, 50), "QUIT", "quit", false, 20)
 	if g.update_available:
@@ -1774,7 +1776,14 @@ func mini_tile(r: Rect2, id: String) -> void:
 
 # ================================================================= BESTIARY — dedicated enemy encyclopedia
 const Bestiary = preload("res://scripts/Bestiary.gd")
+const MutationRecipes = preload("res://scripts/EnemyMixes.gd")
+
+func mutation_unlocked(kind: String) -> bool:
+	return g.mutation_is_unlocked(kind)
+
 func bestiary_entries() -> Array:
+	if bestiary_filter == "MUTATIONS":
+		return g.mutation_book_ids()
 	var entries: Array = []
 	for kind in g.mob_order():
 		var is_boss = bool(g.enemy_db[kind].get("boss", false))
@@ -1795,7 +1804,7 @@ func bestiary_select(index: int, page_size: int) -> void:
 		bestiary_selected = str(entries[idx])
 
 func bestiary_filters(x: float, y: float, tile_width: float) -> void:
-	var filters = ["ALL", "STREET", "BOSSES", "FOUND"]
+	var filters = ["ALL", "STREET", "BOSSES", "FOUND", "MUTATIONS"]
 	for i in range(filters.size()):
 		var key = str(filters[i])
 		var r = Rect2(x + float(i) * (tile_width + 7.0), y, tile_width, 34)
@@ -1805,6 +1814,26 @@ func bestiary_filters(x: float, y: float, tile_width: float) -> void:
 
 func bestiary_tile(r: Rect2, kind: String) -> void:
 	var found = int(g.profile["mobs"].get(kind, 0)) > 0
+	var recipe = MutationRecipes.recipe_for_id(kind)
+	if bestiary_filter == "MUTATIONS" and not recipe.is_empty():
+		var available = mutation_unlocked(kind)
+		rbox(r, Color("243450") if found else (Color("18273c") if available else Color("0d1425")),
+			13, Color("ffdb75") if bestiary_selected == kind else (Color("73d8b2") if available else Color("40536b")),
+			3 if bestiary_selected == kind else 1)
+		if found:
+			enemy_icon(kind, Rect2(r.position + Vector2(10, 7), r.size - Vector2(20, 40)))
+		else:
+			txt("?" if available else "X", r.get_center() + Vector2(0, 7),
+				52, Color("7bd9bd") if available else Color("44566e"), 1, bold)
+		var label = str(recipe["name"]).to_upper() if available else "LOCKED"
+		txt(label, Vector2(r.get_center().x, r.end.y - 21),
+			fit(label, r.size.x - 10, 15, bold, 11), Color.WHITE if available else Color("8997af"), 1, bold)
+		if not available:
+			txt("N%d / H%d" % [int(recipe["normal_sector"]), int(recipe["hard_sector"])],
+				Vector2(r.get_center().x, r.end.y - 5), 11, Color("9caac0"), 1, body)
+		elif not found:
+			txt("NOT YET DEFEATED", Vector2(r.get_center().x, r.end.y - 5), 10, Color("a6dccc"), 1, body)
+		return
 	rbox(r, Color("1b2c42") if found else Color("10192b"), 13, Color("ffdb75") if bestiary_selected == kind else Color("456782"), 3 if bestiary_selected == kind else 1)
 	if found:
 		enemy_icon(kind, Rect2(r.position + Vector2(10, 7), r.size - Vector2(20, 40)))
@@ -1820,6 +1849,29 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 		txt("SELECT AN ENEMY", r.get_center(), 24, Color("adbed3"), 1, bold)
 		return
 	var found = int(g.profile["mobs"].get(kind, 0)) > 0
+	var recipe = MutationRecipes.recipe_for_id(kind)
+	if not recipe.is_empty() and not found:
+		var revealed = mutation_unlocked(kind)
+		txt("MUTATION UNLOCKED" if revealed else "MUTATION LOCKED",
+			Vector2(r.get_center().x, r.position.y + 75), 27,
+			Color("7dffcf") if revealed else Color("98a9bf"), 1, bold)
+		txt(str(recipe["name"]).to_upper() if revealed else "???",
+			Vector2(r.get_center().x, r.position.y + 133), 29, Color.WHITE, 1, bold)
+		if revealed:
+			txt("%s  +  %s" % [str(recipe["a"]).to_upper(), str(recipe["b"]).to_upper()],
+				Vector2(r.get_center().x, r.position.y + 186), 19, Color("ffd28d"), 1, bold)
+			wrap_text("This mutation can now appear in its unlocked sector or later. Defeat it to reveal its abilities, stats and combat record.",
+				r.position.x + 32, r.position.y + 220, r.size.x - 64, 19,
+				Color("c9e8de"), 27, body, false, 5)
+		else:
+			txt("NORMAL  SECTOR %d" % int(recipe["normal_sector"]),
+				Vector2(r.get_center().x, r.position.y + 184), 20, Color("e1d4aa"), 1, bold)
+			txt("HARD  SECTOR %d" % int(recipe["hard_sector"]),
+				Vector2(r.get_center().x, r.position.y + 225), 20, Color("ffb29a"), 1, bold)
+			wrap_text("Reach its introduction sector to unlock this entry. Every run still introduces mutations according to its own difficulty.",
+				r.position.x + 32, r.position.y + 280, r.size.x - 64, 18,
+				Color("b5c5d9"), 26, body, false, 5)
+		return
 	if not found:
 		txt("UNDISCOVERED", Vector2(r.get_center().x, r.position.y + 70), 32, Color("a9bed2"), 1, bold)
 		txt("?", r.get_center(), 110, Color("53647a"), 1, bold)
@@ -1852,13 +1904,25 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 func paint_bestiary() -> void:
 	paint_menu_bg()
 	draw_rect(g.landscape_rect(), Color(0.01, 0.02, 0.06, 0.77))
-	txt("BESTIARY", Vector2(34, 64), 52, Color.WHITE, 0, bold, 4)
+	txt("MUTATION BOOK" if bestiary_filter == "MUTATIONS" else "BESTIARY",
+		Vector2(34, 64), 52, Color.WHITE, 0, bold, 4)
 	var known = 0
 	for id in g.mob_order():
 		if int(g.profile["mobs"].get(id, 0)) > 0:
 			known += 1
-	txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
-	bestiary_filters(35, 111, 118)
+	if bestiary_filter == "MUTATIONS":
+		var unlocked = 0
+		var defeated = 0
+		for id in g.mutation_book_ids():
+			if mutation_unlocked(str(id)):
+				unlocked += 1
+			if int(g.profile["mobs"].get(id, 0)) > 0:
+				defeated += 1
+		txt("%d UNLOCKED  /  %d DISCOVERED  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+			Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
+	else:
+		txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
+	bestiary_filters(35, 111, 110)
 	var items = bestiary_entries()
 	if bestiary_selected == "" or not items.has(bestiary_selected):
 		bestiary_selected = ""
@@ -1885,13 +1949,25 @@ func paint_portrait_bestiary() -> void:
 	var h = g.ui_height
 	portrait_bg()
 	dim(0.7)
-	txt("BESTIARY", Vector2(360, 68), 57, Color.WHITE, 1, bold, 5)
+	txt("MUTATION BOOK" if bestiary_filter == "MUTATIONS" else "BESTIARY",
+		Vector2(360, 68), 48, Color.WHITE, 1, bold, 5)
 	var known = 0
 	for id in g.mob_order():
 		if int(g.profile["mobs"].get(id, 0)) > 0:
 			known += 1
-	txt("%d / %d DISCOVERED" % [known, g.mob_order().size()], Vector2(360, 110), 21, Color("a6d8f5"), 1, bold)
-	bestiary_filters(22, 128, 162)
+	if bestiary_filter == "MUTATIONS":
+		var unlocked = 0
+		var defeated = 0
+		for id in g.mutation_book_ids():
+			if mutation_unlocked(str(id)):
+				unlocked += 1
+			if int(g.profile["mobs"].get(id, 0)) > 0:
+				defeated += 1
+		txt("%d UNLOCKED  /  %d FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+			Vector2(360, 110), 20, Color("a6d8f5"), 1, bold)
+	else:
+		txt("%d / %d DISCOVERED" % [known, g.mob_order().size()], Vector2(360, 110), 21, Color("a6d8f5"), 1, bold)
+	bestiary_filters(22, 128, 127)
 	var items = bestiary_entries()
 	var pages = maxi(1, ceili(float(items.size()) / 9.0))
 	bestiary_page = clampi(bestiary_page, 0, pages - 1)
@@ -2367,7 +2443,7 @@ func award_line() -> String:
 	return t
 
 func unlock_name(u: Dictionary) -> String:
-	if u["type"] in ["enemy", "mob"]:
+	if u["type"] in ["enemy", "mob", "mutation"]:
 		return str(g.enemy_db[u["id"]]["name"])
 	if u["type"] == "gun":
 		return str(g.weapon_db[u["id"]].get("name", u["id"]))
@@ -2474,12 +2550,14 @@ func paint_unlock_toast(center_x: float, y: float) -> void:
 	var t = float(u["t"])
 	var slide = clampf((2.6 - t) * 6.0, 0.0, 1.0) * clampf(t * 6.0, 0.0, 1.0)
 	var r = Rect2(center_x - 190, y - 40 + slide * 40, 380, 64)
-	var col = {"gun": Color("ffcf4d"), "enemy": ALERT, "mob": Color("7dff9a")}.get(u["type"], NEON)
+	var col = {"gun": Color("ffcf4d"), "enemy": ALERT, "mob": Color("7dff9a"),
+		"mutation": Color("80eec4")}.get(u["type"], NEON)
 	cbox(r, Color(0.03, 0.05, 0.08, 0.94 * slide), 12, Color(col, slide), 2)
 	draw_rect(Rect2(r.position.x + 6, r.position.y + 14, 4, r.size.y - 22), Color(col, slide))
-	var label = {"gun": "UNLOCKED // NEW GUN", "enemy": "BOSS DOWN // NEW THREAT", "mob": "BESTIARY // NEW ENTRY"}.get(u["type"], "UNLOCKED // NEW CARD")
+	var label = {"gun": "UNLOCKED // NEW GUN", "enemy": "BOSS DOWN // NEW THREAT",
+		"mob": "BESTIARY // NEW ENTRY", "mutation": "MUTATION BOOK // UNLOCKED"}.get(u["type"], "UNLOCKED // NEW CARD")
 	txt(label, r.position + Vector2(22, 24), 15, Color(col, slide), 0, bold)
-	if u["type"] in ["enemy", "mob"]:
+	if u["type"] in ["enemy", "mob", "mutation"]:
 		enemy_icon(u["id"], Rect2(r.end.x - 62, r.position.y + 4, 56, 56), slide)
 	var nm = unlock_name(u).to_upper()
 	txt(nm, r.position + Vector2(22, 52), fit(nm, 330, 26), Color(1, 1, 1, slide), 0, bold)
