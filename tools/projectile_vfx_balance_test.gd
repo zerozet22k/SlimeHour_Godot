@@ -11,6 +11,9 @@ class Dummy:
 	var settings = {"particles": true}
 	var sim_step = 3
 
+	func on_screen(_pos: Vector2, _margin: float = 0.0) -> bool:
+		return true
+
 func check(condition: bool, message: String) -> void:
 	if not condition:
 		failed += 1

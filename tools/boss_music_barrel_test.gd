@@ -10,9 +10,15 @@ func check(condition: bool, description: String) -> void:
 		errors += 1
 		push_error("FAIL: " + description)
 
+class SilentSfx:
+	extends RefCounted
+	func play_projectile(_id: String) -> void:
+		pass
+
 class MockBoss:
 	extends RefCounted
 	var delayed: Array = []
+	var sfx = SilentSfx.new()
 
 func _initialize() -> void:
 	call_deferred("_run")
