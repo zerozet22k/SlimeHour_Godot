@@ -1,3 +1,11 @@
+## v0.1.47 — Cinder balance and repository branch consolidation
+
+- Adjust Cinder's base direct flame tick from 4.0 to 3.6 damage (-10%) and its maximum enemies hit per tick from 24 to 20; keep its 30-Hz fire rhythm, range, fuel, burn application and visual flame effects unchanged.
+- Add a documented base-DPS comparison for all 22 guns in `docs/WEAPON_DPS_AUDIT.md`; distinguish ideal single-target direct DPS from crowd damage, status procs, recall weapons and sustained heat weapons.
+- Add `tools/cinder_balance_test.gd` to the Windows release regression checks. Preserve Hydra Bow's original non-poison splitting bolts.
+- Audit four non-default branches. The Infinite Ammo work is already merged; updater changes are byte-for-byte present on main; old weapon-overflow and dynamic-enemy implementations are superseded by newer main. Do not merge old Nurse/Larry behavior back into the game.
+- After a verified v0.1.47 Windows release is published, prune only the four audited obsolete branch heads that have not changed since inspection; refuse to delete any concurrently updated branch.
+
 ## v0.1.46 — Infinite Ammo and weapon-card compatibility
 
 - Preserve Infinite Ammo without consuming normal magazines, interrupting attacks, or restarting reloads when firing. Manual reload cannot reintroduce ammunition delays.
