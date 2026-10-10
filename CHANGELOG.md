@@ -1,3 +1,11 @@
+## v0.1.11 — Ultrawide fullscreen and volley art
+
+- Landscape windows now use the actual horizontal display width for both menus and gameplay, without distorting sprites or changing normal 16:9 proportions.
+- Expanded road and playable collision walls for wide screens, including enemy spawns, projectiles, scenery and lane markings.
+- New Double Tap and Parallel Shots card illustrations appear on card offers, collection tiles and HUD.
+- Existing projectile range mechanic is intentional: distance is approximately velocity × lifetime, and range cards extend the lifetime.
+- Included MC's directional bash and Kaboomba's timed, visible detonation from v0.1.10.
+
 ## v0.1.10 — Card art, MC melee bash and reactive bombers
 
 - New Double Tap and Parallel Shots card illustrations.
