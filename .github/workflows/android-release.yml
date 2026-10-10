@@ -49,33 +49,21 @@ jobs:
           mkdir -p "$HOME/.local/share/godot/export_templates/4.7.2.stable"
           unzip -oq /tmp/templates.tpz -d /tmp/templates
           cp /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
-      - name: Configure Android SDK and signing
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Configure Android SDK
         run: |
           set -euo pipefail
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then echo "::error::Missing repository secret $name"; exit 1; fi
-          done
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/slime-hour-release.keystore
-          chmod 600 /tmp/slime-hour-release.keystore
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/tmp/slime-hour-release.keystore" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-      - name: Import and export signed release APK
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+      - name: Import and export Android test APK
         run: |
           set -euo pipefail
           mkdir -p build
           timeout 300 ./godot-ci --headless --path . --editor --import --quit
-          timeout 600 ./godot-ci --headless --path . --export-release Android build/SlimeHour-Android.apk
+          timeout 600 ./godot-ci --headless --path . --export-debug Android build/SlimeHour-Android.apk
           test -s build/SlimeHour-Android.apk
           sha256sum build/SlimeHour-Android.apk > build/SlimeHour-Android.apk.sha256
-      - name: Upload APK to matching GitHub Release
+      - name: Upload test APK to matching GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
