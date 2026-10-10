@@ -165,7 +165,31 @@ func paint_ground() -> void:
 				draw_circle(p, 22.0, Color(0, 0, 0, 0.95))
 				draw_arc(p, 24.0, 0, TAU, 24, Color("b48cff"), 3.0)
 			"lightning":
-				zigzag(P(z["a"]), P(z["b"]), Color(0.6, 0.85, 1.0, 0.6 * fade), 3.0)
+				# Gauss ion scar persists as a visible, crackling FIELD; unlike
+				# the initial rail shot it has measurable width and tick damage.
+				var start = P(z["a"])
+				var stop = P(z["b"])
+				var delta = stop - start
+				var length = delta.length()
+				if length < 1.0:
+					continue
+				var tangent = delta / length
+				var sideways = tangent.orthogonal()
+				var charge = clampf(float(z["t"]) / maxf(0.01, float(z["life"])), 0.0, 1.0)
+				var pulse = 0.78 + 0.22 * sin(g.anim_t * 25.0)
+				var field_width = maxf(12.0, float(z["r"]) * 1.8)
+				draw_line(start, stop, Color("3977ff", 0.11 * charge), field_width * 1.5)
+				draw_line(start, stop, Color("5ebdff", 0.18 * charge), field_width)
+				for ribbon in range(2):
+					var pts = PackedVector2Array()
+					for j in range(15):
+						var t = float(j) / 14.0
+						var w = sin(t * 23.0 + g.anim_t * (19.0 + ribbon * 5.0) + ribbon * 1.3)
+						var offset = w * (field_width * 0.30)
+						pts.append(start.lerp(stop, t) + sideways * offset)
+					draw_polyline(pts, Color("b5efff", (0.5 if ribbon == 0 else 0.3) * charge * pulse), 2.2 if ribbon == 0 else 1.3)
+				draw_circle(start, 5.0, Color("b6eaff", 0.38 * charge))
+				draw_circle(stop, 5.0, Color("b6eaff", 0.38 * charge))
 
 # ================================================================= gates & pitstop
 func paint_gates() -> void:
