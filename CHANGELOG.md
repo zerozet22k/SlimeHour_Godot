@@ -1,3 +1,12 @@
+## v0.1.21 — Full route overview, readable campfires, expanding playable road
+
+- Fix fullscreen between-sector screens: campfires now use an opaque menu backdrop, the title no longer overlays ROUTE MAP, and gun training fits within 720p/16:9 without clipping.
+- Add FULL MAP route overview with ten sector columns per page and previous/next controls. M or Esc toggles the overview, and left/right arrows browse it. Only adjacent reachable nodes can be selected, preserving progression.
+- Expand the actual playable road at later sectors rather than stretching the same fixed arena. A horizontal-follow camera allows the player to explore the extra space on desktop or portrait screens.
+- Generate deterministic physical roadside hazards: trees first, short median dividers in Sector 3+, breakable construction barriers in Sector 6+, and tougher destroyable parked cars only from Sector 12 onward.
+- Make trees/cars/medians block both enemies and players, while bullets collide and can clear breakable barriers/cars. Continuous movement collision prevents dashes tunneling through obstacles.
+- Add a Godot regression suite for road expansion, biome obstacle placement, projectile blocking, hero dash collision, and basic route map state.
+
 ## v0.1.19 — Direct-launch Windows game
 
 - Change the legacy `Start_Slime_Hour.bat` helper to launch the game directly without invoking the old PowerShell command-window downloader.

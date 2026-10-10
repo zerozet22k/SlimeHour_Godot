@@ -19,6 +19,7 @@ on:
       - tools/route_transition_test.gd
       - tools/projectile_vfx_balance_test.gd
       - tools/ingame_updater_test.gd
+      - tools/road_obstacle_test.gd
       - tools/chunk_release.py
       - tools/test_delta_powershell.py
       - update_and_run.ps1
@@ -97,6 +98,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/route_transition_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_vfx_balance_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/ingame_updater_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/road_obstacle_test.gd
           python3 tools/chunk_release.py selftest
           python3 tools/test_delta_powershell.py
           timeout 90 pwsh -NoProfile -File update_and_run.ps1 -ProbeDownload
