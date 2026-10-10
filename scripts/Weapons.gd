@@ -729,6 +729,13 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 	# Curving and wavy rounds are a gently oscillating flame sheet, not bullets.
 	if can_bank and (g.st("curve") != 0.0 or g.st("wave") > 0.0):
 		direction = direction.rotated(sin(g.run_time * 7.0) * minf(0.12, absf(g.st("curve")) * 0.025 + g.st("wave") * 0.0005))
+	# Cinder is a cone, not a bullet: test the barrel's actual angular
+	# footprint directly. A few fuel ticks can ignite its normal fuse.
+	for barrel in g.barrels:
+		if float(barrel["hp"]) <= 0.0 or bool(barrel.get("armed", false)) or float(barrel["drop"]) > 0.0:
+			continue
+		if flame_cone_contains(origin, direction, barrel["pos"], reach, half_angle, 20.0):
+			barrel["hp"] = maxf(0.0, float(barrel["hp"]) - damage)
 	var hits = 0
 	var anchor = null
 	for enemy in g.enemies_near(origin, reach + 30.0):
@@ -945,6 +952,9 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
 	var targets = line_targets(g, segments, width, max_hits)
+	# Prism Beam uses hitscan segments; it never enters projectile collisions.
+	for segment in segments:
+		Combat.damage_barrels_segment(g, segment["a"], segment["b"], width, dmg)
 	for target in targets:
 		var e = target["enemy"]
 		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
@@ -961,6 +971,8 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 		for side in [-1.0, 1.0]:
 			var fork_dir = dir.rotated(side * 0.65)
 			var ray = line_segments(g, fork_at, fork_dir, 220.0, 0)
+			for branch_segment in ray:
+				Combat.damage_barrels_segment(g, branch_segment["a"], branch_segment["b"], 9.0, dmg * 0.45)
 			for hit_info in line_targets(g, ray, 9.0, 2):
 				var victim = hit_info["enemy"]
 				if seen.has(victim["id"]):
@@ -989,6 +1001,32 @@ static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -
 		if score < best:
 			best = score
 			first = e
+	# Arc Caster should be able to pick an explosive barrel even without
+	# a nearby enemy. A barrel can be selected as the arc's primary target,
+	# but cannot participate in enemy-only chain routing.
+	var nearest_barrel = null
+	var barrel_score = best
+	for barrel in g.barrels:
+		if float(barrel["hp"]) <= 0.0 or bool(barrel.get("armed", false)) or float(barrel["drop"]) > 0.0:
+			continue
+		var to_barrel: Vector2 = barrel["pos"] - a
+		var distance = to_barrel.length()
+		if distance < 1.0 or distance > reach:
+			continue
+		var heading = to_barrel.normalized().dot(dir)
+		if heading < 0.72:
+			continue
+		var score = distance * (1.0 + (1.0 - heading) * 1.5)
+		if score < barrel_score:
+			barrel_score = score
+			nearest_barrel = barrel
+	if nearest_barrel != null:
+		var endpoint: Vector2 = nearest_barrel["pos"]
+		Combat.damage_barrels_segment(g, a, endpoint, 5.0, dmg)
+		g.beams.append({"a": a, "b": endpoint, "t": 0.13, "w": 3.5, "color": Color("9fd8ff"), "zig": true})
+		ProjectileVfx.impact(g, endpoint, dir, "shock", 9.0)
+		g.sfx.play("zap")
+		return
 	if first == null:
 		g.beams.append({"a": a, "b": a + dir * reach * 0.6, "t": 0.06, "w": 3.0, "color": Color("8fc8ff"), "zig": true})
 		return
@@ -1003,6 +1041,7 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 			break
 		visited[cur["id"]] = true
 		g.beams.append({"a": prev, "b": cur["pos"], "t": 0.1, "w": 3.5, "color": Color("9fd8ff"), "zig": true})
+		Combat.damage_barrels_segment(g, prev, cur["pos"], 3.5, dmg)
 		Combat.hit(g, cur, dmg, {"pos": cur["pos"], "gen": 0, "dir": (cur["pos"] - prev).normalized(), "knock": 40.0, "st": {"shock": 1.0}, "src": "tesla"})
 		ProjectileVfx.impact(g, cur["pos"], (cur["pos"] - prev).normalized(), "shock", 9.0)
 		prev = cur["pos"]
@@ -1035,9 +1074,7 @@ static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 		ProjectileVfx.pierce(g, e["pos"], target["dir"], "pierce")
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff")
 	for segment in segments:
-		for br in g.barrels:
-			if Combat.seg_dist2(segment["a"], segment["b"], br["pos"]) < pow(22.0 + width, 2):
-				br["hp"] = 0.0
+		Combat.damage_barrels_segment(g, segment["a"], segment["b"], width, dmg)
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.22, "w": width * 1.6, "color": color, "rail": true})
 		if int(w["lvl"]) >= 5:
 			g.add_zone("lightning", segment["a"], 14.0, 1.5, {"a": segment["a"], "b": segment["b"]})
