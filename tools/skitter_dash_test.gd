@@ -2,6 +2,19 @@ extends SceneTree
 ## Skitter regression: long committed dash and swept obstacle collision.
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const Combat = preload("res://scripts/Combat.gd")
+const Hud = preload("res://scripts/Hud.gd")
+
+class FakeWorld:
+	extends RefCounted
+	var portrait := false
+	var landscape_width := 1280.0
+	var ui_height := 720.0
+	var cam_x := 0.0
+	var cam_y := 0.0
+	var road_half := 530.0
+	var sector_kills := 0
+	func back_limit() -> float:
+		return 380.0
 var failures := 0
 
 func check(condition: bool, message: String) -> void:
@@ -29,5 +42,25 @@ func _run() -> void:
 	check(stopped.x < 160.0 - 30.0 and stopped.x > 0.0, "Fast dash stops before obstacle rather than tunneling")
 	var clear = RoadObstacles.resolve_movement(start, end, 12.0, [])
 	check(clear.distance_to(end) < 0.01, "Unobstructed dash retains full travel")
+	var bounded = Combat.skitter_dash_bound(Vector2(900, -1500), 0.0, 380.0, 530.0, 16.0)
+	check(bounded.is_equal_approx(Vector2(514.0, -880.0)), "Skitter stops at side and forward bounds")
+	var rear = Combat.skitter_dash_bound(Vector2(0, 1400), 0.0, 380.0, 530.0, 16.0)
+	check(is_equal_approx(rear.y, 364.0), "Skitter cannot charge past the rear sector barrier")
+	var world = FakeWorld.new()
+	var broken = {"pos": Vector2(0, 3000), "dead": false, "boss": false, "budget": true}
+	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Out-of-range enemy gets a recovery grace period")
+	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Bugged enemy not reaped immediately")
+	check(Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Unrecoverable enemy is reaped after grace period")
+	check(bool(broken["dead"]) and world.sector_kills == 1, "Reaped budget enemy still counts toward wave clear")
+	var boss = {"pos": Vector2(0, 3000), "dead": false, "boss": true}
+	for i in range(12):
+		Combat.reap_unreachable(world, boss, Vector2.ZERO, 1.0)
+	check(not bool(boss["dead"]), "Bosses are never silently removed")
+	check(not Hud.should_show_enemy_arrows(6, true, false), "No arrows in crowded combat")
+	check(not Hud.should_show_enemy_arrows(3, false, false), "No arrows until spawning finishes")
+	check(Hud.should_show_enemy_arrows(5, true, false), "Arrows shown with five remaining threats")
+	check(not Hud.should_show_enemy_arrows(1, true, true), "No arrows during boss intro")
+	var main_source = FileAccess.get_file_as_string("res://scripts/Main.gd")
+	check(main_source.contains("hp *= 2.0"), "Boss-only final HP multiplier remains two times")
 	print("SKITTER DASH TEST: ", "PASS" if failures == 0 else str(failures) + " failures")
 	quit(1 if failures > 0 else 0)

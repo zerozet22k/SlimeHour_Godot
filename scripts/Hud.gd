@@ -574,11 +574,74 @@ func paint_portrait_hud() -> void:
 			break
 	paint_portrait_banner()
 	paint_combo(Vector2(704, 280))
+	paint_enemy_arrows()
 	if g.is_touch_active() and g.state == "playing":
 		paint_touch_controls()
 		if bool(g.settings["hints"]) and g.sector == 1 and g.run_time < 9.0:
 			rbox(Rect2(100, h * 0.6, 520, 54), Color(0, 0, 0, 0.5), 27)
 			txt("DRAG ANYWHERE TO MOVE  ·  GUNS AUTO-FIRE", Vector2(360, h * 0.6 + 35), 20, Color.WHITE, 1, bold, 2)
+
+
+## Do not distract players with arrows during a full wave. Only highlight
+## survivors once spawning has finished and five or fewer threats remain.
+static func should_show_enemy_arrows(remaining: int, all_spawned: bool, during_intro: bool) -> bool:
+	return remaining > 0 and remaining <= 5 and all_spawned and not during_intro
+
+
+func paint_enemy_arrows() -> void:
+	if g.phase != "fight" or g.hero.is_empty():
+		return
+	var pending: Array = []
+	for e in g.enemies:
+		if not bool(e["dead"]) and str(e["kind"]) != "goblin":
+			pending.append(e)
+	var all_spawned: bool = g.budget_spawned >= g.sector_budget and g.rush_done and g.rush_queue == 0
+	if not should_show_enemy_arrows(pending.size(), all_spawned, g.boss_intro_t > 0.0):
+		return
+	var width: float = 720.0 if g.portrait else 1280.0
+	var height: float = g.ui_height if g.portrait else 720.0
+	var top: float = 180.0 if g.portrait else 114.0
+	var bottom: float = height - (193.0 if g.portrait else 122.0)
+	var center: Vector2 = Vector2(width * 0.5, height * 0.5)
+	var safe: Rect2 = Rect2(36.0, top, width - 72.0, bottom - top)
+	# Nearby off-screen enemies in the same direction share an arrow/count.
+	var groups: Dictionary = {}
+	for e in pending:
+		var pos: Vector2 = e["pos"]
+		var screen_pos: Vector2 = center + pos - Vector2(g.cam_x, g.cam_y)
+		if safe.has_point(screen_pos):
+			continue
+		var offset: Vector2 = screen_pos - center
+		if offset.length_squared() < 0.01:
+			continue
+		var slice: int = posmod(floori((offset.angle() + PI) / TAU * 12.0), 12)
+		if not groups.has(slice):
+			groups[slice] = {"dir": offset.normalized(), "count": 0, "boss": false, "distance": offset.length_squared()}
+		var marker: Dictionary = groups[slice]
+		marker["count"] = int(marker["count"]) + 1
+		if bool(e["boss"]) or (not bool(marker["boss"]) and offset.length_squared() < float(marker["distance"])):
+			marker["dir"] = offset.normalized()
+			marker["distance"] = offset.length_squared()
+		marker["boss"] = bool(marker["boss"]) or bool(e["boss"])
+	for slice in groups:
+		var marker: Dictionary = groups[slice]
+		var direction: Vector2 = marker["dir"]
+		var room_y: float = center.y - top - 22.0 if direction.y < 0.0 else bottom - center.y - 22.0
+		var mx: float = (center.x - 51.0) / maxf(absf(direction.x), 0.001)
+		var my: float = maxf(room_y, 18.0) / maxf(absf(direction.y), 0.001)
+		var point: Vector2 = center + direction * minf(mx, my)
+		var perpendicular: Vector2 = direction.orthogonal()
+		var color: Color = Color("ff6075") if bool(marker["boss"]) else Color("ffd16d")
+		draw_circle(point, 18.0, Color(0.02, 0.04, 0.09, 0.9))
+		draw_colored_polygon(PackedVector2Array([
+			point + direction * 14.0,
+			point - direction * 8.0 + perpendicular * 10.0,
+			point - direction * 8.0 - perpendicular * 10.0
+		]), color)
+		if bool(marker["boss"]):
+			txt("BOSS", point - direction * 32.0 + Vector2(0, 4), 13, color, 1, bold, 3)
+		elif int(marker["count"]) > 1:
+			txt("x%d" % int(marker["count"]), point - direction * 30.0 + Vector2(0, 4), 13, color, 1, bold, 3)
 
 func gun_chip(w: Dictionary, r: Rect2) -> void:
 	var tier = clampi(int(w.get("tier", 0)), 0, 5)
@@ -1053,6 +1116,8 @@ func paint_hud() -> void:
 			txt("DRAG LOWER LEFT TO MOVE   ·   TAP DASH TO DODGE   ·   TAP BASH TO STRIKE   ·   GUNS AUTO-TARGET & FIRE", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
 		else:
 			txt("WASD move   ·   LEFT CLICK gun 1   ·   RIGHT CLICK gun 2   ·   R reload   ·   SPACE dash   ·   F bash   ·   TAB arsenal", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
+	if g.state == "playing":
+		paint_enemy_arrows()
 	if g.is_touch_active() and g.state == "playing":
 		paint_touch_controls()
 

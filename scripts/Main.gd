@@ -1463,6 +1463,8 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		hp = float(d["hp"]) * scale * (1.5 if hard_mode else 1.0)
 		if sector > WIN_SECTOR:
 			hp *= pow(1.8, float(mini(sector - WIN_SECTOR, 20)))
+		# Multiply final boss HP by two in both difficulty modes; mobs unchanged.
+		hp *= 2.0
 	serial += 1
 	var e = {"id": serial, "kind": kind, "pos": pos, "vel": Vector2.ZERO, "kb": Vector2.ZERO,
 		"hp": hp, "max_hp": hp, "r": float(d["r"]) * (1.3 if is_elite else 1.0),

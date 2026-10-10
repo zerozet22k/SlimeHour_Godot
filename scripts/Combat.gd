@@ -1219,6 +1219,51 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			e["mark"] = 4.0 * dur
 
 # ================================================================= enemies
+## Let Skitter dash past its target, but stop at reachable sector boundaries.
+static func skitter_dash_bound(pos: Vector2, hero_y: float, rear_limit: float, road_half: float, radius: float) -> Vector2:
+	var side: float = maxf(0.0, road_half - radius)
+	return Vector2(clampf(pos.x, -side, side),
+		clampf(pos.y, hero_y - 880.0, rear_limit - radius))
+
+
+## Recover broken/off-road mobs without rewarding an invisible kill. A budget
+## monster must still count toward clearing the sector or the director stalls.
+## Healthy off-screen enemies that are closing in on the player are retained.
+static func reap_unreachable(g, e: Dictionary, hero_pos: Vector2, dt: float) -> bool:
+	if bool(e.get("boss", false)):
+		return false
+	var p: Vector2 = e["pos"]
+	var dist: float = p.distance_to(hero_pos)
+	var view_half_w: float = 360.0 if g.portrait else g.landscape_width * 0.5
+	var view_half_h: float = g.ui_height * 0.5 if g.portrait else 360.0
+	var offscreen: bool = absf(p.x - g.cam_x) > view_half_w + 100.0 or absf(p.y - g.cam_y) > view_half_h + 100.0
+	var out_of_bounds: bool = absf(p.x) > g.road_half + 80.0 or p.y > g.back_limit() + 240.0 or dist > 2300.0
+	if not out_of_bounds and (not offscreen or dist < 720.0):
+		e["straggler_t"] = 0.0
+		e["straggler_sample_t"] = 0.0
+		e["straggler_dist"] = dist
+		return false
+	if out_of_bounds:
+		e["straggler_t"] = float(e.get("straggler_t", 0.0)) + dt * 3.0
+	else:
+		var sample: float = float(e.get("straggler_sample_t", 0.0)) + dt
+		if sample >= 1.0:
+			var previous: float = float(e.get("straggler_dist", dist + 1.0))
+			if dist >= previous - 30.0:
+				e["straggler_t"] = float(e.get("straggler_t", 0.0)) + sample
+			else:
+				e["straggler_t"] = maxf(0.0, float(e.get("straggler_t", 0.0)) - sample * 2.0)
+			e["straggler_dist"] = dist
+			sample = 0.0
+		e["straggler_sample_t"] = sample
+	if float(e.get("straggler_t", 0.0)) < 9.0:
+		return false
+	e["dead"] = true
+	if e.has("budget"):
+		g.sector_kills += 1
+	return true
+
+
 static func has_role(g, e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
 	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
@@ -1242,6 +1287,8 @@ static func update_enemies(g, dt: float) -> void:
 	for idx in range(count):
 		var e = g.enemies[idx]
 		if bool(e["dead"]):
+			continue
+		if reap_unreachable(g, e, hero_pos, dt):
 			continue
 		e["t"] = float(e["t"]) + dt
 		e["recover"] = maxf(0.0, float(e.get("recover", 0.0)) - dt)
@@ -1387,13 +1434,17 @@ static func update_enemies(g, dt: float) -> void:
 				e["pos"] = RoadObstacles.resolve_movement(before_dash_move, e["pos"], float(e["r"]), g.obstacles)
 			else:
 				e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
-		# Skitter flies past the player, stopping only on a solid obstacle or road edge.
-		# The charge timer is a safety limit for long empty stretches, not a short lunge.
-		if skitter_dashing and (absf(e["pos"].x) >= g.road_half - float(e["r"]) - 0.5 or e["pos"].distance_squared_to(before_obstacle_push) > 0.25):
-			e["charge"] = 0.0
-			e["stun"] = maxf(float(e["stun"]), 0.65)
-			e["vel"] = Vector2.ZERO
-			e["wind"] = 0.0
+		# A Skitter may overshoot the player but cannot cross the sector's
+		# rear barrier or disappear a whole screen beyond the playable route.
+		if skitter_dashing:
+			var bounded: Vector2 = skitter_dash_bound(e["pos"], hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
+			var edge_hit: bool = bounded.distance_squared_to(e["pos"]) > 0.25 or absf(bounded.x) >= g.road_half - float(e["r"]) - 0.5
+			e["pos"] = bounded
+			if edge_hit or e["pos"].distance_squared_to(before_obstacle_push) > 0.25:
+				e["charge"] = 0.0
+				e["stun"] = maxf(float(e["stun"]), 0.65)
+				e["vel"] = Vector2.ZERO
+				e["wind"] = 0.0
 		if str(e["kind"]) == "bull" and float(e["charge"]) > 0.0:
 			EnemyIdentity.bull_push(g, e, dt)
 		# Separation + bowling collisions
@@ -1429,6 +1480,14 @@ static func update_enemies(g, dt: float) -> void:
 					if randf() < 0.18:
 						g.say(o["pos"] + Vector2(0, -20), "BONK", Color("ffe14d"), 18)
 						g.sfx.play("bonk")
+		# Crowd separation also moves bodies; clamp AFTER pushing so Skitters
+		# cannot leave the road through another monster's collision response.
+		var side: float = maxf(0.0, g.road_half - float(e["r"]))
+		var corrected: Vector2 = e["pos"]
+		corrected.x = clampf(corrected.x, -side, side)
+		if str(e["kind"]) == "skitter":
+			corrected = skitter_dash_bound(corrected, hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
+		e["pos"] = corrected
 		# Contact damage
 		if charmed:
 			if target_enemy != null and dist < float(e["r"]) + float(target_enemy["r"]) + 4.0:
@@ -1464,11 +1523,12 @@ static func update_enemies(g, dt: float) -> void:
 			e["thorn_cd"] = float(e["thorn_cd"]) - dt
 		if g.state != "playing":
 			return
-		# Despawn far stragglers so the road ahead stays fresh.
+		# Enemies left far behind cannot block a sector or force infinite
+		# replacements. This is cleanup, never an XP- or loot-producing kill.
 		if e["pos"].y > hero_pos.y + 900.0 and not bool(e["boss"]):
 			e["dead"] = true
 			if e.has("budget"):
-				g.budget_spawned = maxi(0, g.budget_spawned - 1)
+				g.sector_kills += 1
 
 ## Threat phases create new patterns, not inflated damage. Phase thresholds at 65% and 32%.
 static func boss_stage(e: Dictionary) -> int:

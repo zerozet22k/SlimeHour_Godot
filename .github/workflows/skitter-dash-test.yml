@@ -5,6 +5,8 @@ on:
     paths:
       - scripts/Combat.gd
       - scripts/RoadObstacles.gd
+      - scripts/Main.gd
+      - scripts/Hud.gd
       - tools/skitter_dash_test.gd
       - .github/workflows/skitter-dash-test.yml
   workflow_dispatch:
