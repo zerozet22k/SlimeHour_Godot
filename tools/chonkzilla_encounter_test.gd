@@ -102,9 +102,58 @@ func _run() -> void:
 	check(str(phase_three.get("chonk_state", "")) == "windup" and int(phase_three["chonk_combo"]) == 1,
 		"Phase 3 chains into a newly telegraphed second attack")
 
+	# Bullet-hell director must supply real sustained pressure in all phases.
+	g.shots.clear()
+	var barrage_boss = make_chonk(g, 1.0)
+	barrage_boss["spiral_t"] = 0.0
+	barrage_boss["intercept_t"] = 0.0
+	var initial_barrage = Chonkzilla.barrage(g, barrage_boss, 0, 0.016)
+	check(initial_barrage.size() >= 5, "Phase 1 fires rotating curtains and aimed interception together")
+	check(initial_barrage.all(func(p): return float(p["speed"]) > 200.0 and float(p["life"]) > 2.0),
+		"Boss bullets travel as real projectiles, not instant telegraph damage")
+	barrage_boss["chonk_state"] = "windup"
+	barrage_boss["spiral_t"] = 0.0
+	barrage_boss["intercept_t"] = 10.0
+	check(Chonkzilla.barrage(g, barrage_boss, 0, 0.1).size() >= 2,
+		"Chonkzilla still fires during a body-charge windup")
+	barrage_boss["chonk_state"] = "rush"
+	barrage_boss["spiral_t"] = 0.0
+	check(Chonkzilla.barrage(g, barrage_boss, 0, 0.1).size() >= 2,
+		"Projectile pressure continues throughout committed rushes")
+	barrage_boss["chonk_state"] = "stagger"
+	barrage_boss["spiral_t"] = 0.0
+	check(Chonkzilla.barrage(g, barrage_boss, 0, 0.1).is_empty(),
+		"Earned armor break really silences the boss for its punish window")
+	var ring_boss = make_chonk(g, 0.2)
+	ring_boss["spiral_t"] = 8.0
+	ring_boss["intercept_t"] = 8.0
+	ring_boss["ring_t"] = 0.0
+	var ring = Chonkzilla.barrage(g, ring_boss, 2, 0.1)
+	check(ring.size() >= 12 and ring.size() <= Chonkzilla.VOLLEY_BUFFER,
+		"Final phase creates a dense but bounded projectile ring")
+	var opening: float = (g.hero["pos"] - ring_boss["pos"]).angle()
+	check(ring.all(func(p): return absf(wrapf(Vector2(p["dir"]).angle() - opening, -PI, PI)) >= 0.34),
+		"Every projectile ring leaves a real escape wedge")
+	g.shots.clear()
+	for i in range(Chonkzilla.OWNED_PROJECTILE_LIMIT):
+		g.shots.append({"boss_owner": int(ring_boss["id"]), "dead": false})
+	check(Chonkzilla.barrage(g, ring_boss, 2, 0.1).is_empty(),
+		"Active projectile budget prevents a runaway projectile population")
+	g.shots.clear()
+	# Verify Combat creates owned shots with real movement, collision and cleanup.
+	var live_boss = make_chonk(g)
+	live_boss["spiral_t"] = 0.0
+	live_boss["intercept_t"] = 0.0
+	Combat.boss_arena_tick(g, live_boss, 0.1)
+	check(g.shots.any(func(p): return int(p.get("boss_owner", -1)) == int(live_boss["id"])
+		and not bool(p["friendly"])), "Integrated barrage emits real enemy-owned bullets")
+
 	var visuals: String = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
-	check(visuals.contains('"chonk_fault"') and visuals.contains('"chonk_pillar"')
-		and visuals.contains("CHARGE - MOVE SIDEWAYS"), "Actual rock hitboxes, fault pulses, and rush direction are visible")
+	check(visuals.contains('"chonk_fault"') and visuals.contains('"chonk_pillar"'),
+		"Physical hazards remain visible without a giant warning overlay")
+	check(not visuals.contains('text_c("CHARGE - MOVE SIDEWAYS"')
+		and not visuals.contains('text_c("RAMPAGE"'),
+		"Chonkzilla warnings use restrained in-world cues, not intrusive text")
 	g.free()
 	print("CHONKZILLA ENCOUNTER TEST: ", "PASS" if failures == 0 else "%d failures" % failures)
 	quit(1 if failures > 0 else 0)
