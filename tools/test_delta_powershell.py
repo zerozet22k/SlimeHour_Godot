@@ -47,6 +47,28 @@ def test():
         assert metadata["version"] == "v1.0.1"
         assert patch.stat().st_size < (d / "new.zip").stat().st_size
         print("PASS: actual PowerShell updater correctly reused chunks and verified files")
+        # Check the hidden, offline install-only route used by the Godot UI.
+        # The helper must not download any files or overwrite the base version.
+        local = d / "userprofile"
+        local.mkdir()
+        env = dict(os.environ, LOCALAPPDATA=str(local))
+        for mode, source in [("delta", patch), ("full", d / "new.zip")]:
+            copied = d / ("install_" + mode + ".zip")
+            shutil.copyfile(source, copied)
+            subprocess.run([pwsh, "-NoProfile", "-File", str(root / "update_and_run.ps1"),
+                            "-InstallDownloaded", str(copied),
+                            "-InstallVersion", "v1.0.1",
+                            "-ExpectedSha256", sha256(copied),
+                            "-DownloadKind", mode,
+                            "-BaseDirectory", str(older),
+                            "-TestNoLaunch"], check=True, timeout=120, env=env)
+            final = local / "SlimeHour" / "versions" / "v1.0.1"
+            for file in FILES:
+                if sha256(newer / file) != sha256(final / file):
+                    raise RuntimeError(f"In-game {mode} installation mismatch: {file}")
+            assert (local / "SlimeHour" / "last_installed.txt").read_text().strip() == "v1.0.1"
+            assert sha256(older / "SlimeHour.pck") == sha256(d / "old" / "SlimeHour.pck")
+            print("PASS: hidden", mode, "installer validated and kept the base files")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,12 @@
+## v0.1.17 — In-game Windows updater
+
+- Check GitHub Releases inside the game and display a dedicated download interface, with the actual file size, MiB progress, verification, retry, and cancel controls.
+- Automatically prefer compatible incremental patches when available; otherwise download the full Windows game once.
+- Download files directly to disk, verify the exact SHA256 checksum and advertised file size, then prompt for Install & Restart.
+- Apply verified patches after the game exits using a hidden Windows helper, so no CMD or PowerShell console appears during game updates.
+- Preserve previous versions and saves. The installer validates every output file and launches the previous game if an installation fails.
+- Add unit tests for trusted release URLs, semantic versions, checksums, and matching patch metadata, plus an installer test for delta and full archives.
+
 ## v0.1.16 — Expressive weapon effects and gentler early-mid sectors
 
 - Separate kinetic, rapid, heavy, piercing, fragment, fire, ice, poison, shock, explosive, ricochet and enemy-projectile travel/impact styles; add muzzle flashes, bounce flashes, critical hit flashes and element-specific procs.
