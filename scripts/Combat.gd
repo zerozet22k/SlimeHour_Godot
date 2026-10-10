@@ -238,6 +238,14 @@ static func update_delayed(g, dt: float) -> void:
 						float(item["dmg"]), {"friendly": false, "speed": 340.0, "life": 2.1, "r": 6.0,
 						"kind": "enemy", "color": Color("b397ff"), "src": "Void Weaver's portal"})
 				g.spawn_ring_fx(item["pos"], Color("b397ff"), 43.0)
+			"blink_slash":
+				# Departure-to-arrival hitbox exactly matches the rift warning.
+				var a: Vector2 = item["a"]
+				var b: Vector2 = item["b"]
+				var w: float = float(item["tele"])
+				g.beams.append({"a": a, "b": b, "t": 0.20, "w": w * 2.0, "color": Color("b88bff"), "zig": false})
+				if seg_dist2(a, b, g.hero["pos"]) <= pow(w + 11.0, 2.0):
+					g.hurt(float(item["dmg"]), item["pos"], "Blinky's teleport slash")
 			"boss_line":
 				# Telegraph exactly the same segment and collision width as the strike.
 				var a: Vector2 = item["a"]
@@ -769,10 +777,12 @@ static func collide_hero(g, s: Dictionary) -> void:
 static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 	if bool(e["dead"]):
 		return false
-	# The Ashwing cocoon is destructible before the resurrection completes.
+	# A phoenix egg can be destroyed to kill Ashwing permanently.
+	# Killing the revived adult only creates another egg, with no fixed life limit.
 	if float(e.get("rebirth_t", 0.0)) > 0.0 and has_role(g, e, "ashwing"):
 		e["cocoon_hp"] = float(e.get("cocoon_hp", float(e["max_hp"]) * 0.35)) - dmg
 		if float(e["cocoon_hp"]) <= 0.0:
+			e["cocoon_broken"] = true
 			e["rebirth_t"] = 0.0
 			kill(g, e, ctx, 0.0)
 		return false
@@ -918,6 +928,8 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 		return
 	if str(e["kind"]) == "chonk" and float(e.get("recover", 0.0)) > 0.0:
 		amount *= 1.5
+	if float(e.get("siphon_empowered_t", 0.0)) > 0.0:
+		amount *= 0.62 # Empowered ally resists bullets and AoE while linked.
 	if str(e["kind"]) == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
 		amount *= 1.65
 	# Armored elites shrug off 40%. A nearby Hype Totem halves incoming
@@ -1014,6 +1026,8 @@ static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "
 	# DOT respects boss armor / vulnerability exactly as direct damage.
 	amount *= boss_identity_damage_factor(g, e)
 	amount = totem_protected_damage(g, e, amount)
+	if float(e.get("siphon_empowered_t", 0.0)) > 0.0:
+		amount *= 0.62
 	e["hp"] = float(e["hp"]) - amount
 	g.damage_dealt += amount
 	if label != "" and bool(g.settings.get("numbers", true)):
@@ -1032,12 +1046,11 @@ static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "
 static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	if bool(e["dead"]):
 		return
-	# Zombie-phoenix: one clearly telegraphed rebirth, with no first-death loot
-	# or kill-count credit. It cannot resurrect a second time.
-	if has_role(g, e, "ashwing") and not bool(e.get("reborn", false)):
-		e["reborn"] = true
-		e["rebirth_t"] = 1.35
-		e["cocoon_hp"] = maxf(3.0, float(e["max_hp"]) * 0.35)
+	# Unlimited phoenix cycles: adult deaths produce an attackable egg.
+	# Breaking the egg is the ONLY final kill, so death rewards aren't farmable.
+	if has_role(g, e, "ashwing") and not bool(e.get("cocoon_broken", false)):
+		e["rebirth_t"] = 1.8 if not g.hard_mode else 1.55
+		e["cocoon_hp"] = maxf(6.0, float(e["max_hp"]) * 0.38)
 		e["hp"] = maxf(1.0, float(e["max_hp"]) * 0.42)
 		e["wind"] = 0.0
 		e["charge"] = 0.0
@@ -1300,6 +1313,8 @@ static func update_enemies(g, dt: float) -> void:
 			continue
 		e["t"] = float(e["t"]) + dt
 		e["recover"] = maxf(0.0, float(e.get("recover", 0.0)) - dt)
+		# Temporary Leechling empowerment is tied to an active, nearby blood link.
+		e["siphon_empowered_t"] = maxf(0.0, float(e.get("siphon_empowered_t", 0.0)) - dt)
 		# A rebirthing Ashwing stays in the enemy roster so a room cannot clear
 		# while its resurrection is pending; it is harmless and untargetable.
 		if float(e.get("rebirth_t", 0.0)) > 0.0:
@@ -1307,6 +1322,7 @@ static func update_enemies(g, dt: float) -> void:
 			e["vel"] = Vector2.ZERO
 			e["kb"] = Vector2.ZERO
 			if float(e["rebirth_t"]) <= 0.0:
+				e["cocoon_hp"] = 0.0
 				g.spawn_ring_fx(e["pos"], Color("ff9d59"), 52.0)
 				# Phoenix resurrection now also leaves a warned ember nova,
 				# instead of becoming only a second health bar.
@@ -1374,6 +1390,8 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e["slow"]) > 0.0:
 			speed_mul *= 0.55
 		speed_mul *= 1.0 - minf(0.6, float(e["chill"]) / 100.0 * 0.6)
+		if float(e.get("siphon_empowered_t", 0.0)) > 0.0:
+			speed_mul *= 1.30
 		# ---- targeting
 		var charmed = float(e["charm"]) > 0.0
 		var target_pos = hero_pos
@@ -1492,7 +1510,8 @@ static func update_enemies(g, dt: float) -> void:
 					g.say(hero_pos + Vector2(0, -40), "TICKED! DASH!", Color("9dff6b"), 20)
 				g.hurt(float(e["dmg"]), e["pos"], "a Lil Tick")
 				continue
-			var contact_hurt = g.hurt(float(e["dmg"]), e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"]))
+			var contact_dmg = float(e["dmg"]) * (1.35 if float(e.get("siphon_empowered_t", 0.0)) > 0.0 else 1.0)
+			var contact_hurt = g.hurt(contact_dmg, e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"]))
 			if contact_hurt and has_role(g, e, "leech"):
 				var stolen = minf(float(e["max_hp"]) * 0.12, float(e["dmg"]) * 1.5)
 				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + stolen)
@@ -2123,46 +2142,83 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["squash"] = 0.5
 			return dir if dist > 325.0 else (-dir if dist < 190.0 else dir.orthogonal() * 0.4)
 		"lancer":
-			# Long-range spear burst: stationary aiming tell and fast pierce shot.
+			# Distinct hybrid fighter: close-range sweeping melee, long-range thrown spear.
+			# Both have locked windups; the sweep is a large directional *sector*, not an AoE circle.
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					var aim = (Vector2(e.get("lock", hero_pos)) - e["pos"]).normalized()
-					var dart = enemy_fire(g, e, aim, 1, 0.0, 520.0, 4.0)
-					if dart != null:
-						dart["pierce"] = 1
-						dart["life"] = 1.8
+					var aim: Vector2 = (Vector2(e.get("lock", hero_pos)) - Vector2(e["pos"])).normalized()
+					if aim.length_squared() < 0.01:
+						aim = dir
+					if str(e.get("lancer_attack", "spear")) == "sweep":
+						var toward: Vector2 = hero_pos - Vector2(e["pos"])
+						if toward.length_squared() <= 166.0 * 166.0 and (toward.length_squared() < 0.01 or aim.dot(toward.normalized()) >= 0.4067):
+							g.hurt(float(e["dmg"]) * 1.25, e["pos"], "a Lancer's wide spear sweep")
+						g.spawn_ring_fx(e["pos"], Color("c8d5ff"), 76.0)
+					else:
+						var spear = enemy_fire(g, e, aim, 1, 0.0, 585.0, 9.0)
+						if spear != null:
+							spear["pierce"] = 3
+							spear["dmg"] = float(e["dmg"]) * 1.15
+							spear["life"] = 1.8
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 520.0:
-				e["cd"] = 3.4
-				e["wind"] = 0.68
-				e["lock"] = hero_pos + g.hero["vel"] * 0.23
+			if float(e["cd"]) <= 0.0 and dist < 610.0:
+				if dist <= 240.0:
+					e["lancer_attack"] = "sweep"
+					e["cd"] = 2.65 if not g.hard_mode else 2.20
+					e["wind"] = 0.60
+				else:
+					e["lancer_attack"] = "spear"
+					e["cd"] = 3.25 if not g.hard_mode else 2.65
+					e["wind"] = 0.78
+				e["lock"] = hero_pos + g.hero["vel"] * (0.10 if dist <= 240.0 else 0.31)
 				return Vector2.ZERO
-			return dir if dist > 360.0 else -dir * 0.45
+			return dir if dist > 170.0 else -dir * 0.25
 		"leech":
-			# Sustained blood siphon broken by real cover, range or death.
+			# Long-range blood conduit: siphon player HP and empower/heal a nearby ally.
+			# The linked ally gains armor, speed and damage only while the tether holds.
 			if float(e.get("tether_t", 0.0)) > 0.0:
 				e["tether_t"] = maxf(0.0, float(e["tether_t"]) - dt)
-				if dist > 225.0 or EnemyIdentity.covered(g, e["pos"], hero_pos):
+				if dist > 565.0 or EnemyIdentity.covered(g, e["pos"], hero_pos):
 					e["tether_t"] = 0.0
-				elif float(e.get("tether_tick", 0.0)) <= 0.0:
-					e["tether_tick"] = 0.45
-					if g.hurt(float(e["dmg"]) * 0.28, e["pos"], "a Leech blood tether"):
-						e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.04)
+					e.erase("siphon_target")
+					return -dir * 0.25
+				var beneficiary: Dictionary = e.get("siphon_target", {})
+				if beneficiary.is_empty() or bool(beneficiary.get("dead", true)) or beneficiary["pos"].distance_squared_to(e["pos"]) > 220.0 * 220.0:
+					beneficiary = {}
+					var best_score: float = -1.0
+					for other in query(g, e["pos"], 215.0):
+						if other == e or bool(other["dead"]) or bool(other.get("boss", false)) or str(other["kind"]) == "leech":
+							continue
+						var score: float = float(other["max_hp"]) * (1.4 if bool(other.get("elite", false)) else 1.0)
+						if score > best_score:
+							beneficiary = other
+							best_score = score
+					e["siphon_target"] = beneficiary
+				if not beneficiary.is_empty():
+					beneficiary["siphon_empowered_t"] = 0.65
+				if float(e.get("tether_tick", 0.0)) <= 0.0:
+					e["tether_tick"] = 0.42
+					if g.hurt(float(e["dmg"]) * 0.34, e["pos"], "a Leech blood conduit"):
+						if not beneficiary.is_empty():
+							beneficiary["hp"] = minf(float(beneficiary["max_hp"]), float(beneficiary["hp"]) + maxf(5.0, float(beneficiary["max_hp"]) * 0.085))
+							g.spawn_ring_fx(beneficiary["pos"], Color("b77dff"), 28.0)
+						else:
+							e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.055)
 				e["tether_tick"] = float(e.get("tether_tick", 0.0)) - dt
 				return Vector2.ZERO
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0 and dist < 225.0 and not EnemyIdentity.covered(g, e["pos"], hero_pos):
-					e["tether_t"] = 2.2 if not g.hard_mode else 2.8
+				if float(e["wind"]) <= 0.0 and dist < 525.0 and not EnemyIdentity.covered(g, e["pos"], hero_pos):
+					e["tether_t"] = 3.4 if not g.hard_mode else 4.2
 					e["tether_tick"] = 0.1
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 205.0 and dist > 65.0:
-				e["cd"] = 5.0 if not g.hard_mode else 4.1
-				e["wind"] = 0.95
+			if float(e["cd"]) <= 0.0 and dist < 525.0 and dist > 95.0:
+				e["cd"] = 5.0 if not g.hard_mode else 4.0
+				e["wind"] = 0.90
 				e["lock"] = hero_pos
 				return Vector2.ZERO
-			return (dir * 0.9 + dir.orthogonal() * sin(float(e["t"]) * 3.1 + float(e["phase"])) * 0.18).normalized()
+			return dir if dist > 370.0 else (-dir * 0.45 if dist < 240.0 else dir.orthogonal() * 0.25)
 		"ashwing":
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
@@ -2308,7 +2364,13 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["blink_recover"] = 0.28
 					g.spawn_ring_fx(e["pos"], Color("c58cff"), 45.0)
 					if g.delayed.size() < 140:
-						schedule_boss_line(g, origin, echo_target, 14.0, float(e["dmg"]) * 0.78, 0.96, "b88bff")
+						# The dash slash MUST use the traveled rift segment, never the obsolete predicted player point.
+						var destination: Vector2 = e["pos"]
+						var travel: Vector2 = destination - origin
+						if travel.length_squared() > 9.0:
+							g.delayed.append({"fn": "blink_slash", "pos": (origin + destination) * 0.5,
+								"a": origin, "b": destination, "tele": 15.0,
+								"dmg": float(e["dmg"]) * 0.86, "t": 0.70, "life": 0.70, "color": "b88bff"})
 					var shot_dir: Vector2 = (echo_target - e["pos"]).normalized()
 					if shot_dir.length_squared() < 0.01:
 						shot_dir = dir
@@ -2349,9 +2411,10 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var stream = enemy_fire(g, e, aim, 1, 0.0, 245.0, 5.5)
 					if stream != null:
 						stream["color"] = Color("a2ff83")
-					for step_i in range(3):
-						var blot: Vector2 = e["pos"].lerp(lock, 0.42 + float(step_i) * 0.20)
-						EnemyIdentity.place(g, "acid", blot, 22.0, float(e["dmg"]) * 0.23, 2.7, 0.10)
+					# A single continuous toxin ribbon; no adjacent puddle circles.
+					var trail_start: Vector2 = Vector2(e["pos"]) + aim * (float(e["r"]) + 12.0)
+					var trail_end: Vector2 = Vector2(e["pos"]) + aim * minf(465.0, maxf(175.0, Vector2(e["pos"]).distance_to(lock)))
+					EnemyIdentity.place_line(g, trail_start, trail_end, 19.0, float(e["dmg"]) * 0.29, 3.4, "acid_trail", 0.18)
 					if g.sector >= 6:
 						for side in [-1.0, 1.0]:
 							var hook = enemy_fire(g, e, aim.rotated(side * 0.31), 1, 0.0, 225.0, 5.5)
@@ -2509,7 +2572,7 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 		var enemy_kind = str(e["kind"])
 		var boss_style = "boss_ember" if enemy_kind in ["chonkzilla", "dreadengine"] else ("boss_void" if enemy_kind in ["kingblob", "voidweaver"] else ("boss_frost" if enemy_kind in ["necro", "glassoracle"] else ("boss_storm" if enemy_kind in ["heli", "coilqueen"] else "enemy")))
 		var shot_color = ProjectileVfx.tint(boss_style)
-		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8,
+		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8 * (1.35 if float(e.get("siphon_empowered_t", 0.0)) > 0.0 else 1.0),
 			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": shot_color,
 			"vfx_style": boss_style, "src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
 		if k == 0 and last != null and boss_style.begins_with("boss_"):
