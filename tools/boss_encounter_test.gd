@@ -82,7 +82,7 @@ func _run() -> void:
 	reset(g)
 
 	var kinds = ["chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
-	var signatures = ["boss_boulder", "boss_missile", "possessed", "royal_owner",
+	var signatures = ["chonk_owner", "boss_missile", "possessed", "royal_owner",
 		"boss_serpent_emerge", "boss_echo", "boss_gravity", "engine_owner"]
 	for i in range(kinds.size()):
 		reset(g)
@@ -94,7 +94,7 @@ func _run() -> void:
 		check(not g.delayed.any(func(d): return str(d.get("fn", "")) == "arena_event"),
 			kinds[i] + ": no fullscreen, unavoidable boss attack")
 		check(g.delayed.size() <= 8, kinds[i] + ": limited simultaneous warnings")
-		if kinds[i] in ["necro", "kingblob", "dreadengine"]:
+		if kinds[i] in ["chonkzilla", "necro", "kingblob", "dreadengine"]:
 			var id_key = signatures[i] if kinds[i] != "necro" else "possessed"
 			check(g.enemies.any(func(m): return bool(m.get(id_key, false)) if id_key == "possessed" else int(m.get(id_key, -1)) == int(boss["id"])),
 				kinds[i] + ": creates real targetable encounter actors")
@@ -103,19 +103,16 @@ func _run() -> void:
 				kinds[i] + ": unique physical setpiece")
 		check(float(boss["arena_t"]) >= 5.0, kinds[i] + ": special is cooldown bounded")
 
-	# Chonkzilla boulder has a real moving hitbox and a safe outside.
+	# Chonkzilla's setpieces are destructible terrain, not a fake moving circle.
 	reset(g)
 	var chonk = make_boss(g, "chonkzilla", 300)
+	chonk["stone_t"] = 0.0
 	Combat.boss_arena_tick(g, chonk, 0.2)
-	var boulders = g.delayed.filter(func(d): return str(d.get("fn", "")) == "boss_boulder")
-	check(not boulders.is_empty(), "Chonkzilla creates rolling boulders")
-	if not boulders.is_empty():
-		var p0: Vector2 = boulders[0]["pos"]
-		g.hero["pos"] = Vector2(-410.0, 1200.0)
-		var hp0 = float(g.hero["hp"])
-		Combat.update_delayed(g, 0.99)
-		check(boulders[0]["pos"].distance_to(p0) > 15.0, "Boulder physically moves once armed")
-		check(is_equal_approx(float(g.hero["hp"]), hp0), "Outside boulder path is safe")
+	var chonk_rocks = g.enemies.filter(func(m): return int(m.get("chonk_owner", -1)) == 300)
+	check(chonk_rocks.size() >= 1, "Chonkzilla plants targetable terrain along its charge path")
+	if not chonk_rocks.is_empty():
+		check(bool(chonk_rocks[0].get("chonk_pillar", false)) and float(chonk_rocks[0]["hp"]) > 0.0,
+			"Rock has an actual damageable enemy hitbox")
 
 	# Heli missile must launch an actual homing projectile after warning.
 	reset(g)
@@ -162,7 +159,7 @@ func _run() -> void:
 	check(Combat.boss_identity_damage_factor(g, engine) > 0.8, "Destroyed pods reduce Engine armor")
 
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
-	check(visuals.contains('"boss_gravity"') and visuals.contains('"boss_boulder"'), "Physical setpieces render exact locations")
+	check(visuals.contains('"boss_gravity"') and visuals.contains('"chonk_fault"') and visuals.contains('"chonk_pillar"'), "Physical setpieces render exact locations")
 	check(not visuals.contains('== "arena_event"'), "Renderer no longer paints unavoidable viewport damage")
 	var hud = FileAccess.get_file_as_string("res://scripts/Hud.gd")
 	check(hud.contains("func paint_boss_cinematic"), "Cinematic portrait and desktop remain present")
