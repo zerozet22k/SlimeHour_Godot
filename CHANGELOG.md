@@ -1,3 +1,14 @@
+## v0.1.56 — Cinematic boss entrances and lethal arena ultimates
+
+- **No overlapping waves and bosses:** every scheduled normal enemy and Rush wave must be exhausted and every living regular enemy defeated before the boss enters. Gold goblins cannot interrupt the reveal.
+- **Cinematic entrances:** after the crowd is defeated, freeze the entire battle for a 3.6-second death-camera-style pan to the arriving boss, display a full-width threat title card, then pan back and resume combat.
+- **World-wide dodge pressure:** each of the eight bosses starts using a signature road-covering ultimate roughly 2.6 seconds after combat begins, with a high-visibility impact timer. Walking to the edge cannot escape the blast; timed dash invulnerability does.
+- **Second shockwaves:** Chonkzilla, Heli-Copter, Glass Oracle and Dread Engine strike twice with 1.85 seconds between hits, deliberately challenging timing and dash recharge.
+- **Distinct failure consequences:** Necro-Dad's Eclipse heals him if it lands, King Blob's Tsunami grows him, Coil Queen's venom slows players, Void Weaver's rift pulls them, and Dread Engine's lockdown staggers them.
+- Hard Mode tightens arena-ultimate warning time to 1.75 seconds instead of 2.15; normal attacks and boss-specific weak-point mechanics continue throughout the fight.
+- Full-road telegraphs and large HUD countdowns work on portrait and landscape; real dodge windows, crowd-clear gating and cinematic combat-freeze behavior are covered by `tools/boss_encounter_test.gd` in the boss and Windows release CI suites.
+- Preserve the separately shipped v0.1.55 F3 Debug Lab improvements.
+
 ## v0.1.54 — Eight genuinely different boss encounters
 
 - Replace the shared colored ring/lane/explosion rotations with eight distinct combat systems and visible counterplay.
