@@ -855,7 +855,7 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
 	# Keep displayed laser geometry identical to the snake-card hit path.
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
-	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.instant_reach_bonus(g, w)) * (1.0 + Compatibility.instant_reach_bonus(g, w))
+	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.instant_reach_bonus(g, w))
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.22 if bool(w["evolved"]) else 1.0) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002)))
 	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.05, "w": width,
@@ -951,7 +951,7 @@ static func next_chain_target(g, from: Vector2, seen: Dictionary) -> Variant:
 
 static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
-	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
+	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.instant_reach_bonus(g, w))
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002)))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
