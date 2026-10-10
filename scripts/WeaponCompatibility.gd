@@ -99,6 +99,55 @@ static func active_cap(id: String) -> int:
 static func budget(g, w: Dictionary) -> int:
 	return mini(int(VOLLEY_BUDGET.get(str(w["id"]), 8)), g.volley_cap())
 
+## Projectile travel is not universal: wavy/snaking cards control REAL
+## trajectory on moving actors, small attack sweep on hitscan and cone guns.
+## Returning discs get to wiggle outward, never while flying home.
+static func projectile_wave(g, w: Dictionary) -> float:
+	var kind = str(g.weapon_db[w["id"]]["kind"])
+	var amount = maxf(0.0, g.st("wave"))
+	match kind:
+		"bees":
+			return minf(8.0, amount * 0.15) # preserve pheromone/homing guidance
+		"rocket", "grenade", "ball", "chicken", "snow", "bubble":
+			return minf(14.0, amount * 0.35) # respect heavy/trap trajectories
+		"disc", "boomerang":
+			return minf(16.0, amount * 0.50) # outgoing path only
+		"beam", "rail", "chain", "flame":
+			return 0.0 # translated in the weapon's native instant/area geometry
+		_:
+			return minf(48.0, amount)
+
+static func projectile_curve(g, w: Dictionary) -> float:
+	var kind = str(g.weapon_db[w["id"]]["kind"])
+	var amount = g.st("curve")
+	if kind in ["beam", "rail", "chain", "flame"]:
+		return 0.0
+	if kind in ["bees", "rocket", "grenade", "ball", "chicken", "snow", "bubble"]:
+		return clampf(amount, -0.75, 0.75)
+	if kind in ["disc", "boomerang"]:
+		return clampf(amount, -1.3, 1.3)
+	return clampf(amount, -3.0, 3.0)
+
+static func instant_sway(g, w: Dictionary) -> float:
+	var kind = str(g.weapon_db[w["id"]]["kind"])
+	if kind not in ["beam", "rail", "chain"]:
+		return 0.0
+	var wave = maxf(0.0, g.st("wave"))
+	var curve = absf(g.st("curve"))
+	# Oscillating attack direction represents slither/spin; DO NOT create
+	# invisible projectiles for lasers, electricity or charge cells.
+	var amplitude = minf(0.16, wave * 0.0026 + curve * 0.025)
+	if amplitude <= 0.0:
+		return 0.0
+	return sin(g.run_time * 11.0) * amplitude
+
+static func adapted_pierce(g, w: Dictionary) -> int:
+	# Snake Shot's +pierce means another chain hop on lightning, not a
+	# non-existent projectile piercing a nonexistent bullet collider.
+	if str(g.weapon_db[w["id"]]["kind"]) == "chain":
+		return clampi(int(g.st("pierce")), 0, 3)
+	return 0
+
 static func card_interaction(g, card_id: String) -> String:
 	if g.guns.is_empty():
 		return ""
@@ -133,6 +182,32 @@ static func card_interaction(g, card_id: String) -> String:
 					note = "Up to %d projectiles; overflow is capped damage" % budget(g, w)
 				else:
 					note = "Up to %d attacks per volley; excess scales safely" % budget(g, w)
+			"snake_shot", "wobbly", "spiral_galaxy":
+				if kind == "flame":
+					note = "Flame sheet sways (no snake bullets); piercing widens effective reach"
+				elif kind == "beam":
+					note = "Beam sweeps sinusoidally; Snake pierce passes more enemies"
+				elif kind == "rail":
+					note = "Charged rail aim slithers gently; still one piercing charge beam"
+				elif kind == "chain":
+					note = "Arc wanders between targets; Snake pierce adds up to 3 chain hops"
+				elif kind in ["disc", "boomerang"]:
+					note = "Outgoing throw snakes; returning path stays direct"
+				elif kind == "bees":
+					note = "Subtle bee weaving; homing retains priority"
+				elif kind in ["rocket", "grenade", "ball", "chicken", "snow", "bubble"]:
+					note = "Controlled heavy-projectile wobble, not broken flight"
+				else:
+					note = "Physical projectile snakes in flight; Snake adds pierce"
+			"rubber_bullets", "pinball_wizard":
+				if kind == "flame":
+					note = "Reflects weaker sheets at walls; no phantom projectiles"
+				elif kind in ["beam", "rail"]:
+					note = "Actual reflected beam path, not fake ricochet bullets"
+				elif kind == "chain":
+					note = "Electricity redirects through available chain targets"
+				else:
+					note = "Physical wall bounce with limited collision budget"
 			"return_sender":
 				if kind in ["disc", "boomerang"]:
 					note = "Return is inherent; redundant return card is unavailable"
