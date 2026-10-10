@@ -1746,8 +1746,9 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				if p == 0:
 					e["wind"] = 0.95 - stage * 0.09
 					var side = -1.0 if int(e["pattern"]) % 2 == 0 else 1.0
-					e["lock"] = lead + Vector2(side * 165.0, -85.0)
-					e["lock"].x = clampf(float(e["lock"].x), -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
+					var lock_pos: Vector2 = lead + Vector2(side * 165.0, -85.0)
+					lock_pos.x = clampf(lock_pos.x, -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
+					e["lock"] = lock_pos
 					e["tele"] = 70.0
 					g.sfx.play("boss_warn")
 				elif p == 1:
@@ -2013,7 +2014,7 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 	for k in range(n):
 		var a = 0.0 if n == 1 else -spread * 0.5 + spread * k / (n - 1)
 		var enemy_kind = str(e["kind"])
-		var boss_style = "boss_ember" if enemy_kind == "chonkzilla" else ("boss_void" if enemy_kind == "kingblob" else ("boss_frost" if enemy_kind == "necro" else ("boss_storm" if enemy_kind == "heli" else "enemy")))
+		var boss_style = "boss_ember" if enemy_kind in ["chonkzilla", "dreadengine"] else ("boss_void" if enemy_kind in ["kingblob", "voidweaver"] else ("boss_frost" if enemy_kind in ["necro", "glassoracle"] else ("boss_storm" if enemy_kind in ["heli", "coilqueen"] else "enemy")))
 		var shot_color = ProjectileVfx.tint(boss_style)
 		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8,
 			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": shot_color,
