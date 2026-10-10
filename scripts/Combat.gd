@@ -1614,6 +1614,18 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	var stage: int = boss_stage(e)
 	if kind == "chonkzilla":
 		ChonkzillaEncounter.setpiece(g, e, stage, dt)
+		for emission in ChonkzillaEncounter.barrage(g, e, stage, dt):
+			if g.shots.size() >= g.shot_cap():
+				break
+			var shot_direction: Vector2 = emission["dir"]
+			var projectile = shot(g, emission["pos"], shot_direction,
+				float(e["dmg"]) * float(emission["dmg_scale"]),
+				{"friendly": false, "kind": "enemy", "speed": emission["speed"],
+					"r": emission["r"], "life": emission["life"], "color": Color(emission["color"]),
+					"vfx_style": "boss_ember", "src": "Chonkzilla's barrage"})
+			if projectile != null:
+				projectile["boss_owner"] = int(e["id"])
+				projectile["curve"] = float(emission.get("curve", 0.0))
 		return
 	# Keep an older player position for Oracle's delayed imitation.
 	if kind == "glassoracle":
