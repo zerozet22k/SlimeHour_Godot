@@ -269,7 +269,7 @@ static func update(g, dt: float) -> void:
 ## magazine powers reload-triggered cards without stopping the weapon.
 ## Once per virtual magazine with a cooldown to prevent beam/proc storms.
 static func advance_infinite_ammo_cycle(g, w: Dictionary) -> void:
-	if g.st("infammo") <= 0.0:
+	if g.st("infammo") <= 0.0 and not (str(w["id"]) == "laser" and int(w["lvl"]) >= 5):
 		return
 	var capacity = maxi(1, mag_size(g, w))
 	var remaining = clampi(int(w.get("virtual_ammo", capacity)), 1, capacity) - 1
@@ -277,6 +277,14 @@ static func advance_infinite_ammo_cycle(g, w: Dictionary) -> void:
 	if remaining > 0:
 		return
 	if g.run_time < float(w.get("virtual_reload_last", -9999.0)) + 2.5:
+		return
+	w["virtual_reload_last"] = g.run_time
+	Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": g.hero["aim"]})
+
+## Returning blades never reload. A successful catch acts as an infrequent
+## reload-card trigger; under Infinite Ammo, only the virtual magazine does.
+static func return_catch_card_cycle(g, w: Dictionary) -> void:
+	if g.st("infammo") > 0.0 or g.run_time < float(w.get("virtual_reload_last", -9999.0)) + 2.5:
 		return
 	w["virtual_reload_last"] = g.run_time
 	Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": g.hero["aim"]})
@@ -877,7 +885,7 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 		return
 	w["cd"] = 1.0 / fire_rate(g, w)
 	volley(g, w, slot, muzzle, aim, {})
-	if g.st("infammo") > 0.0:
+	if g.st("infammo") > 0.0 or lvl >= 5:
 		advance_infinite_ammo_cycle(g, w)
 
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
