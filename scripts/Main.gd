@@ -15,7 +15,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.37"
+const GAME_VERSION = "v0.1.38"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -67,6 +67,7 @@ var next_unlock_kills = 0
 var bosses_beaten = 0
 var fresh_tier_sector = -1
 var intro_spawned = false
+var recent_enemy_mixes: Array = []
 var dying_t = 0.0                    # real seconds left in the slow-mo death moment
 var lost_t = 0.0                     # real seconds the result screen has been up
 var killer_kind = ""
@@ -692,6 +693,7 @@ func begin_sector() -> void:
 	sector_time = 0.0
 	budget_spawned = 0
 	intro_spawned = false
+	recent_enemy_mixes.clear()
 	sector_kills = 0
 	sector_elite_chests = 0
 	gate_done = false
@@ -1245,13 +1247,15 @@ func rush_size() -> int:
 	var hard_mul = 1.25 if hard_mode else 1.0
 	return int((30 + 9 * mini(sector, 25) + 3 * maxi(0, sector - 25)) * float(route.get("spawns", 1.0)) * early_ease(0.55) * crowd_ramp() * hard_mul)
 
-## New base species are introduced before combinations that can contain them.
-## Every two distinct, introduced base species can combine from sector 11 onward.
-const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba"], ["nurse", "skitter", "larry", "sapper"],
-	["riot", "bull", "mortar", "mirror"], ["tick", "mama", "lancer", "leech"], ["totem", "blinky", "siren", "ashwing", "chonk", "mitosis", "burrower"]]
+## Establish fresh base types first. Legacy Nurse/Larry live in old save
+## records but are no longer hard-coded as standard roster introductions.
+## New combinations use ANY TWO distinct previously encountered main types.
+const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba"], ["skitter", "sapper", "mirror", "burrower"],
+	["leech", "ashwing", "siren", "riot"], ["bull", "mortar", "lancer", "tick"],
+	["mama", "totem", "blinky", "chonk", "mitosis"]]
 const STARTER_ENEMIES = ["blob", "zoomer", "spitter", "kaboomba"]
-const ROUTE_INTRO_ORDER = ["nurse", "skitter", "larry", "leech", "sapper", "mortar", "bull", "riot", "mirror",
-	"lancer", "tick", "mama", "totem", "blinky", "ashwing", "siren", "chonk", "mitosis", "burrower"]
+const ROUTE_INTRO_ORDER = ["skitter", "sapper", "mirror", "burrower", "leech", "ashwing", "siren", "riot",
+	"bull", "mortar", "lancer", "tick", "mama", "totem", "blinky", "chonk", "mitosis"]
 
 static func mix_id(pair: Array) -> String:
 	return EnemyMixes.id_for(str(pair[0]), str(pair[1]))
@@ -1280,10 +1284,13 @@ func pick_enemy() -> String:
 	# Mix chance is independent of fixed map/sector numbers. Never combine
 	# a species in the sector where it first debuts.
 	var known = available_enemies(sector - 1)
-	var mix_chance = minf(0.25, 0.09 + 0.008 * float(maxi(0, sector - 11)))
-	if randf() < mix_chance:
-		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2)
+	var mix_chance = minf(0.30, 0.12 + 0.012 * float(maxi(0, sector - 16)))
+	if sector >= 16 and randf() < mix_chance:
+		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes)
 		if hybrid != "":
+			recent_enemy_mixes.append(hybrid)
+			if recent_enemy_mixes.size() > 9:
+				recent_enemy_mixes.pop_front()
 			return hybrid
 	var total = 0.0
 	for name in base:

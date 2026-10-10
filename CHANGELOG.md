@@ -1,3 +1,16 @@
+## v0.1.38 — Weapon compatibility, legendary Hydra, and procedural enemy variety
+
+- Railgun supports HOLD ATTACK: repeatedly wind up and fire while the trigger is held, interrupted only by reload or pause. No mandatory trigger release or artificial post-shot cooldown.
+- Introduce per-weapon magazine, return-slot, fuel, and volley budgets for all 22 weapon IDs. Revolver hard-stops at six rounds. Excess capacity cards convert to at most +18% damage, rather than silently expanding hardware.
+- Hydra card becomes one-stack Legendary, retaining +2 projectiles and +1 parallel lane; large explosive volleys are explicitly capped, with at most +18% limited overflow compensation.
+- Return to Sender becomes Legendary. Returning explosive payloads have weaker secondary blast/radius and cannot infinitely recurse. It is unavailable for a loadout with only returning or nonprojectile weapons.
+- Burst/Echo on explosive weapons no longer trigger full-power multiplicative splash attacks. Other weapons retain their prior firing patterns subject to resource limits.
+- Card selection descriptions display active weapon interpretation for ammo, Hydra, homing, Return to Sender, and Infinite Ammo.
+- Remove Nurse and Laser Larry from active new-run introductions while preserving their data for historical encounters and saves. New base enemies (Skitter/Sapper/Mirror/Burrower/Ashwing/Siren, etc.) are introduced before random two-parent chimeras unlock at sector 16.
+- Give generated enemy chimeras pair-specific armor geometry, visual markings, naming and short repeat protection. Pairing remains canonical and any two introduced base types can combine.
+- Add a new stylized Hydra card illustration via assets/cards/hydra.svg, used in card selection, collection and HUD.
+- Add complete 22-weapon compatibility tests and update staged roster regression checks.
+
 ## v0.1.37 — Modifiers adapted to physical and nonprojectile weapon systems
 
 - Returning-disc and boomerang homing, curve, and wave effects apply only on the outward trip. The return trip always steers home; no card may silently break retrieval.

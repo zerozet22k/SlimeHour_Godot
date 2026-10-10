@@ -3,6 +3,7 @@ extends Node2D
 ## frame while drawing; click() resolves them.
 
 const Weapons = preload("res://scripts/Weapons.gd")
+const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 const Characters = preload("res://scripts/Characters.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const CollectionGrid = preload("res://scripts/CollectionGrid.gd")
@@ -624,7 +625,7 @@ func card_art(r: Rect2, info: Dictionary, rc: Color) -> void:
 func card_tile(r: Rect2, id: String) -> void:
 	var c = g.card_by_id[id]
 	var rc: Color = RCOL[int(c["rarity"])]
-	var art = (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id))
+	var art = (g.tex("res://assets/cards/hydra.svg") if id == "hydra" else (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id)))
 	if art != null:
 		rbox(r, Color("0d1428"), 12)
 		draw_texture_rect(art, r.grow(-3), false)
@@ -1113,8 +1114,13 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var have = int(g.owned.get(o["id"], 0))
 			var owned_view = bool(o.get("owned_view", false))
 			var foot = "NEW" if have == 0 else ("OWNED x%d / %d" % [have, int(c["max"])] if owned_view else "x%d » x%d" % [have, have + 1])
-			return {"title": c["name"], "desc": c["desc"], "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
-				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": (g.tex("res://assets/cards/%s.webp" % o["id"]) if str(o["id"]) in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % o["id"])), "foot": foot,
+			var desc_text = str(c["desc"])
+			if not owned_view:
+				var adapted = Compatibility.card_interaction(g, str(o["id"]))
+				if adapted != "":
+					desc_text += "  ACTIVE: " + adapted
+			return {"title": c["name"], "desc": desc_text, "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
+				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": (g.tex("res://assets/cards/hydra.svg") if str(o["id"]) == "hydra" else (g.tex("res://assets/cards/%s.webp" % o["id"]) if str(o["id"]) in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % o["id"]))), "foot": foot,
 				"stack": Effects.stack_preview(g, str(o["id"]), owned_view),
 				"max": "MAX %d" % int(c["max"]), "cursed": c.get("cursed", false), "icon": false}
 		"gun_new":
@@ -1702,7 +1708,7 @@ func mini_card(r: Rect2, info: Dictionary, selected: bool = false) -> void:
 ## Tiny owned-card chip for the HUD strip: art, or category colour + icon.
 func mini_tile(r: Rect2, id: String) -> void:
 	var c = g.card_by_id[id]
-	var art = (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id))
+	var art = (g.tex("res://assets/cards/hydra.svg") if id == "hydra" else (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id)))
 	if art != null:
 		draw_texture_rect(art, r, false)
 	else:

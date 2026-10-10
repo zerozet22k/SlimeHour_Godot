@@ -5,6 +5,7 @@ extends RefCounted
 
 const Combat = preload("res://scripts/Combat.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
+const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 
 const TRIGGERS = ["fire", "hit", "crit", "kill", "dash", "dashend", "perfect", "hurt", "reload", "xp",
 	"level", "timer", "explosion", "sector", "walk", "still", "lowhp"]
@@ -647,6 +648,8 @@ static func eligible(g, c: Dictionary) -> bool:
 	if not missing_sources(g, c).is_empty():
 		return false
 	if id == "arsenal" and g.guns.size() < 2:
+		return false
+	if not Compatibility.applies_to(g, id):
 		return false
 	return true
 

@@ -200,8 +200,15 @@ static func update_shots(g, dt: float) -> void:
 		if float(s["life"]) <= 0.0:
 			if s["friendly"] and bool(s["boomer"]) and not bool(s["back"]) and kind not in ["disc", "boomerang"]:
 				s["back"] = true
+				s["boomer"] = false # One return; never recycle the same explosive payload.
 				s["life"] = float(s["max_life"]) * 1.2
 				s["hit"] = {}
+				if kind in ["grenade", "egg", "rocket", "chicken"]:
+					# Legendary Return to Sender: second explosive contact is
+					# a weaker aftershock, not a duplicate full-power detonation.
+					s["flags"]["return_aftershock"] = true
+					s["dmg"] = float(s["dmg"]) * 0.42
+					s["blast"] = float(s["blast"]) * 0.75
 			else:
 				expire(g, s)
 				continue
@@ -362,7 +369,7 @@ static func expire(g, s: Dictionary) -> void:
 			explode(g, s["pos"], r, float(s["dmg"]), int(s["gen"]), Color(s["color"]))
 			if kind == "rocket":
 				WeaponSignatures.rocket_collapse(g, s, s["pos"])
-			if s["flags"].has("bomblets"):
+			if s["flags"].has("bomblets") and not s["flags"].has("return_aftershock"):
 				fragments(g, s["pos"], 4, float(s["dmg"]) * 0.45, "ring", Vector2.UP, int(s["gen"]) + 1, null, false, Color("b5ff6b"), "grenade")
 		"bubble":
 			pop_bubble(g, s["pos"], float(s["dmg"]), float(s["blast"]), int(s["gen"]), s["flags"].has("minibubbles"))

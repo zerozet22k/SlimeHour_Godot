@@ -1,6 +1,6 @@
 extends RefCounted
 ## All two-archetype hybrids are possible. Build only encountered combinations.
-## Canonical IDs mean nurse+larry and larry+nurse are the SAME species.
+## Canonical IDs keep A+B and B+A the SAME species.
 ## Never precache N^2 atlas sprites. Visuals reuse base sprites for hybrids.
 
 static func id_for(a: String, b: String) -> String:
@@ -27,7 +27,7 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	var ca = Color(str(first["color"]))
 	var cb = Color(str(second["color"]))
 	db[id] = {
-		"id": id, "name": str(first["name"]) + " + " + str(second["name"]),
+		"id": id, "name": str(first["name"]) + "-" + str(second["name"]) + " Chimera",
 		"hp": (float(first["hp"]) + float(second["hp"])) * 0.71,
 		"speed": (float(first["speed"]) + float(second["speed"])) * 0.5,
 		"dmg": maxf(float(first["dmg"]), float(second["dmg"])),
@@ -35,16 +35,18 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 		"xp": maxi(int(first["xp"]), int(second["xp"])) + 2,
 		"mass": maxf(float(first["mass"]), float(second["mass"])),
 		"color": ca.lerp(cb, 0.43).to_html(false), "mix": [a, b],
-		"look": {"body": "round", "face": one.get("face", "normal"), "second_color": str(second["color"]), "gear": gear}
+		"look": {"body": "round", "face": one.get("face", "normal"),
+			"second_color": str(second["color"]), "gear": gear,
+			"variant": posmod(int(id.hash()), 4), "mix_parent": str(second["id"])}
 	}
 	return id
 
 static func allowed(base: Array, sector: int) -> bool:
 	# All hybrids unlock after 10 sectors. Both parent species must have appeared
 	# in an earlier sector; this guarantees "new basics first, combinations later".
-	return sector >= 11 and base.size() >= 2
+	return sector >= 16 and base.size() >= 2
 
-static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool = false) -> String:
+static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool = false, recent: Array = []) -> String:
 	if not allowed(base, sector):
 		return ""
 	var options = []
@@ -56,9 +58,16 @@ static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool 
 		options.append(name)
 	if options.size() < 2:
 		return ""
-	# O(1) selection, no pair enumeration, no permanent quadratic catalogue.
-	var first = randi_range(0, options.size() - 1)
-	var second = randi_range(0, options.size() - 2)
-	if second >= first:
-		second += 1
-	return ensure(db, str(options[first]), str(options[second]))
+	# Bounded retries discourage the same combination appearing repeatedly.
+	# No N² atlas baking or ever-growing catalogue at startup.
+	var pick = ""
+	for attempt in range(14):
+		var first = randi_range(0, options.size() - 1)
+		var second = randi_range(0, options.size() - 2)
+		if second >= first:
+			second += 1
+		pick = id_for(str(options[first]), str(options[second]))
+		if not recent.has(pick):
+			break
+	var parts = pick.trim_prefix("mix_").split("_")
+	return ensure(db, str(parts[0]), str(parts[1]))

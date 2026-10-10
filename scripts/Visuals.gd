@@ -568,9 +568,35 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		draw_line(sp - perp * r * 1.1, sp + perp * r * 1.1, Color("2a3a60"), 9.0)
 		draw_line(sp - perp * r * 1.0, sp + perp * r * 1.0, Color("a8c0ff"), 5.0)
 	if mixed and parents.size() >= 2:
+		# Real composite overlays on top of the baked base body: cheap GPU
+		# primitives, not a giant pre-baked atlas of every possible pairing.
 		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
-		draw_arc(p, r + 3.5, -PI * 0.8, PI * 0.8, 20, Color(secondary, 0.70), 3.5)
-		draw_circle(p + Vector2(r * 0.6, -r * 0.7), 3.6, secondary)
+		var accent = secondary.lightened(0.18)
+		var variant = int(parts.get("variant", 0))
+		draw_arc(p, r * 0.88, -PI * 0.72, PI * 0.65, 14, Color(secondary, 0.85), maxf(2.0, r * 0.16))
+		match variant:
+			0:
+				# Organic split horns and offset eyes.
+				for side in [-1.0, 1.0]:
+					draw_colored_polygon(PackedVector2Array([p + Vector2(side * r * 0.48, -r * 0.45),
+						p + Vector2(side * r * 0.86, -r * 1.34),
+						p + Vector2(side * r * 0.12, -r * 0.88)]), accent)
+			1:
+				# Layered shell/visor hybrid, different from both parents.
+				draw_rect(Rect2(p + Vector2(-r * 0.82, -r * 0.52), Vector2(r * 1.64, r * 0.36)), Color("21304a"))
+				draw_line(p + Vector2(-r * 0.65, -r * 0.34), p + Vector2(r * 0.65, -r * 0.34), accent, maxf(2.0, r * 0.15))
+			2:
+				# Twin lateral fins and bright secondary-color marking.
+				for side in [-1.0, 1.0]:
+					draw_colored_polygon(PackedVector2Array([p + Vector2(side * r * 0.45, r * 0.05),
+						p + Vector2(side * r * 1.45, -r * 0.88),
+						p + Vector2(side * r * 1.06, r * 0.62)]), Color(secondary, 0.9))
+			3:
+				# Armored frontal crest with segmented diagonal markings.
+				draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.45, -r * 0.52),
+					p + Vector2(0, -r * 1.3), p + Vector2(r * 0.45, -r * 0.52)]), accent)
+				draw_line(p + Vector2(-r * 0.5, r * 0.45), p + Vector2(r * 0.5, r * 0.1), secondary, maxf(2.0, r * 0.13))
+		draw_circle(p + Vector2(r * 0.66, -r * 0.70), maxf(2.7, r * 0.14), accent)
 	draw_status(e, p, r)
 
 ## Fallback before the atlas is baked: draw the vector art directly.

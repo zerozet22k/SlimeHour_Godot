@@ -7,6 +7,7 @@ const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const Characters = preload("res://scripts/Characters.gd")
+const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 
 const EVOLVED_NAMES = {"pistol": "Service Nine Mk II", "revolver": "Deadeye Prime", "shotgun": "Breachmaster",
 	"smg": "Cyclone X", "minigun": "Vulcan Overdrive", "sniper": "Last Word", "rocket": "Payload Zero",
@@ -34,18 +35,7 @@ static func kind_of(g, w: Dictionary) -> String:
 	return str(g.weapon_db[w["id"]]["kind"])
 
 static func mag_size(g, w: Dictionary) -> int:
-	var d = g.weapon_db[w["id"]]
-	var k = str(d["kind"])
-	if k in ["disc", "boomerang"]:
-		return int(d["mag"]) + int(wm(w, "mag")) + int(g.st("mult")) + (1 if int(w["lvl"]) >= 3 else 0)
-	if k == "beam":
-		return 1
-	var m = float(d["mag"]) * (1.0 + g.st("mag") + wm(w, "mag"))
-	if w["id"] == "smg" and int(w["lvl"]) >= 3:
-		m *= 1.5
-	if k == "flame" and bool(w["evolved"]):
-		m *= 1.25
-	return maxi(1, roundi(m))
+	return Compatibility.capacity(g, w)
 
 ## Gun tier raises base damage/rate (like a higher-rarity unit), it is not a damage modifier.
 const TIER_DMG = [1.0, 1.1, 1.22, 1.36, 1.55, 1.8]
@@ -107,7 +97,7 @@ static func base_damage(g, w: Dictionary) -> float:
 
 ## Additive "+% damage" for this gun: card damage, gun level and weapon mastery all add up.
 static func dmg_pool(g, w: Dictionary) -> float:
-	return g.dmg_pool(LEVEL_DMG * (int(w["lvl"]) - 1) + wm(w, "dmg"))
+	return g.dmg_pool(LEVEL_DMG * (int(w["lvl"]) - 1) + wm(w, "dmg") + Compatibility.resource_damage_bonus(g, w))
 
 static func character_id(g) -> String:
 	var value = g.get("selected_character")
@@ -216,18 +206,16 @@ static func update(g, dt: float) -> void:
 				finish_reload(g, w)
 			continue
 		if kind == "rail":
-			# No second post-shot cooldown. In manual mode, one press = one charged shot.
-			# Auto-fire/mobile may charge the next round without releasing.
-			var auto_rail = bool(g.settings.get("autofire", false)) or g.is_touch_active() or g.autotest != ""
+			# Holding attack continually charges then fires. No artificial
+			# release gate and no cooldown beyond charge and magazine reload.
+			# World simulation already stops while paused.
 			if not want:
-				w["rail_needs_release"] = false
 				w["charge"] = maxf(0.0, float(w["charge"]) - dt * 2.0)
-			elif not bool(w.get("rail_needs_release", false)) or auto_rail:
-				if int(w["ammo"]) > 0:
-					if float(w["charge"]) <= 0.001:
-						g.sfx.play_projectile("rail_charge")
-					w["charge"] = minf(1.0, float(w["charge"]) + dt / rail_charge_seconds(g, w))
-			if float(w["charge"]) < 1.0 or (bool(w.get("rail_needs_release", false)) and not auto_rail):
+			elif int(w["ammo"]) > 0:
+				if float(w["charge"]) <= 0.001:
+					g.sfx.play_projectile("rail_charge")
+				w["charge"] = minf(1.0, float(w["charge"]) + dt / rail_charge_seconds(g, w))
+			if float(w["charge"]) < 1.0:
 				continue
 		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or int(w["ammo"]) <= 0:
 			continue
@@ -237,7 +225,7 @@ static func update(g, dt: float) -> void:
 		if kind == "rail":
 			w["cd"] = 0.0
 			w["charge"] = 0.0
-			w["rail_needs_release"] = true
+			w["rail_needs_release"] = false
 		else:
 			w["cd"] = float(w["cd"]) + 1.0 / maxf(0.2, rate)
 			if float(w["cd"]) < -0.2:
@@ -323,7 +311,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	var side = mini(int(g.st("side")), 4)
 	# The volley budget rises with sectors; excess multishot becomes damage.
 	var units = n * lines + rear + side * 2
-	var max_units = g.volley_cap()
+	var max_units = Compatibility.budget(g, w)
 	if units > max_units:
 		var before = units
 		while n * lines + rear + side * 2 > max_units:
@@ -335,7 +323,10 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 				rear -= 1
 			else:
 				side = maxi(0, side - 1)
-		dmg *= float(before) / float(n * lines + rear + side * 2)
+		# Hard limits and diminishing compensation: a capped grenade volley
+		# must not convert twelve missing explosions into 12x damage.
+		var overflow = before - (n * lines + rear + side * 2)
+		dmg *= 1.0 + minf(0.18, 0.025 * float(overflow))
 	if kind in ["disc", "boomerang"]:
 		# A REAL throw always occupies exactly one slot. Parallel/rear/side
 		# cards improve momentum of that throw; they never mint free blades.
@@ -419,12 +410,17 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		g.sfx.play("honk", 0.05, 0.28)
 	# Burst/echo on 20-shots-a-second guns would flood the screen; scale by chance instead (same DPS).
 	var copy_chance = minf(1.0, 5.0 / maxf(1.0, fire_rate(g, w)))
+	var aoe_weapon = kind in ["rocket", "grenade", "chicken"]
+	# Burst and Echo must not restore uncapped whole-rocket damage via the
+	# 1/chance compensation formula when many additional AoE hits are possible.
+	var burst_copy_mul = 0.55 if aoe_weapon else 1.0 / copy_chance
+	var echo_copy_mul = 0.32 if aoe_weapon else 0.6 / copy_chance
 	for b in range(int(g.st("burst"))):
 		if randf() < copy_chance:
-			g.delayed.append({"t": 0.07 * (b + 1), "fn": "burst", "slot": slot, "mul": 1.0 / copy_chance})
+			g.delayed.append({"t": 0.07 * (b + 1), "fn": "burst", "slot": slot, "mul": burst_copy_mul})
 	for e in range(int(g.st("echo"))):
 		if randf() < copy_chance:
-			g.delayed.append({"t": 0.35 * (e + 1), "fn": "echo", "slot": slot, "pos": origin, "dir": dir, "mul": 0.6 / copy_chance})
+			g.delayed.append({"t": 0.35 * (e + 1), "fn": "echo", "slot": slot, "pos": origin, "dir": dir, "mul": echo_copy_mul})
 	if g.st("ghost") > 0:
 		var mirror = Vector2(-origin.x, origin.y)
 		var mdir = Vector2(-dir.x, dir.y)

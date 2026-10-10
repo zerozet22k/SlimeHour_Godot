@@ -21,13 +21,15 @@ func _test() -> void:
 	await process_frame
 	game.start_run()
 	check(game.available_enemies(1) == game.STARTER_ENEMIES, "Sector 1 has only starters")
-	check(game.introduction_for(6) == "nurse", "Nurse debuts at Sector 6")
-	check(game.introduction_for(8) == "skitter", "Skitter debuts at Sector 8")
-	check(game.introduction_for(10) == "larry", "Larry debuts at Sector 10")
-	check(game.introduction_for(11) == "", "Sector 11 has no fixed forced Nurse/Larry hybrid")
-	check(not EnemyMixes.allowed(game.available_enemies(10), 10), "Hybrids locked before Sector 11")
-	check(EnemyMixes.allowed(game.available_enemies(10), 11), "Hybrid spawning unlocks at Sector 11")
-	check(not game.available_enemies(10).has("mirror"), "Later species do not debut prematurely")
+	check(game.introduction_for(6) == "skitter", "Skitter debuts at Sector 6")
+	check(game.introduction_for(8) == "sapper", "Sapper debuts at Sector 8")
+	check(game.introduction_for(10) == "mirror", "Mirror debuts at Sector 10")
+	check(game.introduction_for(12) == "burrower", "Burrower debuts at Sector 12")
+	check(game.introduction_for(15) == "", "New base types precede hybrids")
+	check(not EnemyMixes.allowed(game.available_enemies(15), 15), "Hybrids remain locked until Sector 16")
+	check(EnemyMixes.allowed(game.available_enemies(15), 16), "Hybrid spawning unlocks at Sector 16")
+	check(not game.ROUTE_INTRO_ORDER.has("nurse") and not game.ROUTE_INTRO_ORDER.has("larry"), "Legacy Nurse/Larry no longer in active introductions")
+	check(not game.available_enemies(8).has("mirror"), "Later species do not debut prematurely")
 	for i in range(game.ROUTE_INTRO_ORDER.size()):
 		var sector = 6 + i * 2
 		var species = str(game.ROUTE_INTRO_ORDER[i])
@@ -35,7 +37,7 @@ func _test() -> void:
 		check(not game.available_enemies(sector - 1).has(species), species + " is not available early")
 		check(game.available_enemies(sector).has(species), species + " is available after debut")
 	# All combinations are buildable on demand (canonical regardless of parent order).
-	for pair in [["blob", "zoomer"], ["nurse", "larry"], ["nurse", "ashwing"], ["skitter", "spitter"]]:
+	for pair in [["blob", "zoomer"], ["mirror", "sapper"], ["ashwing", "burrower"], ["skitter", "spitter"]]:
 		var first = str(pair[0])
 		var second = str(pair[1])
 		var id = EnemyMixes.ensure(game.enemy_db, first, second)
@@ -50,7 +52,7 @@ func _test() -> void:
 	game.begin_sector()
 	game.spawn_acc = 1.0
 	game.update_director(0.0)
-	check(game.intro_spawned and game.enemies.size() > 0 and str(game.enemies[0]["kind"]) == "leech", "Sector 12 introduces its base species first")
+	check(game.intro_spawned and game.enemies.size() > 0 and str(game.enemies[0]["kind"]) == "burrower", "Sector 12 introduces its base species first")
 	game.queue_free()
 	await process_frame
 	print("ROSTER CHECK: ", "PASS" if failures == 0 else str(failures) + " failed")
