@@ -223,6 +223,16 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
 	var perp = dir.orthogonal()
 	var eopts = {"big": big, "free": bool(opts.get("free", false)), "o": base_opts(g, w, d)}
+	# Patterns describe the actual fired geometry; never infer parallel from a sprite.
+	var fire_pattern = str(opts.get("pattern", ""))
+	if fire_pattern == "":
+		if lines > 1:
+			fire_pattern = "parallel"
+		elif int(g.st("mult")) > 0:
+			fire_pattern = "double_tap"
+	eopts["pattern"] = fire_pattern
+	if fire_pattern != "":
+		ProjectileVfx.pattern(g, origin, dir, ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {})), fire_pattern)
 	for j in range(n):
 		var a = 0.0
 		if random_spread:
@@ -281,7 +291,7 @@ static func burst(g, slot: int, item_mul: float = 1.0) -> void:
 		return
 	var w = g.guns[slot]
 	var aim: Vector2 = g.hero["aim"]
-	volley(g, w, slot, hand_pos(g, slot) + aim * 22.0, aim, {"echo": true, "free": true, "mul": float(item_mul)})
+	volley(g, w, slot, hand_pos(g, slot) + aim * 22.0, aim, {"echo": true, "free": true, "mul": float(item_mul), "pattern": "burst"})
 
 static func echo(g, item: Dictionary) -> void:
 	var slot = int(item["slot"])
@@ -415,6 +425,7 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 			fire_rail(g, w, pos, dir, dmg)
 			return
 	var o = eopts["o"].duplicate() if eopts.has("o") else base_opts(g, w, d)
+	o["vfx_pattern"] = str(eopts.get("pattern", ""))
 	if kind == "pellet":
 		o["speed"] *= randf_range(0.82, 1.15)
 		o["life"] *= randf_range(0.85, 1.1)
@@ -566,6 +577,7 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 	for target in targets:
 		var e = target["enemy"]
 		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
+		ProjectileVfx.impact(g, e["pos"], target["dir"], "fire", 7.0)
 		if g.st("split") > 0 and randf() < 0.25:
 			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))
@@ -604,6 +616,7 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 		visited[cur["id"]] = true
 		g.beams.append({"a": prev, "b": cur["pos"], "t": 0.1, "w": 3.5, "color": Color("9fd8ff"), "zig": true})
 		Combat.hit(g, cur, dmg, {"pos": cur["pos"], "gen": 0, "dir": (cur["pos"] - prev).normalized(), "knock": 40.0, "st": {"shock": 1.0}, "src": "tesla"})
+		ProjectileVfx.impact(g, cur["pos"], (cur["pos"] - prev).normalized(), "shock", 9.0)
 		prev = cur["pos"]
 		var nxt = null
 		var best = 175.0 * 175.0
@@ -624,6 +637,7 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 				visited[alt["id"]] = true
 				g.beams.append({"a": prev, "b": alt["pos"], "t": 0.1, "w": 2.5, "color": Color("c8e8ff"), "zig": true})
 				Combat.hit(g, alt, dmg * 0.6, {"pos": alt["pos"], "gen": 1, "dir": Vector2.ZERO, "knock": 20.0, "st": {"shock": 1.0}})
+				ProjectileVfx.impact(g, alt["pos"], Vector2.UP, "shock", 6.0)
 		dmg *= 0.92
 		cur = nxt
 	g.sfx.play("zap")
@@ -636,6 +650,7 @@ static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 	for target in targets:
 		var e = target["enemy"]
 		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
+		ProjectileVfx.pierce(g, e["pos"], target["dir"], "pierce")
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff")
 	for segment in segments:
 		for br in g.barrels:
