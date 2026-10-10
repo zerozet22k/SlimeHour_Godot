@@ -57,7 +57,7 @@ func _run() -> void:
 		check(hp > prev, "Sector %d HP scales progressively" % sector)
 		prev = hp
 	game.sector = 8
-	check(game.enemy_scale() < 2.8 and game.enemy_scale() > 2.3, "Sector 8 eased after rebalance")
+	check(game.enemy_scale() < 2.3 and game.enemy_scale() > 1.9, "Sector 8 eases into midgame")
 	check(game.crowd_ramp(8) < 1.12, "Sector 8 crowd slightly softened")
 	check(game.crowd_ramp(13) >= game.crowd_ramp(11), "Late crowd scaling resumes")
 	check(RouteFlow.should_play_route_music("map", "map"), "Route music persists on map")

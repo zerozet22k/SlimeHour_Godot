@@ -72,7 +72,7 @@ func _run() -> void:
 		var hp = game.enemy_scale()
 		_check(hp >= last_hp, "sector %d health scales monotonically" % sector)
 		if sector == 8:
-			_check(hp > 2.3 and hp < 2.8, "sector 8 normal enemy health near 2.5x base")
+			_check(hp > 1.9 and hp < 2.3, "sector 8 normal enemy health near 2x base")
 		last_hp = hp
 	game.free()
 	print("STATUS / CARD TESTS: ", "PASS" if failed == 0 else str(failed) + " failed")

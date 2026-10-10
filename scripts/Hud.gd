@@ -864,6 +864,7 @@ func paint_hud() -> void:
 			slant(Rect2(r.position, Vector2(r.size.x * float(h["dash_cd"]) / 1.5, r.size.y)), Color("2a8aa0"), Color(0, 0, 0, 0), 5)
 	txt("DASH", Vector2(x + 10 + charges * 26, 69), 13, Color("9fb8d0"), 0, bold, 3)
 	# --- sector + kill progress (no finish line: kill the whole crowd)
+	rbox(Rect2(448, 8, 384, 82), Color(0.03, 0.06, 0.14, 0.9), 12, Color("355477"), 1)
 	txt("SECTOR %d" % g.sector, Vector2(640, 36), 28, Color.WHITE, 1, bold, 5)
 	var pw = 360.0
 	var px = 640.0 - pw * 0.5
@@ -873,7 +874,7 @@ func paint_hud() -> void:
 	if g.phase == "fight":
 		var left = g.enemies_left()
 		var lt = "BOSS INCOMING" if g.is_boss_sector() and not g.boss_spawned and prog > 0.6 else ("%d ENEMIES LEFT" % left if left > 0 else "FINISH THEM")
-		txt(lt, Vector2(640, 76), 16, Color("ffd24d") if left < 15 else Color("c8d8eb"), 1, bold, 3)
+		txt(lt, Vector2(640, 78), 15, Color("ffd24d") if left < 15 else Color("c8d8eb"), 1, bold, 3)
 	# --- gold, kills, time, pause
 	var gx = 1205.0
 	txt("%d" % g.gold, Vector2(gx, 40), 28, Color("ffd24d"), 2, bold, 5)
@@ -951,7 +952,8 @@ func paint_gun_slot(w: Dictionary, i: int, pos: Vector2) -> void:
 		draw_texture_rect(icon, Rect2(pos + Vector2(10, 4), Vector2(56, 56)), false)
 	else:
 		draw_circle(pos + Vector2(38, 32), 22, Color(str(d["color"])))
-	txt(Weapons.display_name(g, w).to_upper(), pos + Vector2(72, 24), 16, Color.WHITE, 0, bold, 3)
+	var weapon_name = Weapons.display_name(g, w).to_upper()
+	txt(weapon_name, pos + Vector2(72, 27), fit(weapon_name, 102, 15, bold, 10), Color.WHITE, 0, bold, 3)
 	txt(RARITY[tier], pos + Vector2(176, 12), 10, RCOL[tier], 2, bold)
 	for s in range(5):
 		var filled = s < int(w["lvl"])
@@ -1106,7 +1108,9 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 	var title = str(info["title"]).to_upper()
 	txt(title, Vector2(r.get_center().x, ty), fit(title, r.size.x - 24, 26, bold, 14), Color.WHITE, 1, bold, 4)
 	var stack = str(info.get("stack", ""))
-	var lines = maxi(2, int((r.end.y - 44 - (ty + 26) - (22 if stack != "" else 0)) / 20.0))
+	var foot = str(info.get("foot", ""))
+	var has_stats = foot.contains("DMG") or foot.contains("MAG")
+	var lines = maxi(2, int((r.end.y - (68 if has_stats else 44) - (ty + 26) - (22 if stack != "" else 0)) / 20.0))
 	var y = wrap_text(str(info["desc"]), r.position.x + 16, ty + 26, r.size.x - 32, 16, Color("dbe4f5"), 20, body, true, lines)
 	if stack != "":
 		txt(stack, Vector2(r.get_center().x, minf(y + 4, r.end.y - 40)), fit(stack, r.size.x - 24, 15, bold, 10), Color("7dff9a"), 1, bold, 3)
@@ -1115,10 +1119,12 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 	var cw = bold.get_string_size(rl, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 20
 	rbox(Rect2(r.position.x + 12, r.end.y - 36, cw, 24), rc, 12)
 	txt(rl, Vector2(r.position.x + 12 + cw * 0.5, r.end.y - 19), 14, Color("0b1224"), 1, bold)
-	var foot = str(info.get("foot", ""))
 	if foot != "":
 		var is_new = foot == "NEW"
-		txt(foot + ("!" if is_new else ""), Vector2(r.end.x - 14, r.end.y - 17), fit(foot, r.size.x - cw - 40, 15, bold, 10), Color("7dff9a") if is_new else Color("ffd24d"), 2, bold, 3)
+		if has_stats:
+			txt(foot, Vector2(r.get_center().x, r.end.y - 48), fit(foot, r.size.x - 24, 13, bold, 10), Color("ffd24d"), 1, bold, 2)
+		else:
+			txt(foot + ("!" if is_new else ""), Vector2(r.end.x - 14, r.end.y - 17), fit(foot, r.size.x - cw - 40, 15, bold, 10), Color("7dff9a") if is_new else Color("ffd24d"), 2, bold, 3)
 
 func paint_levelup() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, minf(0.78, g.offer_t * 3.0)))
@@ -1511,6 +1517,8 @@ func paint_collection() -> void:
 		buttons.append({"rect": r, "action": "cat_" + c})
 		tx += w + 5
 	var items = get_collection_items()
+	if selected_collection_item == null or not items.has(selected_collection_item):
+		selected_collection_item = items[0] if not items.is_empty() else null
 	var per = CollectionPaging.window_size(false)
 	collection_page = clampi(collection_page, 0, CollectionPaging.max_start(items.size(), per))
 	var shown: Array = CollectionPaging.range_indices(items.size(), per, collection_page)
@@ -1518,7 +1526,7 @@ func paint_collection() -> void:
 	for i in range(shown.size()):
 		var k = int(shown[i])
 		# Four cards flow left to right; the details pane is reserved on the right.
-		var r2 = Rect2(30.0 + float(i) * 215.0, 206.0, 197.0, 300.0)
+		var r2 = Rect2(30.0 + float(i) * 215.0, 206.0, 197.0, 350.0)
 		var info = collection_info(items[k])
 		mini_card(r2, info)
 		buttons.append({"rect": r2, "action": "select_card_%d" % k})
@@ -1526,7 +1534,7 @@ func paint_collection() -> void:
 			hover_card = items[k]
 	if shown.is_empty():
 		txt("NO CARDS IN THIS CATEGORY", Vector2(450, 375), 24, Color("aab7d2"), 1, bold)
-	if selected_collection_item != null:
+	if hover_card == null and selected_collection_item != null:
 		hover_card = selected_collection_item
 	if hover_card != null:
 		draw_card(Rect2(940, 130, 300, 470), collection_info(hover_card), true, 1.0, -1)
@@ -1552,9 +1560,9 @@ func mini_card(r: Rect2, info: Dictionary) -> void:
 		r.position.y -= 6
 	rbox(Rect2(r.position + Vector2(0, 5), r.size), Color(0, 0, 0, 0.4), 14)
 	rbox(r, PANEL, 14, rc, 3 if hover else 2)
-	card_art(Rect2(r.position + Vector2(8, 8), Vector2(r.size.x - 16, 92)), info, rc)
-	var y = wrap_text(str(info["title"]).to_upper(), r.position.x + 6, r.position.y + 124, r.size.x - 12, 16, Color.WHITE, 18, bold, true, 2)
-	wrap_text(str(info["desc"]), r.position.x + 8, y + 4, r.size.x - 16, 12, Color("b8c4d8"), 15, body, true, 6)
+	card_art(Rect2(r.position + Vector2(8, 8), Vector2(r.size.x - 16, 116)), info, rc)
+	var y = wrap_text(str(info["title"]).to_upper(), r.position.x + 6, r.position.y + 148, r.size.x - 12, 16, Color.WHITE, 18, bold, true, 2)
+	wrap_text(str(info["desc"]), r.position.x + 10, y + 8, r.size.x - 20, 13, Color("c6d3e5"), 17, body, true, 7)
 	txt(str(info.get("rarlabel", RARITY[int(info["rar"])])), Vector2(r.get_center().x, r.end.y - 9), 13, rc, 1, bold)
 
 ## Tiny owned-card chip for the HUD strip: art, or category colour + icon.
@@ -1642,9 +1650,9 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 		txt("%d" % int(enemy[key]), Vector2(chip.get_center().x, chip.position.y + 40), 21, Color.WHITE, 1, bold)
 	var ty = stat_y + 76
 	txt(str(note[0]), Vector2(x + 20, ty), 18, Color("ffd38a"), 0, bold)
-	wrap_text(str(note[1]), x + 20, ty + 7, ww - 40, 16, Color("daeaff"), 20, body, false, 3)
-	txt("COUNTERPLAY", Vector2(x + 20, ty + 103), 17, Color("8ed8ff"), 0, bold)
-	wrap_text(str(note[2]), x + 20, ty + 111, ww - 40, 16, Color("c8ddf3"), 19, body, false, 3)
+	wrap_text(str(note[1]), x + 20, ty + 27, ww - 40, 16, Color("daeaff"), 20, body, false, 3)
+	txt("COUNTERPLAY", Vector2(x + 20, ty + 105), 17, Color("8ed8ff"), 0, bold)
+	wrap_text(str(note[2]), x + 20, ty + 132, ww - 40, 16, Color("c8ddf3"), 19, body, false, 3)
 	txt("KILLS  %d    •    XP  %d    •    BASE STATS" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], Vector2(r.get_center().x, r.end.y - 14), fit("KILLS %d XP %d BASE" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], ww - 32, 14), Color("a4b8ce"), 1, body)
 
 func paint_bestiary() -> void:
@@ -1658,6 +1666,12 @@ func paint_bestiary() -> void:
 	txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
 	bestiary_filters(35, 111, 118)
 	var items = bestiary_entries()
+	if bestiary_selected == "" or not items.has(bestiary_selected):
+		bestiary_selected = ""
+		for id in items:
+			if int(g.profile["mobs"].get(id, 0)) > 0:
+				bestiary_selected = str(id)
+				break
 	var pages = maxi(1, ceili(float(items.size()) / 12.0))
 	bestiary_page = clampi(bestiary_page, 0, pages - 1)
 	for i in range(12):
@@ -2197,7 +2211,18 @@ func mob_info(kind: String) -> Dictionary:
 func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 	var v = g.visuals
 	if v.atlas != null and v.atlas_cell.has(kind):
-		draw_texture_rect_region(v.atlas, r, v.atlas_cell[kind], Color(1, 1, 1, a))
+		var size = minf(r.size.x, r.size.y)
+		var dst = Rect2(r.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))
+		var src: Rect2 = v.atlas_cell[kind]
+		var accent = Color(str(g.enemy_db[kind]["color"]))
+		draw_circle(dst.get_center() + Vector2(0, size * 0.18), size * 0.42, Color(0, 0, 0, 0.35 * a))
+		draw_circle(dst.get_center() + Vector2(0, -size * 0.04), size * 0.37, Color(accent, 0.11 * a))
+		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(50, 50), Vector2(100, 100)), Color(1, 1, 1, a))
+		var face = str(g.enemy_db[kind].get("look", {}).get("face", ""))
+		if face != "visor" and kind not in ["heli", "necro", "totem", "riot"]:
+			for side in [-1.0, 1.0]:
+				draw_circle(dst.get_center() + Vector2(side * size * 0.14, -size * 0.07), maxf(2.0, size * 0.033), Color("142035"))
+				draw_circle(dst.get_center() + Vector2(side * size * 0.14 - 1.0, -size * 0.09), maxf(1.0, size * 0.011), Color.WHITE)
 
 const KILL_LINES = {"blob": "blob.", "zoomer": "too slow.", "nurse": "no refunds.", "spitter": "ptooey.",
 	"kaboomba": "worth it.", "chonk": "oops. sat on you.", "mitosis": "we won.", "mini": "small but mighty.",

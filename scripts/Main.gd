@@ -13,7 +13,7 @@ const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
-const GAME_VERSION = "v0.1.31"
+const GAME_VERSION = "v0.1.32"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -630,8 +630,7 @@ func xp_for(l: int) -> int:
 func sector_scale() -> float:
 	return 1.0 + 0.06 * (sector - 1)
 
-## Low-card progression needs a gradual enemy curve, not a 9-11 HP cliff.
-## The pressure band also controls density, damage and spawn speed.
+## The relief band controls crowd density, damage and spawn speed.
 func midgame_relief(s: int = -1) -> float:
 	var x = sector if s < 0 else s
 	match x:
@@ -647,10 +646,11 @@ func enemy_scale() -> float:
 	var m = float(maxi(0, sector - 5))
 	if sector <= 5:
 		return 1.0 + 0.07 * float(maxi(0, sector - 1))
-	var scale = 1.28 * (1.0 + 0.19 * m + 0.05 * m * m + 0.0025 * m * m * m)
+	# A smooth ramp keeps the first boss meaningful without an HP jump in 9-12.
+	var scale = 1.28 * (1.0 + 0.12 * m + 0.03 * m * m + 0.0005 * m * m * m)
 	if sector > WIN_SECTOR:
 		scale *= pow(1.35, float(mini(sector - WIN_SECTOR, 20)))
-	return scale * midgame_relief()
+	return scale
 
 ## Hordes still grow, but the 9-11 wall gets a gentle valley with smooth recovery.
 func crowd_ramp(s: int = -1) -> float:
