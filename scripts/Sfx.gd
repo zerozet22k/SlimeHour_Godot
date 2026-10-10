@@ -1,14 +1,23 @@
 extends Node
-## Procedurally synthesized sound effects and a looping beat. No audio files needed.
+## Multi-theme original synthwave soundtrack, reactive danger percussion, and arcade SFX.
 
 const RATE = 22050
 var streams: Dictionary = {}
 var players: Array = []
 var last_play: Dictionary = {}
 var music_player: AudioStreamPlayer
+var music_alt: AudioStreamPlayer
+var pressure_player: AudioStreamPlayer
+var music_cache: Dictionary = {}
+var current_song = "neon"
+var pending_song = ""
+var fade = 0.0
+var pressure = 0.0
+var target_pressure = 0.0
+var last_warning = -100.0
+var music_active = false
 var sfx_volume = 0.7
 var music_volume = 0.45
-var music_ready = false
 
 const MIN_GAP = {"hit": 0.07, "crit": 0.08, "pop": 0.06, "tick": 0.05, "gem": 0.05, "coin": 0.06, "pew": 0.06,
 	"boom_small": 0.09, "boom": 0.12, "zap": 0.08, "reload": 0.1, "honk": 0.15, "bloop": 0.06, "buzz": 0.2, "ping": 0.05,
@@ -25,14 +34,17 @@ func _ready() -> void:
 		add_child(p)
 		players.append(p)
 	music_player = AudioStreamPlayer.new()
+	music_alt = AudioStreamPlayer.new()
+	pressure_player = AudioStreamPlayer.new()
 	add_child(music_player)
+	add_child(music_alt)
+	add_child(pressure_player)
 	build_all()
 
 func set_volumes(s: float, m: float) -> void:
 	sfx_volume = s
 	music_volume = m
-	if music_player != null:
-		music_player.volume_db = linear_to_db(maxf(0.0001, m * 0.55))
+	update_music_volumes()
 
 func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
 	if sfx_volume <= 0.01 or not streams.has(name):
@@ -59,15 +71,75 @@ func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
 	free.volume_db = linear_to_db(maxf(0.0001, sfx_volume * vol * 0.6 / sqrt(1.0 + active * 0.35)))
 	free.play()
 
+## World-driven music selection, called at low frequency by Main.
+## Biome tracks progress with world, bosses get distinct fight/climax tracks.
+## Pressure rises as surrounding enemies crowd the player; corner traps
+## trigger a short warning stinger and intensified percussion.
+const MUSIC_THEMES = ["neon", "frost", "ash", "candy", "void"]
+
+func music_context(biome: int, boss: bool, boss_fury: bool, threat: float, cornered: bool) -> void:
+	var wanted = ("boss_fury" if boss_fury else "boss") if boss else str(MUSIC_THEMES[posmod(biome, MUSIC_THEMES.size())])
+	target_pressure = clampf(threat + (0.42 if cornered else 0.0), 0.0, 1.0)
+	if cornered and target_pressure > 0.75 and Time.get_ticks_msec() / 1000.0 - last_warning > 9.0:
+		last_warning = Time.get_ticks_msec() / 1000.0
+		play("danger_warn", 0.0, 0.78)
+	if wanted == current_song or wanted == pending_song:
+		return
+	if not music_active:
+		current_song = wanted
+		return
+	# A smooth crossfade, not a hard restart or rapid re-trigger.
+	pending_song = wanted
+	music_alt.stream = song_stream(wanted)
+	music_alt.play()
+	fade = 0.0
+
 func music_on(on: bool) -> void:
-	if on and music_volume > 0.01:
-		if not music_ready:
-			music_ready = true
-			music_player.stream = build_music()
+	music_active = on and music_volume > 0.01
+	if music_active:
 		if not music_player.playing:
+			music_player.stream = song_stream(current_song)
 			music_player.play()
-	elif music_player.playing and not on:
-		music_player.stop()
+		if not pressure_player.playing:
+			pressure_player.stream = song_stream("pressure")
+			pressure_player.play()
+	else:
+		if music_player.playing:
+			music_player.stop()
+		if music_alt.playing:
+			music_alt.stop()
+		if pressure_player.playing:
+			pressure_player.stop()
+		pending_song = ""
+		fade = 0.0
+	update_music_volumes()
+
+func _process(dt: float) -> void:
+	pressure = move_toward(pressure, target_pressure, dt * (0.9 if target_pressure > pressure else 0.38))
+	if music_active and pending_song != "":
+		fade = minf(1.0, fade + dt / 1.5)
+		if fade >= 1.0:
+			var previous = music_player
+			music_player = music_alt
+			music_alt = previous
+			music_alt.stop()
+			current_song = pending_song
+			pending_song = ""
+			fade = 0.0
+	update_music_volumes()
+
+func update_music_volumes() -> void:
+	if music_player == null:
+		return
+	var level = music_volume * 0.43 if music_active else 0.0
+	music_player.volume_db = linear_to_db(maxf(0.0001, level * (1.0 - fade if pending_song != "" else 1.0)))
+	music_alt.volume_db = linear_to_db(maxf(0.0001, level * fade if pending_song != "" else 0.0001))
+	pressure_player.volume_db = linear_to_db(maxf(0.0001, level * 0.53 * pressure))
+
+func song_stream(name: String) -> AudioStreamWAV:
+	if not music_cache.has(name):
+		music_cache[name] = build_music(name)
+	return music_cache[name]
 
 # ---------------------------------------------------------------- synthesis
 func to_stream(samples: PackedFloat32Array, loop = false) -> AudioStreamWAV:
@@ -166,6 +238,12 @@ func build_all() -> void:
 	streams["lose"] = to_stream(arpeggio([392.0, 330.0, 262.0, 196.0], 0.16, "tri", 0.35))
 	streams["block"] = to_stream(synth(0.12, 1200, 600, "tri", 0.3, 20, 0.35))
 	streams["heal"] = to_stream(arpeggio([660.0, 880.0], 0.06, "sine", 0.3))
+	streams["boss_warn"] = to_stream(mix(synth(0.32, 660, 350, "saw", 0.05, 4.8, 0.28),
+		synth(0.24, 90, 60, "sine", 0.05, 9.0, 0.38), int(0.05 * RATE)))
+	streams["fuse"] = to_stream(mix(synth(0.20, 1100, 750, "square", 0.05, 12.0, 0.28),
+		synth(0.12, 1650, 950, "tri", 0.0, 17.0, 0.25), int(0.07 * RATE)))
+	streams["danger_warn"] = to_stream(mix(synth(0.42, 780, 260, "tri", 0.1, 6.5, 0.4),
+		synth(0.40, 120, 65, "sine", 0.03, 6.0, 0.42), int(0.08 * RATE)))
 	streams["boom2"] = streams["boom"]
 	streams["shot"] = streams["pew"]
 
@@ -175,31 +253,76 @@ func arpeggio(notes: Array, step: float, wave: String, vol: float) -> PackedFloa
 		out = mix(out, synth(step * 2.2, notes[i], notes[i], wave, 0.0, 9, vol), int(i * step * RATE))
 	return out
 
-func build_music() -> AudioStreamWAV:
-	# 8 bars of a bouncy 128bpm beat: kick, snare, hats and a minor-pentatonic bass.
+## Seven original 8-bar compositions plus a synchronized reactive danger layer.
+## All themes share tempo and bar length for musical, seamless scene transitions.
+const LEADS = {
+	"neon":  [67, -1, 70, 72, -1, 74, 72, -1, 67, 70, -1, 65, 67, -1, 62, -1],
+	"frost": [74, -1, -1, 77, 79, -1, 77, -1, 72, -1, 70, -1, 69, -1, -1, 72],
+	"ash":   [62, -1, 65, -1, 67, 68, -1, 65, 62, -1, 60, 62, 65, -1, 60, -1],
+	"candy": [76, 79, -1, 83, 81, -1, 79, 76, 74, 76, 79, -1, 81, 79, 76, -1],
+	"void":  [63, -1, 66, -1, 68, -1, 63, 61, -1, 66, -1, 68, 70, -1, 66, -1],
+	"boss":  [62, 62, -1, 65, 68, -1, 65, 62, 70, -1, 68, 65, 62, 65, -1, 60],
+	"boss_fury": [74, 77, 75, 74, 70, 74, 68, 65, 74, 77, 80, 77, 74, 70, 68, 65],
+}
+const ROOTS = {
+	"neon": [43, 39, 41, 38], "frost": [50, 46, 48, 43],
+	"ash": [38, 36, 41, 34], "candy": [48, 53, 55, 43],
+	"void": [39, 36, 32, 34], "boss": [38, 34, 36, 33],
+	"boss_fury": [38, 39, 34, 36],
+}
+
+static func hz(midi: int) -> float:
+	return 440.0 * pow(2.0, (float(midi) - 69.0) / 12.0)
+
+func build_music(name: String = "neon") -> AudioStreamWAV:
 	var bpm = 128.0
 	var beat = 60.0 / bpm
-	var bars = 4
-	var n = int(beat * 4 * bars * RATE)
+	var bars = 8
+	var count = int(beat * 4.0 * bars * RATE)
 	var out = PackedFloat32Array()
-	out.resize(n)
-	var bass_notes = [55.0, 55.0, 65.4, 49.0, 55.0, 73.4, 65.4, 49.0]
-	var kick = synth(0.25, 120, 40, "sine", 0.0, 14, 0.8)
-	var snare = synth(0.18, 220, 180, "tri", 0.75, 18, 0.4, 0.6)
-	var hat = synth(0.04, 8000, 8000, "square", 0.95, 80, 0.12, 0.9)
-	var steps = bars * 16
-	for s in range(steps):
-		var pos = int(s * beat / 4.0 * RATE)
-		var in_bar = s % 16
-		if in_bar % 4 == 0 or in_bar == 10:
-			paste(out, kick, pos)
-		if in_bar == 4 or in_bar == 12:
-			paste(out, snare, pos)
-		if in_bar % 2 == 0:
-			paste(out, hat, pos)
-		if in_bar % 2 == 0:
-			var note = bass_notes[(s / 4) % bass_notes.size()] * (2.0 if in_bar % 8 == 6 else 1.0)
-			paste(out, synth(beat / 2.0 * 0.9, note, note, "saw", 0.0, 6, 0.22, 0.12), pos)
+	out.resize(count)
+	var is_boss = name.begins_with("boss")
+	var is_pressure = name == "pressure"
+	var root: Array = ROOTS.get(name, ROOTS["neon"])
+	var lead: Array = LEADS.get(name, LEADS["neon"])
+	var wave = "tri" if name in ["frost", "candy"] else "saw"
+	var kick = synth(0.23, 115, 38, "sine", 0.05, 16, 0.47)
+	var snare = synth(0.15, 195, 135, "tri", 0.73, 20, 0.28, 0.6)
+	var hat = synth(0.035, 7500, 7000, "square", 0.9, 95, 0.1, 0.7)
+	for bar in range(bars):
+		var base = bar * 16
+		var base_root = int(root[bar % root.size()])
+		for step in range(16):
+			var pos = int((base + step) * beat * 0.25 * RATE)
+			if is_pressure:
+				if step % 2 == 1:
+					paste(out, hat, pos)
+				if step in [2, 6, 10, 14]:
+					paste(out, snare, pos)
+				if bar >= 4 and step % 4 == 0:
+					paste(out, synth(0.14, 115, 55, "sine", 0.0, 22, 0.32), pos)
+				continue
+			if step in [0, 8] or is_boss and step in [4, 12]:
+				paste(out, kick, pos)
+			if step in [4, 12]:
+				paste(out, snare, pos)
+			if step % 2 == 0 or name in ["ash", "boss_fury"] and step % 2 == 1:
+				paste(out, hat, pos)
+			if step % 4 == 0 or is_boss and step % 4 == 2:
+				var note = base_root + (12 if step == 12 else 0)
+				paste(out, synth(0.22, hz(note), hz(note) * 0.96, "saw", 0.0, 8.0, 0.21, 0.25), pos)
+			var pitch = int(lead[step])
+			if pitch > 0 and (bar % 4 != 0 or step % 2 == 0):
+				var accent = 1.15 if bar >= 4 else 0.82
+				paste(out, synth(0.20 if is_boss else 0.32, hz(pitch), hz(pitch), wave, 0.01,
+					8.5 if is_boss else 6.0, 0.105 * accent, 0.47 if wave == "saw" else 0.9), pos)
+			if step == 0:
+				for chord_offset in [0, 3 if name != "candy" else 4, 7]:
+					paste(out, synth(beat * 1.55, hz(base_root + 12 + chord_offset),
+						hz(base_root + 12 + chord_offset), "tri", 0.0, 1.7, 0.065, 0.65), pos)
+	# Soft master level leaves headroom for intense SFX and adaptive percussion.
+	for i in range(out.size()):
+		out[i] = tanh(out[i] * 0.80)
 	return to_stream(out, true)
 
 func paste(out: PackedFloat32Array, src: PackedFloat32Array, pos: int) -> void:
