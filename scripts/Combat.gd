@@ -1769,6 +1769,10 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 ## Extra pressure when a player runs beyond the boss's engagement range.
 ## Respect visible windups, stagger, vent, flight passes and burrow states.
 static func boss_engagement(g, e: Dictionary, desired: Vector2, dir: Vector2, dist: float) -> Vector2:
+	# Chonkzilla owns its pursuit rhythm: shared slow anti-kite steering must
+	# not overwrite its actual high-speed closing movement at long range.
+	if str(e["kind"]) == "chonkzilla":
+		return desired
 	if dist < maxf(420.0, g.road_half * 0.94):
 		return desired
 	if float(e.get("wind", 0.0)) > 0.0 or float(e.get("boss_recover", 0.0)) > 0.0:
