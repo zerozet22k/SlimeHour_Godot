@@ -61,7 +61,8 @@ func _run() -> void:
 	_check(Effects.stack_preview(g, "proc").contains("15 BASE DMG"), "trigger-only card displays quantified damage")
 	_check(Effects.stack_preview(g, "total").contains("20%"), "total damage card displays percentage")
 	g.owned["fire"] = 1
-	_check(Effects.stack_preview(g, "fire").contains("35% > +60%"), "second copy previews diminished return")
+	var shown_next = Effects.format_mod("burn", Effects.stack_total(0.35, 2))
+	_check(Effects.stack_preview(g, "fire").contains("35% > " + shown_next), "second copy previews diminished return")
 	_check(Effects.stack_preview(g, "fire", true).contains("+35%"), "collection view shows current card value")
 	# Sector health should not become an early-game HP wall after reducing card rewards.
 	var game = Main.new()
