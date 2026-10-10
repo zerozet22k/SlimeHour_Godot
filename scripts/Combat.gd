@@ -1946,19 +1946,13 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 7.0 + float(e["phase"])) * 0.95).normalized()
 		"sapper":
-			# Ranged ground denial, but every mine is telegraphed before dealing damage.
-			if float(e["cd"]) <= 0.0 and dist < 460.0 and g.delayed.size() < 140:
-				e["cd"] = 4.4
-				var lead = hero_pos + g.hero["vel"] * 0.25
-				schedule_boss_blast(g, lead, 46.0, float(e["dmg"]) * 1.25, 1.3, "ffbb61")
-				# Delayed offset mine creates a staggered corridor instead of
-				# Mortar Mike's single predicted circular impact.
-				if g.sector >= 14 and g.delayed.size() < 135:
-					var second: Vector2 = lead + Vector2(76.0 if int(e.get("id", 0)) % 2 == 0 else -76.0, -24.0)
-					second.x = clampf(second.x, -g.road_half + 40.0, g.road_half - 40.0)
-					schedule_boss_blast(g, second, 43.0, float(e["dmg"]) * 0.80, 1.76, "ffcb7b")
-				e["squash"] = 0.4
-			return dir if dist > 320.0 else (-dir if dist < 205.0 else dir.orthogonal() * 0.5)
+			# Visible persistent proximity mine, not Mortar's timed artillery.
+			if float(e["cd"]) <= 0.0 and dist < 450.0:
+				e["cd"] = 4.8 if not g.hard_mode else 3.8
+				var mine_pos: Vector2 = hero_pos + g.hero["vel"] * 0.28
+				EnemyIdentity.place(g, "mine", mine_pos, 31.0, float(e["dmg"]) * 1.35, 10.0, 0.95)
+				e["squash"] = 0.5
+			return dir if dist > 325.0 else (-dir if dist < 190.0 else dir.orthogonal() * 0.4)
 		"lancer":
 			# Long-range spear burst: stationary aiming tell and fast pierce shot.
 			if float(e["wind"]) > 0.0:
@@ -1977,20 +1971,25 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return dir if dist > 360.0 else -dir * 0.45
 		"leech":
-			# Blood tether has a breakable 0.95s channel at medium range;
-			# winning melee contact also heals, but it's now a true ranged threat.
+			# Sustained blood siphon broken by real cover, range or death.
+			if float(e.get("tether_t", 0.0)) > 0.0:
+				e["tether_t"] = maxf(0.0, float(e["tether_t"]) - dt)
+				if dist > 225.0 or EnemyIdentity.covered(g, e["pos"], hero_pos):
+					e["tether_t"] = 0.0
+				elif float(e.get("tether_tick", 0.0)) <= 0.0:
+					e["tether_tick"] = 0.45
+					if g.hurt(float(e["dmg"]) * 0.28, e["pos"], "a Leech blood tether"):
+						e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.04)
+				e["tether_tick"] = float(e.get("tether_tick", 0.0)) - dt
+				return Vector2.ZERO
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					var leash: float = e["pos"].distance_to(hero_pos)
-					if leash < 180.0 and hero_pos.distance_to(Vector2(e.get("lock", hero_pos))) < 110.0:
-						if g.hurt(float(e["dmg"]) * 0.65, e["pos"], "a Leech blood tether"):
-							var heal = minf(float(e["max_hp"]) * 0.09, float(e["dmg"]) * 1.2)
-							e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + heal)
-							g.spawn_ring_fx(hero_pos, Color("bc72ef"), 28.0)
+				if float(e["wind"]) <= 0.0 and dist < 225.0 and not EnemyIdentity.covered(g, e["pos"], hero_pos):
+					e["tether_t"] = 2.2 if not g.hard_mode else 2.8
+					e["tether_tick"] = 0.1
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 185.0 and dist > 60.0:
-				e["cd"] = 5.2 if not g.hard_mode else 4.2
+			if float(e["cd"]) <= 0.0 and dist < 205.0 and dist > 65.0:
+				e["cd"] = 5.0 if not g.hard_mode else 4.1
 				e["wind"] = 0.95
 				e["lock"] = hero_pos
 				return Vector2.ZERO
@@ -1999,26 +1998,21 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
 		"mirror":
+			# No default shotgun: only copied shots in response to player damage.
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					var locked: Vector2 = e.get("lock", hero_pos)
-					var aim = (locked - e["pos"]).normalized()
-					if aim.length_squared() < 0.1:
-						aim = dir
-					var volley = mini(4, int(e.get("mirror_shots", 3)))
-					enemy_fire(g, e, aim, volley, 0.46, 385.0, 5.0)
-					# A second diagonal salvo closes the obvious sideways dodge
-					# but is slower, so players can weave between both.
-					if g.sector >= 12:
-						enemy_fire(g, e, aim.rotated(0.42 if int(e["id"]) % 2 == 0 else -0.42), 2, 0.2, 300.0, 4.5)
-					g.sfx.play("whoosh")
-				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 500.0:
-				e["cd"] = 3.5
-				e["wind"] = 0.8
-				e["mirror_shots"] = 3
-				e["lock"] = hero_pos + g.hero["vel"] * 0.33
+					var aim: Vector2 = (Vector2(e.get("lock", hero_pos)) - e["pos"]).normalized()
+					var copied_kind: String = str(e.get("mirror_kind", "bullet"))
+					var count = mini(3, int(e.get("mirror_shots", 1)))
+					for k in range(count):
+						var arc: float = (float(k) - float(count - 1) * 0.5) * 0.12
+						shot(g, e["pos"], aim.rotated(arc), float(e["dmg"]) * 0.66,
+							{"friendly": false, "kind": "enemy", "speed": 355.0,
+							"life": 2.4, "r": 7.0 if copied_kind in ["rocket", "grenade", "egg"] else 4.0,
+							"curve": float(e.get("mirror_curve", 0.0)) * 0.65,
+							"wave": minf(10.0, float(e.get("mirror_wave", 0.0))),
+							"color": Color("82e9ef"), "src": "a Mirror Mimic copy"})
 				return Vector2.ZERO
 			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 3.8 + float(e["phase"])) * 0.95).normalized()
 		"burrower":
@@ -2041,6 +2035,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					if g.delayed.size() < 140:
 						schedule_boss_blast(g, exit, 55.0, float(e["dmg"]) * 0.70, 0.68, "e7a75b")
 						schedule_boss_line(g, entrance, exit, 22.0, float(e["dmg"]) * 0.88, 1.12, "d2ab69")
+					EnemyIdentity.place_line(g, entrance, exit, 18.0, float(e["dmg"]) * 0.30, 3.1)
 					g.sfx.play("thunk")
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and dist > 115.0 and dist < 610.0:
@@ -2056,17 +2051,18 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return (dir * 0.88 + dir.orthogonal() * sin(float(e["t"]) * 1.8) * 0.20).normalized()
 		"siren":
-			# Rally nearby ordinary mobs only. The pulse does not stack or buff bosses.
+			# Command window synchronizes rushers; no buffing bosses.
 			if float(e["cd"]) <= 0.0:
 				e["cd"] = 5.5
-				var boosted = false
-				for o in query(g, e["pos"], 180.0):
-					if o != e and not bool(o["dead"]) and not bool(o["boss"]) and o["pos"].distance_to(e["pos"]) <= 180.0:
-						o["siren_haste"] = maxf(float(o.get("siren_haste", 0.0)), 2.3)
-						boosted = true
-				if boosted:
+				var rallied = 0
+				for other in query(g, e["pos"], 180.0):
+					if other != e and not bool(other["dead"]) and not bool(other["boss"]) and other["pos"].distance_to(e["pos"]) <= 180.0:
+						other["siren_haste"] = maxf(float(other.get("siren_haste", 0.0)), 2.3)
+						if str(other["kind"]) in ["bull", "zoomer", "skitter", "blob", "mini"]:
+							other["cd"] = minf(float(other.get("cd", 0.0)), 0.65)
+						rallied += 1
+				if rallied > 0:
 					g.spawn_ring_fx(e["pos"], Color("f194da"), 180.0)
-					e["squash"] = 0.55
 					g.sfx.play("gate")
 			return dir if dist > 280.0 else -dir * 0.45
 		"zoomer":
@@ -2223,23 +2219,46 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["wind"] = 0.6
 			return dir
 		"nurse":
-			if e["cd"] <= 0.0:
-				e["cd"] = 2.5
-				var healed = false
-				for o in query(g, e["pos"], 170.0):
-					if o != e and not bool(o["dead"]) and o["pos"].distance_to(e["pos"]) < 170.0 and float(o["hp"]) < float(o["max_hp"]):
-						o["hp"] = minf(float(o["max_hp"]), float(o["hp"]) + float(o["max_hp"]) * 0.12)
-						healed = true
-				if healed:
-					g.spawn_ring_fx(e["pos"], Color("7dff9a"), 170.0)
-			return dir if dist > 260.0 else -dir * 0.4
+			# Medic reaches a single critically damaged patient then finishes treatment.
+			var patient = e.get("patient")
+			if patient != null and (bool(patient.get("dead", false)) or float(patient.get("hp", 0.0)) >= float(patient.get("max_hp", 1.0)) * 0.95):
+				patient = null
+				e.erase("patient")
+				e["treat_t"] = 0.0
+			if patient == null and float(e["cd"]) <= 0.0:
+				var lowest = 0.70
+				for ally in query(g, e["pos"], 270.0):
+					if ally == e or bool(ally["dead"]) or bool(ally["boss"]):
+						continue
+					var ratio = float(ally["hp"]) / maxf(1.0, float(ally["max_hp"]))
+					if ratio < lowest:
+						lowest = ratio
+						patient = ally
+				if patient != null:
+					e["patient"] = patient
+					e["treat_t"] = 0.0
+					e["cd"] = 4.4
+			if patient != null:
+					var to_patient: Vector2 = Vector2(patient["pos"]) - Vector2(e["pos"])
+					if to_patient.length() > 58.0:
+						e["treat_t"] = 0.0
+						return to_patient.normalized()
+					e["treat_t"] = float(e.get("treat_t", 0.0)) + dt
+					if float(e["treat_t"]) >= 1.15:
+						patient["hp"] = minf(float(patient["max_hp"]), float(patient["hp"]) + float(patient["max_hp"]) * 0.28)
+						patient["kb"] = -dir * 155.0
+						g.spawn_ring_fx(patient["pos"], Color("7dff9a"), 49.0)
+						e.erase("patient")
+						e["treat_t"] = 0.0
+					return Vector2.ZERO
+			return dir if dist > 275.0 else -dir * 0.45
 		"mama":
-			if e["cd"] <= 0.0 and g.enemies.size() < g.MAX_ENEMIES:
-				e["cd"] = 4.0
+			# Destroyable hatchery eggs replace immediate extra mobs.
+			if float(e["cd"]) <= 0.0 and g.enemies.size() < g.MAX_ENEMIES:
+				e["cd"] = 5.0
 				for k in range(2):
-					var m = g.spawn_enemy("mini", e["pos"] + Vector2(randf_range(-20, 20), 10), false, false)
-					m["kb"] = Vector2(randf_range(-200, 200), 160)
-					m["summon"] = true
+					var egg_pos: Vector2 = e["pos"] + Vector2(-24.0 if k == 0 else 24.0, 10.0)
+					EnemyIdentity.place(g, "egg", egg_pos, 18.0, 0.0, 3.0 if not g.hard_mode else 2.2, 0.0)
 				e["squash"] = 0.5
 			return dir
 		"goblin":
@@ -2247,10 +2266,13 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["dead"] = true
 				g.say(e["pos"], "ESCAPED!", Color("ffd24d"), 22)
 				return Vector2.ZERO
-			var away = -dir
-			if float(e["pos"].y) < g.cam_y - 300.0:
-				away = (away + Vector2(0, 1)).normalized()
-			return (away + away.orthogonal() * sin(float(e["t"]) * 3.0) * 0.6).normalized()
+			if not e.has("escape_x"):
+				e["escape_x"] = (g.road_half - 22.0) * (1.0 if int(e["id"]) % 2 == 0 else -1.0)
+			var escape: Vector2 = Vector2(float(e["escape_x"]), hero_pos.y - 200.0)
+			var retreat: Vector2 = (escape - e["pos"]).normalized()
+			if dist < 220.0:
+				retreat = (retreat * 0.6 - dir * 1.1).normalized()
+			return retreat
 		"kaboomba":
 			return dir
 		"chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine":
