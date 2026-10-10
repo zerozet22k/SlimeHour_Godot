@@ -1865,6 +1865,7 @@ static func boss_countersequence(g, e: Dictionary, stage: int, cycle: int) -> vo
 	# Helpers like schedule_boss_line do not take ownership directly.
 	for i in range(first, g.delayed.size()):
 		g.delayed[i]["owner"] = owner_id
+		g.delayed[i]["countersequence"] = kind
 
 ## Sustained, bounded projectile pressure between the large arena attacks.
 ## Each boss changes the origin and flight rule of its own bullets.
