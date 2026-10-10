@@ -95,7 +95,8 @@ func _run() -> void:
 		Combat.boss_arena_tick(g, boss, 0.2)
 		check(not g.delayed.any(func(d): return str(d.get("fn", "")) == "arena_event"),
 			kinds[i] + ": no fullscreen, unavoidable boss attack")
-		check(g.delayed.size() <= 8, kinds[i] + ": limited simultaneous warnings")
+		# Arena formations add warned circles, with a clear cell in each row.
+		check(g.delayed.size() <= 18, kinds[i] + ": bounded simultaneous warnings")
 		if kinds[i] in ["chonkzilla", "necro", "kingblob", "dreadengine"]:
 			var id_key = signatures[i] if kinds[i] != "necro" else "possessed"
 			check(g.enemies.any(func(m): return bool(m.get(id_key, false)) if id_key == "possessed" else int(m.get(id_key, -1)) == int(boss["id"])),

@@ -1632,6 +1632,45 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 ## Boss setpieces are DIFFERENT combat systems, not differently colored
 ## fullscreen damage. Their warnings mark the actual collision area.
 ## Long-range retreat triggers pursuit through the existing boss AI.
+## Boss-specific floor formations cross the entire visible road. A missing cell
+## in every row is deliberate: the player can read the warning and move through.
+static func boss_map_pattern(g, e: Dictionary, stage: int) -> void:
+	var kind: String = str(e["kind"])
+	var colors := {"heli": "ffc369", "necro": "c49cff", "kingblob": "ff83c0",
+		"coilqueen": "65efb2", "glassoracle": "8ceeff",
+		"voidweaver": "a18aff", "dreadengine": "ffce83"}
+	if not colors.has(kind):
+		return
+	var cycle: int = int(e.get("map_cycle", 0))
+	e["map_cycle"] = cycle + 1
+	var columns: int = maxi(4, floori(g.road_half * 2.0 / 205.0))
+	var rows: int = 3 if stage < 2 else 4
+	var gap_x: float = (g.road_half * 2.0 - 130.0) / float(columns - 1)
+	var center_y: float = float(g.hero["pos"].y)
+	for row in range(rows):
+		var gap: int = (cycle + row) % columns
+		match kind:
+			"heli": gap = (cycle + row) % columns # Bombing run sweeps sideways.
+			"necro": gap = (columns - 1 - cycle - row) % columns # Soul wave reverses.
+			"kingblob": gap = (cycle + row * 2) % columns # Splits alternate flanks.
+			"coilqueen": gap = 0 if (cycle + row) % 2 == 0 else columns - 1 # Serpentine edge route.
+			"glassoracle": gap = (cycle + (columns - 1 - row)) % columns # Reflected sweep.
+			"voidweaver": gap = (cycle + row * 2) % columns # Portal checkerboard.
+			"dreadengine": gap = (cycle + row) % columns # Piston wave.
+		for column in range(columns):
+			if column == gap or g.delayed.size() >= 132:
+				continue
+			if kind == "voidweaver" and (column + row + cycle) % 2 == 0:
+				continue
+			var pos := Vector2(-g.road_half + 65.0 + float(column) * gap_x,
+				center_y - 225.0 + row * 190.0)
+			var radius: float = 66.0 if kind != "kingblob" else 73.0
+			var warning: float = 1.25 + row * (0.27 if kind != "dreadengine" else 0.38)
+			g.delayed.append({"fn": "boss_blast", "pos": pos, "t": warning,
+				"life": warning, "tele": radius, "dmg": float(e["dmg"]) * 0.43,
+				"color": colors[kind], "owner": int(e["id"]), "map_pattern": kind,
+				"map_row": row, "map_gap": gap})
+
 static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dead", false)):
 		return
@@ -1790,6 +1829,7 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 			if stage >= 1:
 				schedule_boss_line(g, lead + Vector2(span, -130.0),
 					lead + Vector2(-span, 130.0), 26.0, damage * 0.78, 1.53, "ffce83")
+	boss_map_pattern(g, e, stage)
 	g.sfx.play("boss_warn")
 
 

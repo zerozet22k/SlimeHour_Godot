@@ -56,6 +56,24 @@ func _run() -> void:
 	check(bosses.size() == 8, "Eight bosses remain in original sector rotation")
 	for boss_id in bosses:
 		check(Bestiary.info(str(boss_id))[0] != "UNKNOWN", boss_id + " has a specific counterplay entry")
+	# Every non-Chonkzilla boss also controls space beyond its immediate body.
+	for boss_id in bosses:
+		if boss_id == "chonkzilla":
+			continue
+		reset(g)
+		var map_boss = specimen(g, boss_id, 900 + bosses.find(boss_id))
+		Combat.boss_map_pattern(g, map_boss, 1)
+		var field = g.delayed.filter(func(d): return str(d.get("map_pattern", "")) == boss_id)
+		check(field.size() >= 5, boss_id + " creates a real multi-circle arena attack")
+		var map_left := false
+		var map_right := false
+		var gap_clear := true
+		for circle in field:
+			map_left = map_left or float(circle["pos"].x) < -g.road_half * 0.5
+			map_right = map_right or float(circle["pos"].x) > g.road_half * 0.5
+			var gap_pos: float = -g.road_half + 65.0 + float(circle["map_gap"]) * (g.road_half * 2.0 - 130.0) / float(maxi(4, floori(g.road_half * 2.0 / 205.0)) - 1)
+			gap_clear = gap_clear and absf(float(circle["pos"].x) - gap_pos) > 1.0
+		check(map_left and map_right and gap_clear, boss_id + " covers the road with a clear escape route")
 
 	# Chonkzilla is a distinct charge/terrain encounter, not a short teleport stomp.
 	reset(g)
