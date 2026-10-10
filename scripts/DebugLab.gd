@@ -1,4 +1,6 @@
 extends RefCounted
+const Effects = preload("res://scripts/Effects.gd")
+const Weapons = preload("res://scripts/Weapons.gd")
 ## A developer sandbox. This is intentionally not a profile progression system:
 ## first opening the lab snapshots persistent progress and disables disk saves.
 ## Leaving to the menu restores the original profile/records and clears the sandbox.
@@ -41,11 +43,15 @@ static func enter_run(g) -> void:
 		g.start_run()
 	g.debug_panel_open = true
 
+static func sector_for(destination: int, kind: String = "fight") -> int:
+	var where = clampi(destination, 1, MAX_DEBUG_SECTOR)
+	if kind == "boss" and where % 5 != 0 and where <= 50:
+		where = mini(MAX_DEBUG_SECTOR, int(ceil(float(where) / 5.0)) * 5)
+	return where
+
 static func jump(g, destination: int, kind: String = "fight") -> void:
 	enter_run(g)
-	var where = clampi(destination, 1, MAX_DEBUG_SECTOR)
-	if kind == "boss" and where % 5 != 0 and where <= g.WIN_SECTOR:
-		where = mini(MAX_DEBUG_SECTOR, int(ceil(float(where) / 5.0)) * 5)
+	var where = sector_for(destination, kind)
 	g.sector = where
 	g.bosses_beaten = mini(g.ENEMY_TIERS.size() - 1, int((where - 1) / 5))
 	g.fresh_tier_sector = -1
@@ -107,7 +113,7 @@ static func give_card(g, id: String) -> bool:
 	# Force is explicitly limited to the debug lab; normal card choices still
 	# respect prerequisite checks, rarity, inventory caps and stack limits.
 	var before = int(g.owned.get(id, 0))
-	g.Effects.add_card(g, id, true)
+	Effects.add_card(g, id, true)
 	g.debug_notice = "CARD: " + str(g.card_by_id[id]["name"])
 	return int(g.owned.get(id, 0)) > before
 
@@ -116,13 +122,13 @@ static func give_gun(g, id: String) -> bool:
 		return false
 	enter_run(g)
 	var slot = mini(g.debug_slot, g.guns.size())
-	var gun = g.Weapons.new_gun(g, id)
+	var gun = Weapons.new_gun(g, id)
 	if slot < g.guns.size():
 		g.guns[slot] = gun
 	else:
 		g.guns.append(gun)
 	g.stats_dirty = true
-	g.Effects.recalc(g)
+	Effects.recalc(g)
 	g.debug_notice = "GUN %d: %s" % [slot + 1, g.weapon_db[id]["name"]]
 	return true
 
@@ -155,6 +161,10 @@ static func items(g, tab: String) -> Array:
 	return result
 
 static func run_action(g, action: String) -> void:
+	if action == "debug_open":
+		enter(g)
+		g.debug_panel_open = true
+		return
 	if not g.debug_panel_open:
 		return
 	if action == "debug_close":
