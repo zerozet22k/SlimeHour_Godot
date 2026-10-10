@@ -1,3 +1,12 @@
+## v0.1.41 — Readable gun notes, identifiable evolutions, fixed ion scars and safe update caching
+
+- Rebuild the Collection's desktop weapon inspector so Level 3 and Level 5 notes fit inside the right-hand panel, fully above the Back button. Portrait gun inspection also reserves space for upgrade notes.
+- Replace the stale “bullet count stays unchanged” evolution descriptions with 22 actual weapon-specific traits and individually colored projectile styles.
+- Cyclone X now tightens its spread dramatically while firing, retains accuracy when releasing the trigger, and fires a penetrating turquoise tracer every sixth trigger. Breachmaster tightens the shotgun choke and hits harder; evolved minigun, sniper, grenade, bee, nailgun, bubble, Hydra, snow, and other weapons gain their listed distinctive effects.
+- Gauss Lance's Level 5 Ion Scar now visibly occupies a pulsing electrically active corridor, with line-segment radius and endpoint collision matching its drawn width for 1.5 seconds.
+- The in-game updater now keeps previously downloaded ZIP archives until the SHA-256 checksum is fetched, verifies both cached size and digest, and avoids downloading verified identical archives again. It also refuses to download a release not newer than the running game.
+- Expand collection layout, weapon identity, ion-zone and updater-cache regression checks.
+
 ## v0.1.40 — Restored Cinder fire and recognizable Swarmcaster bees
 
 - Bring back Cinder's original flowing flame-puff look: moving orange/red/yellow overlapping combustion sprites, glowing hot cores and slight curling turbulence, replacing triangular/fanned weapon shapes.
