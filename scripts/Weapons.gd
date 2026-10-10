@@ -685,8 +685,10 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		hits += 1
 		if hits >= 24:
 			break
-	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.095,
-		"w": reach * tan(half_angle), "color": Color("ff9d4d"), "flame_stream": true})
+	# Restore the original moving-flame silhouette without restoring the
+	# old 30Hz physics projectiles. These are visual-only, bounded sprites in
+	# the existing FX list; damage is handled solely by the cone above.
+	flame_visuals(g, origin, direction, reach, half_angle, can_bank)
 	# Splinter / Cluster Rounds adapt into heat jumping to fresh targets at a
 	# capped interval; they do not create phantom flame projectiles.
 	if anchor != null and int(g.st("split")) > 0 and g.run_time >= float(w.get("flame_arc_t", -1.0)):
@@ -726,6 +728,31 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 	# The Dragon mastery still ignites occasional ground fires.
 	if wm(w, "dragon") > 0.0 and randf() < 0.015:
 		g.add_zone("fire", origin + direction * reach * 0.75, 34.0, 2.0)
+
+## Flame sprites are NOT Combat.shot projectiles: no hit tests, homing, bounces
+## or collision components. A persistent stream of overlapping fire puffs,
+## matching the earlier flamethrower look, has a small fixed VFX budget.
+static func flame_visuals(g, origin: Vector2, direction: Vector2, reach: float, half_angle: float, primary: bool) -> void:
+	if g.fx.size() >= 320:
+		return
+	var quality = str(g.settings.get("vfx_quality", "medium"))
+	var count = 2 if quality == "low" else (4 if quality == "high" else 3)
+	if not primary:
+		count = maxi(1, count - 1)
+	var unit = direction.normalized()
+	if unit.length_squared() < 0.001:
+		return
+	for i in range(count):
+		if g.fx.size() >= 320:
+			break
+		var life = randf_range(0.24, 0.35)
+		var travel = reach * randf_range(0.88, 1.05)
+		var flame_dir = unit.rotated(randf_range(-half_angle * 0.45, half_angle * 0.45))
+		var radius = randf_range(12.0, 19.0) * (0.78 if not primary else 1.0)
+		g.fx.append({"kind": "cinder_flame", "pos": origin + unit * randf_range(2.0, 14.0),
+			"vel": flame_dir * (travel / life), "t": 0.0, "life": life,
+			"color": Color("ff9331"), "size": radius, "seed": randf() * TAU})
+
 
 static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzzle: Vector2, aim: Vector2) -> void:
 	var lvl = int(w["lvl"])
