@@ -10,8 +10,12 @@ class FakeRun:
 	var guns: Array = [{"id": "pistol", "lvl": 1}]
 	var weapon_db: Dictionary = {}
 	var gate_mods: Dictionary = {}
-	func st(_key: String) -> float:
-		return 0.0
+	func st(key: String) -> float:
+		var value = 0.0
+		for id in owned:
+			if card_by_id.has(id):
+				value += float(card_by_id[id].get("mods", {}).get(key, 0.0)) * int(owned[id])
+		return value
 	func card_available(_id: String) -> bool:
 		return true
 
