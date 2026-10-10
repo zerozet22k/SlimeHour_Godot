@@ -323,8 +323,10 @@ func paint_barrels() -> void:
 			draw_circle(p, 18.0 * (1.0 - drop), Color(0, 0, 0, 0.4))
 			p.y -= drop * 500.0
 		draw_circle(p + Vector2(3, 8), 19, Color(0, 0, 0, 0.35))
-		var image = g.tex("res://assets/ui/barrel.svg")
 		var armed = bool(b.get("armed", false))
+		# Untriggered barrels must NOT have a burning fuse. The spark is
+		# present only on the armed asset after an actual weapon/dash hit.
+		var image = g.tex("res://assets/ui/barrel.svg" if armed else "res://assets/ui/barrel_unlit.svg")
 		if image != null:
 			var flash = 0.35 + 0.65 * absf(sin(g.anim_t * (12.0 + (0.85 - float(b.get("fuse", 0.85))) * 15.0))) if armed else 1.0
 			draw_texture_rect(image, Rect2(p - Vector2(21, 25), Vector2(42, 50)), false, Color(1.0, flash, flash, 1.0))
