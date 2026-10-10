@@ -7,6 +7,7 @@ const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
+const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 const CELL = 72.0
 const TOTEM_R = 230.0
 const STATUSES = ["burn", "freeze", "shock", "poison", "bleed", "slow", "charm", "wet", "mark"]
@@ -255,6 +256,8 @@ static func update_shots(g, dt: float) -> void:
 					var to_hero = hero_pos - s["pos"]
 					var owner_gun = s.get("gun")
 					var return_bonus = 1.3 if owner_gun != null and bool(owner_gun.get("evolved", false)) else 1.0
+					if owner_gun != null:
+						return_bonus *= Compatibility.return_speed(g, owner_gun)
 					vel = vel.lerp(to_hero.normalized() * float(s["speed"]) * 1.15 * return_bonus, minf(1.0, dt * 7.0))
 					WeaponSignatures.disc_recall(g, s, dt)
 					if to_hero.length() < 26.0:
@@ -367,7 +370,7 @@ static func expire(g, s: Dictionary) -> void:
 		"grenade", "egg", "rocket", "chicken":
 			var r = float(s["blast"]) if float(s["blast"]) > 0.0 else 60.0
 			explode(g, s["pos"], r, float(s["dmg"]), int(s["gen"]), Color(s["color"]))
-			if kind == "rocket":
+			if kind == "rocket" and not s["flags"].has("return_aftershock"):
 				WeaponSignatures.rocket_collapse(g, s, s["pos"])
 			if s["flags"].has("bomblets") and not s["flags"].has("return_aftershock"):
 				fragments(g, s["pos"], 4, float(s["dmg"]) * 0.45, "ring", Vector2.UP, int(s["gen"]) + 1, null, false, Color("b5ff6b"), "grenade")
@@ -385,7 +388,7 @@ static func on_wall(g, s: Dictionary) -> void:
 	var f = s["flags"]
 	WeaponSignatures.wall_bounce(g, s)
 	if f.has("bounce_dmg"):
-		s["dmg"] = float(s["dmg"]) * 1.15
+		s["dmg"] = float(s["dmg"]) * (1.15 + minf(0.10, float(f.get("bank_bonus", 0.0)) * 0.4))
 	var ws = int(g.st("wallsplit")) + int(f.get("wallsplit", 0))
 	if ws > 0 and int(s["gen"]) < Effects.max_gen(g):
 		fragments(g, s["pos"], ws, float(s["dmg"]) * 0.5, "forward", s["vel"].normalized(), int(s["gen"]) + 1, s, false, s["color"])
@@ -484,7 +487,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 		"bubble":
 			var trapped = int(f.get("trapped", 0)) + 1
 			f["trapped"] = trapped
-			e["bubble"] = 1.6 * (1.0 + g.st("dur"))
+			e["bubble"] = 1.6 * (1.0 + g.st("dur") + minf(0.25, float(f.get("trap_bonus", 0.0))))
 			e["bubble_dmg"] = float(s["dmg"])
 			e["bubble_r"] = maxf(45.0, float(s["blast"]))
 			e["bubble_mini"] = f.has("minibubbles")
@@ -501,11 +504,14 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 		"bolt":
 			if f.has("split_first") and not f.has("did_split"):
 				f["did_split"] = true
-				var nsplit = int(f["split_first"])
+				# Each root Hydra bolt owns at most eight children, even with
+				# stacked split modifiers. Children cannot split again.
+				var nsplit = mini(8, int(f["split_first"]))
 				for k in range(nsplit):
 					var ang = (float(k) - float(nsplit - 1) * 0.5) * 0.35
 					var o2 = {"kind": "frag", "speed": float(s["speed"]) * 0.8, "life": 0.5, "r": 3.5, "gen": int(s["gen"]) + 1,
-						"color": s["color"], "knock": 50.0, "frag": true, "homing": 5.0 if f.has("frag_home") else 0.0}
+						"color": s["color"], "knock": 50.0, "frag": true, "src": str(s.get("src", "splitbow")),
+						"homing": 5.0 if f.has("frag_home") else 0.0}
 					if f.has("hydra_seek"):
 						o2["homing"] = 6.0
 						o2["flags"] = {"hydra_seek": true}
