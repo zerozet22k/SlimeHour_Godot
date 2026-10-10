@@ -2280,6 +2280,13 @@ static func update_fx(g, dt: float) -> void:
 			g.fx.remove_at(i)
 			continue
 		f["pos"] += f["vel"] * dt
+		if f["kind"] == "cinder_flame":
+			# Visual-only turbulence: old-school fire puffs roll and curl
+			# instead of flying in straight, separated projectile lanes.
+			var velocity: Vector2 = f["vel"]
+			var age = float(f["t"]) / maxf(0.01, float(f["life"]))
+			var wobble = sin(float(f["seed"]) + float(f["t"]) * 25.0)
+			f["pos"] += velocity.normalized().orthogonal() * wobble * 32.0 * dt * (0.3 + age)
 		if f["kind"] in ["spark", "confetti"]:
 			f["vel"] = f["vel"] * exp(-4.0 * dt)
 			if f["kind"] == "confetti":
