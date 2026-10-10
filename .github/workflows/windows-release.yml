@@ -13,6 +13,11 @@ on:
       - tools/status_card_test.gd
       - tools/bestiary_test.gd
       - tools/prerequisite_test.gd
+      - tools/chunk_release.py
+      - tools/test_delta_powershell.py
+      - update_and_run.ps1
+      - updater_config.json
+      - Start_Slime_Hour.bat
       - project.godot
       - export_presets.cfg
   workflow_dispatch:
@@ -79,38 +84,57 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/status_card_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/prerequisite_test.gd
+          python3 tools/chunk_release.py selftest
+          python3 tools/test_delta_powershell.py
 
-      - name: Export, package, and verify Windows release
+      - name: Export Windows executable and separate PCK
         if: steps.version.outputs.needed == 'true'
         run: |
           set -euo pipefail
           mkdir -p dist
           timeout 600 ./godot-ci --headless --path . --export-release "Windows Desktop" dist/SlimeHour.exe
           test -s dist/SlimeHour.exe
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile, ZIP_DEFLATED
-          files = [Path("dist/SlimeHour.exe"), Path("update_and_run.ps1"), Path("updater_config.json"), Path("Start_Slime_Hour.bat")]
-          with ZipFile("SlimeHour-Windows.zip", "w", ZIP_DEFLATED, compresslevel=6) as out:
-              for path in files:
-                  assert path.is_file(), f"Missing: {path}"
-                  out.write(path, path.name)
-          with ZipFile("SlimeHour-Windows.zip") as package:
-              assert "SlimeHour.exe" in package.namelist()
-              assert "update_and_run.ps1" in package.namelist()
-              assert package.testzip() is None
-          PY
-          sha256sum SlimeHour-Windows.zip > SlimeHour-Windows.zip.sha256
+          test -s dist/SlimeHour.pck
+          echo "Exe and PCK:"
+          ls -lh dist/SlimeHour.exe dist/SlimeHour.pck
 
-      - name: Publish only after successful validation
+      - name: Build full Windows ZIP and optional chunk patch
         if: steps.version.outputs.needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" SlimeHour-Windows.zip SlimeHour-Windows.zip.sha256 \
+          cp update_and_run.ps1 updater_config.json Start_Slime_Hour.bat dist/
+          python3 tools/chunk_release.py full dist "$RELEASE_TAG" SlimeHour-Windows.zip
+          previous="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)"
+          if [ -n "$previous" ] && [ "$previous" != "$RELEASE_TAG" ]; then
+            echo "Previous version: $previous; checking whether it supports partial patches."
+            mkdir -p /tmp/slime-previous
+            gh release download "$previous" --repo "$GITHUB_REPOSITORY" \
+              --pattern "SlimeHour-Windows.zip" --dir /tmp/slime-previous
+            mkdir -p /tmp/slime-previous/files
+            unzip -oq /tmp/slime-previous/SlimeHour-Windows.zip -d /tmp/slime-previous/files
+            python3 tools/chunk_release.py delta /tmp/slime-previous/files dist SlimeHour-Delta.zip
+            if [ -s SlimeHour-Delta.zip ]; then
+              echo "Full vs changed-chunks download:"
+              ls -lh SlimeHour-Windows.zip SlimeHour-Delta.zip
+            fi
+          fi
+
+      - name: Publish verified Windows release and optional delta
+        if: steps.version.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          assets=(SlimeHour-Windows.zip SlimeHour-Windows.zip.sha256)
+          if [ -s SlimeHour-Delta.zip ]; then
+            assets+=(SlimeHour-Delta.zip SlimeHour-Delta.zip.sha256 SlimeHour-Delta.json)
+          fi
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Slime Hour $RELEASE_TAG" \
-            --notes "Windows release: Railgun and Beam Me reflect at road edges, chain through enemies, and only offer newer in-game updates. Extract the ZIP and launch SlimeHour.exe."
+            --notes "Slime Hour $RELEASE_TAG Windows. First install: download the full ZIP, extract and launch. New installations use a separate .pck game-data file. On future updates, the launcher automatically downloads changed chunks when a matching delta is available, SHA256 verifies the assembled game, and otherwise falls back to the full download."

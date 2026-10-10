@@ -1,3 +1,11 @@
+## v0.1.7 — Incremental game downloads
+
+- Export SlimeHour.exe and SlimeHour.pck separately instead of embedding the full game pack into every new executable.
+- Windows updater downloads only changed content-addressed chunks for consecutive version updates with an available patch; unchanged chunks are reused from the installed version.
+- Every downloaded archive and every reconstructed file is SHA256 checked. Incomplete or incompatible patches fall back to verified full-download installs.
+- GitHub Actions generates manifests, optional partial patches, and a full offline ZIP; tests both the Python reference implementation and the production PowerShell patch applier.
+- Older integrated-executable builds need one full transition download; existing save files stay untouched.
+
 ## v0.1.6 — Build-aware card prerequisites
 
 - Dependents cannot appear until their requirements exist in the current run: fragment generation before fragment modifiers, elemental sources before damage/reactive cards, explosions before explosion triggers, orbiting blades before blade upgrades, and wall bounces before wall-splatter cards.
