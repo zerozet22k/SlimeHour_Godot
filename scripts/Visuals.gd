@@ -387,7 +387,7 @@ func paint_telegraphs() -> void:
 			continue
 		# Laser/piston warnings are full collision-width rectangles,
 		# never misleading circular warnings at the midpoint.
-		if str(d["fn"]) in ["boss_line", "coil_wall"]:
+		if str(d["fn"]) in ["boss_line", "coil_wall", "blink_slash"]:
 			var a = P(d["a"])
 			var b = P(d["b"])
 			var width = float(d["tele"])
@@ -462,11 +462,25 @@ func paint_telegraphs() -> void:
 	for e in g.enemies:
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
-			if enemy_has_role(e, "larry") or enemy_has_role(e, "lancer"):
+			if enemy_has_role(e, "lancer"):
 				var lock: Vector2 = e.get("lock", g.hero["pos"])
-				var dir = (lock - e["pos"]).normalized()
-				var color = Color("c1c8ff") if enemy_has_role(e, "lancer") else Color("ff5a82")
-				draw_line(p, p + dir * (650.0 if enemy_has_role(e, "lancer") else 900.0), Color(color, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
+				var lance_dir: Vector2 = (lock - e["pos"]).normalized()
+				var angle: float = lance_dir.angle()
+				if str(e.get("lancer_attack", "spear")) == "sweep":
+					# Full sweep sector shows the actual 166-unit range and 132-degree attack cone.
+					var sector_poly := PackedVector2Array([p])
+					for step_i in range(25):
+						var theta: float = angle - 1.152 + float(step_i) / 24.0 * 2.304
+						sector_poly.append(p + Vector2.from_angle(theta) * 166.0)
+					draw_colored_polygon(sector_poly, Color("aabaff", 0.16))
+					draw_arc(p, 166.0, angle - 1.152, angle + 1.152, 40, Color("c5d5ff", 0.83), 3.0)
+				else:
+					draw_line(p, p + lance_dir * 610.0, Color("b9ccff", 0.21), 19.0)
+					draw_line(p, p + lance_dir * 610.0, Color("e2eaff", 0.78), 3.0)
+			elif enemy_has_role(e, "larry"):
+				var lock: Vector2 = e.get("lock", g.hero["pos"])
+				var beam_dir: Vector2 = (lock - e["pos"]).normalized()
+				draw_line(p, p + beam_dir * 900.0, Color("ff5a82", 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
 			elif e.has("tele") and (e["kind"] in ["chonkzilla", "kingblob"] or enemy_has_role(e, "chonk")):
 				var landing_target: Vector2 = e.get("lock", e["pos"])
 				var landing_at: Vector2 = e["pos"].move_toward(landing_target, 170.0 + Combat.boss_stage(e) * 55.0)
@@ -477,9 +491,12 @@ func paint_telegraphs() -> void:
 				var color = Color("83eaff") if e["kind"] == "skitter" else Color(1, 0.6, 0.2)
 				draw_line(p, P(g.hero["pos"]), Color(color, 0.45), 5.0)
 			elif enemy_has_role(e, "blinky"):
-				var dest = P(e.get("lock", g.hero["pos"]))
-				draw_arc(dest, 22.0, 0, TAU, 24, Color(0.8, 0.55, 1.0, 0.5 + 0.5 * fmod(g.anim_t * 6.0, 1.0)), 3.0)
-				draw_line(p, dest, Color(0.8, 0.55, 1.0, 0.25), 2.0)
+				var depart: Vector2 = P(e.get("rift_origin", e["pos"]))
+				var arrive: Vector2 = P(e.get("lock", g.hero["pos"]))
+				draw_arc(arrive, 22.0, 0, TAU, 24, Color("c79cff", 0.68), 3.0)
+				# This preview is the exact dash slash segment, not a player prediction.
+				draw_line(depart, arrive, Color("b88bff", 0.21), 30.0)
+				draw_line(depart, arrive, Color("ebd5ff", 0.83), 2.5)
 			elif e["kind"] == "leech":
 				var drain_to = P(e.get("lock", g.hero["pos"]))
 				var pulse = 0.34 + 0.26 * sin(g.anim_t * 14.0)
@@ -529,6 +546,20 @@ func paint_identity_hazards() -> void:
 			"acid":
 				draw_circle(p, r, Color("a3ff65", 0.22))
 				draw_arc(p, r, 0, TAU, 20, Color("8adf5a", 0.55), 2.0)
+			"acid_trail":
+				# One uninterrupted toxic ribbon. Exact collision width, no rows of circles.
+				var a: Vector2 = P(h["a"])
+				var b: Vector2 = P(h["b"])
+				var tangent: Vector2 = (b - a).normalized()
+				var normal: Vector2 = tangent.orthogonal()
+				var fade: float = clampf(float(h["life"]) / maxf(0.01, float(h["max_life"])), 0.0, 1.0)
+				draw_line(a, b, Color("42752b", 0.35 * fade), r * 2.0 + 7.0)
+				draw_line(a, b, Color("aaff73", 0.34 * fade), r * 2.0)
+				draw_line(a + normal * r, b + normal * r, Color("a1f86d", 0.62 * fade), 2.0)
+				draw_line(a - normal * r, b - normal * r, Color("a1f86d", 0.62 * fade), 2.0)
+				for vein in range(3):
+					var offset: float = (float(vein) - 1.0) * r * 0.38
+					draw_line(a + normal * offset, b + normal * offset, Color("deff98", 0.15 * fade), 1.7)
 			"fissure":
 				var a: Vector2 = P(h["a"])
 				var b: Vector2 = P(h["b"])
@@ -568,6 +599,12 @@ func paint_enemies() -> void:
 						break
 		if e["kind"] == "leech" and float(e.get("tether_t", 0.0)) > 0.0:
 			draw_line(p, P(g.hero["pos"]), Color("c86eff", 0.6 + 0.2 * sin(g.anim_t * 10.0)), 3.5)
+			var receiver: Dictionary = e.get("siphon_target", {})
+			if not receiver.is_empty() and not bool(receiver.get("dead", false)):
+				draw_line(p, P(receiver["pos"]), Color("c98aff", 0.65), 6.0)
+				draw_line(p, P(receiver["pos"]), Color("f2d3ff", 0.75), 2.0)
+				draw_arc(P(receiver["pos"]), float(receiver["r"]) + 9.0, 0, TAU, 26, Color("d7a2ff", 0.84), 3.0)
+				text_c("EMPOWERED", P(receiver["pos"]) + Vector2(0, -float(receiver["r"]) - 22.0), 10, Color("e7baff"), 2)
 		if float(e.get("laser_t", 0.0)) > 0.0:
 			draw_arc(p, r + 8.0, 0, TAU, 22, Color("ff577a", 0.75), 3.0)
 		if float(e.get("sprint_t", 0.0)) > 0.0:
@@ -580,10 +617,11 @@ func paint_enemies() -> void:
 			if float(e.get("shield_flash_until", 0.0)) > g.run_time:
 				draw_arc(p, r + 8.0, 0.0, TAU, 22, Color("d9faff", 0.86), 3.0)
 		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
-			var progress = 1.0 - float(e["rebirth_t"]) / 1.35
+			var progress = 1.0 - float(e["rebirth_t"]) / (1.55 if g.hard_mode else 1.8)
+			progress = clampf(progress, 0.0, 1.0)
 			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
 			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80"), 4.0)
-			text_c("COCOON - SHOOT!", p + Vector2(0, -r - 32.0), 11, Color("ffdf80"), 2)
+			text_c("BREAK EGG OR IT REBIRTHS", p + Vector2(0, -r - 32.0), 10, Color("ffdf80"), 2)
 		elif e["kind"] == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
 			draw_arc(p, r + 10.0, 0, TAU, 28, Color("ffcf8a"), 4.0)
 			text_c("OVERHEATED", p + Vector2(0, -r - 28.0), 11, Color("ffe5a4"), 2)
