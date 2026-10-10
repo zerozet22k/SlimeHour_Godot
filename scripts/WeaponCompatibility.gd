@@ -168,7 +168,7 @@ static func adapted_pierce(g, w: Dictionary) -> int:
 static func adapted_wall_bounce(g, w: Dictionary) -> int:
 	if str(g.weapon_db[w["id"]]["kind"]) != "chain":
 		return 0
-	return mini(2, maxi(0, int(g.st("bounce"))) / 2)
+	return mini(2, floori(float(maxi(0, int(g.st("bounce")))) * 0.5))
 
 static func card_interaction(g, card_id: String) -> String:
 	if g.guns.is_empty():
