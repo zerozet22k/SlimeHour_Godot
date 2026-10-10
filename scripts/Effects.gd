@@ -125,7 +125,7 @@ const STAT_NAMES = {"dmg": "DMG", "rate": "FIRE RATE", "crit": "CRIT CHANCE", "c
 	"dashdist": "DASH DISTANCE", "perfect": "PERFECT WINDOW", "dmgtaken": "DAMAGE TAKEN",
 	"life": "PROJECTILE LIFE", "pin": "PIN CHANCE", "homing": "HOMING STRENGTH",
 	"dashes": "DASH CHARGES", "slots": "GUN SLOTS", "shield": "SHIELDS",
-	"rerolls": "REROLLS", "choices": "CHOICES", "critdmg": "CRIT DMG"}
+	"rerolls": "REROLLS", "choices": "CHOICES"}
 const PERCENT_STATS = ["dmg", "rate", "crit", "critdmg", "speed", "pspeed", "size", "range",
 	"knock", "reload", "goldp", "xp", "burn", "freeze", "shock", "poison", "bleed", "slow",
 	"wet", "charm", "mark", "burnpow", "poisonpow", "bleedpow", "shockpow", "freezepow",
