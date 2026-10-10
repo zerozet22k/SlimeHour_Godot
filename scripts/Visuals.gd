@@ -594,35 +594,11 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		draw_line(sp - perp * r * 1.1, sp + perp * r * 1.1, Color("2a3a60"), 9.0)
 		draw_line(sp - perp * r * 1.0, sp + perp * r * 1.0, Color("a8c0ff"), 5.0)
 	if mixed and parents.size() >= 2:
-		# Real composite overlays on top of the baked base body: cheap GPU
-		# primitives, not a giant pre-baked atlas of every possible pairing.
+		# Inherit one ANATOMICAL feature from the second parent. Do not
+		# paste eyes, masks, lips or a complete second face onto the base.
 		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
-		var accent = secondary.lightened(0.18)
-		var variant = int(parts.get("variant", 0))
-		draw_arc(p, r * 0.88, -PI * 0.72, PI * 0.65, 14, Color(secondary, 0.85), maxf(2.0, r * 0.16))
-		match variant:
-			0:
-				# Organic split horns and offset eyes.
-				for side in [-1.0, 1.0]:
-					draw_colored_polygon(PackedVector2Array([p + Vector2(side * r * 0.48, -r * 0.45),
-						p + Vector2(side * r * 0.86, -r * 1.34),
-						p + Vector2(side * r * 0.12, -r * 0.88)]), accent)
-			1:
-				# Layered shell/visor hybrid, different from both parents.
-				draw_rect(Rect2(p + Vector2(-r * 0.82, -r * 0.52), Vector2(r * 1.64, r * 0.36)), Color("21304a"))
-				draw_line(p + Vector2(-r * 0.65, -r * 0.34), p + Vector2(r * 0.65, -r * 0.34), accent, maxf(2.0, r * 0.15))
-			2:
-				# Twin lateral fins and bright secondary-color marking.
-				for side in [-1.0, 1.0]:
-					draw_colored_polygon(PackedVector2Array([p + Vector2(side * r * 0.45, r * 0.05),
-						p + Vector2(side * r * 1.45, -r * 0.88),
-						p + Vector2(side * r * 1.06, r * 0.62)]), Color(secondary, 0.9))
-			3:
-				# Armored frontal crest with segmented diagonal markings.
-				draw_colored_polygon(PackedVector2Array([p + Vector2(-r * 0.45, -r * 0.52),
-					p + Vector2(0, -r * 1.3), p + Vector2(r * 0.45, -r * 0.52)]), accent)
-				draw_line(p + Vector2(-r * 0.5, r * 0.45), p + Vector2(r * 0.5, r * 0.1), secondary, maxf(2.0, r * 0.13))
-		draw_circle(p + Vector2(r * 0.66, -r * 0.70), maxf(2.7, r * 0.14), accent)
+		draw_hybrid_trait(self, p, r, str(e.get("hybrid_trait", parts.get("trait", "ears"))),
+			secondary, int(parts.get("variant", 0)))
 	draw_status(e, p, r)
 
 ## Fallback before the atlas is baked: draw the vector art directly.
@@ -632,7 +608,13 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 	draw_set_transform(p + Vector2(0, r * 0.75), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * 0.95, Color(0, 0, 0, 0.35))
 	draw_set_transform(p, 0.0, Vector2.ONE)
-	draw_enemy_body(self, kind, bool(e["elite"]), r, e["color"], float(e["flash"]) > 0.0)
+	var mixed = kind.begins_with("mix_") and g.enemy_db[kind].has("mix")
+	var parent = str(g.enemy_db[kind]["mix"][0]) if mixed else kind
+	var parent_color = Color(str(g.enemy_db[parent]["color"])) if mixed else e["color"]
+	draw_enemy_body(self, parent, bool(e["elite"]), r, parent_color, float(e["flash"]) > 0.0)
+	if mixed:
+		var secondary = Color(str(g.enemy_db[str(g.enemy_db[kind]["mix"][1])]["color"]))
+		draw_hybrid_trait(self, Vector2.ZERO, r, str(e.get("hybrid_trait", parts.get("trait", "ears"))), secondary, int(parts.get("variant", 0)))
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
 	if str(parts.get("face", "")) != "visor":
@@ -642,6 +624,107 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 		draw_rect(Rect2(-r * 0.2, -r * 0.18 - 2, r * 0.4, 4), Color("ff3a5a"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_status(e, p, r)
+
+## Second-parent inheritance draws one appendage/outer-body detail only.
+## The first parent's complete face remains intact. 19 choices are enough to
+## give sector-40 combinations recognizable silhouettes without N*N sprites.
+func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, trait: String, accent: Color, variant: int = 0) -> void:
+	var shade = accent.darkened(0.43)
+	match trait:
+		"ears":
+			for signum in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.43, -r * 0.69),
+					c + Vector2(signum * r * 0.92, -r * 1.55), c + Vector2(signum * r * 0.87, -r * 0.34)]), shade)
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.53, -r * 0.75),
+					c + Vector2(signum * r * 0.87, -r * 1.38), c + Vector2(signum * r * 0.75, -r * 0.49)]), accent)
+		"horns":
+			for signum in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.34, -r * 0.77),
+					c + Vector2(signum * r * 1.09, -r * 1.48), c + Vector2(signum * r * 0.76, -r * 0.53)]), shade)
+				ci.draw_line(c + Vector2(signum * r * 0.55, -r * 0.72),
+					c + Vector2(signum * r * 1.00, -r * 1.34), accent, maxf(2.0, r * 0.11))
+		"antennae":
+			for signum in [-1.0, 1.0]:
+				var base = c + Vector2(signum * r * 0.43, -r * 0.85)
+				var tip = c + Vector2(signum * r * 1.03, -r * 1.49)
+				ci.draw_line(base, tip, shade, maxf(2.0, r * 0.11))
+				ci.draw_circle(tip, r * 0.18, accent)
+		"wings":
+			for signum in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.60, -r * 0.10),
+					c + Vector2(signum * r * 1.75, -r * 1.02), c + Vector2(signum * r * 1.46, r * 0.67),
+					c + Vector2(signum * r * 0.77, r * 0.42)]), Color(accent, 0.83))
+				ci.draw_line(c + Vector2(signum * r * 0.83, r * 0.23),
+					c + Vector2(signum * r * 1.65, -r * 0.86), shade, maxf(1.5, r * 0.075))
+		"tail":
+			ci.draw_arc(c + Vector2(r * 0.65, r * 0.45), r * 0.55, -PI * 0.30, PI * 0.75,
+				12, shade, maxf(3.0, r * 0.24))
+			ci.draw_circle(c + Vector2(r * 1.07, r * 0.74), r * 0.23, accent)
+		"shell":
+			for signum in [-1.0, 1.0]:
+				ci.draw_arc(c + Vector2(signum * r * 0.58, r * 0.06), r * 0.52,
+					PI * 0.42, PI * 1.50, 12, shade, maxf(3.0, r * 0.30))
+				ci.draw_circle(c + Vector2(signum * r * 0.86, r * 0.14), r * 0.18, accent)
+		"cheeks":
+			for signum in [-1.0, 1.0]:
+				ci.draw_circle(c + Vector2(signum * r * 0.83, r * 0.39), r * 0.33, shade)
+				ci.draw_circle(c + Vector2(signum * r * 0.80, r * 0.35), r * 0.26, accent)
+		"spikes", "crystal":
+			for k in range(3):
+				var x = (float(k) - 1.0) * r * 0.74
+				var length = r * (0.55 if trait == "spikes" else 0.84)
+				var root = c + Vector2(x, -r * (0.77 if k == 1 else 0.66))
+				ci.draw_colored_polygon(PackedVector2Array([root + Vector2(-r * 0.21, 0),
+					root + Vector2(0, -length), root + Vector2(r * 0.21, 0)]), shade)
+				ci.draw_line(root + Vector2(0, -r * 0.10), root + Vector2(0, -length * 0.75),
+					accent, maxf(2.0, r * 0.08))
+		"buds":
+			for signum in [-1.0, 1.0]:
+				ci.draw_circle(c + Vector2(signum * r * 0.79, -r * 0.70), r * 0.32, shade)
+				ci.draw_circle(c + Vector2(signum * r * 0.78, -r * 0.73), r * 0.24, accent)
+		"armor", "shoulders":
+			for signum in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.66, -r * 0.55),
+					c + Vector2(signum * r * 1.29, -r * 0.45), c + Vector2(signum * r * 1.18, r * 0.45),
+					c + Vector2(signum * r * 0.75, r * 0.51)]), shade)
+				ci.draw_line(c + Vector2(signum * r * 1.11, -r * 0.32),
+					c + Vector2(signum * r * 1.02, r * 0.30), accent, maxf(2.0, r * 0.14))
+		"crest", "crown", "helmet":
+			var top = -r * (1.58 if trait == "crown" else 1.34)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.70, -r * 0.74),
+				c + Vector2(-r * 0.48, top * 0.92), c + Vector2(0, top),
+				c + Vector2(r * 0.47, top * 0.89), c + Vector2(r * 0.70, -r * 0.74)]), shade)
+			ci.draw_line(c + Vector2(-r * 0.45, -r * 1.02),
+				c + Vector2(r * 0.45, -r * 1.02), accent, maxf(2.0, r * 0.16))
+		"legs":
+			for signum in [-1.0, 1.0]:
+				for j in range(2):
+					var down = r * (0.24 + j * 0.37)
+					ci.draw_line(c + Vector2(signum * r * 0.77, down * 0.4),
+						c + Vector2(signum * r * 1.40, down + r * 0.1), shade, maxf(2.0, r * 0.13))
+					ci.draw_circle(c + Vector2(signum * r * 1.40, down + r * 0.1), r * 0.11, accent)
+		"claws":
+			for signum in [-1.0, 1.0]:
+				ci.draw_line(c + Vector2(signum * r * 0.76, r * 0.30),
+					c + Vector2(signum * r * 1.35, r * 0.78), shade, maxf(3.0, r * 0.19))
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 1.22, r * 0.58),
+					c + Vector2(signum * r * 1.58, r * 0.99), c + Vector2(signum * r * 1.31, r * 0.96)]), accent)
+		"fins":
+			for signum in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.76, -r * 0.20),
+					c + Vector2(signum * r * 1.54, -r * 0.77),
+					c + Vector2(signum * r * 1.17, r * 0.59)]), Color(accent, 0.85))
+		"tentacles":
+			for signum in [-1.0, 1.0]:
+				var start = c + Vector2(signum * r * 0.70, r * 0.38)
+				var finish = c + Vector2(signum * r * 1.22, r * 1.13)
+				ci.draw_line(start, finish, shade, maxf(3.0, r * 0.18))
+				ci.draw_circle(finish, r * 0.18, accent)
+	# A tiny accent along the jaw signals the secondary genealogy, not
+	# another complete muzzle, visor, pair of eyes or face.
+	var mark_side = -1.0 if variant % 2 == 0 else 1.0
+	ci.draw_circle(c + Vector2(mark_side * r * 0.72, r * 0.62),
+		maxf(2.0, r * 0.115), Color(accent, 0.82))
 
 ## Parts are data-driven, so one body can wear any combination of role gear.
 func draw_modular_body(ci: CanvasItem, parts: Dictionary, r: float, body: Color, dark: Color) -> void:
