@@ -6,6 +6,7 @@ on:
       - scripts/**
       - data/enemies.json
       - tools/boss_aggression_test.gd
+      - tools/hype_totem_aura_test.gd
       - tools/mutation_progression_test.gd
       - scripts/EnemyMixes.gd
       - scripts/Hud.gd
@@ -45,6 +46,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_compatibility_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_resource_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_compatibility_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/hype_totem_aura_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/mutation_progression_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_description_test.gd
