@@ -3,23 +3,41 @@ extends RefCounted
 ## capacity and volley budget; overflow converts to modest strength, never a
 ## second invisible magazine, infinite returning weapons, or unlimited AoE.
 const CAPACITY = {
-	"pistol": 48, "revolver": 6, "shotgun": 12, "smg": 144,
-	"minigun": 320, "sniper": 12, "rocket": 8, "grenade": 12,
-	"laser": 1, "tesla": 45, "flame": 300, "disc": 5,
-	"boomerang": 3, "rail": 6, "bees": 24, "bowling": 8,
-	"nailgun": 160, "chicken": 12, "bubble": 15, "pinball": 48,
-	"splitbow": 18, "snow": 24
+	"pistol": 24, "revolver": 6, "shotgun": 8, "smg": 90,
+	"minigun": 320, "sniper": 8, "rocket": 6, "grenade": 12,
+	"laser": 1, "tesla": 30, "flame": 220, "disc": 6,
+	"boomerang": 3, "rail": 3, "bees": 16, "bowling": 6,
+	"nailgun": 100, "chicken": 10, "bubble": 12, "pinball": 32,
+	"splitbow": 12, "snow": 16
 }
 ## Maximum entities/hitscan traces emitted by any ordinary trigger, before
 ## existing global frame and sector safety caps. This protects explosive guns
 ## from Hydra + multishot + parallel multiplication.
 const VOLLEY_BUDGET = {
-	"pistol": 12, "revolver": 6, "shotgun": 20, "smg": 12,
-	"minigun": 10, "sniper": 6, "rocket": 3, "grenade": 3,
-	"laser": 4, "tesla": 4, "flame": 3, "disc": 1,
-	"boomerang": 1, "rail": 3, "bees": 10, "bowling": 4,
-	"nailgun": 12, "chicken": 4, "bubble": 4, "pinball": 8,
-	"splitbow": 6, "snow": 5
+	"pistol": 3, "revolver": 3, "shotgun": 14, "smg": 4,
+	"minigun": 3, "sniper": 3, "rocket": 3, "grenade": 3,
+	"laser": 3, "tesla": 4, "flame": 3, "disc": 1,
+	"boomerang": 1, "rail": 3, "bees": 8, "bowling": 3,
+	"nailgun": 4, "chicken": 3, "bubble": 3, "pinball": 4,
+	"splitbow": 3, "snow": 3
+}
+## Limits for concurrently simulated physical actors, independent of ammunition
+## or projectiles per trigger. No limit is required for hitscan/cone weapons.
+const ACTIVE_BUDGET = {
+	"bees": 30, "bowling": 5, "chicken": 12, "bubble": 12,
+	"pinball": 20, "snow": 10
+}
+## Overflow always has a weapon-native benefit. Generic damage is reserved for
+## precision/return weapons; the remaining IDs improve their signature mechanic.
+const OVERFLOW_SPECIALTY = {
+	"pistol": "precision", "revolver": "damage", "shotgun": "stagger",
+	"smg": "accuracy", "minigun": "spin retention", "sniper": "damage",
+	"rocket": "blast radius", "grenade": "banked blast", "laser": "cooling",
+	"tesla": "chain reach", "flame": "burn", "disc": "return speed",
+	"boomerang": "catch power", "rail": "charge speed", "bees": "poison",
+	"bowling": "impact", "nailgun": "pin chance", "chicken": "panic",
+	"bubble": "trap durability", "pinball": "bank damage",
+	"splitbow": "fragment tracking", "snow": "freeze"
 }
 
 static func cap(id: String) -> int:
@@ -32,7 +50,7 @@ static func raw_capacity(g, w: Dictionary) -> int:
 		# Not ammo: a virtual capacity unit for the card conversion formula.
 		return 1 + maxi(0, roundi(100.0 * maxf(0.0, g.st("mag") + float(w["wm"].get("mag", 0.0)))))
 	if kind in ["disc", "boomerang"]:
-		return int(d["mag"]) + int(w["wm"].get("mag", 0)) + int(g.st("mult")) + (1 if int(w["lvl"]) >= 3 else 0)
+		return int(d["mag"]) + int(w["wm"].get("mag", 0)) + int(g.st("mult")) + roundi(float(d["mag"]) * maxf(0.0, g.st("mag"))) + (1 if int(w["lvl"]) >= 3 else 0)
 	var n = float(d["mag"]) * (1.0 + g.st("mag") + float(w["wm"].get("mag", 0.0)))
 	if str(w["id"]) == "smg" and int(w["lvl"]) >= 3:
 		n *= 1.5
@@ -45,22 +63,38 @@ static func capacity(g, w: Dictionary) -> int:
 		return 1
 	return clampi(raw_capacity(g, w), 1, cap(str(w["id"])))
 
-static func overflow_damage(g, w: Dictionary) -> float:
-	var kind = str(g.weapon_db[w["id"]]["kind"])
-	var raw = raw_capacity(g, w)
-	var overflow = maxi(0, raw - cap(str(w["id"])))
-	if kind == "beam":
-		# Level 5 beam never overheats, so its excess ammo cards must not go dead.
-		return minf(0.12, float(overflow) / 100.0 * 0.12)
-	var original = maxi(1, int(g.weapon_db[w["id"]]["mag"]))
-	return minf(0.18, float(overflow) / float(original) * 0.12)
+static func overflow_fraction(g, w: Dictionary) -> float:
+	var extra = maxi(0, raw_capacity(g, w) - cap(str(w["id"])))
+	return minf(1.0, float(extra) / float(maxi(1, int(g.weapon_db[w["id"]]["mag"]))))
 
 static func resource_damage_bonus(g, w: Dictionary) -> float:
-	var bonus = overflow_damage(g, w)
-	var kind = str(g.weapon_db[w["id"]]["kind"])
-	if kind == "beam" and int(w["lvl"]) >= 5:
-		bonus += minf(0.10, maxf(0.0, g.st("reload")) * 0.10)
-	return bonus
+	var id = str(w["id"])
+	var extra = overflow_fraction(g, w)
+	if id == "revolver":
+		return minf(0.18, extra * 0.18)
+	if id in ["sniper", "disc", "boomerang"]:
+		return minf(0.16, extra * 0.16)
+	if id == "laser" and int(w["lvl"]) >= 5:
+		# No heat at Lv5: heat/reload cards convert to capped focus damage.
+		return minf(0.20, maxf(0.0, g.st("mag")) * 0.08 + maxf(0.0, g.st("reload")) * 0.10)
+	return 0.0
+
+static func support_bonus(g, w: Dictionary) -> float:
+	# Capped, normalized overflow only; each caller maps the value to its own
+	# utility (accuracy, recoil, fuel efficiency, blast, status, etc.).
+	return minf(0.25, overflow_fraction(g, w) * 0.25)
+
+static func heat_limit(g) -> float:
+	return minf(4.5, 3.0 * (1.0 + maxf(0.0, g.st("mag")) * 0.5))
+
+static func cooling_speed(g) -> float:
+	return 1.0 + minf(0.65, maxf(0.0, g.st("reload")) * 0.35)
+
+static func return_speed(g, w: Dictionary) -> float:
+	return 1.0 + minf(0.55, maxf(0.0, g.st("reload")) * 0.18 + support_bonus(g, w))
+
+static func active_cap(id: String) -> int:
+	return int(ACTIVE_BUDGET.get(id, 0))
 
 static func budget(g, w: Dictionary) -> int:
 	return mini(int(VOLLEY_BUDGET.get(str(w["id"]), 8)), g.volley_cap())
@@ -76,13 +110,13 @@ static func card_interaction(g, card_id: String) -> String:
 		match card_id:
 			"extended_mag", "drum_mag", "ammo_belt":
 				if kind == "beam":
-					note = "Heat reserve; excess improves beam damage"
+					note = "Heat reserve (max 4.5s), cooling, then beam focus"
 				elif kind in ["disc", "boomerang"]:
-					note = "Return slots are fixed; no bonus magazine"
+					note = "Real return slots up to %d; overflow improves recall" % cap(id)
 				elif id == "revolver":
-					note = "6-round cylinder; excess converts to damage"
+					note = "Exactly 6 chambers; excess becomes capped precision damage"
 				else:
-					note = "Capacity capped at %d; overflow improves damage" % cap(id)
+					note = "Capacity max %d; overflow improves %s" % [cap(id), str(OVERFLOW_SPECIALTY.get(id, "weapon handling"))]
 			"speed_loader":
 				if kind in ["disc", "boomerang"]:
 					note = "Faster returning blades"
@@ -98,7 +132,7 @@ static func card_interaction(g, card_id: String) -> String:
 				elif kind in ["rocket", "grenade", "chicken"]:
 					note = "Up to %d projectiles; overflow is capped damage" % budget(g, w)
 				else:
-					note = "Up to %d attacks per volley" % budget(g, w)
+					note = "Up to %d attacks per volley; excess scales safely" % budget(g, w)
 			"return_sender":
 				if kind in ["disc", "boomerang"]:
 					note = "Return is inherent; redundant return card is unavailable"
