@@ -63,7 +63,13 @@ static func recalc(g) -> void:
 			for k in c["wmods"]:
 				wm[k] = float(wm.get(k, 0.0)) + stack_total(float(c["wmods"][k]), int(g.owned[id]))
 		w["wm"] = wm
-		w["mag_max"] = Weapons.mag_size(g, w)
+		var previous_capacity = int(w["mag_max"])
+		var new_capacity = Weapons.mag_size(g, w)
+		w["mag_max"] = new_capacity
+		# With returning weapons, a new capacity card grants a LIVE slot;
+		# without this the player still waits for the original two discs.
+		if Weapons.kind_of(g, w) in ["disc", "boomerang"]:
+			w["ammo"] = clampi(int(w["ammo"]) + new_capacity - previous_capacity, 0, new_capacity)
 	# Proc table, keeping counters/timers alive across recalcs.
 	var table = {}
 	for id in g.owned_order:

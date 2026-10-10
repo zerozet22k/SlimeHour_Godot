@@ -156,7 +156,7 @@ static func aim_for_slot(g, slot: int) -> Vector2:
 		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
 	# Homing has no physical bullet to steer on cone/hitscan weapons. Convert
 	# it to a SMALL capped aim correction toward a target already near the reticle.
-	if g.st("homing") <= 0.0 or slot >= g.guns.size():
+	if not g.has_method("st") or g.st("homing") <= 0.0 or slot >= g.guns.size():
 		return base
 	var kind = kind_of(g, g.guns[slot])
 	if kind not in ["flame", "beam", "rail", "chain"]:
