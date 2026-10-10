@@ -5,6 +5,8 @@ const RATE = 22050
 var streams: Dictionary = {}
 var players: Array = []
 var last_play: Dictionary = {}
+## Per-event throttles are separate from per-clip throttles: loud fights stay intelligible.
+var last_projectile_event: Dictionary = {}
 var music_player: AudioStreamPlayer
 var music_alt: AudioStreamPlayer
 var pressure_player: AudioStreamPlayer
@@ -72,6 +74,94 @@ func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
 	free.pitch_scale = randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
 	free.volume_db = linear_to_db(maxf(0.0001, sfx_volume * vol * 0.6 / sqrt(1.0 + active * 0.35)))
 	free.play()
+
+## Each visual event has a matching synthesised audio signature.
+## One sound per volley, NOT one per pellet. These methods never alter combat logic.
+const PROJECTILE_EVENT_GAP = {
+	"fire": 0.045, "impact": 0.062, "status": 0.12, "crit": 0.11,
+	"bounce": 0.12, "pierce": 0.12, "split": 0.18,
+	"boss_fire": 0.20, "boss_warn": 0.50, "boss_impact": 0.19
+}
+
+static func projectile_clip(event: String, style: String = "kinetic", pattern: String = "") -> String:
+	if event == "fire":
+		if pattern == "double_tap":
+			return "vfx_double"
+		if pattern == "parallel":
+			return "vfx_parallel"
+		if pattern == "burst":
+			return "vfx_burst"
+		match style:
+			"rapid": return "vfx_rapid"
+			"heavy": return "vfx_heavy_fire"
+			"pierce": return "vfx_sniper"
+			"fire": return "vfx_flame"
+			"toxic": return "vfx_toxic_fire"
+			"frost": return "vfx_ice_fire"
+			"shock": return "vfx_tesla"
+			"blast", "boss_ember": return "vfx_rocket"
+			"water": return "vfx_water"
+			"ricochet": return "vfx_pinball"
+			"boss_void", "magic": return "vfx_void"
+			_: return "vfx_pea"
+	match event:
+		"impact":
+			match style:
+				"fire", "blast", "boss_ember": return "vfx_ember_hit"
+				"toxic": return "vfx_goo_hit"
+				"frost", "boss_frost": return "vfx_ice_hit"
+				"shock", "boss_storm": return "vfx_zap_hit"
+				"pierce": return "vfx_pierce_hit"
+				"heavy": return "vfx_heavy_hit"
+				"water": return "vfx_water_hit"
+				"boss_void", "magic": return "vfx_void_hit"
+				_: return "vfx_bullet_hit"
+		"status":
+			match style:
+				"fire": return "vfx_ignite"
+				"toxic": return "vfx_poison_proc"
+				"frost": return "vfx_freeze_proc"
+				"shock": return "vfx_shock_proc"
+				_: return ""
+		"crit": return "vfx_crit"
+		"bounce": return "vfx_ricochet"
+		"pierce": return "vfx_pierce_hit"
+		"split": return "vfx_fragment"
+		"boss_fire":
+			match style:
+				"boss_void": return "vfx_void"
+				"boss_storm": return "vfx_tesla"
+				"boss_frost": return "vfx_ice_fire"
+				_: return "vfx_rocket"
+		"boss_warn": return "vfx_boss_warn"
+		"boss_impact": return "vfx_boss_impact"
+	return ""
+
+func play_projectile(event: String, style: String = "kinetic", pattern: String = "", volume: float = 1.0) -> void:
+	if sfx_volume <= 0.01:
+		return
+	var clip = projectile_clip(event, style, pattern)
+	if clip == "":
+		return
+	# Cross-style throttle protects against hundreds of hits in one physics tick.
+	var gap = float(PROJECTILE_EVENT_GAP.get(event, 0.09))
+	var now = Time.get_ticks_msec() * 0.001
+	if now - float(last_projectile_event.get(event, -100.0)) < gap:
+		return
+	last_projectile_event[event] = now
+	var gain = clampf(volume, 0.05, 1.0)
+	match event:
+		"fire": gain *= 0.72
+		"impact": gain *= 0.42
+		"status": gain *= 0.56
+		"crit": gain *= 0.80
+		"bounce": gain *= 0.55
+		"pierce": gain *= 0.50
+		"split": gain *= 0.60
+		"boss_fire": gain *= 0.67
+		"boss_warn": gain *= 0.78
+		"boss_impact": gain *= 0.98
+	play(clip, 0.035 if event in ["crit", "boss_warn"] else 0.075, gain)
 
 ## World-driven music selection, called at low frequency by Main.
 ## Biome tracks progress with world, bosses get distinct fight/climax tracks.
@@ -252,6 +342,70 @@ func build_all() -> void:
 		synth(0.12, 1650, 950, "tri", 0.0, 17.0, 0.25), int(0.07 * RATE)))
 	streams["danger_warn"] = to_stream(mix(synth(0.42, 780, 260, "tri", 0.1, 6.5, 0.4),
 		synth(0.40, 120, 65, "sine", 0.03, 6.0, 0.42), int(0.08 * RATE)))
+		# Unique projectile voices. All synthesized once at startup; never built per shot.
+	# Pattern samples already contain their second shot / side-by-side layer.
+	var pea = mix(synth(0.075, 1200, 420, "square", 0.19, 34.0, 0.35, 0.7),
+		synth(0.034, 2100, 980, "tri", 0.27, 65.0, 0.13, 0.68))
+	streams["vfx_pea"] = to_stream(pea)
+	streams["vfx_double"] = to_stream(mix(pea, pea, int(0.072 * RATE)))
+	streams["vfx_parallel"] = to_stream(mix(pea, synth(0.083, 1070, 350, "square", 0.20, 30.0, 0.30, 0.60)))
+	streams["vfx_burst"] = to_stream(mix(pea, pea, int(0.045 * RATE)))
+	streams["vfx_rapid"] = to_stream(mix(synth(0.05, 1560, 700, "square", 0.3, 60.0, 0.28, 0.55),
+		synth(0.03, 2450, 1150, "tri", 0.15, 85.0, 0.10)))
+	streams["vfx_heavy_fire"] = to_stream(mix(synth(0.16, 430, 82, "sine", 0.54, 22.0, 0.70, 0.3),
+		synth(0.08, 1150, 230, "square", 0.38, 38.0, 0.25, 0.5)))
+	streams["vfx_sniper"] = to_stream(mix(synth(0.22, 2700, 260, "saw", 0.35, 23.0, 0.43, 0.40),
+		synth(0.26, 200, 62, "sine", 0.35, 10.0, 0.52, 0.31)))
+	streams["vfx_flame"] = to_stream(mix(synth(0.17, 360, 120, "saw", 0.78, 13.0, 0.37, 0.25),
+		synth(0.10, 1700, 430, "sine", 0.5, 28.0, 0.2, 0.36)))
+	streams["vfx_toxic_fire"] = to_stream(mix(synth(0.16, 270, 500, "sine", 0.25, 20.0, 0.45, 0.70),
+		synth(0.08, 1100, 340, "tri", 0.60, 28.0, 0.22, 0.5)))
+	streams["vfx_ice_fire"] = to_stream(mix(synth(0.15, 1700, 2800, "tri", 0.12, 26.0, 0.32, 0.75),
+		synth(0.09, 2600, 1900, "sine", 0.13, 32.0, 0.18)))
+	streams["vfx_tesla"] = to_stream(mix(synth(0.13, 2300, 480, "square", 0.68, 22.0, 0.39, 0.63),
+		synth(0.10, 3300, 1300, "tri", 0.26, 40.0, 0.16, 0.70)))
+	streams["vfx_rocket"] = to_stream(mix(synth(0.26, 140, 450, "saw", 0.65, 9.0, 0.42, 0.3),
+		synth(0.13, 800, 230, "sine", 0.55, 15.0, 0.29, 0.35)))
+	streams["vfx_water"] = to_stream(mix(synth(0.12, 480, 760, "sine", 0.1, 15.0, 0.34),
+		synth(0.08, 940, 580, "tri", 0.35, 30.0, 0.19, 0.65)))
+	streams["vfx_pinball"] = to_stream(mix(synth(0.14, 1300, 860, "tri", 0.08, 28.0, 0.30),
+		synth(0.06, 1800, 2200, "sine", 0.01, 30.0, 0.17)))
+	streams["vfx_void"] = to_stream(mix(synth(0.22, 300, 90, "saw", 0.2, 10.0, 0.33, 0.25),
+		synth(0.18, 620, 1700, "sine", 0.05, 14.0, 0.26)))
+	streams["vfx_bullet_hit"] = to_stream(synth(0.07, 1150, 520, "tri", 0.45, 45.0, 0.20, 0.68))
+	streams["vfx_heavy_hit"] = to_stream(mix(synth(0.14, 240, 70, "sine", 0.6, 29.0, 0.62, 0.3),
+		synth(0.04, 1800, 500, "square", 0.53, 80.0, 0.19, 0.56)))
+	streams["vfx_pierce_hit"] = to_stream(mix(synth(0.12, 1800, 3600, "tri", 0.28, 30.0, 0.32),
+		synth(0.06, 1050, 520, "square", 0.46, 55.0, 0.17, 0.65)))
+	streams["vfx_ember_hit"] = to_stream(mix(synth(0.13, 430, 110, "saw", 0.7, 22.0, 0.34, 0.24),
+		synth(0.06, 1800, 800, "square", 0.65, 65.0, 0.16, 0.55)))
+	streams["vfx_goo_hit"] = to_stream(mix(synth(0.16, 230, 440, "sine", 0.13, 19.0, 0.39),
+		synth(0.07, 780, 250, "tri", 0.55, 40.0, 0.15)))
+	streams["vfx_ice_hit"] = to_stream(mix(synth(0.12, 2400, 1100, "tri", 0.19, 38.0, 0.33),
+		synth(0.08, 3700, 1800, "sine", 0.12, 45.0, 0.24)))
+	streams["vfx_zap_hit"] = to_stream(mix(synth(0.09, 3400, 630, "square", 0.6, 37.0, 0.32, 0.67),
+		synth(0.06, 1650, 900, "tri", 0.20, 55.0, 0.15)))
+	streams["vfx_water_hit"] = to_stream(synth(0.12, 750, 220, "sine", 0.25, 23.0, 0.37, 0.63))
+	streams["vfx_void_hit"] = to_stream(mix(synth(0.18, 530, 110, "saw", 0.38, 20.0, 0.35, 0.35),
+		synth(0.13, 1900, 700, "sine", 0.25, 29.0, 0.2)))
+	streams["vfx_ignite"] = to_stream(mix(synth(0.17, 860, 280, "saw", 0.78, 24.0, 0.30, 0.3),
+		synth(0.04, 3200, 1900, "square", 0.8, 85.0, 0.12, 0.7)))
+	streams["vfx_poison_proc"] = to_stream(mix(synth(0.17, 200, 620, "sine", 0.16, 21.0, 0.48),
+		synth(0.09, 570, 260, "tri", 0.6, 28.0, 0.15)))
+	streams["vfx_freeze_proc"] = to_stream(mix(synth(0.19, 1400, 2900, "tri", 0.17, 23.0, 0.40),
+		synth(0.11, 3900, 1800, "sine", 0.1, 37.0, 0.27)))
+	streams["vfx_shock_proc"] = to_stream(mix(synth(0.17, 3600, 700, "square", 0.75, 28.0, 0.45, 0.64),
+		synth(0.07, 2500, 1100, "saw", 0.47, 53.0, 0.18, 0.55)))
+	streams["vfx_crit"] = to_stream(mix(synth(0.16, 1750, 2800, "sine", 0.05, 26.0, 0.43),
+		synth(0.11, 460, 150, "tri", 0.38, 30.0, 0.48, 0.68)))
+	streams["vfx_ricochet"] = to_stream(mix(synth(0.16, 1600, 2600, "sine", 0.04, 28.0, 0.32),
+		synth(0.06, 3300, 2450, "tri", 0.18, 45.0, 0.2)))
+	streams["vfx_fragment"] = to_stream(mix(synth(0.16, 900, 2100, "tri", 0.26, 20.0, 0.30),
+		synth(0.05, 1350, 600, "square", 0.23, 50.0, 0.13)))
+	streams["vfx_boss_warn"] = to_stream(mix(synth(0.28, 720, 310, "saw", 0.06, 7.5, 0.29, 0.32),
+		synth(0.32, 130, 75, "sine", 0.04, 8.0, 0.46, 0.37), int(0.065 * RATE)))
+	streams["vfx_boss_impact"] = to_stream(mix(synth(0.33, 130, 42, "sine", 0.72, 7.0, 0.82, 0.28),
+		synth(0.09, 2000, 290, "saw", 0.80, 28.0, 0.32, 0.42)))
 	streams["boom2"] = streams["boom"]
 	streams["shot"] = streams["pew"]
 
