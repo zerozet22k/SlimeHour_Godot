@@ -7,8 +7,8 @@ const STONE_LIMIT := 3
 const FAULT_LIMIT := 7
 const STONE_COLOR := Color("d7aa79")
 const FAULT_COLOR := "ff9670"
-const OWNED_PROJECTILE_LIMIT := 84
-const VOLLEY_BUFFER := 12
+const OWNED_PROJECTILE_LIMIT := 104
+const VOLLEY_BUFFER := 24
 
 ## Projectile descriptions are returned to Combat, keeping the boss director
 ## independent of Combat.gd and avoiding circular preloads.
@@ -100,16 +100,24 @@ static func barrage(g, boss: Dictionary, stage: int, dt: float) -> Array:
 		var opening: float = (player - body).angle()
 		var rotation: float = float(boss.get("ring_rotation", 0.0))
 		boss["ring_rotation"] = rotation + 0.28
+		# Never emit a chopped, asymmetrical ring when the projectile cap is near.
+		# Reserve the full burst; a delayed ring is preferable to fake geometry.
+		var needed := 0
 		for n in range(count):
-			if result.size() >= capacity:
-				break
-			var angle: float = rotation + TAU * float(n) / float(count)
-			# The empty corridor is a real projectile gap, not an invisible UI hint.
-			if absf(wrapf(angle - opening, -PI, PI)) < (0.38 if stage == 1 else 0.34):
-				continue
-			var shot_dir: Vector2 = Vector2.from_angle(angle)
-			bullet(result, body + shot_dir * (float(boss["r"]) + 10.0), shot_dir,
-				228.0 + stage * 14.0, 0.34, 5.6, 3.55, "f88e69")
+			var candidate_angle: float = rotation + TAU * float(n) / float(count)
+			if absf(wrapf(candidate_angle - opening, -PI, PI)) >= (0.38 if stage == 1 else 0.34):
+				needed += 1
+		if result.size() + needed > capacity:
+			boss["ring_t"] = 0.42
+		else:
+			for n in range(count):
+				var angle: float = rotation + TAU * float(n) / float(count)
+				if absf(wrapf(angle - opening, -PI, PI)) < (0.38 if stage == 1 else 0.34):
+					continue
+				var shot_dir: Vector2 = Vector2.from_angle(angle)
+				bullet(result, body + shot_dir * (float(boss["r"]) + 10.0), shot_dir,
+					228.0 + stage * 14.0, 0.34, 5.6, 3.55, "f88e69")
+	# Never emit beyond the per-call cap. 
 	return result
 
 static func stones(g, boss: Dictionary) -> Array:
