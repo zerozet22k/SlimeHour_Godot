@@ -43,3 +43,22 @@ Run from the repo root with Godot installed:
     godot --headless --path . --script res://tests/test_projectile_vfx.gd
 
 Also playtest Double Tap and Parallel Shot together, rapid-fire builds, elemental proc cards, boss battles, barrel chains, laser/rail weapons, low/high VFX and particles disabled. Tests are not claimed to have passed until actually executed.
+
+
+## Matching synthesized sound effects
+
+The projectile VFX are now accompanied by 39 dedicated original synthesized SFX clips in `scripts/Sfx.gd`.
+
+- One firing sound per volley, NOT per pellet. Double Tap is two staggered transients in one sample; Parallel Shot is two simultaneous layers. Burst has its own compact repeat sample.
+- Peashooter, SMG/minigun, heavy bullets, shotgun, sniper, sustained laser, railgun charge and discharge, flamethrower, poison/bee, ice, Tesla, rocket, bubbles, pinball and void attacks each receive recognizable sounds.
+- Impact sounds distinguish regular hits, heavy hits, pierce, fire, toxic, frost, shock, water and void. Critical hits have their own higher-priority flourish.
+- Real burn/poison/freeze/shock applications trigger their proc sound. Bounce, pierce and fragment split trigger their own effects.
+- Boss bullets, warnings and blasts have distinct signatures. Barrel fuse warning and layered barrel explosion complement the existing timed kaboom.
+
+The existing 16 player voice pool, per-key cooldown, per-event cooldown, voice cap, pitch variation, and dynamic gain attenuation remain. This is combat audio, not a change to the soundtrack. The existing SFX setting controls volume independently of music.
+
+Run the new headless sound test:
+
+    godot --headless --path . --script res://tests/test_projectile_sfx.gd
+
+For complete verification, run both SFX and VFX smoke scripts and manually check mix clarity with many simultaneous enemies and projectiles. Committed changes are not proof that Godot or a Windows release build passed.
