@@ -275,7 +275,7 @@
   "kind": "flame",
   "desc": "Close-range cone of fire that always burns its targets.",
   "art": "a flamethrower with a fuel tank",
-  "dmg": 4,
+  "dmg": 3.6,
   "rate": 30,
   "mag": 110,
   "reload": 2,
