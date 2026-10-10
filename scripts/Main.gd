@@ -397,7 +397,7 @@ func _process(delta: float) -> void:
 		# Reproject after camera motion so the crosshair and weapon targeting agree.
 		if state == "playing" and settings["aim"] == "mouse" and aim_touch_id == -1 and not is_touch_active():
 			mouse_world = screen_to_world(aim_screen)
-	shake = maxf(0.0, shake - delta * 30.0
+	shake = maxf(0.0, shake - delta * 30.0)
 	banner_t = maxf(0.0, banner_t - delta)
 	flash_t = maxf(0.0, flash_t - delta)
 	offer_t += delta
