@@ -95,6 +95,15 @@ static func update_delayed(g, dt: float) -> void:
 	var due = []
 	for i in range(g.delayed.size() - 1, -1, -1):
 		var item = g.delayed[i]
+		# Coil walls actually advance: both warning and collision follow this
+		# segment, so the visual never lies about the hitbox.
+		if str(item.get("fn", "")) == "coil_wall":
+			var remaining: float = absf(float(item["a"].x) - float(item["stop_x"]))
+			var amount: float = minf(remaining, float(item["move"]) * dt)
+			var shift: Vector2 = Vector2(-float(item["side"]) * amount, 0.0)
+			item["pos"] += shift
+			item["a"] += shift
+			item["b"] += shift
 		item["t"] = float(item["t"]) - dt
 		if float(item["t"]) <= 0.0:
 			due.append(item)
@@ -144,6 +153,22 @@ static func update_delayed(g, dt: float) -> void:
 				g.sfx.play_projectile("boss_impact")
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
+			"coil_wall":
+				var width: float = float(item["tele"])
+				g.beams.append({"a": item["a"], "b": item["b"], "t": 0.22, "w": width * 2.0, "color": Color("57e5aa")})
+				if seg_dist2(item["a"], item["b"], g.hero["pos"]) < pow(width + 11.0, 2.0):
+					g.hurt(float(item["dmg"]), item["pos"], "Coil Queen's venom wall")
+			"rift_emit":
+				# Remote portal fire is sourced at the warned gateway; it does
+				# not instantly teleport a shot into the player's hitbox.
+				var vector: Vector2 = item["target"] - item["pos"]
+				if vector.length_squared() < 0.1:
+					vector = Vector2.DOWN
+				for k in range(2 + int(item.get("stage", 0))):
+					shot(g, item["pos"], vector.normalized().rotated((float(k) - 0.5 - float(item.get("stage", 0)) * 0.5) * 0.22),
+						float(item["dmg"]), {"friendly": false, "speed": 340.0, "life": 2.1, "r": 6.0,
+						"kind": "enemy", "color": Color("b397ff"), "src": "Void Weaver's portal"})
+				g.spawn_ring_fx(item["pos"], Color("b397ff"), 43.0)
 			"boss_line":
 				# Telegraph exactly the same segment and collision width as the strike.
 				var a: Vector2 = item["a"]
@@ -790,6 +815,22 @@ static func totem_protected_damage(g, e: Dictionary, amount: float) -> float:
 		g.spawn_burst(e["pos"], Color("79d7ff"), 2, 90.0, 2.2)
 	return amount * 0.5
 
+## Break the Oracle's external mirrors to strip armor; punish the Dread
+## Engine while its core is venting. Both DOT and bullets share this modifier.
+static func boss_identity_damage_factor(g, e: Dictionary) -> float:
+	if not bool(e.get("boss", false)):
+		return 1.0
+	match str(e["kind"]):
+		"chonkzilla":
+			return 1.48 if float(e.get("boss_recover", 0.0)) > 0.0 else 1.0
+		"glassoracle":
+			for node in g.enemies:
+				if not bool(node.get("dead", false)) and int(node.get("oracle_owner", -1)) == int(e["id"]):
+					return 0.48
+		"dreadengine":
+			return 1.75 if float(e.get("vent_t", 0.0)) > 0.0 else 0.58
+	return 1.0
+
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
 	if bool(e["dead"]) or float(e.get("rebirth_t", 0.0)) > 0.0:
 		return
@@ -798,6 +839,7 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	if e.has("affix") and e["affix"].has("ARMORED"):
 		amount *= 0.6
 	amount = totem_protected_damage(g, e, amount)
+	amount *= boss_identity_damage_factor(g, e)
 	e["hp"] = float(e["hp"]) - amount
 	# Mirror Mimic copies one incoming weapon shot as a delayed, dodgeable countershot.
 	# It still takes the full hit; there is no instant damage reflection.
@@ -880,8 +922,8 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "") -> void:
 	if bool(e["dead"]):
 		return
-	# DOT formerly bypassed Hype Totem's shield entirely. Use the exact
-	# mitigation path shared with direct damage and report actual HP loss.
+	# DOT respects boss armor / vulnerability exactly as direct damage.
+	amount *= boss_identity_damage_factor(g, e)
 	amount = totem_protected_damage(g, e, amount)
 	e["hp"] = float(e["hp"]) - amount
 	g.damage_dealt += amount
@@ -1418,6 +1460,248 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 			target + Vector2(span, span * turn), 20.0 + stage * 2.0,
 			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
 
+
+## Bosses have separate gameplay loops, not different colors for the same
+## lane/ring/blast rotation. All hazards are limited, warned, and phase-aware.
+static func boss_identity_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float) -> Vector2:
+	var kind = str(e["kind"])
+	var stage = boss_stage(e)
+	var hero_pos: Vector2 = g.hero["pos"]
+	var lead: Vector2 = hero_pos + g.hero["vel"] * 0.28
+	match kind:
+		"chonkzilla":
+			# A lumbering pressure tank: winds up a committed advancing stomp;
+			# the ground fractures sideways on landing, then its belly stays
+			# exposed to player damage for a short, readable recovery.
+			if float(e.get("boss_recover", 0.0)) > 0.0:
+				e["boss_recover"] = maxf(0.0, float(e["boss_recover"]) - dt)
+				return Vector2.ZERO
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var landing: Vector2 = e.get("lock", hero_pos)
+					e["pos"] = e["pos"].move_toward(landing, 170.0 + stage * 55.0)
+					e["boss_recover"] = maxf(0.65, 1.55 - stage * 0.26)
+					g.spawn_ring_fx(e["pos"], Color("ffb18b"), 130.0)
+					for side in [-1.0, 1.0]:
+						var fissure: Vector2 = e["pos"] + Vector2(side * 240.0, 0.0)
+						schedule_boss_line(g, e["pos"], fissure, 24.0 + stage * 3.0, float(e["dmg"]) * 0.7, 0.7, "e86a8a")
+					if g.delayed.size() < 136:
+						schedule_boss_blast(g, e["pos"], 102.0 + stage * 12.0, float(e["dmg"]) * 0.88, 0.55, "ff9e7a")
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.1, 4.15 - stage * 0.4)
+				e["wind"] = maxf(0.75, 1.27 - stage * 0.12)
+				e["lock"] = lead
+				e["tele"] = 110.0 + stage * 12.0
+				g.sfx.play("boss_warn")
+				return Vector2.ZERO
+			return dir * 0.80
+		"heli":
+			# A moving aircraft. Its bombing is tied to its actual flight path:
+			# watch the horizontal strafing direction, not static target rings.
+			if float(e.get("flight_t", 0.0)) > 0.0:
+				e["flight_t"] = maxf(0.0, float(e["flight_t"]) - dt)
+				e["flight_drop"] = float(e.get("flight_drop", 0.0)) - dt
+				if float(e["flight_drop"]) <= 0.0 and g.delayed.size() < 132:
+					e["flight_drop"] = 0.34 if stage == 0 else 0.26
+					var drop: Vector2 = e["pos"] + Vector2(float(e.get("flight_side", 1.0)) * 32.0, 125.0)
+					schedule_boss_blast(g, drop, 55.0, float(e["dmg"]) * 0.72, 1.08, "ffcc74")
+				return Vector2(float(e.get("flight_side", 1.0)), 0.0)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.2, 4.1 - stage * 0.36)
+				e["flight_t"] = 1.85 + stage * 0.38
+				e["flight_drop"] = 0.08
+				e["flight_side"] = 1.0 if e["pos"].x < hero_pos.x else -1.0
+				g.spawn_ring_fx(e["pos"], Color("ffcc74"), 64.0)
+				if stage >= 1:
+					# Support aircraft fire a short downward rake through the
+					# center of the run, not rings fired from a stationary boss.
+					for k in range(3 + stage):
+						var spread: float = (float(k) - float(2 + stage) * 0.5) * 0.14
+						var rake_dir: Vector2 = Vector2(0.25 * float(e["flight_side"]) + spread, 1.0).normalized()
+						var bullet = enemy_fire(g, e, rake_dir, 1, 0.0, 360.0, 5.0)
+						if bullet != null:
+							bullet["wave"] = 0.0
+				return Vector2(float(e["flight_side"]), 0.0)
+			var anchor: Vector2 = Vector2(clampf(hero_pos.x, -g.road_half + 75.0, g.road_half - 75.0), hero_pos.y - 300.0)
+			return (anchor - e["pos"]).limit_length(145.0) / 145.0
+		"necro":
+			# Soul anchors are ordinary KILLABLE summons. While any survive,
+			# the boss siphons life. Destroy their violet-marked bodies first.
+			var anchors = 0
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("soul_owner", -1)) == int(e["id"]):
+					anchors += 1
+			if anchors > 0 and float(e["hp"]) < float(e["max_hp"]):
+				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * dt * 0.007 * anchors)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.3, 4.15 - stage * 0.42)
+				if anchors == 0 or int(e.get("pattern", -1)) % 2 == 0:
+					for k in range(mini(3, 2 + stage)):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var ward = g.spawn_enemy("leech", e["pos"] + Vector2.from_angle(float(k) * TAU / float(2 + stage)) * 138.0, false, false)
+						ward["summon"] = true
+						ward["soul_owner"] = int(e["id"])
+					g.spawn_ring_fx(e["pos"], Color("b88cff"), 142.0)
+				else:
+					# Weak seeking skulls force movement while the wards siphon;
+					# avoid covering the road with generic area circles.
+					for k in range(4 + stage * 2):
+						var a = (float(k) - (3.0 + stage * 2.0) * 0.5) * 0.26
+						var skull = enemy_fire(g, e, dir.rotated(a), 1, 0.0, 205.0, 6.0)
+						if skull != null:
+							skull["homing"] = 0.85 + stage * 0.11
+							skull["life"] = 3.4
+							skull["kind"] = "skull"
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+			return -dir * 0.65 if dist < 250.0 else dir.orthogonal() * 0.65
+		"kingblob":
+			# Real growth economy: the King feeds on its own spawned blobs.
+			# Killing the smaller blobs denies the recovery and growth.
+			var growth = 0
+			for child in g.enemies:
+				if growth >= 2:
+					break
+				if not bool(child.get("dead", false)) and int(child.get("royal_owner", -1)) == int(e["id"]) and child["pos"].distance_to(e["pos"]) < 94.0:
+					child["dead"] = true
+					growth += 1
+					e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.025)
+					e["r"] = minf(float(g.enemy_db["kingblob"]["r"]) * 1.55, float(e["r"]) + 1.9)
+				if growth > 0:
+					g.spawn_ring_fx(e["pos"], Color("ff8bc2"), 77.0)
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					e["pos"] = e.get("lock", hero_pos)
+					var size: float = 79.0 + float(e["r"]) * 0.35
+					if g.delayed.size() < 140:
+						schedule_boss_blast(g, e["pos"], size, float(e["dmg"]) * 0.8, 0.62, "ff6aaf")
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.2, 3.65 - stage * 0.3)
+				if int(e.get("pattern", -1)) % 2 == 0:
+					e["wind"] = 1.04 - stage * 0.1
+					e["lock"] = lead
+					e["tele"] = 84.0 + float(e["r"]) * 0.35
+				else:
+					for k in range(3 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var m = g.spawn_enemy("blob", e["pos"] + Vector2.from_angle(float(k) * TAU / float(3 + stage)) * 115.0, false, false)
+						m["summon"] = true
+						m["royal_owner"] = int(e["id"])
+					e["squash"] = 0.55
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+			return Vector2.ZERO
+			return dir
+		"coilqueen":
+			# Twin visible venom walls actively close inward, leaving a
+			# shrinking corridor that the player can run out of or dodge.
+			# Distinct from Dread Engine's FIXED piston timings.
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.35, 3.85 - stage * 0.35)
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				if int(e["pattern"]) % 2 == 0:
+					for side in [-1.0, 1.0]:
+						if g.delayed.size() >= 138:
+							break
+						var cx: float = clampf(hero_pos.x + side * 200.0, -g.road_half + 20.0, g.road_half - 20.0)
+						g.delayed.append({"fn": "coil_wall", "pos": Vector2(cx, hero_pos.y), "side": side,
+							"tele": 21.0, "t": 1.6, "life": 1.6, "dmg": float(e["dmg"]) * 0.76, "color": "57e5aa",
+							"a": Vector2(cx, hero_pos.y - 190.0), "b": Vector2(cx, hero_pos.y + 190.0),
+							"move": 120.0 + stage * 18.0, "stop_x": hero_pos.x + side * 14.0})
+				else:
+					for k in range(3 + stage):
+						var fang = enemy_fire(g, e, dir.rotated((k - 1.0 - stage * 0.5) * 0.32), 1, 0.0, 265.0, 6.0)
+						if fang != null:
+							fang["curve"] = 0.7 if k % 2 == 0 else -0.7
+				g.sfx.play("boss_warn")
+			return (dir * 0.35 + dir.orthogonal() * sin(float(e["t"]) * 2.25) * 1.1).normalized()
+		"glassoracle":
+			# Kill the mirror nodes to remove the boss's prismatic armor.
+			# Each surviving node fires an announced, fixed-origin ricochet.
+			var nodes: Array = []
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("oracle_owner", -1)) == int(e["id"]):
+					nodes.append(mob)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.25, 3.8 - stage * 0.37)
+				if nodes.is_empty():
+					for k in range(2 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var place: Vector2 = e["pos"] + Vector2(-130.0 + float(k) * 126.0, 60.0)
+						place.x = clampf(place.x, -g.road_half + 20.0, g.road_half - 20.0)
+						var mirror_node = g.spawn_enemy("mirror", place, false, false)
+						mirror_node["oracle_owner"] = int(e["id"])
+						mirror_node["summon"] = true
+				else:
+					for node in nodes.slice(0, 3):
+						var aim: Vector2 = lead - node["pos"]
+						if aim.length_squared() > 2.0:
+							schedule_boss_line(g, node["pos"], node["pos"] + aim.normalized() * 475.0, 16.0, float(e["dmg"]) * 0.64, 0.97, "87e6fa")
+				g.sfx.play("boss_warn")
+			return (Vector2(sin(float(e["t"]) * 0.75) * 240.0, hero_pos.y - 260.0) - e["pos"]).limit_length(100.0) / 100.0
+		"voidweaver":
+			# Portal topology: fixed, marked entrances fire from OUTSIDE the
+			# boss's body after a delay. The boss swaps sides during the attack.
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var origin: Vector2 = e["pos"]
+					e["pos"] = e.get("lock", e["pos"])
+					g.spawn_ring_fx(origin, Color("a88aff"), 43.0)
+					g.spawn_ring_fx(e["pos"], Color("a88aff"), 43.0)
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(2.45, 4.0 - stage * 0.35)
+				e["wind"] = 0.92
+				var side: float = -1.0 if int(e.get("pattern", -1)) % 2 == 0 else 1.0
+				var exit: Vector2 = lead + Vector2(side * 160.0, -90.0)
+				exit.x = clampf(exit.x, -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
+				e["lock"] = exit
+				e["tele"] = 65.0
+				for port in [e["pos"], exit]:
+					if g.delayed.size() >= 140:
+						break
+					g.delayed.append({"fn": "rift_emit", "pos": port, "target": lead, "tele": 43.0,
+						"t": 1.26, "life": 1.26, "dmg": float(e["dmg"]) * 0.7, "color": "b397ff",
+						"stage": stage})
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				g.sfx.play("boss_warn")
+				return Vector2.ZERO
+			return -dir * 0.4 if dist < 205.0 else dir.orthogonal() * 0.65
+		"dreadengine":
+			# Its armor builds heat whenever it fires piston attacks. It
+			# eventually vents, stops attacking, and exposes the core for real
+			# bonus damage. The tell is an orange core progress ring.
+			if float(e.get("vent_t", 0.0)) > 0.0:
+				e["vent_t"] = maxf(0.0, float(e["vent_t"]) - dt)
+				return Vector2.ZERO
+			if float(e.get("engine_heat", 0.0)) >= 100.0:
+				e["engine_heat"] = 0.0
+				e["vent_t"] = maxf(1.7, 2.75 - stage * 0.3)
+				g.spawn_ring_fx(e["pos"], Color("fff2ae"), 105.0)
+				if g.delayed.size() < 135:
+					schedule_boss_blast(g, e["pos"], 95.0, float(e["dmg"]) * 0.65, 1.0, "ffb36b")
+				g.sfx.play("boss_warn")
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = maxf(1.8, 3.3 - stage * 0.3)
+				e["engine_heat"] = float(e.get("engine_heat", 0.0)) + 39.0 + stage * 4.0
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				# Sequential pistons have static hitboxes; players move between
+				# the telegraphed solid metal crushers rather than outrunning a coil.
+				var x: float = clampf(lead.x, -g.road_half + 75.0, g.road_half - 75.0)
+				for k in range(3 + stage):
+					var position: float = clampf(x + (float(k) - 1.0 - stage * 0.5) * 105.0, -g.road_half + 30.0, g.road_half - 30.0)
+					schedule_boss_line(g, Vector2(position, lead.y - 250.0), Vector2(position, lead.y + 250.0),
+						30.0, float(e["dmg"]) * 0.88, 0.9 + float(k) * 0.23, "ffc084")
+			return dir * 0.55 if dist > 270.0 else -dir * 0.2
+	return dir
+
 ## Authored mutations have one signature behavior instead of simply running
 ## the full A and B enemy brains together. Their body part is inherited for
 ## appearance, but the attack must remain legible, warned and bounded.
@@ -1850,325 +2134,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			return (away + away.orthogonal() * sin(float(e["t"]) * 3.0) * 0.6).normalized()
 		"kaboomba":
 			return dir
-		"coilqueen":
-			# COIL QUEEN: moving serpent lanes, coils of seeking shots and
-			# sequential constriction. Moving diagonally is the safe answer.
-			var stage = boss_stage(e)
-			if float(e["cd"]) <= 0.0:
-				e["cd"] = 2.45 - stage * 0.27
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var p = int(e["pattern"]) % 5
-				var lead = hero_pos + g.hero["vel"] * 0.30
-				if p == 0:
-					boss_lane_sequence(g, e, lead, stage, false, "57e5aa")
-				elif p == 1:
-					# Tight coils followed by venom-colored side volleys.
-					boss_gapped_ring(g, e, 19 + stage * 6, 270.0 + stage * 25.0, 0.1, float(e["t"]) * 0.47)
-					enemy_fire(g, e, dir, 3 + stage, 0.62, 300.0, 5.5)
-				elif p == 2:
-					for k in range(6 + stage * 2):
-						var at = lead + Vector2.from_angle(TAU * k / float(6 + stage * 2)) * 125.0
-						schedule_boss_blast(g, at, 42.0, float(e["dmg"]) * 0.67, 0.9 + 0.08 * k, "81ffba")
-					schedule_boss_blast(g, lead, 48.0, float(e["dmg"]) * 0.62, 1.65, "3eeab3")
-				elif p == 3:
-					boss_cross(g, e, lead, stage, "6affe0")
-					if stage >= 1:
-						enemy_fire(g, e, dir, 6, 0.75, 340.0, 5.0)
-				else:
-					for k in range(4 + stage):
-						var x = clampf(lead.x + (k - 2) * 113.0, -g.road_half + 18.0, g.road_half - 18.0)
-						schedule_boss_line(g, Vector2(x, lead.y - 340), Vector2(x + (65.0 if k % 2 == 0 else -65.0), lead.y + 340),
-							20.0, float(e["dmg"]) * 0.64, 0.85 + 0.2 * k, "60dcab")
-			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 1.7) * 1.1).normalized() if dist > 185.0 else dir.orthogonal() * 0.8
-		"glassoracle":
-			# GLASS ORACLE: fixed mirror-geometry beams and prismatic shots;
-			# its beams cross, but never rotate after locking onto a position.
-			var stage = boss_stage(e)
-			if float(e["cd"]) <= 0.0:
-				e["cd"] = 2.62 - stage * 0.24
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var p = int(e["pattern"]) % 6
-				var lead = hero_pos + g.hero["vel"] * 0.3
-				if p == 0:
-					boss_cross(g, e, lead, stage, "7beeff")
-				elif p == 1:
-					for k in range(3 + stage):
-						var off = (k - 1 - stage * 0.5) * 90.0
-						schedule_boss_line(g, Vector2(-g.road_half, lead.y - 220.0 + off),
-							Vector2(g.road_half, lead.y + 220.0 + off), 17.0 + stage,
-							float(e["dmg"]) * 0.64, 0.86 + 0.24 * k, "89daff")
-				elif p == 2:
-					enemy_fire(g, e, dir, 7 + stage * 2, 1.15, 360.0, 5.0)
-					boss_gapped_ring(g, e, 16 + stage * 4, 250.0, 0.3, float(e["t"]) * 0.45)
-				elif p == 3:
-					boss_lane_sequence(g, e, lead, stage, true, "7cfcff")
-				elif p == 4:
-					for k in [-1, 1]:
-						boss_cross(g, e, lead + Vector2(k * 85.0, k * 70.0), stage, "9de9ff")
-				else:
-					boss_lane_sequence(g, e, lead, stage, false, "84a9ff")
-					enemy_fire(g, e, dir, 5, 0.8, 330.0, 5.0)
-			var orbit = Vector2(sin(float(e["t"]) * 0.95) * 250.0, hero_pos.y - 270.0)
-			return (orbit - e["pos"]).limit_length(110.0) / 110.0
-		"voidweaver":
-			# VOID WEAVER: ambush teleports and summoned tunnel hunters, with
-			# lock-on runes that point to a fixed destination before moving.
-			var stage = boss_stage(e)
-			if float(e["wind"]) > 0.0:
-				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					g.spawn_ring_fx(e["pos"], Color("9871f5"), 70.0)
-					e["pos"] = e.get("lock", e["pos"])
-					e["vel"] = Vector2.ZERO
-					e["kb"] = Vector2.ZERO
-					g.spawn_ring_fx(e["pos"], Color("e2b0ff"), 105.0)
-					boss_gapped_ring(g, e, 17 + stage * 5, 255.0, 0.2, float(e["t"]) * 0.17)
-				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0:
-				e["cd"] = 2.7 - stage * 0.27
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var p = int(e["pattern"]) % 6
-				var lead = hero_pos + g.hero["vel"] * 0.23
-				if p == 0:
-					e["wind"] = 0.95 - stage * 0.09
-					var side = -1.0 if int(e["pattern"]) % 2 == 0 else 1.0
-					var lock_pos: Vector2 = lead + Vector2(side * 165.0, -85.0)
-					lock_pos.x = clampf(lock_pos.x, -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
-					e["lock"] = lock_pos
-					e["tele"] = 70.0
-					g.sfx.play("boss_warn")
-				elif p == 1:
-					boss_cross(g, e, lead, stage, "a476ff")
-					for k in range(2 + stage):
-						if g.enemies.size() >= g.enemy_cap():
-							break
-						var spawn_at = e["pos"] + Vector2.from_angle(TAU * k / float(2 + stage)) * 100.0
-						g.spawn_enemy("burrower", spawn_at, false, false)["summon"] = true
-				elif p == 2:
-					boss_lane_sequence(g, e, lead, stage, false, "a875ff")
-				elif p == 3:
-					boss_gapped_ring(g, e, 23 + stage * 4, 260.0, 0.12, float(e["t"]) * 0.5)
-					enemy_fire(g, e, dir, 4 + stage, 0.52, 335.0, 6.0)
-				elif p == 4:
-					for k in range(5 + stage):
-						var at = lead + Vector2.from_angle(float(k) * TAU / float(5 + stage)) * 115.0
-						schedule_boss_blast(g, at, 49.0, float(e["dmg"]) * 0.72, 0.88 + k * 0.14, "bf88ff")
-				else:
-					boss_lane_sequence(g, e, lead, stage, true, "c28dff")
-					if stage >= 1:
-						boss_cross(g, e, lead, stage, "dba7ff")
-			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 2.0) * 0.8).normalized() if dist > 240.0 else -dir * 0.4
-		"dreadengine":
-			# DREAD ENGINE: crushing pistons and alternating kill lanes,
-			# with stronger but slower telegraphed consequences than flyers.
-			var stage = boss_stage(e)
-			if float(e["cd"]) <= 0.0:
-				e["cd"] = 2.85 - stage * 0.28
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var p = int(e["pattern"]) % 6
-				var lead = hero_pos + g.hero["vel"] * 0.34
-				if p == 0:
-					boss_lane_sequence(g, e, lead, stage, true, "ffa46b")
-				elif p == 1:
-					boss_lane_sequence(g, e, lead, stage, false, "ffbd67")
-				elif p == 2:
-					boss_cross(g, e, lead, stage, "ff935d")
-					for k in [-1.0, 1.0]:
-						schedule_boss_blast(g, lead + Vector2(k * 105.0, -40.0), 59.0, float(e["dmg"]) * 0.68, 1.38, "ffc084")
-				elif p == 3:
-					for k in range(5 + stage):
-						var at = lead + Vector2((k - 2) * 87.0, (1.0 if k % 2 == 0 else -1.0) * 87.0)
-						schedule_boss_blast(g, at, 56.0, float(e["dmg"]) * 0.77, 0.87 + k * 0.20, "ffa65e")
-				elif p == 4:
-					boss_gapped_ring(g, e, 21 + stage * 6, 235.0, 0.2, float(e["t"]) * 0.33)
-					enemy_fire(g, e, dir, 5 + stage, 0.6, 305.0, 7.5)
-				else:
-					boss_lane_sequence(g, e, lead, stage, true, "ffc46d")
-					for k in range(2 + stage):
-						if g.enemies.size() >= g.enemy_cap():
-							break
-						g.spawn_enemy("sapper", e["pos"] + Vector2(-100.0 + 90.0 * k, 70.0), false, false)["summon"] = true
-			return dir * 0.9 if dist > 255.0 else -dir * 0.23
-		"chonkzilla":
-			var stage = boss_stage(e)
-			if float(e["wind"]) > 0.0:
-				e["wind"] = float(e["wind"]) - dt
-				if float(e["wind"]) <= 0.0:
-					g.add_shake(12.0)
-					g.spawn_ring_fx(e["pos"], Color("ff6b7a"), 160.0)
-					if g.hero["pos"].distance_to(e["pos"]) < 160.0:
-						g.hurt(float(e["dmg"]), e["pos"], "CHONKZILLA's belly flop")
-					boss_ring(g, e, 18 + stage * 5, 210.0 + stage * 28.0, float(e["t"]) * 0.4)
-					if stage >= 1:
-						boss_ring(g, e, 10 + stage * 3, 295.0, PI / 12.0 + float(e["t"]) * 0.4)
-				return Vector2.ZERO
-			if e["cd"] <= 0.0:
-				e["cd"] = 3.0 - stage * 0.38
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var attack = int(e["pattern"]) % 6
-				if attack == 4:
-					# QUAKELINE: marching horizontal crushers force timed movement.
-					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.28, stage, true, "ff5a6e")
-				elif attack == 5:
-					# CRUSHING WALLS: alternating safe corridors with a delayed
-					# cross strike at high phase, not an unavoidable full screen.
-					boss_lane_sequence(g, e, hero_pos, stage, false, "ff8550")
-					if stage >= 1:
-						boss_cross(g, e, hero_pos, stage, "ffb15c")
-				elif attack == 1:
-					# Alternating offset slams force a lateral dodge.
-					for k in range(3 + stage):
-						var point = hero_pos + Vector2((k - 1) * 115.0, -35.0)
-						schedule_boss_blast(g, point, 53.0, float(e["dmg"]) * 0.6, 1.15 + k * 0.16)
-				elif attack == 3:
-					# New move: alternating diagonal quake lanes with visible exits.
-					for k in range(5 + stage):
-						var at = hero_pos + Vector2((k - 2) * 98.0, (1.0 if k % 2 == 0 else -1.0) * 90.0)
-						schedule_boss_blast(g, at, 54.0, float(e["dmg"]) * 0.57, 1.15 + 0.17 * k, "ff754b")
-				else:
-					e["wind"] = 1.0 - stage * 0.13
-					e["tele"] = 160.0
-				g.sfx.play("boss_warn")
-			if fmod(float(e["t"]), 8.0) < dt:
-				for k in range(4):
-					g.spawn_enemy("blob", e["pos"] + Vector2.from_angle(k * TAU / 4.0) * 70.0, false, false)["summon"] = true
-			return dir
-		"heli":
-			var stage = boss_stage(e)
-			var anchor = Vector2(sin(float(e["t"]) * 0.7) * 300.0, hero_pos.y - 280.0)
-			if e["cd"] <= 0.0:
-				e["cd"] = 2.35 - stage * 0.25
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 6
-				if pattern == 4:
-					# STRAFE RUN: vertical attack corridors are laid one after
-					# another, making the player shift and reverse directions.
-					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.35, stage, false, "ffbb5e")
-				elif pattern == 5:
-					# SKY PINS: cross-lane shots followed by a small precision
-					# carpet, with visible warning for each impact.
-					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.3, stage, "fda65a")
-					for k in range(2 + stage):
-						var pin = hero_pos + Vector2((k - stage * 0.5) * 85.0, -80.0)
-						schedule_boss_blast(g, pin, 42.0, float(e["dmg"]) * 0.5, 1.1 + 0.25 * k, "ffd17a")
-				elif pattern == 0:
-					e["burst"] = 10 + stage * 3
-				elif pattern == 3:
-					# New move: staggered bombing lanes cross where the hero stood.
-					for k in range(6 + stage):
-						var left_to_right = -1.0 if k % 2 == 0 else 1.0
-						var point = hero_pos + Vector2(left_to_right * (175.0 - k * 13.0), (k - 3) * 78.0)
-						schedule_boss_blast(g, point, 45.0, float(e["dmg"]) * 0.6, 0.95 + 0.18 * k, "ffb36b")
-				elif pattern == 1:
-					# A visible carpet of bombs across the escape route.
-					for k in range(4 + stage):
-						var at = hero_pos + Vector2((k - 2) * 96.0, -65.0)
-						schedule_boss_blast(g, at, 46.0, float(e["dmg"]) * 0.55, 0.95 + k * 0.12)
-				else:
-					boss_ring(g, e, 12 + stage * 4, 235.0 + stage * 30.0, float(e["t"]))
-				g.sfx.play("boss_warn")
-			if int(e.get("burst", 0)) > 0 and fmod(float(e["t"]), 0.09) < dt:
-				e["burst"] = int(e["burst"]) - 1
-				enemy_fire(g, e, dir.rotated(randf_range(-0.25, 0.25)), 1, 0.0, 380.0)
-			if fmod(float(e["t"]), 7.0) < dt:
-				for k in range(3):
-					g.spawn_enemy("kaboomba", e["pos"] + Vector2(-60 + 60 * k, 30), false, false)["summon"] = true
-			return (anchor - e["pos"]).limit_length(80.0) / 80.0
-		"necro":
-			var stage = boss_stage(e)
-			if e["cd"] <= 0.0:
-				e["cd"] = 2.55 - stage * 0.26
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 6
-				if pattern == 4:
-					# GRAVE LATTICE: cursed paths cross in a warned X.
-					boss_cross(g, e, hero_pos, stage, "c07bff")
-					if stage >= 1:
-						boss_gapped_ring(g, e, 13 + stage * 4, 235.0, 0.0, float(e["t"]) * 0.6)
-				elif pattern == 5:
-					# SPIRIT CORRIDORS: radial homing pursuit paired with a
-					# narrow moving gap in a cursed lane sequence.
-					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.2, stage, true, "b57bff")
-					for k in range(3 + stage):
-						var ghost = enemy_fire(g, e, dir.rotated((k - 1 - stage * 0.5) * 0.27), 1, 0.0, 220.0, 6.0)
-						if ghost != null:
-							ghost["homing"] = 0.9
-							ghost["life"] = 3.0
-				elif pattern == 3:
-					# New move: summon fast leeches to force displacement.
-					for k in range(2 + stage):
-						if g.enemies.size() >= g.enemy_cap():
-							break
-						var minion = g.spawn_enemy("leech", e["pos"] + Vector2.from_angle(k * TAU / (2.0 + stage)) * 92.0, false, false)
-						minion["summon"] = true
-					g.spawn_ring_fx(e["pos"], Color("a783ff"), 98.0)
-				elif pattern == 0:
-					for k in range(5 + stage * 2):
-						var a = float(k - 2 - stage) * 0.27
-						var s = enemy_fire(g, e, dir.rotated(a), 1, 0.0, 190.0 + stage * 25.0)
-						if s != null:
-							s["homing"] = 1.1 + stage * 0.13
-							s["life"] = 4.0
-							s["kind"] = "skull"
-				elif pattern == 1:
-					# Rotating cursed spiral; outer lanes have gaps to escape.
-					boss_ring(g, e, 13 + stage * 3, 220.0, float(e["t"]) * 0.8)
-				else:
-					for k in range(3 + stage):
-						var at = hero_pos + Vector2.from_angle(float(k) * TAU / (3 + stage)) * 95.0
-						schedule_boss_blast(g, at, 49.0, float(e["dmg"]) * 0.55, 1.2)
-				g.sfx.play("boss_warn")
-			if fmod(float(e["t"]), 6.0) < dt:
-				for k in range(6):
-					var m = g.spawn_enemy("blob", e["pos"] + Vector2.from_angle(k * TAU / 6.0) * 90.0, false, false)
-					m["spawn"] = 0.0
-					m["summon"] = true
-				g.spawn_ring_fx(e["pos"], Color("b48cff"), 120.0)
-			if dist < 280.0:
-				return -dir
-			return dir if dist > 380.0 else dir.orthogonal() * 0.6
-		"kingblob":
-			var stage = boss_stage(e)
-			if float(e["wind"]) > 0.0:
-				e["wind"] = float(e["wind"]) - dt
-				if float(e["wind"]) <= 0.0:
-					e["pos"] = e.get("lock", hero_pos)
-					g.add_shake(10.0)
-					g.spawn_ring_fx(e["pos"], Color("ff7b93"), 120.0)
-					if g.hero["pos"].distance_to(e["pos"]) < 110.0:
-						g.hurt(float(e["dmg"]), e["pos"], "KING BLOB's butt")
-				return Vector2.ZERO
-			if e["cd"] <= 0.0 and dist < 480.0:
-				e["cd"] = 3.1 - stage * 0.38
-				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var king_attack = int(e["pattern"]) % 6
-				if king_attack == 4:
-					# ROYAL PINS: staggered edge-to-edge pressure lanes.
-					boss_lane_sequence(g, e, hero_pos, stage, true, "ff7fa7")
-				elif king_attack == 5:
-					# SPLIT CROWN: cross-lanes and a gapped outward barrage.
-					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.2, stage, "ff6aba")
-					boss_gapped_ring(g, e, 14 + stage * 5, 230.0 + stage * 20.0, 0.2, float(e["t"]) * 0.15)
-				elif king_attack == 3:
-					# New move: spawn flanking skitters and force repositioning.
-					for k in range(2 + stage):
-						if g.enemies.size() >= g.enemy_cap():
-							break
-						var skit = g.spawn_enemy("skitter", e["pos"] + Vector2(-85.0 + k * 65.0, 40.0), false, false)
-						skit["summon"] = true
-					g.spawn_ring_fx(e["pos"], Color("ff7b93"), 110.0)
-				elif king_attack % 2 == 0:
-					e["wind"] = 0.95 - stage * 0.13
-					e["lock"] = hero_pos
-					e["tele"] = 110.0
-				else:
-					# Three sequential impacts chase the player's predicted route.
-					var projected = hero_pos + g.hero["vel"] * 0.35
-					for k in range(3 + stage):
-						var at = projected + Vector2((k - 1) * 90.0, 0)
-						schedule_boss_blast(g, at, 61.0, float(e["dmg"]) * 0.65, 1.05 + k * 0.25, "ff6aaf")
-				g.sfx.play("boss_warn")
-			return dir
+		"chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine":
+			return boss_identity_ai(g, e, dir, dist, dt)
 	return dir
 
 ## Elite affixes that act over time (called 4x a second).

@@ -1,0 +1,39 @@
+name: Eight Unique Boss Mechanics
+on:
+  push:
+    branches: [feat/eight-distinct-boss-systems-20261010]
+    paths:
+      - scripts/**
+      - tools/boss_identity_test.gd
+      - tools/boss_aggression_test.gd
+      - .github/workflows/boss-identity-test.yml
+  pull_request:
+    paths:
+      - scripts/**
+      - tools/boss_identity_test.gd
+      - tools/boss_aggression_test.gd
+      - .github/workflows/boss-identity-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  distinct-bosses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip -oq /tmp/godot.zip -d /tmp/godot
+          mv /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 ./godot-ci
+          chmod +x ./godot-ci
+      - name: Import and parse game
+        run: timeout 180 ./godot-ci --headless --path . --editor --import --quit
+      - name: Assert eight unique mechanical identities
+        run: timeout 150 ./godot-ci --headless --path . --script tools/boss_identity_test.gd
+      - name: Preserve previous boss aggression regression
+        run: timeout 150 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
+      - name: Preserve enemy mutation identity
+        run: timeout 150 ./godot-ci --headless --path . --script tools/enemy_identity_test.gd

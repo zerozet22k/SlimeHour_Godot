@@ -1,3 +1,17 @@
+## v0.1.54 — Eight genuinely different boss encounters
+
+- Replace the shared colored ring/lane/explosion rotations with eight distinct combat systems and visible counterplay.
+- **Chonkzilla:** committed seismic stomp, paired fissures and a staggered weak-point window.
+- **Heli-Copter:** actual directional strafing flight and timed bombs dropped along its flight path.
+- **Necro-Dad:** killable soul anchors that heal him while alive; eliminate linked leeches to stop regeneration.
+- **King Blob:** consumes its own small blobs to regenerate HP and grow, while retaining its marked jumps and death splits.
+- **Coil Queen:** independently moving inward venom walls with collision-accurate warnings and bending fang shots.
+- **Glass Oracle:** killable mirror nodes that shield the boss and fire fixed-origin refraction beams.
+- **Void Weaver:** two telegraphed portal mouths and a position swap; shot bursts come from the remote portals.
+- **Dread Engine:** plated damage mitigation, escalating heat, delayed vent burst and a high-damage exposed core.
+- Show boss-specific states, linked support bodies, live telegraphs and weak points in-world and in the Bestiary.
+- Test actual mechanics, damage multipliers and phase transitions with `tools/boss_identity_test.gd`; run it in the Windows production release gate.
+
 ## v0.1.53 — Distinct enemy AI and separate Mutation Book
 
 - Separate true monster species from generated mutations in the Bestiary. Historic hybrid kills remain in the Mutation Book; mutation encounter unlocks still reset each run.
