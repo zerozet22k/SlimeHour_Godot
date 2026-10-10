@@ -28,7 +28,8 @@ func _test() -> void:
 	check(game.introduction_for(15) == "", "New base types precede hybrids")
 	check(not EnemyMixes.allowed(game.available_enemies(15), 15), "Hybrids remain locked until Sector 16")
 	check(EnemyMixes.allowed(game.available_enemies(15), 16), "Hybrid spawning unlocks at Sector 16")
-	check(not game.ROUTE_INTRO_ORDER.has("nurse") and not game.ROUTE_INTRO_ORDER.has("larry"), "Legacy Nurse/Larry no longer in active introductions")
+	check(game.introduction_for(4) == "nurse" and game.available_enemies(4).has("nurse"), "Medic is an early normal monster in sector 4")
+	check(game.ROUTE_INTRO_ORDER.has("larry") and game.introduction_for(40) == "larry", "Laser Larry is the late-game normal monster in sector 40")
 	check(not game.available_enemies(8).has("mirror"), "Later species do not debut prematurely")
 	for i in range(game.ROUTE_INTRO_ORDER.size()):
 		var sector = 6 + i * 2

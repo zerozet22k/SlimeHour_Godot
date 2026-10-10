@@ -63,8 +63,8 @@ func _run() -> void:
 	check(Compatibility.applies_to(g, "hydra"), "Hydra still offers a meaningful returning-weapon conversion")
 	g.guns = [Weapons.new_gun(g, "grenade")]
 	check(Compatibility.applies_to(g, "return_sender"), "Return to Sender works on ordinary flying grenades")
-	check(Main.introduction_for(4) == "nurse" and Main.ROUTE_INTRO_ORDER.has("larry"), "Medic arrives early and Laser Larry retains a late-game introduction")
-	check(Main.available_enemies(15).has("nurse") and Main.available_enemies(40).has("larry") and Main.available_enemies(30).has("mirror"), "Both unique enemies remain active at their intended progression tiers")
+	check(Main.introduction_for(4) == "nurse" and Main.ROUTE_INTRO_ORDER.has("larry") and Main.introduction_for(40) == "larry", "Medic returns early and Laser Larry enters late")
+	check(Main.available_enemies(15).has("nurse") and not Main.available_enemies(15).has("larry") and Main.available_enemies(40).has("larry"), "Normal enemy introductions progress from early Medic to late Larry")
 	check(not EnemyMixes.allowed(Main.available_enemies(15), 15), "New base types appear before combinations")
 	var available = Main.available_enemies(16)
 	check(EnemyMixes.allowed(available, 16), "Dynamic combinations unlock after base species")
@@ -74,7 +74,7 @@ func _run() -> void:
 		var hybrid = EnemyMixes.roll(g.enemy_db, available, 16, false, recent)
 		if hybrid == "":
 			continue
-		check(not g.enemy_db[hybrid]["mix"].has("nurse") and not g.enemy_db[hybrid]["mix"].has("larry"), "Generated pair is not fixed Nurse/Larry")
+		check(g.enemy_db[hybrid]["mix"].size() == 2 and hybrid != EnemyMixes.id_for("nurse", "larry"), "Early authored fusion has exactly two compatible parents")
 		seen[hybrid] = true
 		recent.append(hybrid)
 		if recent.size() > 9:
@@ -90,7 +90,7 @@ func _run() -> void:
 			seen[hybrid] = true
 	check(seen.size() == 3, "Normal sector 24 exposes exactly three distinct mutation recipes")
 	for kind in seen:
-		check(not g.enemy_db[kind]["mix"].has("nurse") and not g.enemy_db[kind]["mix"].has("larry"), "No retired parents return")
+		check(g.enemy_db[kind]["mix"].size() == 2, "Every unlocked mutation inherits exactly two normal enemies")
 	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")
 	g.free()
 	print("COMPATIBILITY + PROCEDURAL ENEMY TESTS: ", "PASS" if failed == 0 else "%d failures" % failed)
