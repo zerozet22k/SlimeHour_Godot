@@ -30,6 +30,19 @@ func run_tests() -> void:
 	check(Updater.parse_checksum("not-a-hash SlimeHour-Delta.zip", "SlimeHour-Delta.zip") == "", "invalid checksum rejected")
 	check(Updater.parse_checksum(digest + "  unrelated.zip", "SlimeHour-Delta.zip") == "", "wrong checksum filename rejected")
 	check(Updater.delta_matches({"base_version": "v0.1.16", "target_version": "v0.1.17"}, "v0.1.16", "v0.1.17"), "matching delta selected")
+	# Cached verified ZIPs must survive updater restarts; incorrect bytes
+	# or lengths must never be accepted as downloaded releases.
+	var cache_path = OS.get_user_data_dir().path_join("slime_updater_cache_test.bin")
+	var cache = FileAccess.open(cache_path, FileAccess.WRITE)
+	check(cache != null, "Can create updater cache regression fixture")
+	if cache != null:
+		cache.store_string("existing release bytes")
+		cache.close()
+		var digest_cache = FileAccess.get_sha256(cache_path)
+		check(Updater.cached_archive_matches(cache_path, 22, digest_cache), "Matching verified ZIP reused instead of downloading again")
+		check(not Updater.cached_archive_matches(cache_path, 23, digest_cache), "Wrong cached archive length rejected")
+		check(not Updater.cached_archive_matches(cache_path, 22, "0".repeat(64)), "Incorrect cached archive hash rejected")
+		DirAccess.remove_absolute(cache_path)
 	check(not Updater.delta_matches({"base_version": "v0.1.15", "target_version": "v0.1.17"}, "v0.1.16", "v0.1.17"), "wrong base needs full update")
 	print("IN-GAME UPDATER: " + ("PASS" if failed == 0 else str(failed) + " failed"))
 	quit(1 if failed else 0)
