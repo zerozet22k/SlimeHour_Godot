@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - scripts/**
+      - data/enemies.json
+      - tools/boss_aggression_test.gd
       - data/cards.json
       - data/weapons.json
       - tools/card_weapon_conversion_test.gd
@@ -40,6 +42,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_compatibility_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_resource_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_compatibility_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_description_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/line_weapon_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/barrel_weapon_test.gd

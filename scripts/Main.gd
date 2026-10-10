@@ -1226,7 +1226,7 @@ func update_director(dt: float) -> void:
 		say(hero["pos"] + Vector2(0, -80), "A GOLD GOBLIN!", Color("ffd24d"), 24)
 	if is_boss_sector() and not boss_spawned and (p > 0.75 or sector_time > 50.0):
 		boss_spawned = true
-		var bosses = ["chonkzilla", "heli", "necro", "kingblob"]
+		var bosses = ["chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
 		var kind = bosses[((sector - WIN_SECTOR - 1) if sector > WIN_SECTOR else (int(sector / 5) - 1)) % bosses.size()]
 		spawn_enemy(kind, Vector2(0, cam_y - maxf(330.0, ui_height * 0.5 + 40.0)), true)
 		banner(str(enemy_db[kind]["name"]), "BOSS", 2.5)

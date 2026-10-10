@@ -144,6 +144,17 @@ static func update_delayed(g, dt: float) -> void:
 				g.sfx.play_projectile("boss_impact")
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
+			"boss_line":
+				# Telegraph exactly the same segment and collision width as the strike.
+				var a: Vector2 = item["a"]
+				var b: Vector2 = item["b"]
+				var w: float = float(item["tele"])
+				var col = Color(str(item.get("color", "ff9944")))
+				g.beams.append({"a": a, "b": b, "t": 0.24, "w": w * 2.0, "color": col, "zig": false})
+				g.spawn_ring_fx((a + b) * 0.5, col, w * 2.0)
+				g.sfx.play_projectile("boss_impact")
+				if seg_dist2(a, b, g.hero["pos"]) <= pow(w + 11.0, 2.0):
+					g.hurt(float(item["dmg"]), (a + b) * 0.5, "a boss lane attack")
 			"elite_boom":
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
@@ -761,9 +772,12 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	# It still takes the full hit; there is no instant damage reflection.
 	var mirror_state: Dictionary = e.get("mix_state_mirror", e)
 	if has_role(g, e, "mirror") and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(mirror_state.get("cd", 0.0)) <= 0.0 and float(mirror_state.get("wind", 0.0)) <= 0.0 and float(e["charm"]) <= 0.0:
-		e["wind"] = 0.95
-		e["cd"] = 5.0
-		e["lock"] = g.hero["pos"]
+		# The mimic reacts to pressure quickly, but its counterfire is fully
+		# warned and cannot deflect the incoming damage itself.
+		e["wind"] = 0.70
+		e["cd"] = 2.9
+		e["lock"] = g.hero["pos"] + g.hero["vel"] * 0.25
+		e["mirror_shots"] = mini(4, maxi(2, int(ctx["shot"].get("split", 0)) + 2))
 		if str(e["kind"]).begins_with("mix_"):
 			mirror_state["wind"] = e["wind"]
 			mirror_state["cd"] = e["cd"]
@@ -1301,6 +1315,51 @@ static func boss_ring(g, e: Dictionary, count: int, speed: float, offset: float 
 	for i in range(count):
 		enemy_fire(g, e, Vector2.from_angle(offset + TAU * float(i) / count), 1, 0.0, speed)
 
+## Line strikes are warned, fixed-in-world and dodgeable; never instantly
+## follow a player after the telegraph starts.
+static func schedule_boss_line(g, a: Vector2, b: Vector2, width: float, dmg: float, delay: float, color: String = "ff9944") -> void:
+	if g.delayed.size() >= 145:
+		return
+	var t = maxf(0.48, delay)
+	g.delayed.append({"fn": "boss_line", "pos": (a + b) * 0.5, "a": a, "b": b,
+		"tele": width, "t": t, "life": t, "dmg": dmg, "color": color})
+
+## Predict movement once when the attack is committed. Narrow sequential
+## lines overlap lanes only partially, leaving a skill-based safe route.
+static func boss_lane_sequence(g, e: Dictionary, target: Vector2, stage: int, horizontal: bool, color: String) -> void:
+	var count = 3 + stage
+	var spacing = 105.0 if horizontal else 120.0
+	for k in range(count):
+		var offset = (float(k) - (count - 1) * 0.5) * spacing
+		var a: Vector2
+		var b: Vector2
+		if horizontal:
+			a = Vector2(-g.road_half + 8.0, target.y + offset)
+			b = Vector2(g.road_half - 8.0, target.y + offset)
+		else:
+			var x = clampf(target.x + offset, -g.road_half + 15.0, g.road_half - 15.0)
+			a = Vector2(x, target.y - 330.0)
+			b = Vector2(x, target.y + 330.0)
+		schedule_boss_line(g, a, b, 22.0 + stage * 2.0, float(e["dmg"]) * 0.65, 0.92 + float(k) * 0.22, color)
+
+## Radial attacks have a persistent player-sized opening: heavy bullet curtains
+## should be difficult without becoming unavoidable at close distance.
+static func boss_gapped_ring(g, e: Dictionary, count: int, speed: float, gap: float, offset: float = 0.0) -> void:
+	var avoid = (g.hero["pos"] - e["pos"]).angle() + gap
+	var half_gap = maxf(0.14, TAU / float(maxi(6, count)) * 1.2)
+	for k in range(count):
+		var ang = offset + TAU * float(k) / float(count)
+		if absf(wrapf(ang - avoid, -PI, PI)) < half_gap:
+			continue
+		enemy_fire(g, e, Vector2.from_angle(ang), 1, 0.0, speed)
+
+static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: String) -> void:
+	var span = 200.0 + 25.0 * stage
+	for turn in [-1.0, 1.0]:
+		schedule_boss_line(g, target + Vector2(-span, -span * turn),
+			target + Vector2(span, span * turn), 20.0 + stage * 2.0,
+			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
+
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
 	if kind.begins_with("mix_"):
@@ -1394,12 +1453,24 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var aim = (locked - e["pos"]).normalized()
 					if aim.length_squared() < 0.1:
 						aim = dir
-					enemy_fire(g, e, aim, 1, 0.0, 300.0, 6.0)
+					var volley = mini(4, int(e.get("mirror_shots", 3)))
+					enemy_fire(g, e, aim, volley, 0.46, 385.0, 5.0)
+					# A second diagonal salvo closes the obvious sideways dodge
+					# but is slower, so players can weave between both.
+					if g.sector >= 12:
+						enemy_fire(g, e, aim.rotated(0.42 if int(e["id"]) % 2 == 0 else -0.42), 2, 0.2, 300.0, 4.5)
 					g.sfx.play("whoosh")
 				return Vector2.ZERO
-			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 2.5 + float(e["phase"])) * 0.7).normalized()
+			if float(e["cd"]) <= 0.0 and dist < 500.0:
+				e["cd"] = 3.5
+				e["wind"] = 0.8
+				e["mirror_shots"] = 3
+				e["lock"] = hero_pos + g.hero["vel"] * 0.33
+				return Vector2.ZERO
+			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 3.8 + float(e["phase"])) * 0.95).normalized()
 		"burrower":
-			# Marks its landing spot, then emerges with a half-second recovery.
+			# Disappear into the ground and ambush predicted position with a
+			# visible collapse warning. The aftershock has a safe dodge window.
 			if float(e.get("emerge_t", 0.0)) > 0.0:
 				e["emerge_t"] = maxf(0.0, float(e["emerge_t"]) - dt)
 				return Vector2.ZERO
@@ -1410,18 +1481,26 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["pos"] = e.get("lock", e["pos"])
 					e["kb"] = Vector2.ZERO
 					e["vel"] = Vector2.ZERO
-					e["emerge_t"] = 0.55
-					g.spawn_ring_fx(e["pos"], Color("ffe2a3"), 43.0)
+					e["emerge_t"] = 0.42
+					g.spawn_ring_fx(e["pos"], Color("ffe2a3"), 56.0)
+					# The collapse detonates after a visible ring: a teleport
+					# itself is not an unannounced hit.
+					schedule_boss_blast(g, e["pos"], 66.0, float(e["dmg"]) * 0.86, 0.53, "e7a75b")
+					if g.sector >= 12:
+						for side in [-1.0, 1.0]:
+							var d = Vector2(side, -0.28).normalized()
+							enemy_fire(g, e, d, 2, 0.18, 265.0, 4.0)
 					g.sfx.play("thunk")
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist > 175.0 and dist < 510.0:
-				e["cd"] = 5.2
-				e["wind"] = 1.15
-				var target = hero_pos - dir * 105.0 + Vector2(randf_range(-40.0, 40.0), randf_range(-25.0, 25.0))
-				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 8.0, g.road_half - float(e["r"]) - 8.0)
+			if float(e["cd"]) <= 0.0 and dist > 115.0 and dist < 610.0:
+				e["cd"] = 3.6
+				e["wind"] = 0.87
+				var target = hero_pos + g.hero["vel"] * 0.32
+				target += Vector2(randf_range(-36.0, 36.0), randf_range(-15.0, 15.0))
+				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 14.0, g.road_half - float(e["r"]) - 14.0)
 				e["lock"] = target
 				return Vector2.ZERO
-			return dir
+			return dir * 1.15
 		"siren":
 			# Rally nearby ordinary mobs only. The pulse does not stack or buff bosses.
 			if float(e["cd"]) <= 0.0:
@@ -1585,6 +1664,145 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			return (away + away.orthogonal() * sin(float(e["t"]) * 3.0) * 0.6).normalized()
 		"kaboomba":
 			return dir
+		"coilqueen":
+			# COIL QUEEN: moving serpent lanes, coils of seeking shots and
+			# sequential constriction. Moving diagonally is the safe answer.
+			var stage = boss_stage(e)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = 2.45 - stage * 0.27
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var p = int(e["pattern"]) % 5
+				var lead = hero_pos + g.hero["vel"] * 0.30
+				if p == 0:
+					boss_lane_sequence(g, e, lead, stage, false, "57e5aa")
+				elif p == 1:
+					# Tight coils followed by venom-colored side volleys.
+					boss_gapped_ring(g, e, 19 + stage * 6, 270.0 + stage * 25.0, 0.1, float(e["t"]) * 0.47)
+					enemy_fire(g, e, dir, 3 + stage, 0.62, 300.0, 5.5)
+				elif p == 2:
+					for k in range(6 + stage * 2):
+						var at = lead + Vector2.from_angle(TAU * k / float(6 + stage * 2)) * 125.0
+						schedule_boss_blast(g, at, 42.0, float(e["dmg"]) * 0.67, 0.9 + 0.08 * k, "81ffba")
+					schedule_boss_blast(g, lead, 48.0, float(e["dmg"]) * 0.62, 1.65, "3eeab3")
+				elif p == 3:
+					boss_cross(g, e, lead, stage, "6affe0")
+					if stage >= 1:
+						enemy_fire(g, e, dir, 6, 0.75, 340.0, 5.0)
+				else:
+					for k in range(4 + stage):
+						var x = clampf(lead.x + (k - 2) * 113.0, -g.road_half + 18.0, g.road_half - 18.0)
+						schedule_boss_line(g, Vector2(x, lead.y - 340), Vector2(x + (65.0 if k % 2 == 0 else -65.0), lead.y + 340),
+							20.0, float(e["dmg"]) * 0.64, 0.85 + 0.2 * k, "60dcab")
+			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 1.7) * 1.1).normalized() if dist > 185.0 else dir.orthogonal() * 0.8
+		"glassoracle":
+			# GLASS ORACLE: fixed mirror-geometry beams and prismatic shots;
+			# its beams cross, but never rotate after locking onto a position.
+			var stage = boss_stage(e)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = 2.62 - stage * 0.24
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var p = int(e["pattern"]) % 6
+				var lead = hero_pos + g.hero["vel"] * 0.3
+				if p == 0:
+					boss_cross(g, e, lead, stage, "7beeff")
+				elif p == 1:
+					for k in range(3 + stage):
+						var off = (k - 1 - stage * 0.5) * 90.0
+						schedule_boss_line(g, Vector2(-g.road_half, lead.y - 220.0 + off),
+							Vector2(g.road_half, lead.y + 220.0 + off), 17.0 + stage,
+							float(e["dmg"]) * 0.64, 0.86 + 0.24 * k, "89daff")
+				elif p == 2:
+					enemy_fire(g, e, dir, 7 + stage * 2, 1.15, 360.0, 5.0)
+					boss_gapped_ring(g, e, 16 + stage * 4, 250.0, 0.3, float(e["t"]) * 0.45)
+				elif p == 3:
+					boss_lane_sequence(g, e, lead, stage, true, "7cfcff")
+				elif p == 4:
+					for k in [-1, 1]:
+						boss_cross(g, e, lead + Vector2(k * 85.0, k * 70.0), stage, "9de9ff")
+				else:
+					boss_lane_sequence(g, e, lead, stage, false, "84a9ff")
+					enemy_fire(g, e, dir, 5, 0.8, 330.0, 5.0)
+			var orbit = Vector2(sin(float(e["t"]) * 0.95) * 250.0, hero_pos.y - 270.0)
+			return (orbit - e["pos"]).limit_length(110.0) / 110.0
+		"voidweaver":
+			# VOID WEAVER: ambush teleports and summoned tunnel hunters, with
+			# lock-on runes that point to a fixed destination before moving.
+			var stage = boss_stage(e)
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					g.spawn_ring_fx(e["pos"], Color("9871f5"), 70.0)
+					e["pos"] = e.get("lock", e["pos"])
+					e["vel"] = Vector2.ZERO
+					e["kb"] = Vector2.ZERO
+					g.spawn_ring_fx(e["pos"], Color("e2b0ff"), 105.0)
+					boss_gapped_ring(g, e, 17 + stage * 5, 255.0, 0.2, float(e["t"]) * 0.17)
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = 2.7 - stage * 0.27
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var p = int(e["pattern"]) % 6
+				var lead = hero_pos + g.hero["vel"] * 0.23
+				if p == 0:
+					e["wind"] = 0.95 - stage * 0.09
+					var side = -1.0 if int(e["pattern"]) % 2 == 0 else 1.0
+					var lock_pos: Vector2 = lead + Vector2(side * 165.0, -85.0)
+					lock_pos.x = clampf(lock_pos.x, -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
+					e["lock"] = lock_pos
+					e["tele"] = 70.0
+					g.sfx.play("boss_warn")
+				elif p == 1:
+					boss_cross(g, e, lead, stage, "a476ff")
+					for k in range(2 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var spawn_at = e["pos"] + Vector2.from_angle(TAU * k / float(2 + stage)) * 100.0
+						g.spawn_enemy("burrower", spawn_at, false, false)["summon"] = true
+				elif p == 2:
+					boss_lane_sequence(g, e, lead, stage, false, "a875ff")
+				elif p == 3:
+					boss_gapped_ring(g, e, 23 + stage * 4, 260.0, 0.12, float(e["t"]) * 0.5)
+					enemy_fire(g, e, dir, 4 + stage, 0.52, 335.0, 6.0)
+				elif p == 4:
+					for k in range(5 + stage):
+						var at = lead + Vector2.from_angle(float(k) * TAU / float(5 + stage)) * 115.0
+						schedule_boss_blast(g, at, 49.0, float(e["dmg"]) * 0.72, 0.88 + k * 0.14, "bf88ff")
+				else:
+					boss_lane_sequence(g, e, lead, stage, true, "c28dff")
+					if stage >= 1:
+						boss_cross(g, e, lead, stage, "dba7ff")
+			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 2.0) * 0.8).normalized() if dist > 240.0 else -dir * 0.4
+		"dreadengine":
+			# DREAD ENGINE: crushing pistons and alternating kill lanes,
+			# with stronger but slower telegraphed consequences than flyers.
+			var stage = boss_stage(e)
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = 2.85 - stage * 0.28
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var p = int(e["pattern"]) % 6
+				var lead = hero_pos + g.hero["vel"] * 0.34
+				if p == 0:
+					boss_lane_sequence(g, e, lead, stage, true, "ffa46b")
+				elif p == 1:
+					boss_lane_sequence(g, e, lead, stage, false, "ffbd67")
+				elif p == 2:
+					boss_cross(g, e, lead, stage, "ff935d")
+					for k in [-1.0, 1.0]:
+						schedule_boss_blast(g, lead + Vector2(k * 105.0, -40.0), 59.0, float(e["dmg"]) * 0.68, 1.38, "ffc084")
+				elif p == 3:
+					for k in range(5 + stage):
+						var at = lead + Vector2((k - 2) * 87.0, (1.0 if k % 2 == 0 else -1.0) * 87.0)
+						schedule_boss_blast(g, at, 56.0, float(e["dmg"]) * 0.77, 0.87 + k * 0.20, "ffa65e")
+				elif p == 4:
+					boss_gapped_ring(g, e, 21 + stage * 6, 235.0, 0.2, float(e["t"]) * 0.33)
+					enemy_fire(g, e, dir, 5 + stage, 0.6, 305.0, 7.5)
+				else:
+					boss_lane_sequence(g, e, lead, stage, true, "ffc46d")
+					for k in range(2 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						g.spawn_enemy("sapper", e["pos"] + Vector2(-100.0 + 90.0 * k, 70.0), false, false)["summon"] = true
+			return dir * 0.9 if dist > 255.0 else -dir * 0.23
 		"chonkzilla":
 			var stage = boss_stage(e)
 			if float(e["wind"]) > 0.0:
@@ -1599,10 +1817,19 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						boss_ring(g, e, 10 + stage * 3, 295.0, PI / 12.0 + float(e["t"]) * 0.4)
 				return Vector2.ZERO
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.8 - stage * 0.45
+				e["cd"] = 3.0 - stage * 0.38
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var attack = int(e["pattern"]) % 4
-				if attack == 1:
+				var attack = int(e["pattern"]) % 6
+				if attack == 4:
+					# QUAKELINE: marching horizontal crushers force timed movement.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.28, stage, true, "ff5a6e")
+				elif attack == 5:
+					# CRUSHING WALLS: alternating safe corridors with a delayed
+					# cross strike at high phase, not an unavoidable full screen.
+					boss_lane_sequence(g, e, hero_pos, stage, false, "ff8550")
+					if stage >= 1:
+						boss_cross(g, e, hero_pos, stage, "ffb15c")
+				elif attack == 1:
 					# Alternating offset slams force a lateral dodge.
 					for k in range(3 + stage):
 						var point = hero_pos + Vector2((k - 1) * 115.0, -35.0)
@@ -1624,10 +1851,21 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			var stage = boss_stage(e)
 			var anchor = Vector2(sin(float(e["t"]) * 0.7) * 300.0, hero_pos.y - 280.0)
 			if e["cd"] <= 0.0:
-				e["cd"] = 2.75 - stage * 0.35
+				e["cd"] = 2.35 - stage * 0.25
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 4
-				if pattern == 0:
+				var pattern = int(e["pattern"]) % 6
+				if pattern == 4:
+					# STRAFE RUN: vertical attack corridors are laid one after
+					# another, making the player shift and reverse directions.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.35, stage, false, "ffbb5e")
+				elif pattern == 5:
+					# SKY PINS: cross-lane shots followed by a small precision
+					# carpet, with visible warning for each impact.
+					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.3, stage, "fda65a")
+					for k in range(2 + stage):
+						var pin = hero_pos + Vector2((k - stage * 0.5) * 85.0, -80.0)
+						schedule_boss_blast(g, pin, 42.0, float(e["dmg"]) * 0.5, 1.1 + 0.25 * k, "ffd17a")
+				elif pattern == 0:
 					e["burst"] = 10 + stage * 3
 				elif pattern == 3:
 					# New move: staggered bombing lanes cross where the hero stood.
@@ -1653,10 +1891,24 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 		"necro":
 			var stage = boss_stage(e)
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.0 - stage * 0.35
+				e["cd"] = 2.55 - stage * 0.26
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 4
-				if pattern == 3:
+				var pattern = int(e["pattern"]) % 6
+				if pattern == 4:
+					# GRAVE LATTICE: cursed paths cross in a warned X.
+					boss_cross(g, e, hero_pos, stage, "c07bff")
+					if stage >= 1:
+						boss_gapped_ring(g, e, 13 + stage * 4, 235.0, 0.0, float(e["t"]) * 0.6)
+				elif pattern == 5:
+					# SPIRIT CORRIDORS: radial homing pursuit paired with a
+					# narrow moving gap in a cursed lane sequence.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.2, stage, true, "b57bff")
+					for k in range(3 + stage):
+						var ghost = enemy_fire(g, e, dir.rotated((k - 1 - stage * 0.5) * 0.27), 1, 0.0, 220.0, 6.0)
+						if ghost != null:
+							ghost["homing"] = 0.9
+							ghost["life"] = 3.0
+				elif pattern == 3:
 					# New move: summon fast leeches to force displacement.
 					for k in range(2 + stage):
 						if g.enemies.size() >= g.enemy_cap():
@@ -1701,9 +1953,17 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						g.hurt(float(e["dmg"]), e["pos"], "KING BLOB's butt")
 				return Vector2.ZERO
 			if e["cd"] <= 0.0 and dist < 480.0:
-				e["cd"] = 4.0 - stage * 0.55
+				e["cd"] = 3.1 - stage * 0.38
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				if int(e["pattern"]) % 4 == 3:
+				var king_attack = int(e["pattern"]) % 6
+				if king_attack == 4:
+					# ROYAL PINS: staggered edge-to-edge pressure lanes.
+					boss_lane_sequence(g, e, hero_pos, stage, true, "ff7fa7")
+				elif king_attack == 5:
+					# SPLIT CROWN: cross-lanes and a gapped outward barrage.
+					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.2, stage, "ff6aba")
+					boss_gapped_ring(g, e, 14 + stage * 5, 230.0 + stage * 20.0, 0.2, float(e["t"]) * 0.15)
+				elif king_attack == 3:
 					# New move: spawn flanking skitters and force repositioning.
 					for k in range(2 + stage):
 						if g.enemies.size() >= g.enemy_cap():
@@ -1711,7 +1971,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						var skit = g.spawn_enemy("skitter", e["pos"] + Vector2(-85.0 + k * 65.0, 40.0), false, false)
 						skit["summon"] = true
 					g.spawn_ring_fx(e["pos"], Color("ff7b93"), 110.0)
-				elif int(e["pattern"]) % 2 == 0:
+				elif king_attack % 2 == 0:
 					e["wind"] = 0.95 - stage * 0.13
 					e["lock"] = hero_pos
 					e["tele"] = 110.0
@@ -1754,7 +2014,7 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 	for k in range(n):
 		var a = 0.0 if n == 1 else -spread * 0.5 + spread * k / (n - 1)
 		var enemy_kind = str(e["kind"])
-		var boss_style = "boss_ember" if enemy_kind == "chonkzilla" else ("boss_void" if enemy_kind == "kingblob" else ("boss_frost" if enemy_kind == "necro" else ("boss_storm" if enemy_kind == "heli" else "enemy")))
+		var boss_style = "boss_ember" if enemy_kind in ["chonkzilla", "dreadengine"] else ("boss_void" if enemy_kind in ["kingblob", "voidweaver"] else ("boss_frost" if enemy_kind in ["necro", "glassoracle"] else ("boss_storm" if enemy_kind in ["heli", "coilqueen"] else "enemy")))
 		var shot_color = ProjectileVfx.tint(boss_style)
 		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8,
 			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": shot_color,

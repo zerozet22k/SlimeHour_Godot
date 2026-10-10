@@ -359,6 +359,23 @@ func paint_telegraphs() -> void:
 	for d in g.delayed:
 		if not d.has("tele"):
 			continue
+		# Laser/piston warnings are full collision-width rectangles,
+		# never misleading circular warnings at the midpoint.
+		if str(d["fn"]) == "boss_line":
+			var a = P(d["a"])
+			var b = P(d["b"])
+			var width = float(d["tele"])
+			var total = maxf(0.01, float(d.get("life", 1.0)))
+			var progress = 1.0 - clampf(float(d["t"]) / total, 0.0, 1.0)
+			var col = Color(str(d.get("color", "ff9944")))
+			var normal = (b - a).normalized().orthogonal()
+			draw_line(a, b, Color(col, 0.14 + progress * 0.21), width * 2.0)
+			draw_line(a + normal * width, b + normal * width, Color(col, 0.86), 2.5)
+			draw_line(a - normal * width, b - normal * width, Color(col, 0.86), 2.5)
+			draw_line(a, b, Color.WHITE, 0.14 + 0.54 * progress) # narrow center guide
+			if progress > 0.60:
+				draw_line(a, b, Color(col, 0.35 + progress * 0.5), 3.0)
+			continue
 		var pos: Vector2 = d["pos"]
 		var tgt = d.get("enemy")
 		if tgt != null and not bool(tgt["dead"]):
@@ -424,13 +441,20 @@ func paint_telegraphs() -> void:
 				draw_line(p, dest, Color(0.8, 0.55, 1.0, 0.25), 2.0)
 			elif enemy_has_role(e, "mirror"):
 				var dest = P(e.get("lock", g.hero["pos"]))
-				draw_line(p, dest, Color(0.35, 0.95, 1.0, 0.5 + 0.3 * sin(g.anim_t * 16.0)), 3.0)
-				draw_arc(p, 27.0, 0, TAU, 28, Color("aafaff"), 2.0)
-			elif e["kind"] == "burrower":
+				var central = (dest - p).normalized()
+				for bend in [-0.23, 0.0, 0.23]:
+					draw_line(p, p + central.rotated(bend) * minf(520.0, p.distance_to(dest) + 60.0),
+						Color("72f3ff", 0.35 + 0.23 * sin(g.anim_t * 13.0)), 2.0)
+				draw_arc(p, 31.0, 0, TAU, 28, Color("aafaff"), 3.0)
+			elif e["kind"] in ["burrower", "voidweaver"]:
 				var dest = P(e.get("lock", g.hero["pos"]))
-				draw_circle(dest, 37.0, Color(0.8, 0.6, 0.3, 0.12))
-				draw_arc(dest, 37.0, 0, TAU, 36, Color("ffe2a3"), 3.5)
-				draw_line(p, dest, Color(0.8, 0.6, 0.3, 0.3), 2.0)
+				var burrow = e["kind"] == "burrower"
+				var shade = Color("ffe2a3") if burrow else Color("cba0ff")
+				var radius = 66.0 if burrow else 70.0
+				draw_circle(dest, radius, Color(shade, 0.10))
+				draw_arc(dest, radius, 0, TAU, 36, Color(shade, 0.9), 3.5)
+				draw_circle(p, float(e["r"]) * 1.15, Color(shade, 0.18))
+				draw_line(p, dest, Color(shade, 0.38), 2.0)
 
 # ================================================================= enemies
 func paint_enemies() -> void:
@@ -451,6 +475,9 @@ func paint_enemies() -> void:
 			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
 		elif enemy_has_role(e, "mirror") and float(e.get("wind", 0.0)) > 0.0:
 			draw_arc(p, r + 9.0, 0, TAU, 24, Color("aafaff"), 3.0)
+		elif e["kind"] == "burrower" and float(e.get("emerge_t", 0.0)) > 0.0:
+			draw_arc(p, 66.0, 0, TAU, 48, Color("ffe2a3", 0.9), 3.0)
+			draw_circle(p, 66.0, Color("ffe2a3", 0.12))
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif e["kind"] == "totem":
@@ -567,6 +594,20 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	else:
 		draw_texture_rect_region(atlas, Rect2(p.x - 100.0 * k * sx, p.y - 108.0 * k * sy, CELL * k * sx, CELL * k * sy), src, tint)
 	# live parts: rotor, fuse spark, pupils (pupils use the atlas dot, so they stay in the same batch)
+	if kind == "coilqueen":
+		for coil_index in range(3):
+			var coil_angle = g.anim_t * 2.4 + coil_index * TAU / 3.0
+			draw_arc(p, r + 8.0 + 7.0 * coil_index, coil_angle, coil_angle + PI * 0.9, 15, Color("78ffd3", 0.75), 3.5)
+	elif kind == "glassoracle":
+		var prism_orbit = g.anim_t * 1.3
+		for prism_index in range(4):
+			var shard_angle = prism_orbit + prism_index * TAU / 4.0
+			draw_line(p + Vector2.from_angle(shard_angle) * r * 0.9, p + Vector2.from_angle(shard_angle) * r * 1.4, Color("dcffff"), 3.0)
+	elif kind == "voidweaver":
+		draw_arc(p, r * 1.35, -PI * 0.5 + g.anim_t * 0.9, PI + g.anim_t * 0.9, 35, Color("b397ff", 0.9), 4.0)
+	elif kind == "dreadengine":
+		for side in [-1.0, 1.0]:
+			draw_rect(Rect2(p + Vector2(side * (r + 7.0) - 10.0, -r * 0.36), Vector2(20, r * 0.72)), Color("ffc07c"))
 	if kind == "heli":
 		var a = g.anim_t * 25.0
 		draw_line(p + Vector2.from_angle(a) * r * 1.6, p + Vector2.from_angle(a + PI) * r * 1.6, Color(0.9, 0.9, 1.0, 0.6), 5.0)
@@ -778,6 +819,30 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_circle(lobe, r * (0.43 if k % 2 == 0 else 0.36), dark)
 			ci.draw_circle(lobe + Vector2(0, -2), r * (0.39 if k % 2 == 0 else 0.32), body)
 	match kind:
+		"coilqueen":
+			for k in range(6):
+				var angle = float(k) * TAU / 6.0
+				var tail_pos = Vector2.from_angle(angle) * r * 0.85
+				ci.draw_circle(tail_pos, r * 0.37, Color("2a785c"))
+				ci.draw_arc(tail_pos, r * 0.27, 0.0, TAU, 14, Color("9cffe0"), 3.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.6, -r * 0.9), Vector2(0, -r * 1.65), Vector2(r * 0.6, -r * 0.9)]), Color("baffd9"))
+		"glassoracle":
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 1.1, 0), Vector2(0, -r * 1.55), Vector2(r * 1.1, 0), Vector2(0, r * 1.25)]), Color("4c9cbd"))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.8, 0), Vector2(0, -r * 1.23), Vector2(r * 0.8, 0), Vector2(0, r * 0.95)]), Color("d5ffff"))
+			ci.draw_line(Vector2(-r * 0.65, r * 0.4), Vector2(r * 0.65, -r * 0.4), Color("81bdff"), 5.0)
+		"voidweaver":
+			for k in range(5):
+				var angle = float(k) * TAU / 5.0 - PI * 0.5
+				var tip = Vector2.from_angle(angle) * r * 1.65
+				ci.draw_line(Vector2.ZERO, tip, Color("5c408d"), r * 0.17)
+				ci.draw_circle(tip, r * 0.21, Color("bd95ff"))
+			ci.draw_circle(Vector2.ZERO, r * 0.58, Color("452b77"))
+		"dreadengine":
+			ci.draw_rect(Rect2(-r * 1.15, -r * 0.82, r * 2.3, r * 1.75), Color("52382f"))
+			ci.draw_rect(Rect2(-r * 0.85, -r * 1.1, r * 1.7, r * 1.6), Color("c88a4d"))
+			for side in [-1.0, 1.0]:
+				ci.draw_rect(Rect2(side * r * 0.83 - r * 0.24, -r * 0.4, r * 0.48, r * 1.0), Color("49434a"))
+			ci.draw_circle(Vector2.ZERO, r * 0.34, Color("ffe3a0"))
 		"skitter":
 			for signum in [-1.0, 1.0]:
 				ci.draw_line(Vector2(signum * r * 0.35, r * 0.4), Vector2(signum * r * 1.4, r * 1.1), Color("d6faff"), 3.0)

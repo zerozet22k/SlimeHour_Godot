@@ -330,5 +330,73 @@
     "mass": 30,
     "color": "ff7b93",
     "boss": true
+  },
+  {
+    "id": "coilqueen",
+    "name": "COIL QUEEN",
+    "hp": 2850,
+    "speed": 92,
+    "dmg": 23,
+    "r": 52,
+    "xp": 85,
+    "mass": 35,
+    "color": "67ebb9",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "visor",
+      "gear": []
+    }
+  },
+  {
+    "id": "glassoracle",
+    "name": "GLASS ORACLE",
+    "hp": 2550,
+    "speed": 85,
+    "dmg": 21,
+    "r": 48,
+    "xp": 85,
+    "mass": 36,
+    "color": "87e6fa",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "visor",
+      "gear": []
+    }
+  },
+  {
+    "id": "voidweaver",
+    "name": "VOID WEAVER",
+    "hp": 2750,
+    "speed": 105,
+    "dmg": 22,
+    "r": 54,
+    "xp": 90,
+    "mass": 39,
+    "color": "b397ff",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "normal",
+      "gear": []
+    }
+  },
+  {
+    "id": "dreadengine",
+    "name": "DREAD ENGINE",
+    "hp": 3500,
+    "speed": 53,
+    "dmg": 29,
+    "r": 65,
+    "xp": 100,
+    "mass": 52,
+    "color": "f0ad65",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "visor",
+      "gear": []
+    }
   }
 ]
