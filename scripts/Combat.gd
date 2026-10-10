@@ -559,7 +559,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 	var dir: Vector2 = ctx.get("dir", Vector2.ZERO)
 	var aoe = bool(ctx.get("aoe", false))
 	var gen = int(ctx.get("gen", 0))
-	if e["kind"] == "riot" and g.st("ap") <= 0.0 and dir != Vector2.ZERO and not aoe and float(e["stun"]) <= 0.0:
+	if has_role(g, e, "riot") and g.st("ap") <= 0.0 and dir != Vector2.ZERO and not aoe and float(e["stun"]) <= 0.0:
 		if dir.dot(e["aim"]) < -0.35:
 			dmg *= 0.15
 			if randf() < 0.15:
@@ -644,7 +644,7 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	# Armored elites shrug off 40%; a Hype Totem nearby halves damage to everything around it.
 	if e.has("affix") and e["affix"].has("ARMORED"):
 		amount *= 0.6
-	if not g.totems.is_empty() and e["kind"] != "totem":
+	if not g.totems.is_empty() and not has_role(g, e, "totem"):
 		for t in g.totems:
 			if not bool(t["dead"]) and t["pos"].distance_squared_to(e["pos"]) < TOTEM_R * TOTEM_R:
 				amount *= 0.5
@@ -652,10 +652,16 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	e["hp"] = float(e["hp"]) - amount
 	# Mirror Mimic copies one incoming weapon shot as a delayed, dodgeable countershot.
 	# It still takes the full hit; there is no instant damage reflection.
-	if e["kind"] == "mirror" and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(e["cd"]) <= 0.0 and float(e["wind"]) <= 0.0 and float(e["charm"]) <= 0.0:
+	var mirror_state: Dictionary = e.get("mix_state_mirror", e)
+	if has_role(g, e, "mirror") and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(mirror_state.get("cd", 0.0)) <= 0.0 and float(mirror_state.get("wind", 0.0)) <= 0.0 and float(e["charm"]) <= 0.0:
 		e["wind"] = 0.95
 		e["cd"] = 5.0
 		e["lock"] = g.hero["pos"]
+		if str(e["kind"]).begins_with("mix_"):
+			mirror_state["wind"] = e["wind"]
+			mirror_state["cd"] = e["cd"]
+			mirror_state["lock"] = e["lock"]
+			e["mix_state_mirror"] = mirror_state
 		g.spawn_ring_fx(e["pos"], Color("82e9ef"), 30.0)
 	e["flash"] = 0.09
 	e["squash"] = maxf(float(e["squash"]), 0.25 if crit else 0.14)
@@ -732,7 +738,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 		return
 	# Zombie-phoenix: one clearly telegraphed rebirth, with no first-death loot
 	# or kill-count credit. It cannot resurrect a second time.
-	if e["kind"] == "ashwing" and not bool(e.get("reborn", false)):
+	if has_role(g, e, "ashwing") and not bool(e.get("reborn", false)):
 		e["reborn"] = true
 		e["rebirth_t"] = 1.35
 		e["hp"] = maxf(1.0, float(e["max_hp"]) * 0.42)
@@ -800,7 +806,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	g.fx.append({"kind": "splat", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 3.0, "color": e["color"], "size": float(e["r"]) * 1.2, "rot": randf() * TAU})
 	g.sfx.play("pop")
 	# Kind-specific deaths
-	match kind:
+	match "mitosis" if has_role(g, e, "mitosis") else kind:
 		"mitosis":
 			for k in range(2):
 				var m = g.spawn_enemy("mini", pos + Vector2(randf_range(-14, 14), randf_range(-14, 14)), false, false)
@@ -959,6 +965,10 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			e["mark"] = 4.0 * dur
 
 # ================================================================= enemies
+static func has_role(g, e: Dictionary, role: String) -> bool:
+	var kind = str(e["kind"])
+	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
+
 static func update_enemies(g, dt: float) -> void:
 	var hero_pos: Vector2 = g.hero["pos"]
 	var hero_r = 11.0 * (0.6 if g.st("tiny") > 0 else 1.0)
@@ -970,9 +980,9 @@ static func update_enemies(g, dt: float) -> void:
 	g.totems.clear()
 	g.latched_ticks = 0
 	for e in g.enemies:
-		if e["kind"] == "totem" and not bool(e["dead"]):
+		if has_role(g, e, "totem") and not bool(e["dead"]):
 			g.totems.append(e)
-		elif e["kind"] == "tick" and bool(e.get("latched", false)):
+		elif has_role(g, e, "tick") and bool(e.get("latched", false)):
 			g.latched_ticks += 1
 	var count = g.enemies.size()
 	for idx in range(count):
@@ -1130,7 +1140,7 @@ static func update_enemies(g, dt: float) -> void:
 				# kill() must see a live enemy or it silently returns without a fuse.
 				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
-			if e["kind"] == "tick":
+			if has_role(g, e, "tick"):
 				# Ticks latch on instead of bumping: they slow you and drain until you dash.
 				if not bool(e.get("latched", false)):
 					e["latched"] = true
@@ -1175,6 +1185,35 @@ static func boss_ring(g, e: Dictionary, count: int, speed: float, offset: float 
 
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
+	if kind.begins_with("mix_"):
+		var pair: Array = g.enemy_db[kind]["mix"]
+		var motion = Vector2.ZERO
+		var shown_wind = 0.0
+		var shown_lock: Vector2 = g.hero["pos"]
+		for part in pair:
+			var state_key = "mix_state_" + str(part)
+			var state: Dictionary = e.get(state_key, {})
+			if state.is_empty():
+				e["cd"] = randf_range(0.5, 2.0)
+				e["wind"] = 0.0
+				e["charge"] = 0.0
+			for key in ["cd", "wind", "charge", "cdir", "lock", "tele"]:
+				if state.has(key):
+					e[key] = state[key]
+			e["kind"] = str(part)
+			motion += ai(g, e, dir, dist, dt, charmed)
+			state = {}
+			for key in ["cd", "wind", "charge", "cdir", "lock", "tele"]:
+				if e.has(key):
+					state[key] = e[key]
+			e[state_key] = state
+			if float(e.get("wind", 0.0)) > shown_wind:
+				shown_wind = float(e["wind"])
+				shown_lock = e.get("lock", g.hero["pos"])
+		e["kind"] = kind
+		e["wind"] = shown_wind
+		e["lock"] = shown_lock
+		return (motion / float(pair.size())).normalized()
 	e["cd"] = float(e["cd"]) - dt
 	if charmed:
 		return dir

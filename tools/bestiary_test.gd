@@ -8,25 +8,29 @@ func _check() -> void:
 	var main = Main.new()
 	var missing = 0
 	for id in main.mob_order():
-		if not Bestiary.NOTES.has(id):
+		if not Bestiary.NOTES.has(id) and not id.begins_with("mix_"):
 			missing += 1
 			push_error("BESTIARY MISSING: " + str(id))
 		elif Bestiary.info(id).size() != 3:
 			missing += 1
-	# New monsters are rolled into existing five-sector unlock boundaries.
-	var introductions = {"ashwing": 1, "mirror": 2, "burrower": 3, "siren": 4}
+	# One base joins every four map choices; each pair's mix follows next.
+	var introductions = {"nurse": 6, "larry": 10, "mortar": 14, "bull": 18,
+		"mix_nurse_larry": 11, "mix_mortar_bull": 19}
 	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
 	var ids = {}
 	if roster_data is Array:
 		for spec in roster_data:
 			ids[str(spec["id"])] = spec
 	for id in introductions:
-		if not ids.has(id) or main.mob_tier(id) != int(introductions[id]):
+		if Main.introduction_for(int(introductions[id])) != id:
 			missing += 1
-			push_error("BAD UNLOCK TIER OR DATA: " + str(id))
-		elif not Main.ENEMY_TIERS[int(introductions[id])].has(id):
+			push_error("BAD ROUTE INTRO: " + str(id))
+		elif not id.begins_with("mix_") and not ids.has(id):
 			missing += 1
-			push_error("MISSING FROM SECTOR TIER: " + str(id))
+			push_error("MISSING BASE ENEMY DATA: " + str(id))
+		elif not Main.available_enemies(int(introductions[id])).has(id) or Main.available_enemies(int(introductions[id]) - 1).has(id):
+			missing += 1
+			push_error("BAD AVAILABILITY WINDOW: " + str(id))
 	# Regression: the old Sectors 9-11 HP and enemy flood spike stays softened.
 	main.sector = 8
 	var hp8 = main.enemy_scale()

@@ -12,6 +12,7 @@ on:
       - tools/line_weapon_test.gd
       - tools/status_card_test.gd
       - tools/bestiary_test.gd
+      - tools/roster_check.gd
       - tools/prerequisite_test.gd
       - tools/bash_bomber_test.gd
       - tools/screen_fit_test.gd
@@ -95,6 +96,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/line_weapon_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/status_card_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/roster_check.gd
           timeout 120 ./godot-ci --headless --path . --script tools/prerequisite_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/bash_bomber_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/screen_fit_test.gd

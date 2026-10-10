@@ -2186,7 +2186,7 @@ func mob_info(kind: String) -> Dictionary:
 	var rar = 4 if boss else (3 if kind == "goblin" else mini(tier, 3))
 	var tag = "BOSS" if boss else ("RARE" if kind == "goblin" else "TIER %d" % (tier + 1))
 	if not g.profile["mobs"].has(kind):
-		var hint = "A boss. Keep going." if boss else ("Shows up on the street." if tier == 0 else "Shows up after %d boss kill%s." % [tier, "" if tier == 1 else "s"])
+		var hint = "A boss. Keep going." if boss else ("Shows up on the street." if tier == 0 else "Appears as you advance through route choices.")
 		return {"title": "???", "desc": "Not met yet. " + hint, "rar": rar, "cat": "MONSTER", "catid": "locked",
 			"art": null, "foot": "LOCKED", "icon": false, "rarlabel": "LOCKED"}
 	var desc = "HP %d · DMG %d · SPEED %d.  You killed %d." % [int(d["hp"]), int(d["dmg"]), int(d["speed"]), int(g.profile["mobs"][kind])]

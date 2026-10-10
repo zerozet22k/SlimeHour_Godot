@@ -2,6 +2,8 @@
 
 Windows Godot action game. Source lives in this repository; playable releases are published under [GitHub Releases](https://github.com/zerozet22k/SlimeHour_Godot/releases/latest).
 
+Enemy progression starts with four street types. After the first boss, each fourth route choice introduces one base type; the choice after every second new base introduces their hybrid. The new enemy is guaranteed to spawn in its introduction sector. Hybrids combine both parents' combat actions and show both colors in one body. Nurse + Laser Larry is the first mix, appearing in Sector 11.
+
 ## Install and update
 
 1. Download **SlimeHour-Windows.zip** from the latest release.

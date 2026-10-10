@@ -13,7 +13,7 @@ const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
-const GAME_VERSION = "v0.1.30"
+const GAME_VERSION = "v0.1.31"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -63,6 +63,7 @@ var unlock_index: Dictionary = {}    # card id -> position in the unlock order
 var next_unlock_kills = 0
 var bosses_beaten = 0
 var fresh_tier_sector = -1
+var intro_spawned = false
 var dying_t = 0.0                    # real seconds left in the slow-mo death moment
 var lost_t = 0.0                     # real seconds the result screen has been up
 var killer_kind = ""
@@ -252,6 +253,26 @@ func _ready() -> void:
 		weapon_ids.append(str(w["id"]))
 	for e in data["enemies"]:
 		enemy_db[str(e["id"])] = e
+	for pair in MIX_PAIRS:
+		var first: Dictionary = enemy_db[pair[0]]
+		var second: Dictionary = enemy_db[pair[1]]
+		var id = mix_id(pair)
+		var first_look: Dictionary = first.get("look", {})
+		var second_look: Dictionary = second.get("look", {})
+		var gear: Array = first_look.get("gear", []).duplicate()
+		for item in second_look.get("gear", []):
+			if not gear.has(item):
+				gear.append(item)
+		enemy_db[id] = {"id": id, "name": str(first["name"]) + " + " + str(second["name"]),
+			"hp": (float(first["hp"]) + float(second["hp"])) * 0.7,
+			"speed": (float(first["speed"]) + float(second["speed"])) * 0.5,
+			"dmg": maxf(float(first["dmg"]), float(second["dmg"])),
+			"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
+			"xp": maxi(int(first["xp"]), int(second["xp"])) + 1,
+			"mass": maxf(float(first["mass"]), float(second["mass"])),
+			"color": str(first["color"]), "mix": pair,
+			"look": {"body": "round", "face": first_look.get("face", "normal"),
+				"second_color": str(second["color"]), "gear": gear}}
 	sfx = SfxScript.new()
 	add_child(sfx)
 	in_game_updater = InGameUpdater.new()
@@ -675,6 +696,7 @@ func begin_sector() -> void:
 	front_y = hero["pos"].y
 	sector_time = 0.0
 	budget_spawned = 0
+	intro_spawned = false
 	sector_kills = 0
 	sector_elite_chests = 0
 	gate_done = false
@@ -699,10 +721,10 @@ func begin_sector() -> void:
 		sub = "BOSS SECTOR  //  " + sub
 	banner(title, sub, 2.6)
 	Effects.trigger(self, "sector", {"pos": hero["pos"], "gen": 0})
-	if sector == fresh_tier_sector:
+	if introduction_for(sector) != "":
 		# Wait for the sector banner, then introduce each new monster.
 		var delay = 2.4
-		for k in ENEMY_TIERS[bosses_beaten]:
+		for k in [introduction_for(sector)]:
 			# Tier introduction is informative only once per permanent profile.
 			# Existing saves already record discovered monsters in profile.mobs.
 			if profile.get("mobs", {}).has(k) or profile.get("announced_mobs", {}).has(k):
@@ -1153,7 +1175,11 @@ func update_director(dt: float) -> void:
 		var behind = randf() < 0.14
 		var edge = maxf(420.0, ui_height * 0.5 + 80.0)
 		var y = cam_y - edge - randf_range(0, 160) if not behind else cam_y + edge + randf_range(0, 80)
-		spawn_enemy(pick_enemy(), Vector2(randf_range(-road_half + 30, road_half - 30), y))["budget"] = true
+		var chosen = pick_enemy()
+		if not intro_spawned and introduction_for(sector) != "":
+			chosen = introduction_for(sector)
+			intro_spawned = true
+		spawn_enemy(chosen, Vector2(randf_range(-road_half + 30, road_half - 30), y))["budget"] = true
 		alive += 1
 	# The crowd rush: a horde streams down the road.
 	if not rush_done and (p > 0.45 or sector_time > 30.0):
@@ -1227,20 +1253,44 @@ func rush_size() -> int:
 ## The street roster grows only when you kill a boss: tier N opens after N bosses.
 const ENEMY_TIERS = [["blob", "zoomer", "nurse", "spitter"], ["kaboomba", "chonk", "mitosis", "ashwing"],
 	["riot", "bull", "larry", "mirror"], ["tick", "mama", "mortar", "burrower"], ["totem", "blinky", "siren"]]
+## Each map choice advances one sector. Four starter species are followed by one
+## new base every four choices; the next choice after each pair introduces its mix.
+const STARTER_ENEMIES = ["blob", "zoomer", "spitter", "kaboomba"]
+const ROUTE_INTRO_ORDER = ["nurse", "larry", "mortar", "bull", "riot", "mirror", "tick", "mama", "totem", "blinky", "ashwing", "siren", "chonk", "mitosis", "burrower"]
+const MIX_PAIRS = [["nurse", "larry"], ["mortar", "bull"], ["riot", "mirror"], ["tick", "mama"], ["totem", "blinky"], ["ashwing", "siren"], ["chonk", "mitosis"]]
+static func mix_id(pair: Array) -> String:
+	return "mix_" + str(pair[0]) + "_" + str(pair[1])
+
+static func introduction_for(s: int) -> String:
+	if s >= 6 and (s - 6) % 4 == 0:
+		var i = int((s - 6) / 4)
+		return ROUTE_INTRO_ORDER[i] if i < ROUTE_INTRO_ORDER.size() else ""
+	if s >= 11 and (s - 11) % 8 == 0:
+		var i = int((s - 11) / 8)
+		return mix_id(MIX_PAIRS[i]) if i < MIX_PAIRS.size() else ""
+	return ""
+
+static func available_enemies(s: int) -> Array:
+	var out = STARTER_ENEMIES.duplicate()
+	for i in range(ROUTE_INTRO_ORDER.size()):
+		if s >= 6 + 4 * i:
+			out.append(ROUTE_INTRO_ORDER[i])
+	for i in range(MIX_PAIRS.size()):
+		if s >= 11 + 8 * i:
+			out.append(mix_id(MIX_PAIRS[i]))
+	return out
 const ENEMY_WEIGHT = {"blob": 10.0, "zoomer": 4.0, "nurse": 0.8, "spitter": 2.0, "kaboomba": 1.5, "chonk": 1.5,
 	"mitosis": 2.0, "riot": 1.2, "bull": 1.2, "larry": 1.0, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35, "blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55}
 
 func pick_enemy() -> String:
 	var pool = {}
-	for t in range(mini(bosses_beaten, ENEMY_TIERS.size() - 1) + 1):
-		for k in ENEMY_TIERS[t]:
-			if k == "totem" and totems.size() >= 2:
-				continue
-			var w = float(ENEMY_WEIGHT[k])
-			# The newest tier shows up a lot in its first sector so you actually meet it.
-			if t == bosses_beaten and t > 0 and sector == fresh_tier_sector:
-				w = maxf(w * 2.5, 2.0)
-			pool[k] = w
+	for k in available_enemies(sector):
+		if k == "totem" and totems.size() >= 2:
+			continue
+		var w = float(ENEMY_WEIGHT.get(k, 0.75))
+		if k == introduction_for(sector):
+			w = maxf(w * 3.0, 3.0)
+		pool[k] = w
 	var total = 0.0
 	for k in pool:
 		total += pool[k]
@@ -1878,9 +1928,11 @@ func note_mob(kind: String) -> void:
 
 ## Collection order: street tiers, the extras, then bosses.
 func mob_order() -> Array:
-	var out = []
-	for t in ENEMY_TIERS:
-		out.append_array(t)
+	var out = STARTER_ENEMIES.duplicate()
+	for i in range(ROUTE_INTRO_ORDER.size()):
+		out.append(ROUTE_INTRO_ORDER[i])
+		if i % 2 == 1 and int(i / 2) < MIX_PAIRS.size():
+			out.append(mix_id(MIX_PAIRS[int(i / 2)]))
 	out.append_array(["mini", "goblin"])
 	for k in enemy_db:
 		if bool(enemy_db[k].get("boss", false)):
@@ -1888,6 +1940,10 @@ func mob_order() -> Array:
 	return out
 
 func mob_tier(kind: String) -> int:
+	if kind.begins_with("mix_"):
+		return mini(4, 1 + int(MIX_PAIRS.find(enemy_db.get(kind, {}).get("mix", []))))
+	if ROUTE_INTRO_ORDER.has(kind):
+		return mini(4, 1 + int(ROUTE_INTRO_ORDER.find(kind) / 4))
 	for t in range(ENEMY_TIERS.size()):
 		if ENEMY_TIERS[t].has(kind):
 			return t

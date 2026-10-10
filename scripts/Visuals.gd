@@ -367,21 +367,21 @@ func paint_telegraphs() -> void:
 	for e in g.enemies:
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
-			if e["kind"] == "larry":
+			if enemy_has_role(e, "larry"):
 				var lock: Vector2 = e.get("lock", g.hero["pos"])
 				var dir = (lock - e["pos"]).normalized()
 				draw_line(p, p + dir * 900.0, Color(1, 0.2, 0.3, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
-			elif e.has("tele") and e["kind"] in ["chonkzilla", "kingblob", "chonk"]:
+			elif e.has("tele") and (e["kind"] in ["chonkzilla", "kingblob"] or enemy_has_role(e, "chonk")):
 				var at = P(e.get("lock", e["pos"])) if e["kind"] == "kingblob" else p
 				draw_arc(at, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
 				draw_circle(at, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
-			elif e["kind"] in ["bull", "zoomer"]:
+			elif enemy_has_role(e, "bull") or e["kind"] == "zoomer":
 				draw_line(p, P(g.hero["pos"]), Color(1, 0.6, 0.2, 0.45), 6.0)
-			elif e["kind"] == "blinky":
+			elif enemy_has_role(e, "blinky"):
 				var dest = P(e.get("lock", g.hero["pos"]))
 				draw_arc(dest, 22.0, 0, TAU, 24, Color(0.8, 0.55, 1.0, 0.5 + 0.5 * fmod(g.anim_t * 6.0, 1.0)), 3.0)
 				draw_line(p, dest, Color(0.8, 0.55, 1.0, 0.25), 2.0)
-			elif e["kind"] == "mirror":
+			elif enemy_has_role(e, "mirror"):
 				var dest = P(e.get("lock", g.hero["pos"]))
 				draw_line(p, dest, Color(0.35, 0.95, 1.0, 0.5 + 0.3 * sin(g.anim_t * 16.0)), 3.0)
 				draw_arc(p, 27.0, 0, TAU, 28, Color("aafaff"), 2.0)
@@ -401,14 +401,14 @@ func paint_enemies() -> void:
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
 			continue
 		draw_enemy(e, p, r)
-		if e["kind"] == "ashwing" and float(e.get("rebirth_t", 0.0)) > 0.0:
+		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
 			var progress = 1.0 - float(e["rebirth_t"]) / 1.35
 			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
 			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80"), 4.0)
 			text_c("REBIRTHING", p + Vector2(0, -r - 32.0), 11, Color("ffdf80"), 2)
-		elif e["kind"] == "siren":
+		elif enemy_has_role(e, "siren"):
 			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
-		elif e["kind"] == "mirror" and float(e.get("wind", 0.0)) > 0.0:
+		elif enemy_has_role(e, "mirror") and float(e.get("wind", 0.0)) > 0.0:
 			draw_arc(p, r + 9.0, 0, TAU, 24, Color("aafaff"), 3.0)
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
@@ -424,6 +424,10 @@ const CELL = 200
 const ATLAS_COLS = 8
 ## All enemy looks (kind + elite) and a white dot (for pupils) live in ONE atlas texture, so a whole
 ## crowd is drawn as plain textured quads that the GPU batches together.
+func enemy_has_role(e: Dictionary, role: String) -> bool:
+	var kind = str(e["kind"])
+	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
+
 var atlas: Texture2D = null
 var atlas_cell: Dictionary = {}
 
@@ -575,6 +579,10 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 func draw_modular_body(ci: CanvasItem, parts: Dictionary, r: float, body: Color, dark: Color) -> void:
 	ci.draw_circle(Vector2.ZERO, r, dark)
 	ci.draw_circle(Vector2(0, -1), r - 2.0, body)
+	if parts.has("second_color"):
+		var second = Color(str(parts["second_color"]))
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(0, -r + 2), Vector2(r * 0.68, -r * 0.68), Vector2(r - 2, 0), Vector2(r * 0.68, r * 0.68), Vector2(0, r - 2)]), second)
+		ci.draw_line(Vector2(0, -r * 0.85), Vector2(0, r * 0.85), Color("fff2bf"), 2.0)
 	if str(parts.get("face", "")) == "white":
 		ci.draw_circle(Vector2(0, r * 0.08), r * 0.75, Color("d5e3ec"))
 		ci.draw_circle(Vector2(0, r * 0.03), r * 0.69, Color("f8fcff"))
