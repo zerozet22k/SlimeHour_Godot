@@ -1,9 +1,6 @@
 name: Card and weapon compatibility
 
 on:
-  push:
-    branches:
-      - fix/compatibility-infinite-ammo-20261010
   pull_request:
     paths:
       - scripts/**
