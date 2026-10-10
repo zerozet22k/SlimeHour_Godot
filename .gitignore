@@ -39,3 +39,8 @@ Godot_v*.exe
 /tools/__pycache__/
 /tools/flux_*
 /tools/gemini_*
+
+# Local release packages
+/SlimeHour.pck
+/release_manifest.json
+

@@ -3,6 +3,8 @@ extends Node2D
 
 const Weapons = preload("res://scripts/Weapons.gd")
 const Combat = preload("res://scripts/Combat.gd")
+const BossFight = preload("res://scripts/BossFight.gd")
+const BossModels = preload("res://scripts/BossModels.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -358,174 +360,41 @@ func paint_barrels() -> void:
 			draw_circle(mp, 3.5, Color("ff3a3a") if blink else Color("601818"))
 
 func paint_telegraphs() -> void:
+	paint_boss_arena()
 	for d in g.delayed:
 		if d.has("source") and bool(d["source"].get("dead", false)):
 			continue
-		# The warning matches each moving / persistent boss threat,
-		# never covers the viewport unless the actual hitbox does.
-		if str(d.get("fn", "")) == "boss_boulder":
-			var rock: Vector2 = P(d["pos"])
-			var direction: Vector2 = Vector2(d["vel"]).normalized()
-			var approach = maxf(0.0, float(d["t"]) - float(d.get("arm", 0.0)))
-			var end_point: Vector2 = P(Vector2(d["pos"]) + direction * minf(470.0, Vector2(d["vel"]).length() * approach))
-			draw_line(rock, end_point, Color("e3a078", 0.27), float(d["tele"]) * 1.5)
-			draw_line(rock, end_point, Color("ffdfaf", 0.88), 2.0)
-			draw_circle(rock, float(d["tele"]), Color("a75e3d", 0.85))
-			draw_arc(rock, float(d["tele"]), 0.0, TAU, 28, Color("ffe3ae"), 3.0)
+		var fn: String = str(d.get("fn", ""))
+		if fn == "boss_gravity":
+			paint_gravity(d)
 			continue
-		if str(d.get("fn", "")) == "chonk_fault":
-			var a: Vector2 = P(d["a"])
-			var b: Vector2 = P(d["b"])
-			var armed: bool = float(d.get("arm", 0.0)) <= 0.0
-			var pulse: float = 1.0 - clampf(float(d.get("pulse", 0.0)) / 0.91, 0.0, 1.0)
-			var shade: Color = Color("ff9670")
-			draw_line(a, b, Color(shade, 0.045 if not armed else 0.13), float(d["tele"]) * 2.0)
-			draw_line(a, b, Color(shade, 0.48 if not armed else 0.73), 1.8 + pulse * 2.2)
-			for cut in range(5):
-				var t = float(cut) / 5.0
-				var spot = a.lerp(b, t)
-				draw_line(spot, spot + (b - a).orthogonal().normalized() * (12.0 + cut * 3.0),
-					Color(shade, 0.68), 2.0)
-			continue
-		if str(d.get("fn", "")) == "chonk_circle":
-			var center: Vector2 = P(d["pos"])
-			var radius: float = float(d["tele"])
-			var warned: bool = float(d["arm"]) > 0.0
-			var progress: float = 1.0 - clampf(float(d["arm"]) / maxf(0.01, float(d["life"]) - 0.28), 0.0, 1.0)
-			draw_circle(center, radius, Color("ff713e", 0.040 if warned else 0.10))
-			draw_arc(center, radius, 0.0, TAU, 32, Color("ffbe83", 0.72), 2.0)
-			# Short, localized edge ticks indicate detonation progress.
-			for tick in range(4):
-				var angle: float = -PI * 0.5 + float(tick) * TAU / 4.0
-				draw_line(center + Vector2.from_angle(angle) * (radius - 8.0),
-					center + Vector2.from_angle(angle) * (radius + 5.0),
-					Color("ffe1ae", 0.42 + progress * 0.32), 2.0)
-			continue
-		if str(d.get("fn", "")) == "boss_soul_link":
-			if bool(d.get("source", {}).get("dead", false)):
-				continue
-			var a: Vector2 = P(d["a"])
-			var b: Vector2 = P(d["b"])
-			var progress: float = 1.0 - clampf(float(d["t"]) / maxf(0.01, float(d["life"])), 0.0, 1.0)
-			var col := Color("c49cff")
-			draw_line(a, b, Color(col, 0.12 + progress * 0.13), float(d["tele"]) * 2.0)
-			draw_line(a, b, Color(col, 0.78), 2.5)
-			for n in range(9):
-				var spot: Vector2 = a.lerp(b, float(n) / 8.0)
-				draw_circle(spot, 2.0 + progress * 2.0, Color("f2e4ff"))
-			continue
-		if str(d.get("fn", "")) == "boss_gravity":
-			var center: Vector2 = P(d["pos"])
-			var radius: float = float(d["tele"])
-			var armed = float(d.get("arm", 0.0)) <= 0.0
-			draw_circle(center, radius, Color("a18aff", 0.15 if armed else 0.05))
-			draw_arc(center, radius, g.anim_t * 0.8, g.anim_t * 0.8 + TAU * 0.92,
-				56, Color("d4b0ff", 0.95 if armed else 0.45), 4.0)
-			for ring in range(3):
-				draw_arc(center, maxf(14.0, radius * (0.26 + float(ring) * 0.24)),
-				-g.anim_t * (0.9 + float(ring) * 0.15), -g.anim_t * (0.9 + float(ring) * 0.15) + PI,
-				34, Color("cab0ff", 0.52), 2.0)
+		if fn.begins_with("bf_"):
+			paint_boss_event(d)
 			continue
 		if not d.has("tele"):
 			continue
-		# Laser/piston warnings are full collision-width rectangles,
-		# never misleading circular warnings at the midpoint.
-		if str(d["fn"]) in ["boss_line", "coil_wall", "blink_slash"]:
-			var a: Vector2 = P(d["a"])
-			var b: Vector2 = P(d["b"])
-			var width: float = float(d["tele"])
-			var total: float = maxf(0.01, float(d.get("life", 1.0)))
-			var progress: float = 1.0 - clampf(float(d["t"]) / total, 0.0, 1.0)
-			var col: Color = Color(str(d.get("color", "ff9944")))
-			var tangent: Vector2 = (b - a).normalized()
-			var normal: Vector2 = tangent.orthogonal()
-			# Low-opacity collision strip accurately marks width, without a
-			# bright white bar across the entire battlefield.
-			draw_line(a, b, Color(col, 0.065 + progress * 0.095), width * 2.0)
-			if str(d["fn"]) == "coil_wall":
-				# Venom is an advancing double helix, not a rigid laser.
-				var wiggle := PackedVector2Array()
-				for k in range(15):
-					var t: float = float(k) / 14.0
-					var offset: float = sin(t * TAU * 3.0 + g.anim_t * 4.0) * minf(7.0, width * 0.4)
-					wiggle.append(a.lerp(b, t) + normal * offset)
-				draw_polyline(wiggle, Color(col, 0.74), 2.8)
-				draw_line(a + normal * width, b + normal * width, Color(col, 0.44), 1.5)
-				draw_line(a - normal * width, b - normal * width, Color(col, 0.44), 1.5)
-			elif str(d.get("map_pattern", d.get("countersequence", ""))) == "dreadengine" or str(d.get("countersequence", "")) == "dreadengine":
-				# Parallel rails and marching piston notches identify the Engine.
-				draw_line(a + normal * width, b + normal * width, Color(col, 0.78), 2.6)
-				draw_line(a - normal * width, b - normal * width, Color(col, 0.78), 2.6)
-				for notch in range(1, 7):
-					var point: Vector2 = a.lerp(b, float(notch) / 7.0)
-					draw_line(point - normal * (width + 6.0), point + normal * (width + 6.0),
-						Color(col, 0.26 + progress * 0.3), 2.0)
-			else:
-				# Refraction / soul attacks use clean slender beam outlines.
-				draw_line(a + normal * width, b + normal * width, Color(col, 0.53), 1.6)
-				draw_line(a - normal * width, b - normal * width, Color(col, 0.53), 1.6)
-				draw_line(a, b, Color(col.lightened(0.48), 0.62 + progress * 0.20), 1.4)
-				if str(d.get("map_pattern", d.get("countersequence", ""))) == "glassoracle":
-					var glint: Vector2 = a.lerp(b, progress)
-					draw_circle(glint, 4.5, Color("c9f9ff", 0.65))
+		var life = maxf(0.01, float(d.get("life", 0.6)))
+		var k = 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
+		var warning_color = Color(str(d.get("color", "ff744e")))
+		# Lines and circles share one language: a dark base marks the exact
+		# hitbox, the inner fill grows to the rim, and the rim flashes white
+		# in the last moment before it hits.
+		if fn in ["boss_line", "blink_slash"]:
+			danger_line(P(d["a"]), P(d["b"]), float(d["tele"]), k, warning_color, d)
 			continue
 		var pos: Vector2 = d["pos"]
 		var tgt = d.get("enemy")
 		if tgt != null and not bool(tgt["dead"]):
 			pos = tgt["pos"]
 		var p = P(pos)
-		var life = maxf(0.01, float(d.get("life", 0.6)))
-		var k = 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
 		var r = float(d["tele"])
-		var warning_color = Color(str(d.get("color", "ff744e")))
-		if str(d["fn"]) in ["boss_missile", "boss_echo", "rift_emit"]:
-			draw_circle(p, r * 0.72, Color(warning_color, 0.07))
-			draw_arc(p, r * 0.72, -PI * 0.5, -PI * 0.5 + TAU * k,
-				40, Color(warning_color, 0.9), 2.5)
-		else:
-			# One truthful collision radius, themed by the attack's SOURCE.
-			# No giant white progress ring; flashes are subtle and world-space.
-			var origin_kind: String = str(d.get("map_pattern", d.get("countersequence", "")))
-			if origin_kind == "heli" or str(d.get("color", "")) == "ffc369":
-				draw_circle(p, r, Color(warning_color, 0.035 + 0.055 * k))
-				draw_arc(p, r, -PI * 0.5, PI * 1.5, 32, Color(warning_color, 0.70), 2.0)
-				for compass in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
-					draw_line(p + compass * (r - 11.0), p + compass * (r + 6.0),
-						Color(warning_color, 0.8), 2.0)
-				draw_circle(p, 3.0, Color(warning_color, 0.7))
-			elif origin_kind == "kingblob" or str(d.get("color", "")) == "ff83c0":
-				draw_circle(p, r, Color(warning_color, 0.045 + 0.075 * k))
-				for scallop in range(10):
-					var angle: float = TAU * float(scallop) / 10.0 + g.anim_t * 0.22
-					draw_arc(p + Vector2.from_angle(angle) * 3.0, r - 3.0,
-						angle - 0.25, angle + 0.25, 5, Color(warning_color, 0.77), 2.5)
-				draw_circle(p, 5.0 + 3.0 * k, Color(warning_color, 0.56))
-			else:
-				draw_circle(p, r, Color(warning_color, 0.035 + 0.075 * k))
-				draw_arc(p, r, 0.0, TAU, 32, Color(warning_color, 0.73), 2.0)
-				draw_arc(p, maxf(6.0, r - 8.0), -PI * 0.5, -PI * 0.5 + TAU * k,
-					28, Color(warning_color.lightened(0.45), 0.72), 2.0)
-		if str(d["fn"]) == "boss_missile":
-			var source: Vector2 = P(d.get("origin", d["pos"]))
-			draw_line(source, p, Color("ffbd74", 0.22 + k * 0.32), 1.7)
-			for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
-				draw_line(p + direction * 14.0, p + direction * 24.0, Color("ffe2a4"), 2.5)
-		if str(d["fn"]) == "boss_echo":
-			draw_line(p, P(d["target"]), Color("8ceeff", 0.22 + k * 0.30), 2.0)
-			draw_circle(p, 5.0, Color("c7f8ff", 0.8))
-		if str(d["fn"]) == "boss_serpent_emerge":
-			for j in range(6):
-				var angle: float = TAU * float(j) / 6.0
-				var direction := Vector2.from_angle(angle)
-				draw_line(p + direction * (r - 14.0), p + direction * r, Color("b8ffda"), 3.0)
-		if str(d["fn"]) == "rift_emit":
-			var exit_target = P(d.get("target", d["pos"]))
-			draw_line(p, exit_target, Color("b397ff", 0.20 + k * 0.25), 1.8)
-			draw_arc(p, r * 0.72, g.anim_t * 2.5, g.anim_t * 2.5 + PI * 1.5, 32, Color("d9baff", 0.9), 3.0)
-		if str(d["fn"]) in ["boss_blast", "elite_boom"]:
-			for j in range(8):
-				var ray = Vector2.from_angle(float(j) * TAU / 8.0)
-				draw_line(p + ray * (r - 10.0), p + ray * r, Color(warning_color, 0.85), 2.0)
+		if fn in ["boss_blast", "elite_boom"]:
+			danger_circle(p, r, k, warning_color, d)
+			continue
+		draw_circle(p, r, Color(warning_color, 0.035 + 0.075 * k))
+		draw_arc(p, r, 0.0, TAU, 32, Color(warning_color, 0.73), 2.0)
+		draw_arc(p, maxf(6.0, r - 8.0), -PI * 0.5, -PI * 0.5 + TAU * k,
+			28, Color(warning_color.lightened(0.45), 0.72), 2.0)
 		if d["fn"] == "kaboomba_boom":
 			# The dead bomber remains visible as a blinking armed body until detonation.
 			var blink = fmod(g.anim_t * (6.0 + k * 12.0), 1.0) < 0.5
@@ -555,25 +424,6 @@ func paint_telegraphs() -> void:
 				draw_circle(mp, 16, Color("ff7a3d"))
 				draw_circle(mp, 10, Color("ffd24d"))
 	for e in g.enemies:
-		if str(e.get("chonk_state", "")) == "windup":
-			# Subtle diegetic tell only: small glowing footprint / boss compression,
-			# not a full-width warning bar or a huge instructional label.
-			var landing: Vector2 = P(e.get("lock", g.hero["pos"]))
-			var origin: Vector2 = P(e["pos"])
-			var progress: float = 1.0 - clampf(float(e.get("wind", 0.0)) /
-				maxf(0.1, float(e.get("chonk_wind_initial", 0.75))), 0.0, 1.0)
-			var direction: Vector2 = (landing - origin).normalized()
-			if direction.length_squared() <= 0.01:
-				direction = Vector2.DOWN
-			draw_circle(origin, float(e["r"]) * (0.94 - progress * 0.10),
-				Color("ff8a5c", 0.06 + progress * 0.12))
-			draw_arc(origin, float(e["r"]) + 5.0, -PI * 0.1, PI * (0.7 + progress),
-				24, Color("ffb47e", 0.34 + progress * 0.35), 2.6)
-			# A narrow shadow facing the committed charge direction.
-			draw_line(origin + direction * float(e["r"]),
-				origin + direction * (float(e["r"]) + 80.0),
-				Color("ffb989", 0.16 + progress * 0.28), 2.2)
-			continue
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
 			if enemy_has_role(e, "lancer"):
@@ -595,12 +445,9 @@ func paint_telegraphs() -> void:
 				var lock: Vector2 = e.get("lock", g.hero["pos"])
 				var beam_dir: Vector2 = (lock - e["pos"]).normalized()
 				draw_line(p, p + beam_dir * 900.0, Color("ff5a82", 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
-			elif e.has("tele") and (e["kind"] == "kingblob" or enemy_has_role(e, "chonk")):
-				var landing_target: Vector2 = e.get("lock", e["pos"])
-				var landing_at: Vector2 = e["pos"].move_toward(landing_target, 170.0 + Combat.boss_stage(e) * 55.0)
-				var at = P(landing_target) if e["kind"] == "kingblob" else (P(landing_at) if e["kind"] == "chonkzilla" else p)
-				draw_arc(at, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
-				draw_circle(at, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
+			elif e.has("tele") and enemy_has_role(e, "chonk"):
+				draw_arc(p, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
+				draw_circle(p, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
 			elif enemy_has_role(e, "bull") or e["kind"] in ["zoomer", "skitter"]:
 				var color = Color("83eaff") if e["kind"] == "skitter" else Color(1, 0.6, 0.2)
 				draw_line(p, P(g.hero["pos"]), Color(color, 0.45), 5.0)
@@ -628,7 +475,7 @@ func paint_telegraphs() -> void:
 					draw_line(p, p + central.rotated(bend) * minf(520.0, p.distance_to(dest) + 60.0),
 						Color("72f3ff", 0.35 + 0.23 * sin(g.anim_t * 13.0)), 2.0)
 				draw_arc(p, 31.0, 0, TAU, 28, Color("aafaff"), 3.0)
-			elif e["kind"] in ["burrower", "voidweaver"]:
+			elif e["kind"] == "burrower":
 				var dest = P(e.get("lock", g.hero["pos"]))
 				var burrow = e["kind"] == "burrower"
 				var shade = Color("ffe2a3") if burrow else Color("cba0ff")
@@ -637,6 +484,191 @@ func paint_telegraphs() -> void:
 				draw_arc(dest, radius, 0, TAU, 36, Color(shade, 0.9), 3.5)
 				draw_circle(p, float(e["r"]) * 1.15, Color(shade, 0.18))
 				draw_line(p, dest, Color(shade, 0.38), 2.0)
+
+## Energy barriers at both ends of a locked boss arena.
+func paint_boss_arena() -> void:
+	if not bool(g.boss_arena_on) or not g.boss_alive():
+		return
+	var col := Color("ff5a7a")
+	for e in g.enemies:
+		if bool(e["boss"]) and not bool(e["dead"]):
+			col = Color(BossFight.PALETTE.get(str(e["kind"]), "ff5a7a"))
+			break
+	for edge in [float(g.boss_arena_y) - float(g.BOSS_ARENA_UP) - 40.0, float(g.boss_arena_y) + float(g.BOSS_ARENA_DOWN) + 30.0]:
+		var y: float = P(Vector2(0, edge)).y
+		if y < g.view_top - 20.0 or y > g.view_bottom + 20.0:
+			continue
+		var x0: float = P(Vector2(-g.road_half, 0)).x
+		var x1: float = P(Vector2(g.road_half, 0)).x
+		draw_rect(Rect2(Vector2(x0, y - 9.0), Vector2(x1 - x0, 18.0)), Color(col, 0.10))
+		draw_line(Vector2(x0, y), Vector2(x1, y), Color(col, 0.35 + 0.2 * sin(g.anim_t * 4.0)), 4.0)
+		var x := x0 + fmod(g.anim_t * 50.0, 40.0)
+		while x < x1:
+			draw_line(Vector2(x, y - 7.0), Vector2(x + 16.0, y + 7.0), Color(col.lightened(0.4), 0.6), 2.0)
+			x += 40.0
+
+func danger_circle(p: Vector2, r: float, k: float, col: Color, d: Dictionary) -> void:
+	draw_circle(p, r, Color(col, 0.07))
+	draw_circle(p, r * k, Color(col, 0.14 + 0.22 * k))
+	draw_arc(p, r, 0.0, TAU, 48, Color(0, 0, 0, 0.45), 5.0, true)
+	draw_arc(p, r, 0.0, TAU, 48, Color(col.lightened(0.35), 0.95), 2.5, true)
+	if k > 0.78:
+		draw_arc(p, r, 0.0, TAU, 48, Color(1, 1, 1, (k - 0.78) / 0.22 * 0.9), 3.5, true)
+	var drop: float = (1.0 - k) * 150.0
+	# A falling object tells the player what is about to land.
+	if bool(d.get("bomb", false)) or bool(d.get("mortar", false)):
+		var b := p + Vector2(0, -drop)
+		draw_circle(b, 8.0, Color("1d1f26"))
+		draw_circle(b + Vector2(-2, -2), 3.0, Color("8a8f9c"))
+		draw_line(b + Vector2(0, -8), b + Vector2(0, -14), Color("ffd24d"), 2.0)
+	elif bool(d.get("boulder", false)):
+		var rock := p + Vector2(0, -drop * 1.4)
+		draw_circle(rock, r * 0.3, Color("6b4a33"))
+		draw_circle(rock + Vector2(-r * 0.08, -r * 0.08), r * 0.12, Color("9c7454"))
+	elif str(d.get("style", "")) == "chonkzilla" and not bool(d.get("landing", false)):
+		if k > 0.35:
+			var fade: float = (k - 0.35) / 0.65
+			var m := p + Vector2(drop * 0.4, -drop * 1.3)
+			draw_line(m, m + Vector2(14, -24) * (1.0 + fade), Color(1, 0.6, 0.2, 0.45 * fade), 6.0)
+			draw_circle(m, 8.0, Color("ff7a3d", fade))
+			draw_circle(m, 4.5, Color("ffe08a", fade))
+	elif str(d.get("style", "")) == "necro":
+		var stone := PackedVector2Array([p + Vector2(-9, 10), p + Vector2(-9, -4), p + Vector2(0, -12), p + Vector2(9, -4), p + Vector2(9, 10)])
+		draw_colored_polygon(stone, Color("8f8aa0", 0.4 + 0.5 * k))
+		draw_line(p + Vector2(0, -6), p + Vector2(0, 5), Color(0, 0, 0, 0.6), 2.0)
+		draw_line(p + Vector2(-4, -2), p + Vector2(4, -2), Color(0, 0, 0, 0.6), 2.0)
+	elif str(d.get("style", "")) == "kingblob" and int(d.get("burst", 0)) > 0:
+		var gem := p + Vector2(0, -drop)
+		draw_colored_polygon(PackedVector2Array([gem + Vector2(0, -10), gem + Vector2(8, 0), gem + Vector2(0, 10), gem + Vector2(-8, 0)]), Color("ffcf3d"))
+		draw_circle(gem, 3.0, Color("ff3d5a"))
+	elif bool(d.get("blink", false)):
+		draw_arc(p, r * 0.5, g.anim_t * 4.0, g.anim_t * 4.0 + PI * 1.4, 20, Color(col.lightened(0.4), 0.9), 3.0, true)
+	elif bool(d.get("landing", false)):
+		pass # The airborne boss's own shadow is the tell.
+	else:
+		draw_circle(p, 3.0 + 2.0 * k, Color(col.lightened(0.4), 0.8))
+
+func danger_line(a: Vector2, b: Vector2, w: float, k: float, col: Color, d: Dictionary) -> void:
+	var dir: Vector2 = (b - a).normalized()
+	var n: Vector2 = dir.orthogonal()
+	draw_colored_polygon(PackedVector2Array([a + n * w, b + n * w, b - n * w, a - n * w]), Color(col, 0.07))
+	var inner: float = w * k
+	draw_colored_polygon(PackedVector2Array([a + n * inner, b + n * inner, b - n * inner, a - n * inner]), Color(col, 0.14 + 0.22 * k))
+	for side in [-1.0, 1.0]:
+		draw_line(a + n * w * side, b + n * w * side, Color(0, 0, 0, 0.45), 4.0)
+		draw_line(a + n * w * side, b + n * w * side, Color(col.lightened(0.35), 0.95), 2.0)
+	if k > 0.78:
+		draw_line(a, b, Color(1, 1, 1, (k - 0.78) / 0.22 * 0.8), maxf(2.0, w * 0.5))
+	var length: float = a.distance_to(b)
+	if bool(d.get("piston", false)):
+		# Hazard stripes march toward the strike.
+		var step := 34.0
+		var shift: float = fmod(g.anim_t * 60.0, step)
+		var x := shift
+		while x < length:
+			var c := a + dir * x
+			draw_line(c - n * w * 0.8, c + dir * 12.0 + n * w * 0.8, Color("1d1f26", 0.55), 4.0)
+			x += step
+	elif bool(d.get("prism", false)):
+		draw_line(a, b, Color(1, 1, 1, 0.25 + 0.5 * k), 1.5)
+		draw_circle(a.lerp(b, k), 4.0, Color(1, 1, 1, 0.7))
+	elif bool(d.get("web", false)):
+		var x2 := fmod(g.anim_t * 40.0, 24.0)
+		while x2 < length:
+			draw_line(a + dir * x2, a + dir * minf(length, x2 + 10.0), Color(col.lightened(0.5), 0.6), 2.0)
+			x2 += 24.0
+
+func paint_gravity(d: Dictionary) -> void:
+	var center: Vector2 = P(d["pos"])
+	var radius: float = float(d["tele"])
+	var armed = float(d.get("arm", 0.0)) <= 0.0
+	var col := Color(str(d.get("color", "a18aff")))
+	draw_circle(center, radius, Color(col.darkened(0.6), 0.18 if armed else 0.08))
+	draw_arc(center, radius, 0.0, TAU, 56, Color(0, 0, 0, 0.4), 5.0, true)
+	draw_arc(center, radius, g.anim_t * 0.8, g.anim_t * 0.8 + TAU * 0.92, 56, Color(col.lightened(0.3), 0.95 if armed else 0.45), 3.0, true)
+	for ring in range(4):
+		var rr: float = radius * (0.95 - fmod(g.anim_t * 0.5 + float(ring) * 0.25, 1.0) * 0.85)
+		draw_arc(center, rr, -g.anim_t * 2.0 + ring, -g.anim_t * 2.0 + ring + PI * 1.2, 34, Color(col.lightened(0.5), 0.45), 2.0, true)
+	draw_circle(center, 14.0, Color("0b0614"))
+	draw_arc(center, 14.0, 0.0, TAU, 20, Color(col.lightened(0.5)), 2.0, true)
+
+## Boss-specific delayed events: missile locks, portals, echoes, squeezes.
+func paint_boss_event(d: Dictionary) -> void:
+	var p: Vector2 = P(d["pos"])
+	var life := maxf(0.01, float(d.get("life", 1.0)))
+	var k := 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
+	var col := Color(str(d.get("color", "ffffff")))
+	match str(d["fn"]):
+		"bf_lock":
+			var rr: float = float(d.get("tele", 34.0)) * (1.7 - 0.7 * k)
+			var red := Color("ff4d4d")
+			var boss = d.get("boss")
+			if boss != null and not bool(boss.get("dead", false)):
+				draw_line(P(boss["pos"]), p, Color(red, 0.18 + 0.25 * k), 1.5)
+			draw_arc(p, rr, 0.0, TAU, 32, Color(0, 0, 0, 0.4), 4.0, true)
+			draw_arc(p, rr, 0.0, TAU, 32, Color(red, 0.95), 2.0, true)
+			for i in range(4):
+				var dir := Vector2.from_angle(g.anim_t * 2.0 + PI * 0.5 * float(i))
+				draw_line(p + dir * (rr - 10.0), p + dir * (rr + 8.0), red, 3.0)
+			if fmod(g.anim_t * (4.0 + k * 10.0), 1.0) < 0.5:
+				draw_circle(p, 4.0, red)
+		"bf_portal":
+			var rr2: float = float(d.get("tele", 34.0)) * (0.4 + 0.6 * k)
+			draw_circle(p, rr2, Color("0b0614"))
+			for i in range(3):
+				var off: float = g.anim_t * (3.0 + i) + TAU * float(i) / 3.0
+				draw_arc(p, rr2 * (1.0 - i * 0.22), off, off + PI * 1.3, 24, Color(col.lightened(0.2 * i), 0.95), 3.0, true)
+			var aim: Vector2 = (g.hero["pos"] - Vector2(d["pos"])).normalized()
+			draw_line(p + aim * (rr2 + 4.0), p + aim * (rr2 + 22.0 + 16.0 * k), Color(col.lightened(0.4), 0.85), 3.0)
+		"bf_echo":
+			var ghost := Color("8ceeff")
+			draw_circle(p, 13.0, Color(ghost, 0.18 + 0.25 * k))
+			draw_arc(p, 13.0, 0.0, TAU, 20, Color(ghost, 0.85), 2.0, true)
+			draw_arc(p, 22.0, -PI * 0.5, -PI * 0.5 + TAU * k, 28, Color(ghost, 0.95), 3.0, true)
+			draw_circle(p + Vector2(-4, -3), 2.0, Color(ghost, 0.9))
+			draw_circle(p + Vector2(4, -3), 2.0, Color(ghost, 0.9))
+		"bf_squeeze":
+			# Venom floods in from both edges and stops at the corridor.
+			var gap: float = float(d["gap"])
+			var cx: float = float(d["pos"].x)
+			var top: float = P(Vector2(0, float(d["top"]))).y
+			var bottom: float = P(Vector2(0, float(d["bottom"]))).y
+			for side in [-1.0, 1.0]:
+				var edge: float = float(d["left"]) if side < 0 else float(d["right"])
+				var stop: float = cx + side * gap
+				var front: float = lerpf(edge, stop, k)
+				var x0: float = P(Vector2(edge, 0)).x
+				var x1: float = P(Vector2(front, 0)).x
+				var xs: float = P(Vector2(stop, 0)).x
+				draw_rect(Rect2(Vector2(minf(x0, xs), top), Vector2(absf(xs - x0), bottom - top)), Color(col.darkened(0.65), 0.16))
+				draw_rect(Rect2(Vector2(minf(x0, x1), top), Vector2(absf(x1 - x0), bottom - top)), Color(col, 0.2 + 0.12 * k))
+				draw_line(Vector2(xs, top), Vector2(xs, bottom), Color(col.lightened(0.4), 0.5), 2.0)
+				var wave := PackedVector2Array()
+				for i in range(24):
+					var y: float = lerpf(top, bottom, float(i) / 23.0)
+					wave.append(Vector2(x1 + sin(y * 0.05 + g.anim_t * 6.0) * 6.0, y))
+				draw_polyline(wave, Color(0, 0, 0, 0.45), 6.0, true)
+				draw_polyline(wave, Color(col.lightened(0.3), 0.95), 3.0, true)
+			if k > 0.75:
+				var flash := (k - 0.75) / 0.25
+				for side2 in [-1.0, 1.0]:
+					var xs2: float = P(Vector2(cx + side2 * gap, 0)).x
+					draw_line(Vector2(xs2, top), Vector2(xs2, bottom), Color(1, 1, 1, flash * 0.8), 3.0)
+
+## Necro's soul chains and the Oracle's mirror links, drawn under the boss.
+func paint_boss_links(e: Dictionary, p: Vector2) -> void:
+	for m in BossFight.minions(g, e):
+		var role := str(m.get("minion_role", ""))
+		var q := P(m["pos"])
+		if role == "ward":
+			var pts := PackedVector2Array()
+			for i in range(13):
+				var u := float(i) / 12.0
+				var n: Vector2 = (q - p).normalized().orthogonal()
+				pts.append(p.lerp(q, u) + n * sin(u * TAU * 2.0 + g.anim_t * 5.0) * 6.0)
+			draw_polyline(pts, Color("c79bff", 0.45), 3.0, true)
+		elif role == "mirror":
+			draw_line(p, q, Color("bff8ff", 0.35 + 0.15 * sin(g.anim_t * 4.0)), 2.0)
 
 ## Persistent enemy hazards are rendered at their TRUE damage radii.
 func paint_identity_hazards() -> void:
@@ -689,7 +721,9 @@ func paint_enemies() -> void:
 		var r = float(e["r"])
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
 			continue
-		if bool(e.get("burrowing", false)):
+		if bool(e["boss"]):
+			paint_boss_links(e, p)
+		if bool(e.get("burrowing", false)) and not bool(e["boss"]):
 			# Actual underground phase: render the entrance crater, not the
 			# same standing slime. The destination and tunnel are shown above.
 			draw_circle(p, r + 4.0, Color("312920", 0.8))
@@ -752,50 +786,6 @@ func paint_enemies() -> void:
 		elif e["kind"] == "burrower" and float(e.get("emerge_t", 0.0)) > 0.0:
 			draw_arc(p, 66.0, 0, TAU, 48, Color("ffe2a3", 0.9), 3.0)
 			draw_circle(p, 66.0, Color("ffe2a3", 0.12))
-		# Boss signatures are visible even without reading the Bestiary.
-		# Compact indicators avoid adding sprites or labels to normal crowds.
-		if bool(e.get("boss", false)):
-			match str(e["kind"]):
-				"chonkzilla":
-					if str(e.get("chonk_state", "")) == "rush":
-						draw_arc(p, r + 8.0, 0, TAU, 32, Color("ff835c", 0.75), 2.8)
-					elif float(e.get("boss_recover", 0.0)) > 0.0:
-						draw_arc(p, r + 7.0, 0, TAU, 32, Color("ffe07f", 0.85), 3.0)
-				"heli":
-					if float(e.get("flight_t", 0.0)) > 0.0:
-						var side = float(e.get("flight_side", 1.0))
-						draw_line(p, p + Vector2(side * 145.0, 0.0), Color("ffcb72", 0.8), 4.0)
-						text_c("STRAFE RUN", p + Vector2(0, -r - 30), 13, Color("ffcb72"), 2)
-				"necro":
-					var linked = 0
-					for ward in g.enemies:
-						if not bool(ward.get("dead", false)) and int(ward.get("soul_owner", -1)) == int(e["id"]):
-							linked += 1
-							draw_line(p, P(ward["pos"]), Color("c797ff", 0.35), 2.0)
-					if linked > 0:
-						text_c("SOUL ANCHORS %d - BREAK LINKS" % linked, p + Vector2(0, -r - 30), 13, Color("dfb4ff"), 2)
-				"kingblob":
-					text_c("MASS %d" % int(e["r"]), p + Vector2(0, -r - 28), 12, Color("ffc1db"), 2)
-				"glassoracle":
-					var mirrors = 0
-					for node in g.enemies:
-						if not bool(node.get("dead", false)) and int(node.get("oracle_owner", -1)) == int(e["id"]):
-							mirrors += 1
-							draw_line(p, P(node["pos"]), Color("80f3ff", 0.30), 2.0)
-					if mirrors > 0:
-						draw_arc(p, r + 8.0, 0, TAU, 32, Color("91ecff", 0.9), 3.0)
-						text_c("MIRROR ARMOR - BREAK CLONES", p + Vector2(0, -r - 30), 12, Color("9ffaff"), 2)
-				"voidweaver":
-					if float(e.get("wind", 0.0)) > 0.0:
-						text_c("RIFT SWAP", p + Vector2(0, -r - 30), 13, Color("e7c1ff"), 2)
-				"dreadengine":
-					if float(e.get("vent_t", 0.0)) > 0.0:
-						draw_arc(p, r + 9.0, 0, TAU, 36, Color("ffe78a"), 4.0)
-						text_c("CORE EXPOSED - ATTACK", p + Vector2(0, -r - 30), 13, Color("ffe78a"), 2)
-					else:
-						var heat = clampf(float(e.get("engine_heat", 0.0)) / 100.0, 0.0, 1.0)
-						draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * maxf(0.01, heat), 36, Color("ff975c"), 4.0)
-						text_c("ARMORED // HEAT %d%%" % int(heat * 100.0), p + Vector2(0, -r - 30), 12, Color("ffb68a"), 2)
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif enemy_has_role(e, "totem"):
@@ -877,17 +867,20 @@ func bake_enemies() -> void:
 	vp.queue_free()
 
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
-	if bool(e.get("chonk_pillar", false)):
-		draw_circle(p + Vector2(5, 9), r + 3.0, Color(0.0, 0.0, 0.0, 0.28))
-		var corners = PackedVector2Array([
-			p + Vector2(-r * 0.85, -r * 0.35), p + Vector2(-r * 0.40, -r * 1.04),
-			p + Vector2(r * 0.48, -r * 0.95), p + Vector2(r * 0.95, -r * 0.25),
-			p + Vector2(r * 0.59, r * 0.84), p + Vector2(-r * 0.53, r * 0.95)])
-		draw_colored_polygon(corners, Color("93704c"))
-		draw_line(p + Vector2(-9, -22), p + Vector2(6, -3), Color("f0d6a6"), 3.0)
-		draw_line(p + Vector2(6, -3), p + Vector2(-4, 19), Color("e6b784"), 2.6)
+	if bool(e.get("boss", false)) and BossFight.is_boss_kind(str(e["kind"])):
+		draw_boss(e, p, r)
+		return
+	if str(e.get("minion_role", "")) in ["ward", "mirror", "pod"]:
+		var flash_m := float(e["flash"]) > 0.0
+		draw_ellipse_shadow(p + Vector2(0, r * 0.9), r * 0.8)
+		draw_set_transform(p, 0.0, Vector2.ONE)
+		BossModels.minion(self, str(e["minion_role"]), r, {"t": g.anim_t + float(e["phase"]), "aim": (g.hero["pos"] - Vector2(e["pos"])).normalized()})
+		if flash_m:
+			draw_circle(Vector2.ZERO, r, Color(1, 1, 1, 0.45))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		var health = clampf(float(e["hp"]) / maxf(1.0, float(e["max_hp"])), 0.0, 1.0)
-		draw_arc(p, r + 4.0, -PI * 0.5, -PI * 0.5 + TAU * health, 28, Color("ffe6af"), 3.0)
+		draw_arc(p, r + 6.0, -PI * 0.5, -PI * 0.5 + TAU * health, 24, Color(1, 1, 1, 0.7), 2.5, true)
+		draw_status(e, p, r)
 		return
 	var kind = str(e["kind"])
 	var parts: Dictionary = g.enemy_db[kind].get("look", {})
@@ -1002,6 +995,40 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
 		draw_hybrid_trait(self, p, r, str(e.get("hybrid_trait", parts.get("trait", "ears"))),
 			secondary, int(parts.get("variant", 0)))
+	draw_status(e, p, r)
+
+## Bosses are drawn live: they animate, react to phases and wind up visibly.
+func draw_boss(e: Dictionary, p: Vector2, r: float) -> void:
+	var kind := str(e["kind"])
+	var hop := float(e.get("bf_hop", 0.0))
+	var state := str(e.get("bf_state", ""))
+	var a := {"t": g.anim_t + float(e["phase"]), "stage": Combat.boss_stage(e),
+		"tell": BossFight.tell_progress(e), "flash": float(e["flash"]) > 0.0,
+		"aim": Vector2(e["aim"]), "squash": float(e["squash"]),
+		"heat": float(e.get("bf_heat", 0.0)) / 100.0, "vent": state == "vent",
+		"dizzy": float(e.get("bf_dizzy", 0.0)) > 0.0,
+		"armored": kind == "glassoracle" and not BossFight.minions(g, e, "mirror").is_empty(),
+		"vanish": bool(e.get("bf_vanish", false)), "burrowed": bool(e.get("burrowing", false)),
+		"gun": float(e.get("bf_gun", PI * 0.5)), "spin": float(e.get("bf_spin", 0.0)),
+		"rolling": state == "attack" and str(e.get("bf_attack", "")) == "belly_roll"}
+	if kind == "coilqueen":
+		var local: Array = []
+		for q in e.get("bf_trail", []):
+			local.append(Vector2(q) - Vector2(e["pos"]))
+		a["trail"] = local
+	# The shadow stays on the ground and shrinks while the boss is airborne.
+	var lift := clampf(hop / 140.0, 0.0, 1.0)
+	BossModels.shadow(self, p + Vector2(0, r * 0.85), r * (1.05 - lift * 0.35), 0.32 + lift * 0.12)
+	if state == "transition":
+		var pulse := 0.5 + 0.5 * sin(g.anim_t * 18.0)
+		draw_circle(p, r * 1.5, Color(1, 1, 1, 0.08 + 0.08 * pulse))
+		draw_arc(p, r * (1.35 + pulse * 0.1), 0.0, TAU, 48, Color(1, 1, 1, 0.75), 3.0, true)
+	var rot := float(e.get("bf_bank", 0.0)) * 0.2 if kind == "heli" else 0.0
+	var xf := Transform2D(rot, p + Vector2(0, -hop))
+	a["xf"] = xf
+	draw_set_transform_matrix(xf)
+	BossModels.draw(self, kind, r, a)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_status(e, p, r)
 
 ## Fallback before the atlas is baked: draw the vector art directly.
@@ -1163,6 +1190,10 @@ func draw_modular_gear(ci: CanvasItem, parts: Dictionary, r: float) -> void:
 ## Everything about an enemy that does not move: body, props, eye whites, mouth, crown.
 ## Drawn on any canvas (ci) so it can be baked; centre is the current transform origin.
 func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: Color, flash: bool) -> void:
+	if BossFight.is_boss_kind(kind):
+		# Portrait pose for atlases and the Bestiary (scaled to fit a cell).
+		BossModels.draw(ci, kind, r * 0.82, {"t": 0.6, "flash": flash})
+		return
 	var body = Color.WHITE if flash else col
 	var dark = col.darkened(0.45)
 	var parts: Dictionary = g.enemy_db[kind].get("look", {})
@@ -1801,6 +1832,8 @@ func paint_shots() -> void:
 		if shot_index % trail_stride == 0 and ((bool(s["friendly"]) and bool(g.settings.get("particles", true))) or str(s.get("vfx_style", "")) in ["boss_ember", "boss_void", "boss_frost", "boss_storm"]):
 			paint_projectile_travel(s, p, d)
 		match s["kind"]:
+			"bossbullet":
+				paint_boss_bullet(s, p, d, r)
 			"enemy":
 				var enemy_color: Color = s["color"]
 				draw_circle(p, r + 5, Color(enemy_color, 0.25))
@@ -1931,6 +1964,58 @@ func paint_shots() -> void:
 					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
 				else:
 					draw_circle(p, r, Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3))
+
+## Danmaku-style boss bullets: dark rim for contrast on any ground, a bright
+## body and a white core. The drawn size is a little larger than the hitbox.
+func paint_boss_bullet(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
+	var col: Color = s["color"]
+	var vr := r * 1.3
+	match str(s.get("shape", "orb")):
+		"rice":
+			draw_set_transform(p, d.angle(), Vector2(1.9, 0.85))
+			draw_circle(Vector2.ZERO, vr + 1.8, Color(0.05, 0.02, 0.06, 0.75))
+			draw_circle(Vector2.ZERO, vr, col)
+			draw_circle(Vector2.ZERO, vr * 0.5, Color("fffaf0"))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		"shard":
+			var f := d * vr * 1.8
+			var n := d.orthogonal() * vr * 0.85
+			var pts := PackedVector2Array([p + f, p + n, p - f * 0.7, p - n])
+			draw_colored_polygon(pts, col)
+			pts.append(p + f)
+			draw_polyline(pts, Color(0.05, 0.02, 0.06, 0.8), 1.8, true)
+			draw_line(p - f * 0.3, p + f * 0.6, Color("ffffff", 0.9), 1.5)
+		"skull":
+			draw_circle(p, vr + 4.0, Color(col, 0.22))
+			draw_circle(p, vr + 1.8, Color(0.05, 0.02, 0.06, 0.8))
+			draw_circle(p, vr, Color("efe8f6"))
+			draw_circle(p + Vector2(-vr * 0.38, -vr * 0.1), vr * 0.28, col.darkened(0.5))
+			draw_circle(p + Vector2(vr * 0.38, -vr * 0.1), vr * 0.28, col.darkened(0.5))
+		"big":
+			draw_circle(p, vr + 7.0, Color(col, 0.18))
+			draw_circle(p, vr + 2.2, Color(0.05, 0.02, 0.06, 0.8))
+			draw_circle(p, vr, col)
+			draw_circle(p + Vector2(-vr * 0.2, -vr * 0.2), vr * 0.5, Color(col.lightened(0.55)))
+			draw_circle(p + Vector2(-vr * 0.35, -vr * 0.35), vr * 0.18, Color(1, 1, 1, 0.9))
+		"flame":
+			var flick := 0.8 + 0.2 * sin(float(s["t"]) * 40.0 + float(s["phase"]))
+			draw_circle(p, vr * 1.5 * flick, Color(col, 0.25))
+			draw_circle(p, vr * flick, col)
+			draw_circle(p, vr * 0.45, Color("fff6c8"))
+		"missile":
+			draw_line(p - d * 26.0, p - d * 8.0, Color(1.0, 0.65, 0.25, 0.75), 7.0)
+			draw_line(p - d * 10.0, p + d * 10.0, Color(0.05, 0.02, 0.06), 11.0)
+			draw_line(p - d * 9.0, p + d * 9.0, Color("dfe2ea"), 7.0)
+			draw_circle(p + d * 9.0, 4.0, Color("ff4d4d"))
+		"gear":
+			draw_circle(p, vr + 1.8, Color(0.05, 0.02, 0.06, 0.8))
+			draw_colored_polygon(BossModels.gear_pts(p, vr * 1.15, 6, float(s["spin"])), col)
+			draw_circle(p, vr * 0.4, Color("fff1d6"))
+		_:
+			draw_circle(p, vr + 4.0, Color(col, 0.2))
+			draw_circle(p, vr + 1.8, Color(0.05, 0.02, 0.06, 0.8))
+			draw_circle(p, vr, col)
+			draw_circle(p, vr * 0.5, Color("fffaf0"))
 
 func zigzag(a: Vector2, b: Vector2, c: Color, w: float) -> void:
 	var pts = PackedVector2Array([a])

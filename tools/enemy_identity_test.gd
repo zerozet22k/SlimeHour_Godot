@@ -38,7 +38,7 @@ func _run() -> void:
 	g.no_save = true
 	g.sfx = SilentSfx.new()
 	g.hero = {"pos": Vector2.ZERO, "vel": Vector2(85, 0), "hp": 220.0,
-		"maxhp": 220.0, "iframe": 0.0, "dash_window": 0.0, "aim": Vector2.UP}
+		"maxhp": 220.0, "shield": 0, "iframe": 0.0, "dash_window": 0.0, "aim": Vector2.UP}
 	g.state = "playing"
 	g.sector = 18
 	g.road_half = 420.0
@@ -58,8 +58,13 @@ func _run() -> void:
 	check(float(spitter["wind"]) > 0.0 and spitter.has("lock"), "Spitter warns and locks a predicted acid attack")
 	Combat.ai(g, spitter, Vector2.DOWN, 260.0, 0.75, false)
 	check(g.shots.size() == 3 and g.shots.any(func(s): return absf(float(s["curve"])) > 0.2), "Spitter retains curving acid projectiles")
-	check(g.enemy_hazards.size() == 1 and str(g.enemy_hazards[0]["kind"]) == "acid_trail", "Spitter leaves one continuous ribbon, never multiple circles")
-	check(g.enemy_hazards[0].has("a") and g.enemy_hazards[0].has("b") and g.enemy_hazards[0]["a"].distance_to(g.enemy_hazards[0]["b"]) >= 170.0, "Poison damage follows the actual long segment")
+	check(g.enemy_hazards.is_empty() and g.shots.any(func(s): return bool(s.get("acid_trail", false))),
+		"Spitter marks real acid projectiles without prepainting a fake path")
+	for travel_step in range(5):
+		Combat.update_shots(g, 0.13)
+	var trails = g.enemy_hazards.filter(func(h): return str(h["kind"]) == "acid_trail")
+	check(trails.size() >= 2 and trails.all(func(h): return h.has("a") and h.has("b")),
+		"Poison ribbons grow segment by segment behind moving projectiles")
 	g.enemy_hazards.clear()
 	g.shots.clear()
 	var zoomer = specimen(g, "zoomer")

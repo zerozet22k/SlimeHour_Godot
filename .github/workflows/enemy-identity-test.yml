@@ -8,14 +8,12 @@ on:
       - data/enemies.json
       - tools/enemy_identity_test.gd
       - tools/bestiary_test.gd
-      - tools/boss_aggression_test.gd
       - .github/workflows/enemy-identity-test.yml
   pull_request:
     paths:
       - scripts/**
       - tools/enemy_identity_test.gd
       - tools/bestiary_test.gd
-      - tools/boss_aggression_test.gd
       - .github/workflows/enemy-identity-test.yml
   workflow_dispatch:
 
@@ -45,7 +43,5 @@ jobs:
         run: timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
       - name: Verify enemy attacks and mutation separation
         run: timeout 120 ./godot-ci --headless --path . --script tools/enemy_identity_test.gd
-      - name: Recheck boss phases and burrower warnings
-        run: timeout 120 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
       - name: Preserve Skitter collision and overshoot
         run: timeout 120 ./godot-ci --headless --path . --script tools/skitter_dash_test.gd

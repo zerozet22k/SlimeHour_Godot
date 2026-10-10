@@ -1,3 +1,9 @@
+## v0.1.62 — Boss fights and projectile trails
+
+- Add a three-phase boss fight director with distinct attacks, counterplay, bounded bullet patterns, and new boss models.
+- Make Chonkzilla larger and have Spitter poison follow the actual path of each acid projectile.
+- Export Windows and Android builds through the release workflows.
+
 ## v0.1.56 — Cinematic boss entrances and lethal arena ultimates
 
 - **No overlapping waves and bosses:** every scheduled normal enemy and Rush wave must be exhausted and every living regular enemy defeated before the boss enters. Gold goblins cannot interrupt the reveal.

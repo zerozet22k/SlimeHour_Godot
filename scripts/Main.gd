@@ -16,7 +16,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.61"
+const GAME_VERSION = "v0.1.62"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -184,6 +184,11 @@ var rush_queue = 0
 var rush_done = false
 var gate_done = false
 var boss_spawned = false
+## Boss fights lock the player into a band of road around the reveal point.
+var boss_arena_on = false
+var boss_arena_y = 0.0
+const BOSS_ARENA_UP = 250.0
+const BOSS_ARENA_DOWN = 150.0
 # Boss intro runs in the existing game world with all combat frozen.
 const BOSS_INTRO_DURATION = 3.6
 var boss_intro_t = 0.0
@@ -588,6 +593,7 @@ func start_run() -> void:
 	run_mutations_unlocked.clear()
 	state = "playing"
 	phase = "fight"
+	boss_arena_on = false
 	boss_result_t = 0.0
 	boss_intro_t = 0.0
 	boss_intro_kind = ""
@@ -742,6 +748,7 @@ func begin_sector() -> void:
 	sector_elite_chests = 0
 	gate_done = false
 	boss_spawned = false
+	boss_arena_on = false
 	boss_intro_t = 0.0
 	boss_intro_kind = ""
 	goblin_t = randf_range(10.0, 25.0)
@@ -919,6 +926,8 @@ func clamp_hero() -> void:
 	# Walk anywhere in this sector; the barrier behind the sector start blocks the previous one.
 	front_y = minf(front_y, p.y)
 	p.y = minf(p.y, back_limit())
+	if boss_arena_on and boss_alive():
+		p.y = clampf(p.y, boss_arena_y - BOSS_ARENA_UP, boss_arena_y + BOSS_ARENA_DOWN)
 	hero["pos"] = p
 
 ## R: reload every gun that is not full (beams and returning discs have nothing to reload).
@@ -1243,6 +1252,8 @@ func regular_crowd_defeated() -> bool:
 
 func begin_boss_reveal(kind: String) -> void:
 	boss_spawned = true
+	boss_arena_on = true
+	boss_arena_y = float(hero["pos"].y)
 	boss_intro_kind = kind
 	boss_intro_t = BOSS_INTRO_DURATION
 	boss_intro_pos = Vector2(0.0, cam_y - maxf(410.0, ui_height * 0.5 + 115.0))
