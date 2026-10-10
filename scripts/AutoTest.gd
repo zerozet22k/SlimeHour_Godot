@@ -276,14 +276,14 @@ func shots(delta: float) -> void:
 				Effects.add_card(g, id)
 			g.guns.append(Weapons.new_gun(g, "shotgun"))
 			for i in range(30):
-				g.spawn_enemy(["blob", "zoomer", "chonk", "spitter", "riot", "kaboomba", "nurse", "mitosis"][i % 8], g.hero["pos"] + Vector2(randf_range(-420, 420), randf_range(-360, -60)))
+				g.spawn_enemy(["blob", "zoomer", "chonk", "spitter", "riot", "kaboomba", "tick", "mitosis"][i % 8], g.hero["pos"] + Vector2(randf_range(-420, 420), randf_range(-360, -60)))
 		"play2":
 			for id in ["ricochet", "rubber_chicken", "pet_chicken", "good_boy", "cryo_rounds", "bowling_pins", "acme_anvils", "halo"]:
 				Effects.add_card(g, id)
 			g.guns[1] = Weapons.new_gun(g, "bowling")
 			g.hero["pos"].y -= 700.0
 			for i in range(40):
-				g.spawn_enemy(["blob", "zoomer", "bull", "larry", "mama", "goblin"][i % 6], g.hero["pos"] + Vector2(randf_range(-420, 420), randf_range(-360, -60)))
+				g.spawn_enemy(["blob", "zoomer", "bull", "lancer", "mama", "goblin"][i % 6], g.hero["pos"] + Vector2(randf_range(-420, 420), randf_range(-360, -60)))
 			g.spawn_gate_pair(g.hero["pos"].y - 220.0)
 		"levelup":
 			g.open_offers("level")
