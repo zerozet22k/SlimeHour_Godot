@@ -294,6 +294,15 @@ func _ready() -> void:
 					# Noncanonical historical IDs must continue to resolve in saves.
 					enemy_db[known_kind] = enemy_db[restored].duplicate(true)
 					enemy_db[known_kind]["id"] = known_kind
+	# Older saves may contain curated pairs with generic legacy names.
+	# Restore their authored behavior and book identities without changing
+	# encounter locks for new playthroughs.
+	for i in range(EnemyMixes.RECIPES.size()):
+		var recipe: Dictionary = EnemyMixes.RECIPES[i]
+		var id = EnemyMixes.recipe_id(i)
+		if enemy_db.has(id):
+			enemy_db[id]["name"] = str(recipe["name"])
+			enemy_db[id]["fusion_style"] = str(recipe["style"])
 	if not OS.has_feature("mobile") and not portrait_preview:
 		settings["touch"] = "off"
 	elif portrait_preview:
@@ -1992,12 +2001,19 @@ func note_mob(kind: String) -> void:
 	if not EnemyMixes.usable(kind) or not enemy_db.has(kind):
 		return
 	var mobs: Dictionary = profile["mobs"]
-	if not mobs.has(kind):
+	var first_discovery = not mobs.has(kind)
+	if first_discovery:
 		mobs[kind] = 0
 		if autotest == "":
 			unlock_toasts.append({"type": "mob", "id": kind, "t": 2.6})
 			profile["announced_mobs"][kind] = true
 	mobs[kind] = int(mobs[kind]) + 1
+	if first_discovery and not EnemyMixes.recipe_for_id(kind).is_empty():
+		var unlocked: Dictionary = profile.get("mutations_unlocked", {})
+		unlocked[kind] = true
+		profile["mutations_unlocked"] = unlocked
+		# Discovery receipts are permanent even if this run ends early.
+		save_options()
 
 ## Collection order: street tiers, the extras, then bosses.
 func mutation_book_ids() -> Array:
