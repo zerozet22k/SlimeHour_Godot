@@ -346,6 +346,8 @@ func _draw() -> void:
 			paint_settings()
 		"playing":
 			paint_hud()
+			paint_arena_warning()
+			paint_boss_cinematic()
 		"paused":
 			paint_hud()
 			paint_pause()
@@ -442,6 +444,8 @@ func paint_portrait() -> void:
 			paint_portrait_characters()
 		"playing":
 			paint_portrait_hud()
+			paint_arena_warning()
+			paint_boss_cinematic()
 		"paused":
 			paint_portrait_hud()
 			dim(0.72)
@@ -470,6 +474,58 @@ func paint_portrait() -> void:
 			paint_upgrades()
 		"lost", "victory":
 			paint_portrait_result()
+
+# Boss arrival and arena ultimates are in gameplay coordinates on both
+# landscape and portrait. These overlays are NOT normal tiny banner toasts.
+func paint_boss_cinematic() -> void:
+	if g.boss_intro_t <= 0.0 or g.boss_intro_kind == "":
+		return
+	var width = 720.0 if g.portrait else 1280.0
+	var height = g.ui_height if g.portrait else 720.0
+	var progress = 1.0 - clampf(g.boss_intro_t / g.BOSS_INTRO_DURATION, 0.0, 1.0)
+	var reveal = clampf(progress * 5.0, 0.0, 1.0)
+	var y = height * (0.36 if g.portrait else 0.32)
+	var band = 76.0 if g.portrait else 86.0
+	var center = width * 0.5
+	var name = str(g.enemy_db[g.boss_intro_kind]["name"])
+	# Letterbox bars and a black-backed nameplate keep the boss visible.
+	draw_rect(Rect2(0, 0, width, 56.0), Color(0.01, 0.01, 0.04, 0.86))
+	draw_rect(Rect2(0, height - 54.0, width, 54.0), Color(0.01, 0.01, 0.04, 0.86))
+	draw_rect(Rect2(0, y - band, width, band * 2.0), Color(0.04, 0.025, 0.06, 0.72 * reveal))
+	draw_rect(Rect2(0, y - band, width, 4), Color("ff4d6a", 0.86 * reveal))
+	draw_rect(Rect2(0, y + band - 4.0, width, 4), Color("ff4d6a", 0.86 * reveal))
+	txt("THREAT DETECTED", Vector2(center, y - 35.0), 24 if g.portrait else 27, Color("ffadbc", reveal), 1, bold, 4)
+	txt(name, Vector2(center, y + 20.0), fit(name, width - 65.0, 53 if g.portrait else 73), Color(1, 1, 1, reveal), 1, bold, 7)
+	var hint = "PREPARE TO DODGE  //  FULL ARENA ATTACKS"
+	txt(hint, Vector2(center, y + 54.0), fit(hint, width - 45.0, 19), Color("ffd278", reveal), 1, bold, 3)
+	var fill = clampf(progress, 0.0, 1.0)
+	draw_rect(Rect2(0, height - 14.0, width * fill, 14.0), Color("ff4d6a"))
+
+func paint_arena_warning() -> void:
+	var nearest: Dictionary = {}
+	for hazard in g.delayed:
+		if str(hazard.get("fn", "")) != "arena_event":
+			continue
+		if nearest.is_empty() or float(hazard["t"]) < float(nearest["t"]):
+			nearest = hazard
+	if nearest.is_empty():
+		return
+	var width = 720.0 if g.portrait else 1280.0
+	var y = (g.ui_height * 0.35) if g.portrait else 230.0
+	var remaining = maxf(0.0, float(nearest["t"]))
+	var elapsed = 1.0 - remaining / maxf(0.01, float(nearest["life"]))
+	var center = width * 0.5
+	var barwidth = 520.0 if g.portrait else 720.0
+	var glow = 0.72 + 0.28 * absf(sin(g.anim_t * (6.0 + elapsed * 16.0)))
+	draw_rect(Rect2(center - barwidth * 0.5 - 22.0, y - 82.0, barwidth + 44.0, 131.0), Color(0.07, 0.01, 0.05, 0.82))
+	draw_rect(Rect2(center - barwidth * 0.5 - 22.0, y - 82.0, barwidth + 44.0, 4), Color("ff5d67", glow))
+	var title = str(nearest.get("label", "ARENA ULTIMATE"))
+	txt(title, Vector2(center, y - 46.0), fit(title, barwidth, 31 if g.portrait else 37), Color("ffb9c6"), 1, bold, 5)
+	txt("DODGE ON IMPACT   %.1f s" % remaining, Vector2(center, y - 7.0), 25 if g.portrait else 30, Color.WHITE, 1, bold, 5)
+	draw_rect(Rect2(center - barwidth * 0.5, y + 13.0, barwidth, 14.0), Color(0.18, 0.09, 0.12, 0.95))
+	draw_rect(Rect2(center - barwidth * 0.5, y + 13.0, barwidth * clampf(elapsed, 0.0, 1.0), 14.0), Color("ff5d67"))
+	if bool(nearest.get("second", false)):
+		txt("SECOND SHOCKWAVE", Vector2(center, y + 44), 16, Color("ffd278"), 1, bold, 3)
 
 # ---------------------------------------------------------------- in-game HUD
 func paint_portrait_hud() -> void:
