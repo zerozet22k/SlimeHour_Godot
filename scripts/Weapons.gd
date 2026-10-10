@@ -68,6 +68,18 @@ const EVOLUTION_DESCRIPTIONS = {
 	"splitbow": "HYDRA BOW: Fragments home toward nearby enemies earlier.",
 	"snow": "ABSOLUTE ZERO: Snowballs accumulate freeze significantly faster."
 }
+## Evolved builds have distinct visual identities, not a single gold tint
+## that makes 22 completely different weapons look identical.
+const EVOLVED_COLORS = {
+	"pistol": "eaffb7", "revolver": "ffd272", "shotgun": "ff9359",
+	"smg": "6be8ff", "minigun": "ffe9a3", "sniper": "e5bcff",
+	"rocket": "ff8355", "grenade": "c8ff72", "laser": "ffdb78",
+	"tesla": "86c9ff", "flame": "ffac52", "disc": "8dffd3",
+	"boomerang": "ffdc80", "rail": "bce8ff", "bees": "ffe06c",
+	"bowling": "d9b4ff", "nailgun": "f2dbad", "chicken": "fff076",
+	"bubble": "97f4ff", "pinball": "ff9ddf", "splitbow": "a5fca1",
+	"snow": "d7f8ff"
+}
 static func evolution_description(w: Dictionary) -> String:
 	return str(EVOLUTION_DESCRIPTIONS.get(str(w["id"]), "+30% damage."))
 static func resource_type(g, w: Dictionary) -> String:
@@ -481,7 +493,7 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"accel": g.st("accel") > 0, "split": int(g.st("split")) + int(wm(w, "split")),
 		"knock": float(d["knock"]), "crit": float(d["crit"]) + wm(w, "crit"),
 		"blast": float(d["blast"]) * (1.0 + wm(w, "blast")) * (1.0 + g.st("area")),
-		"src": w["id"], "color": Color("ffd75e") if evolved else Color(str(d["color"])), "gen": 0, "lvl": lvl, "pool": dmg_pool(g, w),
+		"src": w["id"], "color": Color(str(EVOLVED_COLORS.get(str(w["id"]), "ffd75e"))) if evolved else Color(str(d["color"])), "gen": 0, "lvl": lvl, "pool": dmg_pool(g, w),
 		"st": {}, "flags": {}, "gun": w,
 	}
 	var flags = o["flags"]
