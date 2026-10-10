@@ -1,30 +1,58 @@
-# Slime Hour
+# SLIME HOUR
 
-Windows Godot action game. Source lives in this repository; playable releases are published under [GitHub Releases](https://github.com/zerozet22k/SlimeHour_Godot/releases/latest).
+**One hero. A road full of monsters. A ridiculous arsenal.**
 
-Enemy progression starts with four street types. After the first boss, each fourth route choice introduces one base type; the choice after every second new base introduces their hybrid. The new enemy is guaranteed to spawn in its introduction sector. Hybrids combine both parents' combat actions and show both colors in one body. Nurse + Laser Larry is the first mix, appearing in Sector 11.
+Slime Hour is a fast-paced, single-player action roguelite built around surviving escalating waves of enemies, experimenting with weapons and power cards, and taking down increasingly dangerous bosses.
 
-## Install and update
+Every run is different: choose your route, build your loadout, discover enemy mutations, and push as far as you can.
 
-1. Download **SlimeHour-Windows.zip** from the latest release.
-2. Extract **all** files together: `SlimeHour.exe`, `SlimeHour.pck`, `Start_Slime_Hour.bat`, `update_and_run.ps1`, `updater_config.json`, and `release_manifest.json`.
-3. Launch **`SlimeHour.exe` directly**. New updates appear on the main menu; click **UPDATE**, watch the progress inside the game, then choose **INSTALL & RESTART** after checksum verification. No visible command window is used.
-4. The optional `Start_Slime_Hour.bat` shortcut now only starts the EXE; it no longer runs the old command-window updater.
+## The game
 
-**Incremental updates (v0.1.19+):** The in-game updater checks GitHub Releases on startup, selects a matching `SlimeHour-Delta.zip` when possible, downloads it directly to disk with progress, verifies SHA-256, and offers **INSTALL & RESTART**. When you exit the game, a hidden Windows helper reconstructs the new version into a separate folder, verifies its manifest and contents, and restarts Slime Hour. Otherwise it uses the full release ZIP. It never overwrites the running game, and existing saves remain intact.
+- **Fight your way forward:** survive enemy swarms, elites, hazards, and boss encounters across branching sectors.
+- **Build your arsenal:** discover and upgrade guns with distinct firing styles and special effects.
+- **Stack wild power-ups:** collect cards, combine synergies, and adapt your build to each run.
+- **Meet evolving enemies:** new monster types and hybrid mutations enter the run as you progress; discovered enemies are recorded in the Bestiary.
+- **Choose your route:** battle, shop, rest, treasure, and event encounters change your strategy.
+- **Challenge yourself:** push deeper into harder encounters and take on Hard mode.
+- **Make progress:** earn unlocks and build your collection across runs.
 
-**Important:** Updating *to* v0.1.7 is a one-time full download because older builds embedded the .pck in the executable and cannot serve as chunk-patch bases. Partial updates become available from subsequent releases. Download size depends on how much data actually changed; unchanged game assets generally do not need downloading again. Existing saves remain in Godot's normal user data location. No admin permissions or Git LFS are required to play.
+## Download and play
 
-To edit the game, clone the Git repository with Git LFS installed and open `project.godot` in Godot 4.7.2. The CI system builds and tests Windows releases on version bumps. Android exports are deferred.
+Get the latest available build from **[Slime Hour Releases](https://github.com/zerozet22k/SlimeHour_Godot/releases/latest)**.
 
-## Developer Debug Lab (Windows)
+### Windows
 
-Press **F3** anywhere (including while choosing a card or on the route map), or click **DEBUG LAB** on the title screen. The simulation pauses and the mouse is released while the Lab is open.
+1. Download `SlimeHour-Windows.zip`.
+2. Extract the entire ZIP to a folder; keep the EXE, PCK, and supporting files together.
+3. Run `SlimeHour.exe`.
+4. When a new version is available, use the in-game update prompt to download, verify, install, and restart.
 
-- **ROUTE:** jump to Sectors 1/5/8/10/15/20/25/30/40; step +/-1 or +/-5; enter the map, normal/Elite/Hell fights, boss, shop, campfire, treasure, or random event directly
-- **CARDS:** page through the entire card catalog and test even prerequisite-dependent effects; this is debug-only and does not change normal card eligibility
-- **WEAPONS:** choose gun slot 1, 2 or 3, then equip any unlocked or locked weapon
-- **ENEMIES:** spawn specific monsters or bosses in front of the hero
-- **TOOLS:** start a fresh test run, restore health, add 500 gold, toggle invincibility, clear enemies, and open the route map
+Your saved progress is stored separately from the extracted game files.
 
-**Saving safety:** Opening F3 creates a temporary test sandbox. Nothing from that session writes permanent profile progress, unlocks, or leaderboard records. Returning to the main menu restores the original in-memory profile. Restarting the game also loads the existing save. **F4** toggles performance stats independently.
+### Android
+
+Android APK distribution is being prepared. Once a verified Android release is published, install `SlimeHour-Android.apk` from the Releases page. Android builds use touchscreen controls.
+
+**Note:** APK availability depends on a successful signed Android build. A Windows-only release does not imply an APK is available.
+
+## Controls
+
+On Windows, use the in-game controls and settings to configure movement, aiming, and firing. On Android, the game supports touchscreen movement, aiming, and action buttons. Available controls may vary with the selected control scheme.
+
+## Weapons, cards, and mutations
+
+Weapons have their own combat identities, upgrades, and interactions with cards. Different combinations can alter projectiles, damage patterns, status effects, and crowd control. Enemy mutations are encountered progressively during a run rather than all being available from the start.
+
+Try different builds and keep an eye on the Bestiary to learn what you have faced.
+
+## Updates
+
+Windows releases may include a full ZIP and a smaller delta update. The in-game updater verifies downloaded files before installation. Android APKs are separate release assets and are not installed through the Windows updater.
+
+## Status
+
+Slime Hour is actively developed. Features, balance, enemies, and release availability may change between versions.
+
+---
+
+**Made with Godot.** Thanks for playing Slime Hour.
