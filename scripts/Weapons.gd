@@ -641,6 +641,8 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 		var e = target["enemy"]
 		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
 		ProjectileVfx.impact(g, e["pos"], target["dir"], "fire", 7.0)
+		if g.st("split") > 0 and randf() < 0.25:
+			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
 	# Max-level prism catches the first enemy and refracts into two short, weaker side-rays.
 	# Unlike increasing width, this attacks new angles; only one fork per beam tick.
 	if int(w["lvl"]) >= 5 and not targets.is_empty():
@@ -658,8 +660,6 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 				seen[victim["id"]] = true
 				Combat.hit(g, victim, dmg * 0.45, {"pos": victim["pos"], "gen": 1, "dir": fork_dir, "knock": 8.0, "src": "laser", "pool": dmg_pool(g, w), "noproc": true})
 			g.beams.append({"a": fork_at, "b": fork_at + fork_dir * 220.0, "t": 0.1, "w": 4.0, "color": Color("e5baff")})
-		if g.st("split") > 0 and randf() < 0.25:
-			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))
 	for segment in segments:
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.07, "w": width, "color": color})
