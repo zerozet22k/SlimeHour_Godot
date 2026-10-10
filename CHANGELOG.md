@@ -1,3 +1,14 @@
+## v0.1.39 — 22-weapon resource identities and corrected Cinder flame rendering
+
+- Constrain every weapon to its own magazine, fuel, physical return slot, and per-volley budget. Deadeye always holds six rounds and Gauss Lance three charge cells.
+- All 22 IDs define distinct overflow specialties. Overflow improves accuracy, staggers, spin retention, blasts, arcs, burns, returns, charge, poison, impact, pinning, traps, banking, tracking or freezing, not one universal damage stat.
+- Prism Beam interprets magazine bonuses as up to 4.5 seconds of heat reserve; reload upgrades shorten cooling. At Level 5 otherwise obsolete cooling/heat cards convert into capped beam focus.
+- Add live actor caps for bees, heavy balls, chickens, trap bubbles, ricochets and snowballs; overflow reinforces actors rather than multiplying expensive scene objects.
+- Service Nine's triple-damage special shot works every 12 real shots, including with larger magazines and Infinite Ammo. Burst/Echo attacks do not increment that cadence.
+- Hydra can spawn no more than eight shards from one root bolt. Return to Sender rocket aftershocks cannot repeat the full thermobaric collapse.
+- Cinder renders a layered soft flame plume instead of a triangle with a giant end arc, and no longer displays bullet-style Double Tap particles for its flame cone. Continuous flame attacks remain collision-free and share the damage-cone geometry.
+- Expand resource regressions, correct weapon descriptions, and fix the false-failure compatibility test result.
+
 ## v0.1.38 — Weapon compatibility, legendary Hydra, and procedural enemy variety
 
 - Railgun supports HOLD ATTACK: repeatedly wind up and fire while the trigger is held, interrupted only by reload or pause. No mandatory trigger release or artificial post-shot cooldown.
