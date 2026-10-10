@@ -18,9 +18,10 @@ const EVOLVED_NAMES = {"pistol": "Service Nine Mk II", "revolver": "Deadeye Prim
 
 static func new_gun(g, id: String, tier: int = 0) -> Dictionary:
 	var w = {"id": id, "lvl": 1, "tier": clampi(tier, 0, 5), "ammo": 0, "reload": 0.0, "reload_max": 1.0, "cd": 0.0, "spin": 0.0, "heat": 0.0,
-		"over": false, "charge": 0.0, "rail_needs_release": false, "focus": 0.0, "count": 0, "evolved": false, "wm": {}, "mag_max": 1, "flash": 0.0}
+		"over": false, "charge": 0.0, "rail_needs_release": false, "focus": 0.0, "count": 0, "evolved": false, "wm": {}, "mag_max": 1, "flash": 0.0, "virtual_ammo": 0, "virtual_reload_last": -9999.0}
 	w["mag_max"] = mag_size(g, w)
 	w["ammo"] = w["mag_max"]
+	w["virtual_ammo"] = w["mag_max"]
 	return w
 
 static func display_name(g, w: Dictionary) -> String:
@@ -213,23 +214,28 @@ static func update(g, dt: float) -> void:
 			update_beam(g, w, i, dt, want, muzzle, gun_aim)
 			continue
 		if float(w["reload"]) > 0.0:
-			w["reload"] = float(w["reload"]) - dt
-			if float(w["reload"]) <= 0.0:
-				finish_reload(g, w)
-			continue
+			if g.st("infammo") > 0.0:
+				# Infinite Ammo cancels an already-active reload without pausing fire.
+				w["reload"] = 0.0
+				w["ammo"] = maxi(int(w["ammo"]), int(w["mag_max"]))
+			else:
+				w["reload"] = float(w["reload"]) - dt
+				if float(w["reload"]) <= 0.0:
+					finish_reload(g, w)
+				continue
 		if kind == "rail":
 			# Holding attack continually charges then fires. No artificial
 			# release gate and no cooldown beyond charge and magazine reload.
 			# World simulation already stops while paused.
 			if not want:
 				w["charge"] = maxf(0.0, float(w["charge"]) - dt * 2.0)
-			elif int(w["ammo"]) > 0:
+			elif int(w["ammo"]) > 0 or g.st("infammo") > 0.0:
 				if float(w["charge"]) <= 0.001:
 					g.sfx.play_projectile("rail_charge")
 				w["charge"] = minf(1.0, float(w["charge"]) + dt / rail_charge_seconds(g, w))
 			if float(w["charge"]) < 1.0:
 				continue
-		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or int(w["ammo"]) <= 0:
+		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or (int(w["ammo"]) <= 0 and g.st("infammo") <= 0.0):
 			continue
 		var rate = fire_rate(g, w)
 		if kind == "spin":
@@ -250,12 +256,30 @@ static func update(g, dt: float) -> void:
 			g.gold -= 1
 			mul *= 1.0 + 0.6 / dmg_pool(g, w)
 		volley(g, w, i, muzzle, gun_aim, {"mul": mul})
+		if g.st("infammo") > 0.0:
+			advance_infinite_ammo_cycle(g, w)
 		if kind in ["disc", "boomerang"]:
 			w["ammo"] = int(w["ammo"]) - 1
 		elif g.st("infammo") <= 0:
 			w["ammo"] = int(w["ammo"]) - 1
 			if int(w["ammo"]) <= 0:
 				start_reload(g, w)
+
+## Infinite Ammo keeps all actual ammo and reloads disabled. A virtual
+## magazine powers reload-triggered cards without stopping the weapon.
+## Once per virtual magazine with a cooldown to prevent beam/proc storms.
+static func advance_infinite_ammo_cycle(g, w: Dictionary) -> void:
+	if g.st("infammo") <= 0.0:
+		return
+	var capacity = maxi(1, mag_size(g, w))
+	var remaining = clampi(int(w.get("virtual_ammo", capacity)), 1, capacity) - 1
+	w["virtual_ammo"] = remaining if remaining > 0 else capacity
+	if remaining > 0:
+		return
+	if g.run_time < float(w.get("virtual_reload_last", -9999.0)) + 2.5:
+		return
+	w["virtual_reload_last"] = g.run_time
+	Effects.trigger(g, "reload", {"pos": g.hero["pos"], "gen": 0, "dir": g.hero["aim"]})
 
 static func start_reload(g, w: Dictionary) -> void:
 	w["reload"] = reload_time(g, w)
@@ -357,6 +381,8 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		# A REAL throw always occupies exactly one slot. Parallel/rear/side
 		# cards improve momentum of that throw; they never mint free blades.
 		dmg *= 1.0 + minf(0.85, recall_power)
+		# Innate 999 pierce: further piercing cards reinforce the cutting strike.
+		dmg *= 1.0 + minf(0.15, maxf(0.0, g.st("pierce")) * 0.02)
 		lines = 1
 		rear = 0
 		side = 0
@@ -377,7 +403,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		spread *= 0.7
 	var random_spread = kind in ["pellet", "flame"] or w["id"] == "smg" and n == 1
 	if n > 1 and not random_spread:
-		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
+		spread = clampf(maxf(spread, 0.1 * (n - 1) * maxf(0.0, 1.0 + g.st("spreadp"))), 0.0, 1.5)
 	var perp = dir.orthogonal()
 	var eopts = {"big": big, "free": bool(opts.get("free", false)), "o": base_opts(g, w, d)}
 	if w["id"] == "pistol" and int(w["lvl"]) >= 5 and int(w["count"]) % 6 == 0:
@@ -851,6 +877,8 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 		return
 	w["cd"] = 1.0 / fire_rate(g, w)
 	volley(g, w, slot, muzzle, aim, {})
+	if g.st("infammo") > 0.0:
+		advance_infinite_ammo_cycle(g, w)
 
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
 	# Keep displayed laser geometry identical to the snake-card hit path.
@@ -1036,8 +1064,19 @@ static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -
 	if first == null:
 		g.beams.append({"a": a, "b": a + dir * reach * 0.6, "t": 0.06, "w": 3.0, "color": Color("8fc8ff"), "zig": true})
 		return
-	var jumps = mini(12, int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0) + (2 if bool(w["evolved"]) else 0) + Compatibility.adapted_pierce(g, w))
-	chain_from(g, a, first, jumps, dmg, lvl >= 5, {})
+	var jumps = mini(12, int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0) + (2 if bool(w["evolved"]) else 0) + Compatibility.adapted_pierce(g, w) + Compatibility.adapted_wall_bounce(g, w))
+	var visited: Dictionary = {}
+	chain_from(g, a, first, jumps, dmg, lvl >= 5, visited)
+	# Splinter/Cluster cards fork electricity instead of spawning fake bullets.
+	for k in range(mini(2, maxi(0, int(g.st("split"))))):
+		var branch = next_chain_target(g, first["pos"], visited)
+		if branch == null:
+			break
+		visited[branch["id"]] = true
+		var branch_dir: Vector2 = (branch["pos"] - first["pos"]).normalized()
+		g.beams.append({"a": first["pos"], "b": branch["pos"], "t": 0.13, "w": 2.5, "color": Color("88cfff"), "zig": true})
+		Combat.damage_barrels_segment(g, first["pos"], branch["pos"], 3.0, dmg * 0.38)
+		Combat.hit(g, branch, dmg * 0.38, {"pos": branch["pos"], "gen": 1, "dir": branch_dir, "knock": 15.0, "st": {"shock": 0.5}, "src": "tesla", "noproc": true})
 
 static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float, fork: bool, visited: Dictionary) -> void:
 	var cur = first
@@ -1075,9 +1114,11 @@ static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 	var width = 14.0 * (1.0 + g.st("size") * 0.5) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var targets = line_targets(g, segments, width, 999)
+	# Gauss Lance already pierces the whole line: excess pierce improves impact.
+	var piercing_power = 1.0 + minf(0.18, maxf(0.0, g.st("pierce")) * 0.02)
 	for target in targets:
 		var e = target["enemy"]
-		Combat.hit(g, e, dmg * Compatibility.instant_acceleration(g, w, a.distance_to(e["pos"]) / maxf(1.0, length)), {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
+		Combat.hit(g, e, dmg * piercing_power * Compatibility.instant_acceleration(g, w, a.distance_to(e["pos"]) / maxf(1.0, length)), {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
 		ProjectileVfx.pierce(g, e["pos"], target["dir"], "pierce")
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff")
 	for segment in segments:
