@@ -595,14 +595,14 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		draw_texture_rect_region(atlas, Rect2(p.x - 100.0 * k * sx, p.y - 108.0 * k * sy, CELL * k * sx, CELL * k * sy), src, tint)
 	# live parts: rotor, fuse spark, pupils (pupils use the atlas dot, so they stay in the same batch)
 	if kind == "coilqueen":
-		for k in range(3):
-			var ang = g.anim_t * 2.4 + k * TAU / 3.0
-			draw_arc(p, r + 8.0 + 7.0 * k, ang, ang + PI * 0.9, 15, Color("78ffd3", 0.75), 3.5)
+		for coil_index in range(3):
+			var coil_angle = g.anim_t * 2.4 + coil_index * TAU / 3.0
+			draw_arc(p, r + 8.0 + 7.0 * coil_index, coil_angle, coil_angle + PI * 0.9, 15, Color("78ffd3", 0.75), 3.5)
 	elif kind == "glassoracle":
-		var ang = g.anim_t * 1.3
-		for k in range(4):
-			var a = ang + k * TAU / 4.0
-			draw_line(p + Vector2.from_angle(a) * r * 0.9, p + Vector2.from_angle(a) * r * 1.4, Color("dcffff"), 3.0)
+		var prism_orbit = g.anim_t * 1.3
+		for prism_index in range(4):
+			var shard_angle = prism_orbit + prism_index * TAU / 4.0
+			draw_line(p + Vector2.from_angle(shard_angle) * r * 0.9, p + Vector2.from_angle(shard_angle) * r * 1.4, Color("dcffff"), 3.0)
 	elif kind == "voidweaver":
 		draw_arc(p, r * 1.35, -PI * 0.5 + g.anim_t * 0.9, PI + g.anim_t * 0.9, 35, Color("b397ff", 0.9), 4.0)
 	elif kind == "dreadengine":
