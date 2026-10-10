@@ -1,3 +1,10 @@
+## v0.1.6 — Build-aware card prerequisites
+
+- Dependents cannot appear until their requirements exist in the current run: fragment generation before fragment modifiers, elemental sources before damage/reactive cards, explosions before explosion triggers, orbiting blades before blade upgrades, and wall bounces before wall-splatter cards.
+- Dual-element reactions need both statuses, not just one. Weapons with natural status effects count as valid sources.
+- Gate bonuses also count as sources while active. Startup Head Start cards use the same eligibility rules as shops, level-up rewards, and chests.
+- Added card prerequisite regression tests, including tests against dead-end prerequisite chains.
+
 ## v0.1.5 — Dedicated Bestiary
 
 - Added a standalone Bestiary tab to desktop and portrait main menus.

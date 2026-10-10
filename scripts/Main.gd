@@ -7,7 +7,7 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
-const GAME_VERSION = "v0.1.5"
+const GAME_VERSION = "v0.1.6"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1645,7 +1645,7 @@ func random_start_card() -> String:
 	var pool = []
 	for c in db_cards:
 		var id = str(c["id"])
-		if int(c["rarity"]) <= 1 and not c.has("req") and not bool(c.get("cursed", false)) and card_available(id) and not owned.has(id):
+		if int(c["rarity"]) <= 1 and not bool(c.get("cursed", false)) and not owned.has(id) and Effects.eligible(self, c):
 			pool.append(id)
 	return "" if pool.is_empty() else str(pool[randi() % pool.size()])
 

@@ -498,6 +498,121 @@ static func ROAD() -> float:
 	return 420.0
 
 # ================================================================= offers
+## Prerequisites are persistent sources of the underlying mechanic, not other
+## arbitrary upgrades. This prevents dead offers while keeping starter cards available.
+## Requirements live on the card as req.source: a list of capabilities required ALL at once.
+const ELEMENT_GUNS = {
+	"burn": ["flame"],
+	"freeze": ["snow"],
+	"shock": ["tesla"],
+	"poison": ["bees"],
+	"wet": ["bubble"],
+}
+const EXTRA_SOURCE_MODS = {
+	"burn": ["dashtrail"],
+	"freeze": [],
+	"shock": [],
+	"poison": ["beehive"],
+	"bleed": ["dog", "sawblade", "orbitbleed"],
+}
+const ELEMENT_ZONES = {"fire": "burn", "blaze": "burn", "poison": "poison", "ice": "freeze"}
+const EXPLOSIVE_ACTIONS = ["explode", "rocket", "meteor", "potato", "airstrike", "barrel", "car", "anvil", "confetti"]
+
+static func source_from_card(c: Dictionary, source: String) -> bool:
+	var mods: Dictionary = c.get("mods", {})
+	var wmods: Dictionary = c.get("wmods", {})
+	if source == "fragments":
+		if float(mods.get("split", 0)) > 0 or float(mods.get("splitkill", 0)) > 0 or float(mods.get("wallsplit", 0)) > 0:
+			return true
+		if float(wmods.get("split", 0)) > 0 or float(wmods.get("recoilblast", 0)) > 0 or float(wmods.get("cluster", 0)) > 0:
+			return true
+	elif source == "wall_bounce":
+		if float(mods.get("bounce", 0)) > 0 or float(wmods.get("bounce", 0)) > 0:
+			return true
+	elif source == "orbit":
+		if float(mods.get("orbit", 0)) > 0:
+			return true
+	elif source == "explosion":
+		if float(mods.get("fragboom", 0)) > 0:
+			return true
+	elif source == "speed":
+		if float(mods.get("speed", 0)) > 0:
+			return true
+	else:
+		if float(mods.get(source, 0)) > 0:
+			return true
+		for other in EXTRA_SOURCE_MODS.get(source, []):
+			if float(mods.get(other, 0)) > 0:
+				return true
+			if float(wmods.get(other, 0)) > 0:
+					return true
+	for proc in c.get("procs", []):
+		var action = str(proc.get("do", ""))
+		if source == "fragments" and action == "frags":
+			return true
+		if source == "orbit" and action == "orbital":
+			return true
+		if source == "explosion" and EXPLOSIVE_ACTIONS.has(action):
+			return true
+		if source == "poison" and action == "bees":
+			return true
+		if source == "bleed" and action == "saw":
+			return true
+		if action == "status" or action == "status_area":
+			if str(proc.get("s", "")) == source:
+				return true
+		if action == "puddle" and str(ELEMENT_ZONES.get(str(proc.get("s", "")), "")) == source:
+			return true
+	return false
+
+static func source_from_weapon(g, source: String) -> bool:
+	for gun in g.guns:
+		var id = str(gun["id"])
+		var lvl = int(gun.get("lvl", 1))
+		if ELEMENT_GUNS.get(source, []).has(id):
+			return true
+		if source == "burn" and id == "rocket" and lvl >= 5:
+			return true
+		if source == "shock" and id == "rail" and lvl >= 5:
+			return true
+		if source == "fragments" and (id == "splitbow" or id == "pinball" and lvl >= 5 or id == "bowling" and lvl >= 5):
+			return true
+		if source == "explosion" and ["rocket", "grenade", "chicken"].has(id):
+			return true
+		if source == "wall_bounce":
+			if g.weapon_db.has(id) and int(g.weapon_db[id].get("bounce", 0)) > 0:
+				return true
+			if id == "pinball" and lvl >= 3:
+				return true
+		if source == "bleed" and id == "bowling":
+			# Strike Cannon flings targets, but that does not inflict bleed.
+			pass
+	return false
+
+static func has_source(g, source: String) -> bool:
+	if source_from_weapon(g, source):
+		return true
+	# Route gates can provide a real status source even if no card supplies it.
+	if source in ["burn", "freeze", "shock", "poison", "bleed", "wet", "charm", "mark", "speed", "orbit", "wall_bounce"]:
+		var key = "bounce" if source == "wall_bounce" else source
+		if float(g.gate_mods.get(key, 0.0)) > 0:
+			return true
+	for id in g.owned:
+		if int(g.owned[id]) <= 0:
+			continue
+		if not g.card_by_id.has(id):
+			continue
+		if source_from_card(g.card_by_id[id], source):
+			return true
+	return false
+
+static func missing_sources(g, c: Dictionary) -> Array:
+	var missing: Array = []
+	for source in c.get("req", {}).get("source", []):
+		if not has_source(g, str(source)):
+			missing.append(str(source))
+	return missing
+
 static func eligible(g, c: Dictionary) -> bool:
 	var id = str(c["id"])
 	if card_count(g) >= 32:
@@ -517,6 +632,8 @@ static func eligible(g, c: Dictionary) -> bool:
 		if not ok:
 			return false
 	if req.has("stat") and g.st(str(req["stat"])) <= 0.0:
+		return false
+	if not missing_sources(g, c).is_empty():
 		return false
 	if id == "arsenal" and g.guns.size() < 2:
 		return false
