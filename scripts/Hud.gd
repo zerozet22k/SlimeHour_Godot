@@ -5,7 +5,7 @@ extends Node2D
 const Weapons = preload("res://scripts/Weapons.gd")
 const Characters = preload("res://scripts/Characters.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
-const CollectionPaging = preload("res://scripts/CollectionPaging.gd")
+const CollectionGrid = preload("res://scripts/CollectionGrid.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const CardArt = preload("res://scripts/CardArt.gd")
 
@@ -15,7 +15,12 @@ var body: Font
 var buttons: Array = []
 var peek = false
 var collection_cat = "volley"
-var collection_page = 0
+var collection_page = 0  # first visible GRID ROW, not a four-card page
+var collection_track := Rect2()
+var collection_touch_id := -1
+var collection_touch_y := 0.0
+var collection_touch_distance := 0.0
+var collection_touch_accum := 0.0
 var bestiary_page = 0
 var bestiary_filter = "ALL"
 var bestiary_selected = ""
@@ -190,6 +195,14 @@ func click(pos: Vector2) -> void:
 	if f == last_click_frame:
 		return
 	last_click_frame = f
+	if g.state == "collection" and collection_track.has_point(pos) and (not g.portrait or selected_collection_item == null):
+		var total = get_collection_items().size()
+		var cols = CollectionGrid.columns(g.portrait)
+		var rows = CollectionGrid.visible_rows(g.portrait, g.ui_height)
+		var max_row = CollectionGrid.max_start_row(total, cols, rows)
+		var relative_y = clampf((pos.y - collection_track.position.y) / maxf(1.0, collection_track.size.y), 0.0, 1.0)
+		collection_page = clampi(roundi(relative_y * max_row), 0, max_row)
+		return
 	for i in range(buttons.size() - 1, -1, -1):
 		if buttons[i]["rect"].has_point(pos):
 			press_action = str(buttons[i]["action"])
@@ -198,15 +211,64 @@ func click(pos: Vector2) -> void:
 			return
 
 func scroll(d: int) -> void:
-	var visible = CollectionPaging.window_size(g.portrait)
-	collection_page = CollectionPaging.offset(get_collection_items().size(), visible, collection_page, d)
-	selected_collection_item = null
+	var total = get_collection_items().size()
+	var cols = CollectionGrid.columns(g.portrait)
+	var rows = CollectionGrid.visible_rows(g.portrait, g.ui_height)
+	collection_page = CollectionGrid.scroll_row(total, cols, rows, collection_page, d)
 
 func collection_key(code: int) -> void:
-	if code == KEY_RIGHT:
-		scroll(1)
-	elif code == KEY_LEFT:
-		scroll(-1)
+	match code:
+		KEY_UP, KEY_LEFT, KEY_W, KEY_A:
+			scroll(-1)
+		KEY_DOWN, KEY_RIGHT, KEY_S, KEY_D:
+			scroll(1)
+		KEY_PAGEUP:
+			scroll(-CollectionGrid.visible_rows(g.portrait, g.ui_height))
+		KEY_PAGEDOWN:
+			scroll(CollectionGrid.visible_rows(g.portrait, g.ui_height))
+		KEY_HOME:
+			collection_page = 0
+		KEY_END:
+			collection_page = CollectionGrid.max_start_row(get_collection_items().size(), CollectionGrid.columns(g.portrait), CollectionGrid.visible_rows(g.portrait, g.ui_height))
+
+func collection_touch_begin(id: int, pos: Vector2) -> void:
+	collection_touch_id = id
+	collection_touch_y = pos.y
+	collection_touch_distance = 0.0
+	collection_touch_accum = 0.0
+
+func collection_touch_move(id: int, pos: Vector2) -> void:
+	if id != collection_touch_id or selected_collection_item != null:
+		return
+	var delta = pos.y - collection_touch_y
+	collection_touch_y = pos.y
+	collection_touch_distance += absf(delta)
+	collection_touch_accum += delta
+	# Swipe up to scroll DOWN, swipe down to scroll UP. One row per 88px.
+	if absf(collection_touch_accum) >= 88.0:
+		var rows = maxi(1, int(absf(collection_touch_accum) / 88.0))
+		scroll(-rows if collection_touch_accum > 0.0 else rows)
+		collection_touch_accum -= signf(collection_touch_accum) * rows * 88.0
+
+func collection_touch_end(id: int, pos: Vector2) -> void:
+	if id != collection_touch_id:
+		return
+	var moved = collection_touch_distance
+	collection_touch_id = -1
+	collection_touch_accum = 0.0
+	if moved < 18.0:
+		click(pos)
+
+## A visible proportional scroll thumb. Cards stay inside the grid: no clipping artifacts.
+func collection_scrollbar(r: Rect2, total: int, cols: int, rows: int) -> void:
+	collection_track = r
+	var max_row = CollectionGrid.max_start_row(total, cols, rows)
+	rbox(r, Color("26334a"), 4)
+	var fraction = minf(1.0, float(rows) / maxf(1.0, float(CollectionGrid.total_rows(total, cols))))
+	var thumb_h = maxf(34.0, r.size.y * fraction)
+	var t = float(collection_page) / float(maxi(1, max_row))
+	var thumb_y = r.position.y + (r.size.y - thumb_h) * t
+	rbox(Rect2(r.position.x, thumb_y, r.size.x, thumb_h), Color("6be7ee") if max_row > 0 else Color("52707d"), 4)
 
 # ================================================================= main draw
 func _draw() -> void:
@@ -549,7 +611,10 @@ func card_art(r: Rect2, info: Dictionary, rc: Color) -> void:
 			var bob = sin(g.anim_t * 3.0) * 3.0
 			draw_texture_rect(art, Rect2(r.get_center() - Vector2(s, s) * 0.5 + Vector2(0, bob), Vector2(s, s)), false)
 		else:
-			draw_texture_rect(art, r.grow(-3), false)
+			# Preserve source aspect ratio. The old rectangular stretch visibly squashed card art.
+			var source_size: Vector2 = art.get_size()
+			if source_size.x > 0.0 and source_size.y > 0.0:
+				draw_texture_rect(art, CollectionGrid.aspect_fit(source_size, r.grow(-3)), false)
 		rbox(r, Color(0, 0, 0, 0), 14, Color(rc, 0.9), 2)
 	else:
 		var cat = str(info.get("catid", ""))
@@ -780,35 +845,35 @@ func paint_portrait_collection() -> void:
 	txt(cat_label, Vector2(360, 170), fit(cat_label, 420, 28), Color("ffd24d"), 1, bold, 3)
 	button(Rect2(596, 124, 96, 72), ">", "mobile_cat_next", false, 34)
 	var items = get_collection_items()
-	var visible = CollectionPaging.window_size(true)
-	collection_page = clampi(collection_page, 0, CollectionPaging.max_start(items.size(), visible))
-	var shown: Array = CollectionPaging.range_indices(items.size(), visible, collection_page)
-	# The cards are a horizontal strip; NEXT moves one card to the left.
+	var cols = CollectionGrid.columns(true)
+	var rows = CollectionGrid.visible_rows(true, h)
+	collection_page = CollectionGrid.clamp_row(items.size(), cols, rows, collection_page)
+	var shown = CollectionGrid.indices(items.size(), cols, rows, collection_page)
 	for i in range(shown.size()):
-		var idx = int(shown[i])
-		var r = Rect2(28.0 + float(i) * 342.0, 232.0, 322.0, 282.0)
-		mini_card(r, collection_info(items[idx]))
-		buttons.append({"rect": r, "action": "select_card_%d" % idx})
-	if shown.is_empty():
-		txt("NO ITEMS", Vector2(360, 350), 30, Color("aeb8cf"), 1, bold)
-	txt("SWIPE THROUGH THE COLLECTION  /  LEFT TO RIGHT", Vector2(360, 567), 16, Color("aabbd0"), 1, body)
+		var index = int(shown[i])
+		var col = i % cols
+		var row = int(i / cols)
+		var tile = Rect2(30.0 + col * 336.0, 213.0 + row * CollectionGrid.PORTRAIT_STEP, 318.0, CollectionGrid.PORTRAIT_TILE_HEIGHT)
+		mini_card(tile, collection_info(items[index]), items[index] == selected_collection_item)
+		buttons.append({"rect": tile, "action": "select_card_%d" % index})
+	if items.is_empty():
+		txt("NO CARDS IN THIS CATEGORY", Vector2(360, 376), 24, Color("aab7d2"), 1, bold)
+	collection_scrollbar(Rect2(702, 213, 8, maxf(110.0, h - 398.0)), items.size(), cols, rows)
+	txt("SWIPE UP OR DOWN TO BROWSE  ·  " + CollectionGrid.view_label(items.size(), cols, rows, collection_page),
+		Vector2(360, h - 186), 19, Color("bbd4e6"), 1, bold)
+	button(Rect2(190, h - 122, 340, 78), "BACK", "back", true, 32)
 	if selected_collection_item != null:
 		var info = collection_info(selected_collection_item)
 		buttons.clear()
+		collection_track = Rect2()
 		dim(0.9)
 		var detail_h = minf(640.0, h - 420.0)
 		draw_card(Rect2(100, 130, 520, detail_h), info, false, 1.0, -1)
 		if selected_collection_item["type"] == "gun_new":
 			var gun = g.weapon_db[selected_collection_item["gun"]]
-			wrap_text("LV3: " + str(gun["lv3"]), 70, 130 + detail_h + 40, 580, 21, Color("ffd24d"), 26, body, true, 2)
-			wrap_text("LV5: " + str(gun["lv5"]), 70, 130 + detail_h + 100, 580, 21, Color("ffd24d"), 26, body, true, 2)
+			wrap_text("LV3: " + str(gun["lv3"]), 70, 130 + detail_h + 36, 580, 21, Color("ffd24d"), 26, body, true, 2)
+			wrap_text("LV5: " + str(gun["lv5"]), 70, 130 + detail_h + 92, 580, 20, Color("ffd24d"), 25, body, true, 3)
 		button(Rect2(190, h - 130, 340, 84), "CLOSE", "mobile_close_detail", true, 32)
-		return
-	button(Rect2(80, h - 214, 175, 72), "< PREV", "page-1", false, 24, collection_page > 0)
-	var last_number = mini(items.size(), collection_page + visible)
-	txt("%d-%d / %d" % [mini(collection_page + 1, items.size()), last_number, items.size()], Vector2(360, h - 166), 22, Color.WHITE, 1, bold, 3)
-	button(Rect2(465, h - 214, 175, 72), "NEXT >", "page1", false, 24, collection_page < CollectionPaging.max_start(items.size(), visible))
-	button(Rect2(190, h - 120, 340, 84), "BACK", "back", true, 32)
 
 func paint_portrait_result() -> void:
 	var h = g.ui_height
@@ -1106,7 +1171,7 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 		cbox(Rect2(r.position + Vector2(r.size.x - 39, 7), Vector2(30, 30)), Color("06080d"), 7, rc, 2)
 		txt(str(index + 1), r.position + Vector2(r.size.x - 24, 30), 20, Color.WHITE, 1, bold)
 	# art (or the category icon painted on the card)
-	var art_r = Rect2(r.position + Vector2(12, 46), Vector2(r.size.x - 24, r.size.y * 0.4))
+	var art_r = Rect2(r.position + Vector2(12, 46), Vector2(r.size.x - 24, minf(r.size.x - 24, r.size.y * 0.53)))
 	card_art(art_r, info, rc)
 	# title + desc
 	var ty = art_r.end.y + 34
@@ -1565,7 +1630,7 @@ func select_collection_index(idx: int) -> void:
 
 func paint_collection() -> void:
 	paint_menu_bg()
-	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.7))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.78))
 	txt("COLLECTION", Vector2(640, 60), 52, Color.WHITE, 1, bold, 7)
 	var cats = g.categories.keys()
 	cats.append("weapons")
@@ -1573,61 +1638,62 @@ func paint_collection() -> void:
 	for c in cats:
 		var label = {"weapons": "GUNS"}.get(c, str(g.categories.get(c, c)))
 		var w = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 20
-		var r = Rect2(tx, 80, w, 32)
+		var rect = Rect2(tx, 80, w, 32)
 		var sel = c == collection_cat
-		var col = Color("ffd24d") if sel else CAT_COLOR
-		slant(r, col if sel else Color(col, 0.25), Color(0, 0, 0, 0), 8)
-		txt(label, r.get_center() + Vector2(0, 6), 16, Color("0a0e1a") if sel else Color.WHITE, 1, bold)
-		buttons.append({"rect": r, "action": "cat_" + c})
+		var color = Color("ffd24d") if sel else CAT_COLOR
+		slant(rect, color if sel else Color(color, 0.25), Color(0, 0, 0, 0), 8)
+		txt(label, rect.get_center() + Vector2(0, 6), 16, Color("0a0e1a") if sel else Color.WHITE, 1, bold)
+		buttons.append({"rect": rect, "action": "cat_" + c})
 		tx += w + 5
 	var items = get_collection_items()
 	if selected_collection_item == null or not items.has(selected_collection_item):
 		selected_collection_item = items[0] if not items.is_empty() else null
-	var per = CollectionPaging.window_size(false)
-	collection_page = clampi(collection_page, 0, CollectionPaging.max_start(items.size(), per))
-	var shown: Array = CollectionPaging.range_indices(items.size(), per, collection_page)
-	txt("BROWSE LEFT  /  RIGHT    •    NEXT ADVANCES ONE CARD", Vector2(30, 168), 19, Color("aec5de"), 0, bold)
+	var cols = CollectionGrid.columns(false)
+	var rows = CollectionGrid.visible_rows(false)
+	collection_page = CollectionGrid.clamp_row(items.size(), cols, rows, collection_page)
+	var shown = CollectionGrid.indices(items.size(), cols, rows, collection_page)
+	txt("SCROLL TO EXPLORE  /  SELECT ANY CARD  /  " + CollectionGrid.view_label(items.size(), cols, rows, collection_page),
+		Vector2(32, 165), 18, Color("b1cbdf"), 0, bold)
 	for i in range(shown.size()):
-		var k = int(shown[i])
-		# Four cards flow left to right; the details pane is reserved on the right.
-		var r2 = Rect2(30.0 + float(i) * 215.0, 206.0, 197.0, 350.0)
-		var info = collection_info(items[k])
-		mini_card(r2, info)
-		buttons.append({"rect": r2, "action": "select_card_%d" % k})
-		if r2.has_point(g.mouse_screen):
-			hover_card = items[k]
-	if shown.is_empty():
-		txt("NO CARDS IN THIS CATEGORY", Vector2(450, 375), 24, Color("aab7d2"), 1, bold)
+		var index = int(shown[i])
+		var col = i % cols
+		var row = int(i / cols)
+		var tile = Rect2(30.0 + col * 219.0, 198.0 + row * 219.0, 206.0, 207.0)
+		var item = items[index]
+		mini_card(tile, collection_info(item), item == selected_collection_item)
+		buttons.append({"rect": tile, "action": "select_card_%d" % index})
+		if tile.has_point(g.mouse_screen):
+			hover_card = item
+	if items.is_empty():
+		txt("NO CARDS IN THIS CATEGORY", Vector2(470, 390), 24, Color("aab7d2"), 1, bold)
+	collection_scrollbar(Rect2(908, 200, 9, 424), items.size(), cols, rows)
 	if hover_card == null and selected_collection_item != null:
 		hover_card = selected_collection_item
 	if hover_card != null:
-		draw_card(Rect2(940, 130, 300, 470), collection_info(hover_card), true, 1.0, -1)
+		draw_card(Rect2(944, 124, 296, 484), collection_info(hover_card), true, 1.0, -1)
 		if hover_card["type"] == "gun_new":
 			var d = g.weapon_db[hover_card["gun"]]
-			wrap_text("LV3: " + str(d["lv3"]), 960, 622, 280, 14, Color("ffd24d"), 18, body)
-			wrap_text("LV5: " + str(d["lv5"]), 960, 660, 280, 14, Color("ffd24d"), 18, body)
+			wrap_text("LV3: " + str(d["lv3"]), 950, 630, 294, 14, Color("ffd24d"), 17, body, false, 2)
+			wrap_text("LV5: " + str(d["lv5"]), 950, 667, 294, 13, Color("ffd24d"), 16, body, false, 2)
 	else:
-		txt("tap / hover a card", Vector2(1100, 360), 22, Color("6a7a98"), 1, bold)
-	button(Rect2(242, 638, 160, 56), "< PREVIOUS", "page-1", false, 20, collection_page > 0)
-	var last_number = mini(items.size(), collection_page + per)
-	txt("%d-%d / %d" % [mini(items.size(), collection_page + 1), last_number, items.size()], Vector2(450, 674), 21, Color.WHITE, 1, bold, 3)
-	button(Rect2(500, 638, 160, 56), "NEXT >", "page1", false, 20, collection_page < CollectionPaging.max_start(items.size(), per))
-	txt("%d cards  ·  %d guns" % [g.db_cards.size(), g.weapon_ids.size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
-	button(Rect2(1040, 660, 200, 48), "BACK", "back", true, 24)
+		txt("HOVER OR SELECT A CARD", Vector2(1095, 380), 20, Color("6a7a98"), 1, bold)
+	txt("%d cards  ·  %d guns   ·   MOUSE WHEEL / UP / DOWN" % [g.db_cards.size(), g.weapon_ids.size()],
+		Vector2(32, 667), 17, Color("9fb8d0"), 0, bold, 3)
+	button(Rect2(1028, 651, 215, 55), "BACK", "back", true, 24)
 
-func mini_card(r: Rect2, info: Dictionary) -> void:
+func mini_card(r: Rect2, info: Dictionary, selected: bool = false) -> void:
 	var rc: Color = RCOL[int(info["rar"])]
 	if bool(info.get("cursed", false)):
 		rc = Color("ff3a4a")
 	var hover = r.has_point(g.mouse_screen)
-	if hover:
-		r.position.y -= 6
-	rbox(Rect2(r.position + Vector2(0, 5), r.size), Color(0, 0, 0, 0.4), 14)
-	rbox(r, PANEL, 14, rc, 3 if hover else 2)
-	card_art(Rect2(r.position + Vector2(8, 8), Vector2(r.size.x - 16, 116)), info, rc)
-	var y = wrap_text(str(info["title"]).to_upper(), r.position.x + 6, r.position.y + 148, r.size.x - 12, 16, Color.WHITE, 18, bold, true, 2)
-	wrap_text(str(info["desc"]), r.position.x + 10, y + 8, r.size.x - 20, 13, Color("c6d3e5"), 17, body, true, 7)
-	txt(str(info.get("rarlabel", RARITY[int(info["rar"])])), Vector2(r.get_center().x, r.end.y - 9), 13, rc, 1, bold)
+	rbox(Rect2(r.position + Vector2(0, 4), r.size), Color(0, 0, 0, 0.48), 13)
+	rbox(r, Color("142139") if selected else PANEL, 13, Color("f3e600") if selected else rc, 3 if selected or hover else 2)
+	var art_h = minf(r.size.x - 18.0, r.size.y - 54.0)
+	card_art(Rect2(r.position + Vector2(8, 8), Vector2(r.size.x - 16, art_h)), info, rc)
+	var name = str(info["title"]).to_upper()
+	txt(name, Vector2(r.get_center().x, r.end.y - 29), fit(name, r.size.x - 16, 17, bold, 11), Color.WHITE, 1, bold, 2)
+	var rarity = str(info.get("rarlabel", RARITY[int(info["rar"])]))
+	txt(rarity, Vector2(r.get_center().x, r.end.y - 9), 12, rc, 1, bold)
 
 ## Tiny owned-card chip for the HUD strip: art, or category colour + icon.
 func mini_tile(r: Rect2, id: String) -> void:

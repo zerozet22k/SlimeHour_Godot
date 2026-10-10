@@ -15,7 +15,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.34"
+const GAME_VERSION = "v0.1.35"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -2550,6 +2550,12 @@ func _unhandled_input(event: InputEvent) -> void:
 						hud.bestiary_page += 1
 	if event is InputEventScreenTouch:
 		var p = hud.to_local(event.position)
+		if state == "collection":
+			if event.pressed:
+				hud.collection_touch_begin(event.index, p)
+			else:
+				hud.collection_touch_end(event.index, p)
+			return
 		if is_touch_active():
 			if event.pressed:
 				_touch_down(event.index, p)
@@ -2558,6 +2564,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.pressed:
 			hud.click(p)
 	elif event is InputEventScreenDrag:
+		if state == "collection":
+			hud.collection_touch_move(event.index, hud.to_local(event.position))
+			return
 		if is_touch_active():
 			var p = hud.to_local(event.position)
 			_touch_drag(event.index, p)

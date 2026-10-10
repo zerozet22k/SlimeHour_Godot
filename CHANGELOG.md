@@ -1,3 +1,12 @@
+## v0.1.35 — Collection grid, natural scrolling and corrected card art
+
+- Replace the desktop four-card horizontal sliding strip with an eight-card two-row gallery; retain category tabs and the fixed selected/hover detail pane.
+- Mouse wheel and arrow/PageUp/PageDown/Home/End keys scroll the full category vertically by row; a visible proportional scrollbar supports direct jumps; remove old Previous/Next paging controls.
+- Portrait collection now shows a two-column vertical gallery with touch swipe scrolling and a tap-to-expand details overlay, without sideways-clipped cards.
+- Scale all card art to *contain* its original aspect ratio inside its image frame; increase collection card art space and selected-card art height, avoiding the old squashed horizontal stretch.
+- The total item count and visible range are always shown; every one of the 300 cards and 22 guns remains reachable within its category.
+- Add grid reachability and aspect-ratio tests to the Windows release workflow.
+
 ## v0.1.34 — Twenty-two signature max-level weapon mechanics
 
 - Replace generic Level 5 damage splashes, multishot counts, reload triggers and extra ricochets with separate behavioral signatures for all 22 guns.
