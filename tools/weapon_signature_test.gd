@@ -46,6 +46,35 @@ func _run() -> void:
 		var flag = str(keyed[id])
 		check(not before["flags"].has(flag), id + ": no max-level signature at level 4")
 		check(after["flags"].has(flag), id + ": max-level behavior is armed at level 5")
+	# Evolution is a weapon mechanic, not a generic 20% rate change.
+	check(Weapons.EVOLUTION_DESCRIPTIONS.size() == 22, "All 22 weapons have distinctive evolution descriptions")
+	for id in g.weapon_db.keys():
+		var desc = Weapons.evolution_description(Weapons.new_gun(g, str(id)))
+		check(not desc.contains("count stays") and not desc.contains("Same "), str(id) + ": no misleading fixed-projectile evolution wording")
+	var cyclone = Weapons.new_gun(g, "smg")
+	cyclone["count"] = 6
+	var ordinary = Weapons.base_opts(g, cyclone, g.weapon_db["smg"])
+	cyclone["evolved"] = true
+	var evolved_cyclone = Weapons.base_opts(g, cyclone, g.weapon_db["smg"])
+	check(not ordinary["flags"].has("cyclone_tracer") and evolved_cyclone["flags"].has("cyclone_tracer"), "Cyclone X gains its own six-shot tracer")
+	check(int(evolved_cyclone["pierce"]) >= int(ordinary["pierce"]) + 2, "Cyclone X tracer penetrates two extra enemies")
+	var regular_shotgun = Weapons.new_gun(g, "shotgun")
+	var ordinary_pellets = Weapons.base_opts(g, regular_shotgun, g.weapon_db["shotgun"])
+	regular_shotgun["evolved"] = true
+	var breachmaster = Weapons.base_opts(g, regular_shotgun, g.weapon_db["shotgun"])
+	check(float(breachmaster["knock"]) > float(ordinary_pellets["knock"]), "Breachmaster visibly improves point-blank impact")
+	var rocket_upgrade = Weapons.new_gun(g, "rocket")
+	rocket_upgrade["evolved"] = true
+	check(Weapons.base_opts(g, rocket_upgrade, g.weapon_db["rocket"])["flags"].has("fire_puddle"), "Payload Zero ignites ground on impact")
+	var hydra_upgrade = Weapons.new_gun(g, "splitbow")
+	hydra_upgrade["evolved"] = true
+	check(Weapons.base_opts(g, hydra_upgrade, g.weapon_db["splitbow"])["flags"].has("frag_home"), "Evolved Hydra fragments track earlier")
+	var ion = g.add_zone("lightning", Vector2.ZERO, 14.0, 1.5, {"a": Vector2.ZERO, "b": Vector2(600, 0)})
+	check(absf(float(ion["life"]) - 1.5) < 0.01 and ion["a"].distance_to(ion["b"]) == 600.0, "Gauss ion field covers the real rail segment for 1.5 seconds")
+	var battle_code = FileAccess.get_file_as_string("res://scripts/Combat.gd")
+	var visual_code = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
+	check(battle_code.contains("field_radius") and battle_code.contains("seg_dist2(start, stop"), "Ion corridor checks segment width rather than just endpoints")
+	check(visual_code.contains("field_width") and visual_code.contains("draw_polyline(pts"), "Ion corridor visibly crackles for its entire lifetime")
 	# Stateful perfect catches reward skilled recall and reset after a miss.
 	var returner = Weapons.new_gun(g, "boomerang")
 	returner["lvl"] = 5
