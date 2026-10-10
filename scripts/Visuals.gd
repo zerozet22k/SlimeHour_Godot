@@ -59,6 +59,7 @@ func _draw() -> void:
 	shake_off = Vector2(sin(g.anim_t * 97.0), cos(g.anim_t * 83.0)) * g.shake
 	paint_road()
 	paint_ground()
+	paint_obstacles()
 	paint_gates()
 	paint_pickups()
 	paint_barrels()
@@ -232,6 +233,65 @@ func heart(p: Vector2, s: float, c: Color) -> void:
 	draw_circle(p + Vector2(-s * 0.45, -s * 0.2), s * 0.55, c)
 	draw_circle(p + Vector2(s * 0.45, -s * 0.2), s * 0.55, c)
 	draw_colored_polygon(PackedVector2Array([p + Vector2(-s, 0), p + Vector2(s, 0), p + Vector2(0, s * 1.05)]), c)
+
+## Static hazards are geometric art and actual colliders (RoadObstacles.gd).
+## World-to-screen mapping clips distant objects, so wider roads remain fast.
+func paint_obstacles() -> void:
+	for ob in g.obstacles:
+		var p: Vector2 = P(ob["pos"])
+		var radius = float(ob["radius"])
+		if p.y < g.view_top - 100.0 or p.y > g.view_bottom + 100.0:
+			continue
+		if p.x < g.landscape_left - 100.0 or p.x > g.landscape_left + g.landscape_width + 100.0:
+			continue
+		var kind = str(ob["kind"])
+		draw_ellipse_shadow(p, radius)
+		match kind:
+			"tree":
+				draw_circle(p + Vector2(0, 12), 15, Color("533a35"))
+				draw_rect(Rect2(p + Vector2(-8, -4), Vector2(16, 28)), Color("876043"))
+				draw_circle(p + Vector2(-10, -12), 25, Color("225c52"))
+				draw_circle(p + Vector2(14, -16), 22, Color("2f8966"))
+				draw_circle(p + Vector2(0, -27), 21, Color("48b879"))
+				draw_circle(p + Vector2(-14, -30), 8, Color("a8ef9e", 0.45))
+				draw_arc(p + Vector2(0, -17), radius, PI * 0.95, TAU * 0.95, 24, Color("78cba2"), 2.0)
+			"median":
+				draw_rect(Rect2(p + Vector2(-23, -33), Vector2(46, 66)), Color("37414b"))
+				draw_rect(Rect2(p + Vector2(-19, -29), Vector2(38, 58)), Color("efb953"))
+				for k in range(4):
+					draw_line(p + Vector2(-16, -24 + k * 14), p + Vector2(16, -12 + k * 14), Color("292c3c"), 7.0)
+				draw_rect(Rect2(p + Vector2(-23, -33), Vector2(46, 66)), Color("fff3b0", 0.3), false, 2.0)
+			"barrier":
+				draw_rect(Rect2(p + Vector2(-32, -16), Vector2(64, 32)), Color("373748"))
+				draw_rect(Rect2(p + Vector2(-30, -18), Vector2(60, 27)), Color("ff9e35"))
+				for k in range(3):
+					var x = -23.0 + k * 21.0
+					draw_colored_polygon(PackedVector2Array([p + Vector2(x, 8), p + Vector2(x + 9, 8), p + Vector2(x + 27, -17), p + Vector2(x + 18, -17)]), Color("fff6ce"))
+				draw_rect(Rect2(p + Vector2(-32, -18), Vector2(64, 28)), Color("673344"), false, 3.0)
+			"car":
+				var car_color = Color("6c85c9") if int(absi(roundi(p.y))) % 2 == 0 else Color("c56a66")
+				draw_rect(Rect2(p + Vector2(-28, -49), Vector2(56, 98)), Color("0b111f"))
+				for off in [-39.0, 27.0]:
+					draw_rect(Rect2(p + Vector2(-35, off), Vector2(70, 13)), Color("252b39"))
+				draw_rect(Rect2(p + Vector2(-27, -45), Vector2(54, 90)), car_color)
+				draw_rect(Rect2(p + Vector2(-22, -25), Vector2(44, 25)), Color("82cddd"))
+				draw_rect(Rect2(p + Vector2(-22, 13), Vector2(44, 23)), Color("335c78"))
+				draw_rect(Rect2(p + Vector2(-25, -42), Vector2(10, 8)), Color("ffe7b1"))
+				draw_rect(Rect2(p + Vector2(15, -42), Vector2(10, 8)), Color("ffe7b1"))
+				draw_rect(Rect2(p + Vector2(-25, 40), Vector2(12, 5)), Color("ff706b"))
+				draw_rect(Rect2(p + Vector2(13, 40), Vector2(12, 5)), Color("ff706b"))
+				draw_rect(Rect2(p + Vector2(-28, -49), Vector2(56, 98)), Color("b7d9ed", 0.6), false, 2.0)
+		if float(ob.get("hp", -1.0)) > 0.0:
+			var hpmax = 65.0 + g.sector * 3.0 if kind == "barrier" else 110.0 + g.sector * 5.0
+			var hpfrac = clampf(float(ob["hp"]) / hpmax, 0.0, 1.0)
+			if hpfrac < 0.95:
+				draw_rect(Rect2(p + Vector2(-31, -58), Vector2(62, 5)), Color("211d23"))
+				draw_rect(Rect2(p + Vector2(-31, -58), Vector2(62.0 * hpfrac, 5)), Color("ffae59"))
+
+func draw_ellipse_shadow(p: Vector2, r: float) -> void:
+	draw_set_transform(p + Vector2(3, 13), 0.0, Vector2(1.0, 0.55))
+	draw_circle(Vector2.ZERO, r + 5.0, Color(0, 0, 0, 0.31))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func paint_barrels() -> void:
 	for b in g.barrels:

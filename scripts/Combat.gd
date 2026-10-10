@@ -4,6 +4,7 @@ extends RefCounted
 
 const Effects = preload("res://scripts/Effects.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
+const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const CELL = 72.0
 const TOTEM_R = 230.0
@@ -295,6 +296,20 @@ static func update_shots(g, dt: float) -> void:
 		if absf(p.y - hero_pos.y) > 1000.0:
 			s["dead"] = true
 			continue
+		if not g.obstacles.is_empty():
+			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), g.obstacles)
+			if obstacle_idx >= 0:
+				var hazard: Dictionary = g.obstacles[obstacle_idx]
+				# Destructible car wrecks and barriers take full projectile damage.
+				if bool(s["friendly"]) and float(hazard["hp"]) > 0.0:
+					hazard["hp"] = float(hazard["hp"]) - float(s["dmg"])
+					if float(hazard["hp"]) <= 0.0:
+						g.spawn_burst(hazard["pos"], Color("ffaa64"), 13 if hazard["kind"] == "car" else 6, 220.0, 4.0)
+						g.sfx.play("boom" if hazard["kind"] == "car" else "thunk")
+						g.obstacles.remove_at(obstacle_idx)
+				ProjectileVfx.impact(g, s["pos"], s["vel"].normalized(), "heavy", 11.0)
+				s["dead"] = true
+				continue
 		if s["friendly"]:
 			collide_enemies(g, s)
 			if not bool(s["dead"]) and not g.barrels.is_empty():
@@ -1032,6 +1047,9 @@ static func update_enemies(g, dt: float) -> void:
 				if float(e["flung"]) > 0.0:
 					damage(g, e, kb_len * 0.04 * ss, false, {"gen": 2, "pos": p})
 			e["pos"] = p
+		# Dense trees, medians and parked traffic block monsters as well.
+		if not g.obstacles.is_empty():
+			e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
 		# Crowd separation runs for half the crowd each step (alternating); flung enemies always check.
