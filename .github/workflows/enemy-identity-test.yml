@@ -2,9 +2,10 @@ name: Test Enemy Identity and Mutation Separation
 on:
   push:
     branches:
-      - fix/separate-bestiary-monster-mechanics-20261010
+      - main
     paths:
       - scripts/**
+      - data/enemies.json
       - tools/enemy_identity_test.gd
       - tools/bestiary_test.gd
       - tools/boss_aggression_test.gd
@@ -36,6 +37,10 @@ jobs:
           chmod +x ./godot-ci
       - name: Parse scenes and load resources
         run: timeout 240 ./godot-ci --headless --path . --editor --import --quit
+      - name: Check core source parse
+        run: |
+          timeout 120 ./godot-ci --headless --path . --check-only --script res://scripts/Combat.gd
+          timeout 120 ./godot-ci --headless --path . --check-only --script res://scripts/EnemyIdentity.gd
       - name: Check Bestiary layout
         run: timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
       - name: Verify enemy attacks and mutation separation
