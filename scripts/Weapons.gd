@@ -855,8 +855,8 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
 	# Keep displayed laser geometry identical to the snake-card hit path.
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
-	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
-	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.22 if bool(w["evolved"]) else 1.0))
+	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.instant_reach_bonus(g, w)) * (1.0 + Compatibility.instant_reach_bonus(g, w))
+	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.22 if bool(w["evolved"]) else 1.0) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002)))
 	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.05, "w": width,
 			"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
@@ -952,7 +952,7 @@ static func next_chain_target(g, from: Vector2, seen: Dictionary) -> Variant:
 static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
-	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
+	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002)))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
 	var targets = line_targets(g, segments, width, max_hits)
@@ -961,7 +961,8 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 		Combat.damage_barrels_segment(g, segment["a"], segment["b"], width, dmg)
 	for target in targets:
 		var e = target["enemy"]
-		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
+		var distance_part = a.distance_to(e["pos"]) / maxf(1.0, length)
+		Combat.hit(g, e, dmg * Compatibility.instant_acceleration(g, w, distance_part), {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": 14.0, "src": w["id"], "pool": dmg_pool(g, w)})
 		ProjectileVfx.impact(g, e["pos"], target["dir"], "fire", 7.0)
 		if g.st("split") > 0 and randf() < 0.25:
 			Combat.fragments(g, e["pos"], int(g.st("split")), dmg * (0.4 + g.st("fragdmg")), "forward", target["dir"], 1, null, false, Color("d9b8ff"))
@@ -992,7 +993,7 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var lvl = int(w["lvl"])
-	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.support_bonus(g, w) * 0.8)
+	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.support_bonus(g, w) * 0.8 + Compatibility.instant_reach_bonus(g, w))
 	var first = null
 	var best = INF
 	for e in g.enemies_near(a, reach):
@@ -1064,19 +1065,19 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 			cur["stun"] = maxf(float(cur["stun"]), 0.12 if bool(cur["boss"]) else 0.65)
 			g.spawn_ring_fx(cur["pos"], Color("e4f7ff"), 58.0)
 			g.sfx.play_projectile("status", "shock", "", 0.5)
-		dmg *= 0.92
+		dmg *= 0.92 + minf(0.045, maxf(0.0, g.st("accel")) * 0.03)
 		cur = nxt
 	g.sfx.play("zap")
 
 static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	dir = dir.rotated(Compatibility.instant_sway(g, w))
-	var length = 1100.0
-	var width = 14.0 * (1.0 + g.st("size") * 0.5)
+	var length = 1100.0 * (1.0 + Compatibility.instant_reach_bonus(g, w))
+	var width = 14.0 * (1.0 + g.st("size") * 0.5) * (1.0 + minf(0.16, maxf(0.0, g.st("wave")) * 0.002))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var targets = line_targets(g, segments, width, 999)
 	for target in targets:
 		var e = target["enemy"]
-		Combat.hit(g, e, dmg, {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
+		Combat.hit(g, e, dmg * Compatibility.instant_acceleration(g, w, a.distance_to(e["pos"]) / maxf(1.0, length)), {"pos": e["pos"], "gen": 0, "dir": target["dir"], "knock": float(g.weapon_db["rail"]["knock"]), "src": "rail", "pool": dmg_pool(g, w)})
 		ProjectileVfx.pierce(g, e["pos"], target["dir"], "pierce")
 	var color = Color("ffd75e") if bool(w["evolved"]) else Color("8fe4ff")
 	for segment in segments:
