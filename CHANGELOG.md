@@ -1,3 +1,13 @@
+## v0.1.46 — Infinite Ammo and weapon-card compatibility
+
+- Preserve Infinite Ammo without consuming normal magazines, interrupting attacks, or restarting reloads when firing. Manual reload cannot reintroduce ammunition delays.
+- Reload-triggered cards (Fan the Hammer, Shell Shock, Kazoo) activate on rate-limited virtual magazine cycles under Infinite Ammo. Heatless max-level Prism Beam also supports reload-triggered cards; returning discs and boomerangs still require their real physical recall slots.
+- Returning weapons activate reload-related cards on successful catches without Infinite Ammo. Tactical Roll with Infinite Ammo grants a short +15% fire-rate bonus rather than an irrelevant instant refill.
+- Arc Caster translates extra wall bounces into up to two chain jumps, and Splinter/Cluster into up to two controlled electric forks.
+- Rocket and grenade ricochets produce bounded weaker secondary blast transfers; bubbles can link one weaker extra trap.
+- Excess pierce gains a capped payoff on Gauss Lance and returning weapons; Tight Choke reduces multishot fan spread even on zero-spread weapons.
+- Add targeted compatibility regressions and a Godot headless pull-request test workflow. Retain the v0.1.45 persistent in-place Windows updater.
+
 ## v0.1.45 — Persistent Windows in-game updater
 
 - FIX: The in-game installer previously placed updated Slime Hour files only in `%LOCALAPPDATA%\\SlimeHour\\versions\\vX.Y.Z` and launched that temporary copy. Restarting from the original desktop shortcut reopened the outdated executable and appeared to undo the update.
