@@ -1,3 +1,12 @@
+## v0.1.52 — Hype Totem shield aura actually protects nearby enemies
+
+- Fix Hype Totem's "SHIELDS NEARBY" aura: protected enemies now take **50% less direct damage and 50% less burn/poison/bleed damage-over-time**. Previously status ticks bypassed the shield, making it appear ineffective with several weapon builds.
+- Ensure a newly spawned Hype Totem protects allies immediately. Clear stale totem references when changing sectors or starting a new run; destroying or charming a totem immediately removes its protection.
+- Render a subtle blue protective outline on allied enemies within the 230-unit aura and an inexpensive shield-impact flash when attacks are absorbed. Clarify the totem's label and Bestiary counterplay description.
+- Overlapping Hype Totems **do not** stack their damage reduction; the totem itself is not protected.
+- Add `tools/hype_totem_aura_test.gd` to compatibility and Windows release suites. Combat regression and graphical-world smoke checks pass.
+- No weapon balance, mutation schedule, boss attacks or updater changes.
+
 ## v0.1.51 — Mutation Book and controlled per-run enemy fusions
 
 - Introduce **18 named mutations** as designed enemy fusions rather than randomly combining every pair of previously encountered monsters. Each inherits only a single anatomical feature, preserving the original face and readable silhouette.
