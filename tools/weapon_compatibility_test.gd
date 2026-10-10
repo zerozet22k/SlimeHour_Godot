@@ -29,7 +29,7 @@ func _run() -> void:
 	for c in cards:
 		g.card_by_id[str(c["id"])] = c
 	g.hero = {"pos": Vector2.ZERO, "hp": 100.0, "maxhp": 100.0, "moving": false, "aim": Vector2.RIGHT}
-	check(data.size() == 22 and Compatibility.CAPACITY.size() == 22 and Compatibility.VOLLEY_BUDGET.size() == 22, "All 22 weapons define a real resource cap and volley budget")
+	check(data.size() == 22 and Compatibility.CAPACITY.size() == 22 and Compatibility.VOLLEY_BUDGET.size() == 22 and Compatibility.OVERFLOW_SPECIALTY.size() == 22, "All 22 weapons define capacity, volley budgets and signature overflow")
 	check(cards.size() == 300, "All 300 cards retained")
 	check(int(g.card_by_id["hydra"]["rarity"]) == 3 and int(g.card_by_id["hydra"]["max"]) == 1, "Hydra is one-stack Legendary")
 	check(int(g.card_by_id["return_sender"]["rarity"]) == 3, "Return to Sender is Legendary")
@@ -42,12 +42,20 @@ func _run() -> void:
 		g.S["mag"] = 25.0
 		g.S["mult"] = 12.0
 		check(Weapons.mag_size(g, gun) <= Compatibility.cap(id), id + " stacks cannot bypass ammo cap")
-		check(Compatibility.resource_damage_bonus(g, gun) <= 0.30, id + " converts capped bonuses conservatively")
+		check(Compatibility.resource_damage_bonus(g, gun) <= 0.30 and Compatibility.support_bonus(g, gun) <= 0.25, id + " converts capped bonuses conservatively")
+		check(Compatibility.resource_damage_bonus(g, gun) > 0.0 or Compatibility.support_bonus(g, gun) > 0.0, id + " retains a meaningful magazine overflow benefit")
 		g.S.clear()
 	var revolver = Weapons.new_gun(g, "revolver")
 	g.S = {"mag": 0.5}
-	check(Weapons.mag_size(g, revolver) == 6, "6-shot revolver cylinder never expands")
+	check(Weapons.mag_size(g, revolver) == 6 and Compatibility.cap("revolver") == 6, "6-shot revolver cylinder never expands")
+	check(Compatibility.cap("rail") == 3, "Gauss Lance always has three charge cells")
+	check(Compatibility.cap("disc") == 6 and Compatibility.cap("boomerang") == 3, "Returning weapons obey distinct slot ceilings")
+	check(Compatibility.active_cap("bees") == 30 and Compatibility.active_cap("bubble") == 12, "Swarm and trap populations have distinct limits")
+	check(Compatibility.VOLLEY_BUDGET["shotgun"] == 14 and Compatibility.VOLLEY_BUDGET["grenade"] == 3, "Shotgun and grenade use distinct volley budgets")
 	check(Compatibility.resource_damage_bonus(g, revolver) > 0.0, "Excess magazine becomes small revolver damage")
+	check(Compatibility.heat_limit(g) > 3.0 and Compatibility.heat_limit(g) <= 4.5, "Prism Beam magazine cards extend heat reserve")
+	g.S["reload"] = 0.35
+	check(Compatibility.cooling_speed(g) > 1.0, "Reload cards improve beam cooling")
 	g.S.clear()
 	var disc = Weapons.new_gun(g, "disc")
 	g.guns = [disc]
@@ -75,4 +83,4 @@ func _run() -> void:
 	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")
 	g.free()
 	print("COMPATIBILITY + PROCEDURAL ENEMY TESTS: ", "PASS" if failed == 0 else "%d failures" % failed)
-	quit(0 if failed == 0 else 1)
+	quit(1 if failed > 0 else 0)
