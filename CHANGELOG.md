@@ -1,3 +1,9 @@
+## v0.1.18 — Final in-game updater validation
+
+- Add regression checks for in-game release discovery and integrity verification.
+- Validate the hidden PowerShell install-only route end to end using both full and content-addressed delta archives in CI.
+- Correct the installer script and projectile VFX parser defects caught during v0.1.17 development.
+
 ## v0.1.17 — In-game Windows updater
 
 - Check GitHub Releases inside the game and display a dedicated download interface, with the actual file size, MiB progress, verification, retry, and cancel controls.
