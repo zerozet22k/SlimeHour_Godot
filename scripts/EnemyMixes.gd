@@ -94,39 +94,103 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	}
 	return id
 
-static func allowed(base: Array, sector: int) -> bool:
-	# All hybrids unlock after 10 sectors. Both parent species must have appeared
-	# in an earlier sector; this guarantees "new basics first, combinations later".
-	if sector < 16:
-		return false
-	var available = 0
-	for name in base:
-		if usable(str(name)):
-			available += 1
-	return available >= 2
+## Encounter recipes, NOT an unrestricted random cross-product.
+## Normal: reveal one NEW fusion every four sectors from sector 16.
+## Hard: reveal one every two sectors, with higher encounter pressure.
+## Keep normal enemies dominant so progression is legible; all other pairs
+## remain constructible for debug and pre-existing bestiary data only.
+const FIRST_FUSION_SECTOR = 16
+const NORMAL_FUSION_SPACING = 4
+const HARD_FUSION_SPACING = 2
+const RECIPES = [
+	{"a": "zoomer", "b": "skitter", "name": "Volt Runner", "style": "flank"},
+	{"a": "spitter", "b": "sapper", "name": "Toxic Artillery", "style": "mine"},
+	{"a": "mirror", "b": "blob", "name": "Glass Slime", "style": "echo"},
+	{"a": "burrower", "b": "kaboomba", "name": "Fuse Mole", "style": "mine"},
+	{"a": "leech", "b": "zoomer", "name": "Blood Chaser", "style": "flank"},
+	{"a": "ashwing", "b": "spitter", "name": "Ember Spore", "style": "echo"},
+	{"a": "siren", "b": "mirror", "name": "Siren Echo", "style": "echo"},
+	{"a": "riot", "b": "bull", "name": "Bulwark Ram", "style": "mine"},
+	{"a": "mortar", "b": "sapper", "name": "Siege Architect", "style": "mine"},
+	{"a": "lancer", "b": "skitter", "name": "Needle Hunter", "style": "flank"},
+	{"a": "tick", "b": "leech", "name": "Parasite Brood", "style": "brood"},
+	{"a": "mama", "b": "chonk", "name": "Brood Bastion", "style": "brood"},
+	{"a": "blinky", "b": "mirror", "name": "Parallax Shade", "style": "echo"},
+	{"a": "mitosis", "b": "blob", "name": "Bloom Splitter", "style": "brood"},
+	{"a": "totem", "b": "riot", "name": "Ward Marshal", "style": "mine"},
+	{"a": "burrower", "b": "lancer", "name": "Tunnel Harpoon", "style": "flank"},
+	{"a": "ashwing", "b": "kaboomba", "name": "Phoenix Bomb", "style": "mine"},
+	{"a": "mama", "b": "mitosis", "name": "Brood Queen", "style": "brood"}
+]
 
-static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool = false, recent: Array = []) -> String:
+static func unlock_count(sector: int, hard_mode: bool = false) -> int:
+	if sector < FIRST_FUSION_SECTOR:
+		return 0
+	var interval = HARD_FUSION_SPACING if hard_mode else NORMAL_FUSION_SPACING
+	return mini(RECIPES.size(), 1 + int((sector - FIRST_FUSION_SECTOR) / interval))
+
+static func encounter_chance(sector: int, hard_mode: bool = false) -> float:
+	if sector < FIRST_FUSION_SECTOR:
+		return 0.0
+	var steps = maxi(0, sector - FIRST_FUSION_SECTOR)
+	if hard_mode:
+		# Hard becomes deliberately chaotic, without unloading every variant
+		# at once. At sector 40 ~46% of regular spawns may be hybrids.
+		return minf(0.56, 0.19 + steps * 0.011)
+	# Normal encounters begin rarely and grow gradually. 14% at sector 40.
+	return minf(0.25, 0.05 + steps * 0.00375)
+
+static func allowed(base: Array, sector: int) -> bool:
+	# Unlock no fusions before sector 16. Parental base species must have
+	# already debuted, so the player can recognize the ingredients.
+	if sector < FIRST_FUSION_SECTOR:
+		return false
+	var n = 0
+	for id in base:
+		if usable(str(id)):
+			n += 1
+	return n >= 2
+
+static func available_recipes(db: Dictionary, base: Array, sector: int, hard_mode: bool = false, limited_totems: bool = false) -> Array:
+	var out = []
 	if not allowed(base, sector):
-		return ""
-	var options = []
-	for name in base:
-		if not usable(str(name)) or not db.has(name) or bool(db[name].get("boss", false)):
+		return out
+	var count = unlock_count(sector, hard_mode)
+	for i in range(count):
+		var recipe: Dictionary = RECIPES[i]
+		var a = str(recipe["a"])
+		var b = str(recipe["b"])
+		# The caller supplies PREVIOUS-sector base species to avoid combining
+		# a monster in the same sector where it first appears.
+		if not base.has(a) or not base.has(b) or not db.has(a) or not db.has(b):
 			continue
-		if limited_totems and name == "totem":
+		if limited_totems and (a == "totem" or b == "totem"):
 			continue
-		options.append(name)
-	if options.size() < 2:
+		out.append(recipe)
+	return out
+
+static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool = false, recent: Array = [], hard_mode: bool = false) -> String:
+	var recipes = available_recipes(db, base, sector, hard_mode, limited_totems)
+	if recipes.is_empty():
 		return ""
-	# Bounded retries discourage the same combination appearing repeatedly.
-	# No N² atlas baking or ever-growing catalogue at startup.
-	var pick = ""
-	for attempt in range(14):
-		var first = randi_range(0, options.size() - 1)
-		var second = randi_range(0, options.size() - 2)
-		if second >= first:
-			second += 1
-		pick = id_for(str(options[first]), str(options[second]))
-		if not recent.has(pick):
-			break
-	var parts = pick.trim_prefix("mix_").split("_")
-	return ensure(db, str(parts[0]), str(parts[1]))
+	# A recently unlocked mutation is more likely to be recognized, but the
+	# previous recipes still exist. No unrestricted all-pairs RNG.
+	var indices: Array = []
+	for i in range(recipes.size()):
+		var recipe: Dictionary = recipes[i]
+		var id = id_for(str(recipe["a"]), str(recipe["b"]))
+		if not recent.has(id):
+			indices.append(i)
+	if indices.is_empty():
+		for i in range(recipes.size()):
+			indices.append(i)
+	var newest = recipes.size() - 1
+	var chosen = newest if indices.has(newest) and randf() < 0.42 else int(indices[randi() % indices.size()])
+	var picked: Dictionary = recipes[chosen]
+	var id = ensure(db, str(picked["a"]), str(picked["b"]))
+	if id != "":
+		# Authored fusion identity and one deliberate signature action. Raw
+		# ensure() still supports the full bestiary/debug cross-product.
+		db[id]["name"] = str(picked["name"])
+		db[id]["fusion_style"] = str(picked["style"])
+	return id
