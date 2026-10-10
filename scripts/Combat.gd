@@ -191,6 +191,7 @@ static func update_delayed(g, dt: float) -> void:
 						"kind": "enemy", "color": Color("ffc369"), "src": "Heli-Copter's guided missile"})
 					if missile != null:
 						missile["homing"] = 0.72 + float(item.get("stage", 0)) * 0.10
+						missile["boss_owner"] = int(missile_owner["id"])
 					g.sfx.play_projectile("boss_fire")
 			"boss_serpent_emerge":
 				var serpent: Dictionary = item.get("boss", {})
@@ -1047,6 +1048,20 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 		g.sfx.play("whoosh")
 		return
 	e["dead"] = true
+	# Setpieces and subordinate encounter actors must vanish with their owner.
+	# Otherwise the room can remain blocked by an orphaned pod or snake hatchling.
+	if bool(e.get("boss", false)):
+		var defeated_id: int = int(e["id"])
+		g.delayed = g.delayed.filter(func(h): return int(h.get("owner", -1)) != defeated_id)
+		for subordinate in g.enemies:
+			if subordinate == e:
+				continue
+			for owned_key in ["soul_owner", "royal_owner", "oracle_owner", "coil_owner", "engine_owner"]:
+				if int(subordinate.get(owned_key, -1)) == defeated_id:
+					subordinate["dead"] = true
+		for projectile in g.shots:
+			if int(projectile.get("boss_owner", -1)) == defeated_id:
+				projectile["dead"] = true
 	var pos: Vector2 = e["pos"]
 	var gen = int(ctx.get("gen", 0))
 	g.kills += 1
