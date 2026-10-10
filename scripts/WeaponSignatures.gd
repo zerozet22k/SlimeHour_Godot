@@ -21,10 +21,23 @@ static func projectile_hit(g, s: Dictionary, e: Dictionary, pos: Vector2) -> voi
 				g.spawn_ring_fx(pos, Color("ffc68e"), 42.0)
 		"smg":
 			if flags.has("suppress"):
-				e["slow"] = maxf(float(e["slow"]), 0.6)
-				if g.run_time >= float(e.get("suppress_fx", -1.0)):
-					e["suppress_fx"] = g.run_time + 0.6
-					g.spawn_ring_fx(pos, Color("79dfff"), 28.0)
+				e["slow"] = maxf(float(e["slow"]), 0.8)
+				# Level-five suppression is a visible periodic SHOCKWAVE, not
+				# an invisible slow on single victims. Gate it per weapon so
+				# high-rate SMG builds do not trigger a proc storm.
+				var owner = s.get("gun")
+				if owner != null and g.run_time >= float(owner.get("suppress_pulse_t", -1.0)):
+					owner["suppress_pulse_t"] = g.run_time + 0.55
+					var affected = 0
+					for nearby in g.enemies_near(pos, 100.0):
+						if bool(nearby["dead"]) or nearby == e:
+							continue
+						nearby["slow"] = maxf(float(nearby["slow"]), 0.55)
+						affected += 1
+						if affected >= 5:
+							break
+					g.spawn_ring_fx(pos, Color("79dfff"), 94.0)
+					g.sfx.play_projectile("status", "shock", "", 0.24)
 		"minigun":
 			if flags.has("vulcan_sweep") and g.run_time >= float(e.get("vulcan_lock", -1.0)):
 				e["vulcan_lock"] = g.run_time + 1.1
