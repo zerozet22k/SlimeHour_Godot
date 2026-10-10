@@ -1,3 +1,12 @@
+## v0.1.36 — Weapon resource identities and correct evolution bonuses
+
+- Evolution never adds a generic projectile to every gun: magazine guns gain firing speed, rockets and grenades gain blast radius, laser gains reach, minigun spools faster, and rail charges faster.
+- Razor Disc remains limited to two returning slots by default; Returner has one. Both wait for their blades to return rather than reloading. Evolution makes their recall travel 30% faster and increases damage, without increasing the number in flight.
+- Cinder's flamethrower is a real damage cone using fuel, not a stream of invisible 30Hz projectile colliders. Its transparent widening fire cone is drawn efficiently using one temporary graphic per fuel tick.
+- Cinder evolution adds 25% to reach and tank capacity; laser continues to use heat/overheat instead of an ammo magazine; rail retains a three-round charged magazine.
+- All 22 evolution descriptions now state the real weapon-specific bonuses in the level-up UI.
+- Add dedicated 22-gun resource/evolution regression tests to Windows CI.
+
 ## v0.1.35 — Collection grid, natural scrolling and corrected card art
 
 - Replace the desktop four-card horizontal sliding strip with an eight-card two-row gallery; retain category tabs and the fixed selected/hover detail pane.

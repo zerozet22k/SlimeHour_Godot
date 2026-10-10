@@ -1047,6 +1047,10 @@ func paint_gun_slot(w: Dictionary, i: int, pos: Vector2) -> void:
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * am, bar.size.y)), Color("4fe0ff"))
 		if kind != "beam":
 			txt("%d" % int(w["ammo"]), bar.position + Vector2(bar.size.x + 4, 9), 12, Color.WHITE, 0, bold, 2)
+		if kind in ["disc", "boomerang"]:
+			txt("READY", bar.position + Vector2(50, 9), 10, Color("d2ffd6"), 1, bold, 2)
+		elif kind == "flame":
+			txt("FUEL", bar.position + Vector2(50, 9), 10, Color("ffce85"), 1, bold, 2)
 
 func paint_touch_controls() -> void:
 	var h = g.hero
@@ -1136,7 +1140,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 				"art": g.tex("res://assets/weapons/%s.png" % w["id"]), "foot": "LV %d  >  LV %d" % [nl - 1, nl], "max": "", "icon": true}
 		"evolve":
 			var w2 = g.guns[int(o["slot"])]
-			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": "+30% TOTAL damage, +20% fire rate, +1 projectile, bigger golden shots.",
+			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2),
 				"rar": maxi(3, int(w2.get("tier", 0))), "cat": "EVOLUTION", "catc": CAT_COLOR, "art": g.tex("res://assets/weapons/%s.png" % w2["id"]),
 				"foot": str(g.weapon_db[w2["id"]]["name"]) + " is ready", "max": "", "icon": true}
 	return {}

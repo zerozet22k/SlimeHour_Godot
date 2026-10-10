@@ -246,7 +246,9 @@ static func update_shots(g, dt: float) -> void:
 							s["r"] = minf(g.projectile_size_cap(), float(s["r"]) * 2.0)
 				else:
 					var to_hero = hero_pos - s["pos"]
-					vel = vel.lerp(to_hero.normalized() * float(s["speed"]) * 1.15, minf(1.0, dt * 7.0))
+					var owner_gun = s.get("gun")
+					var return_bonus = 1.3 if owner_gun != null and bool(owner_gun.get("evolved", false)) else 1.0
+					vel = vel.lerp(to_hero.normalized() * float(s["speed"]) * 1.15 * return_bonus, minf(1.0, dt * 7.0))
 					WeaponSignatures.disc_recall(g, s, dt)
 					if to_hero.length() < 26.0:
 						catch(g, s, true)

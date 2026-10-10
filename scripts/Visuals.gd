@@ -1351,7 +1351,16 @@ func paint_beams() -> void:
 		var e = P(b["b"])
 		var c: Color = b["color"]
 		var w = float(b["w"])
-		if bool(b.get("zig", false)):
+		if bool(b.get("flame_stream", false)):
+			# Flame stream is ONE GPU-friendly cone, not scores of physics bullets.
+			var forward = (e - a).normalized()
+			var side = forward.orthogonal()
+			var fade = clampf(float(b["t"]) / 0.065, 0.0, 1.0)
+			var corners = PackedVector2Array([a, e + side * w, e - side * w])
+			draw_colored_polygon(corners, Color(c, 0.20 * fade))
+			draw_line(a, e, Color("ffd37a", 0.26 * fade), 6.0)
+			draw_arc(e, w * 0.55, forward.angle() - PI * 0.5, forward.angle() + PI * 0.5, 10, Color("ffba56", 0.42 * fade), 3.0)
+		elif bool(b.get("zig", false)):
 			zigzag(a, e, c, w)
 		elif bool(b.get("rail", false)):
 			var k = clampf(float(b["t"]) / 0.22, 0.0, 1.0)

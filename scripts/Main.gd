@@ -15,7 +15,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.35"
+const GAME_VERSION = "v0.1.36"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -2254,6 +2254,11 @@ func take_offer(o: Dictionary) -> void:
 		"evolve":
 			var w2 = guns[int(o["slot"])]
 			w2["evolved"] = true
+			# Fuel tank expansion preserves current fuel rather than refilling it.
+			var previous_max = int(w2["mag_max"])
+			w2["mag_max"] = Weapons.mag_size(self, w2)
+			if str(w2["id"]) == "flame":
+				w2["ammo"] = mini(int(w2["mag_max"]), int(w2["ammo"]) + int(w2["mag_max"]) - previous_max)
 			stats_dirty = true
 			flash_screen(Color("ffcf4d"), 0.4)
 			banner("EVOLVED!", Weapons.display_name(self, w2), 2.0)

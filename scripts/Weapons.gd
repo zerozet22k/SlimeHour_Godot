@@ -43,6 +43,8 @@ static func mag_size(g, w: Dictionary) -> int:
 	var m = float(d["mag"]) * (1.0 + g.st("mag") + wm(w, "mag"))
 	if w["id"] == "smg" and int(w["lvl"]) >= 3:
 		m *= 1.5
+	if k == "flame" and bool(w["evolved"]):
+		m *= 1.25
 	return maxi(1, roundi(m))
 
 ## Gun tier raises base damage/rate (like a higher-rarity unit), it is not a damage modifier.
@@ -50,6 +52,55 @@ const TIER_DMG = [1.0, 1.1, 1.22, 1.36, 1.55, 1.8]
 const TIER_RATE = [1.0, 1.03, 1.06, 1.1, 1.14, 1.2]
 const LEVEL_DMG = 0.15
 const EVOLVE_MORE = 1.3
+
+## Evolution enhances the gun's existing resource loop, not all guns with another projectile.
+const EVOLUTION_DESCRIPTIONS = {
+	"pistol": "+30% damage and +20% firing rate. Still one standard sidearm shot.",
+	"revolver": "+30% damage and +20% firing rate. The six-round cylinder stays.",
+	"shotgun": "+30% damage and +20% firing rate. Pellet count stays unchanged.",
+	"smg": "+30% damage and +20% firing rate. Bullet count stays unchanged.",
+	"minigun": "+30% damage and 30% faster spin-up. Same ammo consumption.",
+	"sniper": "+30% damage and +20% firing rate. Same accurate bullet.",
+	"rocket": "+30% damage and +20% blast radius. No extra rocket.",
+	"grenade": "+30% damage and +20% blast radius. No extra grenade.",
+	"laser": "+30% damage and +25% laser reach. Uses heat, not ammo.",
+	"tesla": "+30% damage and +25% initial chain reach.",
+	"flame": "+30% damage, +25% flame reach and +25% fuel tank.",
+	"disc": "+30% damage and 30% faster returns. Same in-flight disc slots.",
+	"boomerang": "+30% damage and 30% faster return. Same throw slots.",
+	"rail": "+30% damage and 20% faster charge. Same 3-shot magazine.",
+	"bees": "+30% damage and +20% firing rate. Same bees per volley.",
+	"bowling": "+30% damage and +20% firing rate. Same bowling balls.",
+	"nailgun": "+30% damage and +20% firing rate. Same nails per volley.",
+	"chicken": "+30% damage and +20% firing rate. Same chickens.",
+	"bubble": "+30% damage and +20% firing rate. Same trap bubbles.",
+	"pinball": "+30% damage and +20% firing rate. Same steel balls.",
+	"splitbow": "+30% damage and +20% firing rate. Same splitting bolt.",
+	"snow": "+30% damage and +20% firing rate. Same growing snowball."
+}
+static func evolution_description(w: Dictionary) -> String:
+	return str(EVOLUTION_DESCRIPTIONS.get(str(w["id"]), "+30% damage."))
+static func resource_type(g, w: Dictionary) -> String:
+	match kind_of(g, w):
+		"disc", "boomerang": return "RETURN"
+		"beam": return "HEAT"
+		"flame": return "FUEL"
+		"rail": return "CHARGE"
+		_: return "AMMO"
+static func flame_range(g, w: Dictionary) -> float:
+	return 195.0 * maxf(0.4, 1.0 + g.st("range")) * (1.4 if int(w["lvl"]) >= 3 else 1.0) * (1.25 if bool(w["evolved"]) else 1.0)
+static func flame_cone_contains(a: Vector2, dir: Vector2, point: Vector2, reach: float, half_angle: float, target_radius: float = 0.0) -> bool:
+	var offset = point - a
+	var distance = offset.length()
+	if distance > reach + target_radius:
+		return false
+	if distance <= target_radius + 15.0:
+		return true
+	if dir.length_squared() < 0.001:
+		return false
+	var radius_padding = asin(clampf(target_radius / maxf(1.0, distance), 0.0, 0.6))
+	return dir.normalized().dot(offset / distance) >= cos(half_angle + radius_padding)
+
 
 static func base_damage(g, w: Dictionary) -> float:
 	return float(g.weapon_db[w["id"]]["dmg"]) * TIER_DMG[clampi(int(w.get("tier", 0)), 0, 5)]
@@ -71,14 +122,14 @@ static func shot_damage(g, w: Dictionary) -> float:
 static func rail_charge_seconds(g, w: Dictionary) -> float:
 	# One wind-up is the only rate limit between individual Railgun shots.
 	var bonus = Characters.affinity(character_id(g), "rail", "rail_charge")
-	var speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5) * bonus
+	var speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5) * bonus * (1.2 if bool(w["evolved"]) else 1.0)
 	return 1.0 / maxf(0.2, speed)
 
 static func fire_rate(g, w: Dictionary) -> float:
 	var d = g.weapon_db[w["id"]]
 	var r = float(d["rate"]) * maxf(0.25, 1.0 + 0.06 * (int(w["lvl"]) - 1) + wm(w, "rate") + g.st("rate"))
 	r *= TIER_RATE[clampi(int(w.get("tier", 0)), 0, 5)]
-	if bool(w["evolved"]):
+	if bool(w["evolved"]) and str(d["kind"]) not in ["disc", "boomerang", "rail", "beam", "flame", "spin", "chain"]:
 		r *= 1.2
 	return r * Characters.affinity(character_id(g), str(w["id"]), "weapon_rate")
 
@@ -124,7 +175,7 @@ static func update(g, dt: float) -> void:
 		var gun_aim = aim_for_slot(g, i)
 		var muzzle = muzzle_pos(g, i)
 		if kind == "spin":
-			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3
+			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3 * (1.3 if bool(w["evolved"]) else 1.0)
 			if wm(w, "prespun") > 0:
 				w["spin"] = 1.0 if want else maxf(0.0, float(w["spin"]) - dt)
 			elif want and float(w["reload"]) <= 0.0:
@@ -212,8 +263,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		dmg *= 2.0 + g.st("bigshot")
 	var mult = int(g.st("mult"))
 	var pellets = int(d["pellets"]) + int(wm(w, "pellets"))
-	if bool(w["evolved"]) and kind not in ["disc", "boomerang"]:
-		pellets += 1
+	# Card-based multishot stays available; evolution never adds a generic projectile.
 	var n = pellets + mult
 	match kind:
 		"pellet":
@@ -252,7 +302,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 			else:
 				side = maxi(0, side - 1)
 		dmg *= float(before) / float(n * lines + rear + side * 2)
-	if g.shots.size() > g.shot_cap() - 40 and kind not in ["beam", "chain", "rail"]:
+	if g.shots.size() > g.shot_cap() - 40 and kind not in ["beam", "chain", "rail", "flame"]:
 		return
 	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
 	if w["id"] == "smg":
@@ -357,7 +407,7 @@ static func echo(g, item: Dictionary) -> void:
 static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 	var lvl = int(w["lvl"])
 	var evolved = bool(w["evolved"])
-	var size = float(d["size"]) * (1.0 + g.st("size") * 0.6 + wm(w, "size")) * (1.3 if evolved else 1.0)
+	var size = float(d["size"]) * (1.0 + g.st("size") * 0.6 + wm(w, "size")) * (1.3 if evolved and str(d["kind"]) not in ["beam", "flame", "rail"] else 1.0)
 	var o = {
 		"kind": str(d["kind"]), "speed": float(d["speed"]) * maxf(0.3, 1.0 + g.st("pspeed") + wm(w, "speed")),
 		"life": float(d["life"]) * maxf(0.3, 1.0 + g.st("range") + wm(w, "life")), "r": size,
@@ -466,6 +516,8 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"boomerang":
 			if lvl >= 5:
 				flags["momentum_catch"] = true
+	if evolved and w["id"] in ["rocket", "grenade"]:
+		o["blast"] *= 1.2
 	if wm(w, "critpierce") > 0:
 		flags["critpierce"] = true
 	return o
@@ -485,13 +537,14 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 		"rail":
 			fire_rail(g, w, pos, dir, dmg)
 			return
+		"flame":
+			fire_flame(g, w, pos, dir, dmg)
+			return
 	var o = eopts["o"].duplicate() if eopts.has("o") else base_opts(g, w, d)
 	o["vfx_pattern"] = str(eopts.get("pattern", ""))
 	if kind == "pellet":
 		o["speed"] *= randf_range(0.82, 1.15)
 		o["life"] *= randf_range(0.85, 1.1)
-	if kind == "flame":
-		o["speed"] *= randf_range(0.8, 1.2)
 	if kind == "bees":
 		# Bee bullets are true homing bee actors, not generic straight projectiles.
 		o["kind"] = "bee"
@@ -505,6 +558,28 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 	if kind == "bubble":
 		o["flags"]["trapped"] = 0
 	Combat.shot(g, pos, dir, dmg, o)
+
+static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, damage: float) -> void:
+	# A true continuous area cone: NO flame bullet entities in Combat.shot().
+	# Each fuel tick tests nearby enemies once, not 30 short-lived colliders.
+	var reach = flame_range(g, w)
+	var half_angle = maxf(0.12, 0.23 * (1.0 + g.st("spreadp") * 0.35))
+	var hits = 0
+	for enemy in g.enemies_near(origin, reach + 30.0):
+		if bool(enemy["dead"]) or float(enemy.get("charm", 0.0)) > 0.0:
+			continue
+		if not flame_cone_contains(origin, direction, enemy["pos"], reach, half_angle, float(enemy["r"])):
+			continue
+		Combat.hit(g, enemy, damage, {"pos": enemy["pos"], "gen": 0, "dir": direction,
+			"knock": 8.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w)})
+		hits += 1
+		if hits >= 24:
+			break
+	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.065,
+		"w": reach * tan(half_angle), "color": Color("ff9d4d"), "flame_stream": true})
+	# The Dragon mastery still ignites occasional ground fires.
+	if wm(w, "dragon") > 0.0 and randf() < 0.015:
+		g.add_zone("fire", origin + direction * reach * 0.75, 34.0, 2.0)
 
 static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzzle: Vector2, aim: Vector2) -> void:
 	var lvl = int(w["lvl"])
@@ -537,7 +612,7 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 	volley(g, w, slot, muzzle, aim, {})
 
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
-	var length = 560.0 * (1.0 + g.st("range"))
+	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
 	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.05, "w": width,
@@ -632,7 +707,7 @@ static func next_chain_target(g, from: Vector2, seen: Dictionary) -> Variant:
 	return nearest
 
 static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
-	var length = 560.0 * (1.0 + g.st("range"))
+	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
 	var max_hits = 1 + int(g.st("pierce")) + int(wm(w, "pierce")) + int(g.weapon_db[w["id"]]["pierce"])
@@ -667,7 +742,7 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 
 static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	var lvl = int(w["lvl"])
-	var reach = 330.0 * (1.0 + g.st("range"))
+	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
 	var first = null
 	var best = INF
 	for e in g.enemies_near(a, reach):
