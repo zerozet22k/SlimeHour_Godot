@@ -1,3 +1,11 @@
+## v0.1.12 — Clear, safe Windows download progress
+
+- Replace PowerShell's misleading "Writing web request stream" display with accurate file names, MiB transferred and percentage.
+- Stream downloads into temporary files; reject content whose length differs from GitHub's published asset size.
+- Reject patch metadata larger than 4 KiB, preventing unexpected huge downloads when fetching a tiny JSON file.
+- Preserve SHA256 verification, safe staging, and compatible-patch/full-download fallback.
+- CI now verifies that the production downloader fetches actual release metadata with the expected size.
+
 ## v0.1.11 — Ultrawide fullscreen and volley art
 
 - Landscape windows now use the actual horizontal display width for both menus and gameplay, without distorting sprites or changing normal 16:9 proportions.

@@ -5,7 +5,8 @@
 param(
     [string]$ApplyOnly = '',
     [string]$BaseDirectory = '',
-    [string]$TargetDirectory = ''
+    [string]$TargetDirectory = '',
+    [switch]$ProbeDownload
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'Continue'
@@ -140,9 +141,89 @@ function Download-Asset([object]$asset, [string]$destination, [int]$timeout = 18
         [string]$asset.browser_download_url -notmatch '^https://github\.com/') {
         throw 'Required GitHub release asset is missing or unsafe.'
     }
-    $mb = [Math]::Round([double]$asset.size / 1MB, 1)
-    Write-Host "Downloading $($asset.name) ($mb MB)..."
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $destination -TimeoutSec $timeout -UseBasicParsing
+    $name = [string]$asset.name
+    $expected = [long]$asset.size
+    if ($expected -le 0) { throw "Release asset $name has an invalid size." }
+    # Metadata must NEVER be allowed to download hundreds of megabytes.
+    if ($name -eq $deltaMetaName -and $expected -gt 4096) {
+        throw "Patch metadata is unexpectedly large ($expected bytes)."
+    }
+    if ($expected -lt 1MB) {
+        Write-Host ("Fetching {0} ({1} bytes)..." -f $name, $expected)
+    }
+    else {
+        Write-Host ("Downloading {0} ({1:N1} MiB)..." -f $name, ($expected / 1MB))
+    }
+
+    # Stream a GET instead of Invoke-WebRequest's misleading 'Writing web
+    # request stream' progress. No complete ZIP is stored in memory.
+    $partial = $destination + '.part'
+    $response = $null
+    $inputStream = $null
+    $outputStream = $null
+    $received = [long]0
+    $finished = $false
+    try {
+        if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
+        $request = [System.Net.WebRequest]::Create([Uri][string]$asset.browser_download_url)
+        $request.Method = 'GET'
+        $request.AllowAutoRedirect = $true
+        $request.MaximumAutomaticRedirections = 5
+        $request.UserAgent = 'SlimeHour-Updater/1.1'
+        $request.Timeout = [int][Math]::Min([Math]::Max($timeout * 1000.0, 15000), 90000)
+        $request.ReadWriteTimeout = 60000
+        $response = $request.GetResponse()
+        if ([int]$response.StatusCode -ne 200) {
+            throw "Unexpected HTTP status while downloading: $($response.StatusCode)"
+        }
+        if ([long]$response.ContentLength -gt 0 -and
+            [long]$response.ContentLength -ne $expected) {
+            throw "Server returned an unexpected download size for $name."
+        }
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [IO.File]::Open($partial, [IO.FileMode]::CreateNew,
+                                        [IO.FileAccess]::Write, [IO.FileShare]::None)
+        $buffer = New-Object byte[] 65536
+        $lastUpdate = [DateTime]::UtcNow.AddSeconds(-1)
+        while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $received += [long]$count
+            if ($received -gt $expected) {
+                throw "Received more bytes than GitHub advertised for $name."
+            }
+            if ($name -eq $deltaMetaName -and $received -gt 4096) {
+                throw 'Patch metadata exceeded 4 KiB. Aborting.'
+            }
+            $outputStream.Write($buffer, 0, $count)
+            if ($expected -ge 1MB -and
+                ([DateTime]::UtcNow - $lastUpdate).TotalMilliseconds -ge 250) {
+                $percent = [int][Math]::Floor(100.0 * $received / $expected)
+                $status = ("{0}: {1:N1} / {2:N1} MiB ({3}%)" -f
+                    $name, ($received / 1MB), ($expected / 1MB), $percent)
+                Write-Progress -Id 1 -Activity 'Slime Hour download' -Status $status -PercentComplete $percent
+                $lastUpdate = [DateTime]::UtcNow
+            }
+        }
+        if ($received -ne $expected) {
+            throw ("Download incomplete for {0}: got {1} of {2} bytes." -f $name, $received, $expected)
+        }
+        $finished = $true
+    }
+    finally {
+        if ($null -ne $outputStream) { $outputStream.Dispose() }
+        if ($null -ne $inputStream) { $inputStream.Dispose() }
+        if ($null -ne $response) { $response.Close() }
+        if ($expected -ge 1MB) {
+            Write-Progress -Id 1 -Activity 'Slime Hour download' -Completed
+        }
+        if (-not $finished -and (Test-Path -LiteralPath $partial)) {
+            Remove-Item -LiteralPath $partial -Force
+        }
+    }
+    if (Test-Path -LiteralPath $destination) {
+        Remove-Item -LiteralPath $destination -Force
+    }
+    Move-Item -LiteralPath $partial -Destination $destination
+    Write-Host ("Downloaded {0} ({1:N1} MiB; size verified)." -f $name, ($received / 1MB))
 }
 
 function Download-Verified([object]$release, [string]$name, [string]$dir) {
@@ -184,6 +265,30 @@ $exeName = [string]$config.executable
 if ($repo -notmatch '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$' -or
     $assetName -notmatch '^[a-zA-Z0-9_.-]+\.zip$' -or $exeName -cne 'SlimeHour.exe') {
     throw 'Invalid public GitHub release updater configuration.'
+}
+# CI tests the production downloader against the actual tiny GitHub JSON.
+# This never installs or changes a game executable.
+if ($ProbeDownload) {
+    $probeTemp = Join-Path ([IO.Path]::GetTempPath()) ("slime-hour-probe-" + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        $headers = @{ 'User-Agent' = 'SlimeHour-Launcher'; 'Accept' = 'application/vnd.github+json' }
+        $probeRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers $headers -TimeoutSec 25
+        $probeAsset = Find-Asset $probeRelease $deltaMetaName
+        if ($null -eq $probeAsset) { throw 'Latest release has no delta metadata asset.' }
+        Download-Asset $probeAsset $probeTemp 40
+        if ([long](Get-Item -LiteralPath $probeTemp).Length -ne [long]$probeAsset.size) {
+            throw 'Metadata probe downloaded the wrong number of bytes.'
+        }
+        $metadata = Get-Content -LiteralPath $probeTemp -Raw | ConvertFrom-Json
+        if (-not $metadata.base_version -or -not $metadata.target_version) {
+            throw 'Metadata probe did not return a valid patch description.'
+        }
+        Write-Host 'PASS: GitHub delta metadata downloaded with exact advertised size.'
+    }
+    finally {
+        if (Test-Path -LiteralPath $probeTemp) { Remove-Item -LiteralPath $probeTemp -Force }
+    }
+    exit 0
 }
 if (-not $env:LOCALAPPDATA) { $env:LOCALAPPDATA = [IO.Path]::GetTempPath() }
 $installRoot = Join-Path $env:LOCALAPPDATA 'SlimeHour'
