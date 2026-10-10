@@ -87,7 +87,13 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 static func allowed(base: Array, sector: int) -> bool:
 	# All hybrids unlock after 10 sectors. Both parent species must have appeared
 	# in an earlier sector; this guarantees "new basics first, combinations later".
-	return sector >= 16 and base.filter(func(id): return usable(str(id))).size() >= 2
+	if sector < 16:
+		return false
+	var available = 0
+	for name in base:
+		if usable(str(name)):
+			available += 1
+	return available >= 2
 
 static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool = false, recent: Array = []) -> String:
 	if not allowed(base, sector):
