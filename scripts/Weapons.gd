@@ -478,7 +478,7 @@ static func line_segments(g, from: Vector2, direction: Vector2, length: float, b
 	# Avoid zero-length tracer/hit segments when aim is temporarily unset.
 	if length <= 0.1 or direction.length_squared() < 0.000001:
 		return segments
-	var wall = float(g.ROAD_HALF) - 5.0
+	var wall = float(g.road_half) - 5.0
 	var start = Vector2(clampf(from.x, -wall, wall), from.y)
 	var dir = direction.normalized()
 	var remaining = length

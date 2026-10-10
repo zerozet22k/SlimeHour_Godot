@@ -7,12 +7,18 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
+const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const GAME_VERSION = "v0.1.10"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
 const DESIGN = Vector2(1280, 720)
 const ROAD_HALF = 530.0
+var road_half = ROAD_HALF
+var landscape_width = 1280.0
+var landscape_left = 0.0
+func landscape_rect() -> Rect2:
+	return Rect2(landscape_left, 0.0, landscape_width, 720.0)
 const SECTOR_LEN = 4800.0
 const HERO_SCREEN_Y = 470.0
 const MAX_ENEMIES = 200
@@ -299,6 +305,9 @@ func _process(delta: float) -> void:
 	portrait = vp.y > vp.x * 1.1
 	var k: float
 	if portrait:
+		road_half = ROAD_HALF
+		landscape_width = 1280.0
+		landscape_left = 0.0
 		k = vp.x / 720.0
 		ui_height = vp.y / k
 		view_top = 360.0 - ui_height * 0.5
@@ -308,7 +317,10 @@ func _process(delta: float) -> void:
 		hud.scale = Vector2.ONE * k
 		hud.position = Vector2.ZERO
 	else:
-		k = minf(vp.x / DESIGN.x, vp.y / DESIGN.y)
+		k = ScreenFit.landscape_scale(vp)
+		landscape_width = ScreenFit.canvas_width(vp)
+		landscape_left = ScreenFit.canvas_left(vp)
+		road_half = ScreenFit.road_half(vp)
 		ui_height = 720.0
 		view_top = 0.0
 		view_bottom = 720.0
@@ -365,7 +377,7 @@ func _process(delta: float) -> void:
 				focus = killer_ref["pos"]
 		var target = focus.y - hero_offset()
 		cam_y = lerpf(cam_y, target, 1.0 - exp(-7.0 * cdt))
-		var side_limit = maxf(0.0, ROAD_HALF - 360.0 + 28.0)
+		var side_limit = maxf(0.0, road_half - 360.0 + 28.0)
 		var target_x = clampf(float(focus.x), -side_limit, side_limit) if portrait else 0.0
 		cam_x = lerpf(cam_x, target_x, 1.0 - exp(-7.0 * cdt))
 	shake = maxf(0.0, shake - delta * 30.0)
@@ -585,7 +597,7 @@ func begin_sector() -> void:
 	gates.clear()
 	barrels.clear()
 	for i in range(6 + mini(sector, 8)):
-		spawn_barrel(Vector2(randf_range(-ROAD_HALF + 50, ROAD_HALF - 50), sector_start_y - randf_range(350, SECTOR_LEN - 150)))
+		spawn_barrel(Vector2(randf_range(-road_half + 50, road_half - 50), sector_start_y - randf_range(350, SECTOR_LEN - 150)))
 	if route.get("heal", 0) > 0:
 		heal(hero["maxhp"] * float(route["heal"]))
 	var title = "SECTOR %d" % sector
@@ -701,7 +713,7 @@ func move_hero(dt: float) -> void:
 
 func clamp_hero() -> void:
 	var p: Vector2 = hero["pos"]
-	var half = ROAD_HALF - 18.0
+	var half = road_half - 18.0
 	p.x = clampf(p.x, -half, half)
 	# Walk anywhere in this sector; the barrier behind the sector start blocks the previous one.
 	front_y = minf(front_y, p.y)
@@ -1026,7 +1038,7 @@ func update_director(dt: float) -> void:
 		var behind = randf() < 0.14
 		var edge = maxf(420.0, ui_height * 0.5 + 80.0)
 		var y = cam_y - edge - randf_range(0, 160) if not behind else cam_y + edge + randf_range(0, 80)
-		spawn_enemy(pick_enemy(), Vector2(randf_range(-ROAD_HALF + 30, ROAD_HALF - 30), y))["budget"] = true
+		spawn_enemy(pick_enemy(), Vector2(randf_range(-road_half + 30, road_half - 30), y))["budget"] = true
 		alive += 1
 	# The crowd rush: a horde streams down the road.
 	if not rush_done and (p > 0.45 or sector_time > 30.0):
@@ -1039,7 +1051,7 @@ func update_director(dt: float) -> void:
 	if rush_queue > 0 and enemies.size() < rush_cap:
 		for i in range(mini(rush_queue, 6)):
 			var kind = "zoomer" if randf() < 0.3 else ("blob" if randf() < 0.8 else "kaboomba")
-			spawn_enemy(kind, Vector2(randf_range(-ROAD_HALF + 25, ROAD_HALF - 25), cam_y - maxf(400.0, ui_height * 0.5 + 80.0) - randf_range(0, 120)))["budget"] = true
+			spawn_enemy(kind, Vector2(randf_range(-road_half + 25, road_half - 25), cam_y - maxf(400.0, ui_height * 0.5 + 80.0) - randf_range(0, 120)))["budget"] = true
 			rush_queue -= 1
 	# Buff gates: classic pick-a-door, applies for the rest of the sector.
 	goblin_t -= dt * (1.0 + st("goblins") * 1.5)

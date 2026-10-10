@@ -265,13 +265,13 @@ static func update_shots(g, dt: float) -> void:
 		s["pos"] += step_v
 		# ---- road walls
 		var p: Vector2 = s["pos"]
-		if absf(p.x) > g.ROAD_HALF - 4.0:
+		if absf(p.x) > g.road_half - 4.0:
 			if int(s["bounce"]) > 0 or kind in ["disc", "boomerang", "saw", "chicken", "bubble", "bee", "grenade", "egg"]:
 				if int(s["bounce"]) > 0:
 					s["bounce"] = int(s["bounce"]) - 1
 				vel.x = -vel.x
 				s["vel"] = vel
-				p.x = clampf(p.x, -g.ROAD_HALF + 5.0, g.ROAD_HALF - 5.0)
+				p.x = clampf(p.x, -g.road_half + 5.0, g.road_half - 5.0)
 				s["pos"] = p
 				on_wall(g, s)
 			elif kind == "car":
@@ -986,8 +986,8 @@ static func update_enemies(g, dt: float) -> void:
 		e["kb"] = e["kb"] * exp(-5.5 * dt)
 		# Road walls
 		var p: Vector2 = e["pos"]
-		if absf(p.x) > g.ROAD_HALF - float(e["r"]):
-			p.x = signf(p.x) * (g.ROAD_HALF - float(e["r"]))
+		if absf(p.x) > g.road_half - float(e["r"]):
+			p.x = signf(p.x) * (g.road_half - float(e["r"]))
 			if kb_len > 200.0:
 				e["kb"].x = -e["kb"].x * 0.6
 				if float(e["flung"]) > 0.0:
@@ -1474,9 +1474,9 @@ static func anvil(g, dmg: float, r: float, piano: bool, gen: int) -> void:
 static func airstrike(g, n: int, dmg: float, gen: int) -> void:
 	var y = g.hero["pos"].y - randf_range(180, 300)
 	for i in range(n):
-		var x = -g.ROAD_HALF + 60.0 + (g.ROAD_HALF * 2.0 - 120.0) * float(i) / maxf(1.0, float(n - 1))
+		var x = -g.road_half + 60.0 + (g.road_half * 2.0 - 120.0) * float(i) / maxf(1.0, float(n - 1))
 		g.delayed.append({"t": 0.5 + i * 0.07, "fn": "airbomb", "pos": Vector2(x, y + randf_range(-30, 30)), "dmg": dmg, "gen": gen, "tele": 70.0, "life": 0.5 + i * 0.07})
-	g.fx.append({"kind": "jet", "pos": Vector2(-g.ROAD_HALF - 100, y), "vel": Vector2(2400, 0), "t": 0.0, "life": 0.9, "color": Color.WHITE, "size": 30.0})
+	g.fx.append({"kind": "jet", "pos": Vector2(-g.road_half - 100, y), "vel": Vector2(2400, 0), "t": 0.0, "life": 0.9, "color": Color.WHITE, "size": 30.0})
 	g.sfx.play("whoosh")
 
 static func blackhole(g, pos: Vector2, r: float, t: float, weak: bool) -> void:
@@ -1497,7 +1497,7 @@ static func spikes(g, pos: Vector2, n: int, dmg: float, gen: int) -> void:
 static func clown_car(g, dmg: float, gen: int) -> void:
 	var from_left = randf() < 0.5
 	var y = g.hero["pos"].y - randf_range(120, 300)
-	var x = -g.ROAD_HALF - 40.0 if from_left else g.ROAD_HALF + 40.0
+	var x = -g.road_half - 40.0 if from_left else g.road_half + 40.0
 	var s = shot(g, Vector2(x, y), Vector2.RIGHT if from_left else Vector2.LEFT, dmg,
 		{"kind": "car", "speed": 560.0, "life": 2.4, "r": 30.0, "pierce": 999, "knock": 900.0, "gen": gen, "color": Color("ff5a8a"), "flags": {"fling": true}})
 	g.sfx.play("honk")
@@ -1792,9 +1792,9 @@ static func update_allies(g, dt: float) -> void:
 			"saw":
 				p["pos"] += p["vel"] * dt
 				var sp2: Vector2 = p["pos"]
-				if absf(sp2.x) > g.ROAD_HALF - 14.0:
+				if absf(sp2.x) > g.road_half - 14.0:
 					p["vel"].x = -p["vel"].x
-					sp2.x = clampf(sp2.x, -g.ROAD_HALF + 14.0, g.ROAD_HALF - 14.0)
+					sp2.x = clampf(sp2.x, -g.road_half + 14.0, g.road_half - 14.0)
 				var top = g.cam_y - 330.0
 				var bottom = g.cam_y + 330.0
 				if sp2.y < top or sp2.y > bottom:
