@@ -512,7 +512,7 @@ func card_art(r: Rect2, info: Dictionary, rc: Color) -> void:
 func card_tile(r: Rect2, id: String) -> void:
 	var c = g.card_by_id[id]
 	var rc: Color = RCOL[int(c["rarity"])]
-	var art = g.tex("res://assets/cards/%s.png" % id)
+	var art = (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id))
 	if art != null:
 		rbox(r, Color("0d1428"), 12)
 		draw_texture_rect(art, r.grow(-3), false)
@@ -988,7 +988,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var owned_view = bool(o.get("owned_view", false))
 			var foot = "NEW" if have == 0 else ("OWNED x%d / %d" % [have, int(c["max"])] if owned_view else "x%d » x%d" % [have, have + 1])
 			return {"title": c["name"], "desc": c["desc"], "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
-				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": g.tex("res://assets/cards/%s.png" % o["id"]), "foot": foot,
+				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": (g.tex("res://assets/cards/%s.webp" % o["id"]) if str(o["id"]) in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % o["id"])), "foot": foot,
 				"stack": Effects.stack_preview(g, str(o["id"]), owned_view),
 				"max": "MAX %d" % int(c["max"]), "cursed": c.get("cursed", false), "icon": false}
 		"gun_new":
@@ -1071,7 +1071,7 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 		txt(foot + ("!" if is_new else ""), Vector2(r.end.x - 14, r.end.y - 17), fit(foot, r.size.x - cw - 40, 15, bold, 10), Color("7dff9a") if is_new else Color("ffd24d"), 2, bold, 3)
 
 func paint_levelup() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, minf(0.78, g.offer_t * 3.0)))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, minf(0.78, g.offer_t * 3.0)))
 	var chest = g.offer_mode == "chest"
 	var head = "TREASURE!" if chest else "LEVEL UP!"
 	var hc = Color("ffd24d") if chest else Color("d6a8ff")
@@ -1102,7 +1102,7 @@ func paint_levelup() -> void:
 	txt("Tap card to pick   ·   R reroll   ·   X skip" if g.is_touch_active() else "1-%d pick   ·   R reroll   ·   X skip   ·   TAB peek at your build" % n, Vector2(640, 690), 15, Color("9fb8d0"), 1, body, 3)
 
 func paint_replace() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.8))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.8))
 	txt("YOUR HANDS ARE FULL", Vector2(640, 90), 48, Color("ffd24d"), 1, bold, 7)
 	txt("drop a gun for the new one", Vector2(640, 122), 18, Color.WHITE, 1, bold, 4)
 	draw_card(Rect2(515, 150, 250, 380), offer_info({"type": "gun_new", "gun": g.replace_gun, "tier": g.replace_tier}), false, 1.0, -1)
@@ -1113,7 +1113,7 @@ func paint_replace() -> void:
 
 # ================================================================= arsenal
 func paint_arsenal() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.88))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.88))
 	txt("ARSENAL", Vector2(640, 64), 48, Color.WHITE, 1, bold, 7)
 	# guns
 	for i in range(g.guns.size()):
@@ -1187,12 +1187,12 @@ func paint_arsenal() -> void:
 
 # ================================================================= menus
 func paint_menu_bg() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color("07080f"))
+	draw_rect(g.landscape_rect(), Color("07080f"))
 	var art = g.tex("res://assets/ui/title.png")
 	if art != null:
 		var drift = sin(g.anim_t * 0.2) * 12.0
-		draw_texture_rect(art, Rect2(-20 + drift, -12, 1320, 744), false, Color(0.6, 0.6, 0.7))
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.35))
+		draw_texture_rect(art, Rect2(g.landscape_left - 20.0 + drift, -12, g.landscape_width + 40.0, 744), false, Color(0.6, 0.6, 0.7))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.35))
 	# A conga line of blobs running across the bottom.
 	for i in range(9):
 		var x = fposmod(g.anim_t * 120.0 + i * 160.0, 1440.0) - 80.0
@@ -1224,7 +1224,7 @@ func paint_menu() -> void:
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
 
 func paint_pause() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.75))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.75))
 	txt("PAUSED", Vector2(640, 200), 80, Color.WHITE, 1, bold, 10)
 	button(Rect2(500, 260, 280, 62), "RESUME", "resume", true, 30)
 	button(Rect2(500, 336, 280, 54), "SETTINGS", "settings", false, 24)
@@ -1235,7 +1235,7 @@ func cursor_label() -> String:
 	return "S" if c < 0.9 else ("M" if c < 1.2 else ("L" if c < 1.6 else "XL"))
 
 func paint_settings() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.8))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.8))
 	txt("SETTINGS", Vector2(640, 105), 60, Color.WHITE, 1, bold, 8)
 	var s = g.settings
 	var rows = [
@@ -1298,7 +1298,7 @@ func select_collection_index(idx: int) -> void:
 
 func paint_collection() -> void:
 	paint_menu_bg()
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.7))
+	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.7))
 	txt("COLLECTION", Vector2(640, 60), 52, Color.WHITE, 1, bold, 7)
 	var cats = g.categories.keys()
 	cats.append("weapons")
@@ -1360,7 +1360,7 @@ func mini_card(r: Rect2, info: Dictionary) -> void:
 ## Tiny owned-card chip for the HUD strip: art, or category colour + icon.
 func mini_tile(r: Rect2, id: String) -> void:
 	var c = g.card_by_id[id]
-	var art = g.tex("res://assets/cards/%s.png" % id)
+	var art = (g.tex("res://assets/cards/%s.webp" % id) if id in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % id))
 	if art != null:
 		draw_texture_rect(art, r, false)
 	else:
@@ -1449,7 +1449,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 
 func paint_bestiary() -> void:
 	paint_menu_bg()
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.01, 0.02, 0.06, 0.77))
+	draw_rect(g.landscape_rect(), Color(0.01, 0.02, 0.06, 0.77))
 	txt("BESTIARY", Vector2(34, 64), 52, Color.WHITE, 0, bold, 4)
 	var known = 0
 	for id in g.mob_order():
@@ -1505,7 +1505,7 @@ func paint_portrait_bestiary() -> void:
 		button(Rect2(190, h - 111, 340, 76), "CLOSE", "bestiary_close", true, 30)
 
 func paint_victory() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color("090e1c"))
+	draw_rect(g.landscape_rect(), Color("090e1c"))
 	draw_rect(Rect2(16, 16, 1248, 688), Color("ffcf4d"), false, 4.0)
 	txt("SECTOR %d CLEARED" % g.WIN_SECTOR, Vector2(640, 172), 64, Color("ffcf4d"), 1, bold, 7)
 	txt("YOU WON!", Vector2(640, 258), 78, Color.WHITE, 1, bold, 8)
@@ -1515,8 +1515,8 @@ func paint_victory() -> void:
 	button(Rect2(505, 564, 270, 52), "MAIN MENU", "menu", false, 22)
 
 func paint_lost() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color("0a0610"))
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.3, 0.0, 0.05, 0.3 + 0.05 * sin(g.anim_t * 2.0)))
+	draw_rect(g.landscape_rect(), Color("0a0610"))
+	draw_rect(g.landscape_rect(), Color(0.3, 0.0, 0.05, 0.3 + 0.05 * sin(g.anim_t * 2.0)))
 	glitch_txt("FLATLINED", Vector2(640, 108), 80, ALERT)
 	enemy_icon(g.killer_kind, Rect2(420, 122, 88, 88))
 	var bub = Rect2(522, 132, 440, 66)
@@ -1615,11 +1615,13 @@ func sh() -> float:
 	return g.ui_height if g.portrait else 720.0
 
 func screen_bg() -> void:
-	draw_rect(Rect2(0, 0, sw(), sh()), Color(0.03, 0.04, 0.1, 0.94))
-	for x in range(0, int(sw()) + 1, 60):
+	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, sw(), sh()), Color(0.03, 0.04, 0.1, 0.94))
+	var start_x = floori(g.landscape_left / 60.0) * 60 if not g.portrait else 0
+	var end_x = ceili((g.landscape_left + g.landscape_width) / 60.0) * 60 if not g.portrait else int(sw())
+	for x in range(start_x, end_x + 1, 60):
 		draw_line(Vector2(x, 0), Vector2(x, sh()), Color(0.3, 0.65, 0.9, 0.04))
 	for y in range(0, int(sh()) + 1, 60):
-		draw_line(Vector2(0, y), Vector2(sw(), y), Color(0.3, 0.65, 0.9, 0.04))
+		draw_line(Vector2(start_x, y), Vector2(end_x, y), Color(0.3, 0.65, 0.9, 0.04))
 
 ## Gold + HP chips shared by the between-sector screens.
 func status_chips(y: float) -> void:
@@ -2026,7 +2028,7 @@ func paint_map_wide() -> void:
 	var last = mini(cols.size() - 1, cur + 5)
 	var nxt: Array = cols[cur][g.map_at]["next"]
 	# backdrop
-	draw_rect(Rect2(0, 0, 1280, 720), Color("0a0f22"))
+	draw_rect(g.landscape_rect(), Color("0a0f22"))
 	var bi = int(cur / 5) % 5
 	var tints = [Color("1b2f5a"), Color("1d3d52"), Color("3a2018"), Color("3a1d40"), Color("1a1430")]
 	for k in range(14):

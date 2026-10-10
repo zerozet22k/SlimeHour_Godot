@@ -82,24 +82,25 @@ func _draw() -> void:
 # ================================================================= road
 func paint_road() -> void:
 	var b = BIOMES[g.biome_index()]
-	draw_rect(Rect2(0, g.view_top, 1280, g.view_bottom - g.view_top), b["bg"])
-	var left = 640.0 - g.ROAD_HALF - g.cam_x + shake_off.x
-	var right = 640.0 + g.ROAD_HALF - g.cam_x + shake_off.x
+	draw_rect(Rect2(g.landscape_left, g.view_top, g.landscape_width, g.view_bottom - g.view_top), b["bg"])
+	var left = 640.0 - g.road_half - g.cam_x + shake_off.x
+	var right = 640.0 + g.road_half - g.cam_x + shake_off.x
 	# Side scenery: parallax light posts and blocks
 	var scroll = g.cam_y
 	for i in range(int(floor(g.view_top / 110.0)) - 1, int(ceil(g.view_bottom / 110.0)) + 2):
 		var y = fposmod(-scroll * 0.6, 110.0) + i * 110.0 - 110.0
-		draw_rect(Rect2(40, y, 70, 60), Color(b["bg"].lightened(0.06)))
-		draw_rect(Rect2(1170, y + 40, 70, 60), Color(b["bg"].lightened(0.06)))
-		draw_rect(Rect2(52, y + 10, 10, 8), Color(b["deco"], 0.5))
-		draw_rect(Rect2(1190, y + 50, 10, 8), Color(b["edge"], 0.4))
+		draw_rect(Rect2(left - 74.0, y, 70, 60), Color(b["bg"].lightened(0.06)))
+		draw_rect(Rect2(right + 22.0, y + 40, 70, 60), Color(b["bg"].lightened(0.06)))
+		draw_rect(Rect2(left - 62.0, y + 10, 10, 8), Color(b["deco"], 0.5))
+		draw_rect(Rect2(right + 42.0, y + 50, 10, 8), Color(b["edge"], 0.4))
 	draw_rect(Rect2(left, g.view_top, right - left, g.view_bottom - g.view_top), b["road"])
 	# Lane dashes scroll with the world.
 	var y0 = fposmod(-scroll, 90.0) - 90.0
 	for i in range(int(floor(g.view_top / 90.0)) - 1, int(ceil(g.view_bottom / 90.0)) + 2):
 		var y = y0 + i * 90.0 + shake_off.y
-		for x in [-390.0, -195.0, 0.0, 195.0, 390.0]:
-			draw_rect(Rect2(640 + x - g.cam_x - 3 + shake_off.x, y, 6, 44), Color(b["lane"], 0.55))
+		var lane_count = floori((g.road_half - 45.0) / 195.0)
+		for x in range(-lane_count, lane_count + 1):
+			draw_rect(Rect2(640 + x * 195.0 - g.cam_x - 3 + shake_off.x, y, 6, 44), Color(b["lane"], 0.55))
 	for k in range(6):
 		var a = 0.5 * (1.0 - k / 6.0)
 		draw_rect(Rect2(left - 2 + k * 2, g.view_top, 2, g.view_bottom - g.view_top), Color(b["edge"], a * 0.6))
@@ -185,16 +186,16 @@ func paint_gates() -> void:
 		for side in ["left", "right"]:
 			var opt = gate[side]
 			var good = bool(opt.get("good", true))
-			var x0 = 640.0 - g.ROAD_HALF - g.cam_x if side == "left" else 640.0 - g.cam_x
+			var x0 = 640.0 - g.road_half - g.cam_x if side == "left" else 640.0 - g.cam_x
 			var col = Color("2bd6a0") if good else Color("ff4d6a")
 			var a = 1.0
 			if used:
 				a = 1.0 if gate.get("picked", "") == side else 0.15
 			var pulse = 0.08 * sin(g.anim_t * 4.0)
-			draw_rect(Rect2(x0 + 8, y - 70, g.ROAD_HALF - 16, 70), Color(col, (0.28 + pulse) * a))
-			draw_rect(Rect2(x0 + 8, y - 70, g.ROAD_HALF - 16, 70), Color(col.lightened(0.4), 0.9 * a), false, 4.0)
-			draw_rect(Rect2(x0 + 8, y - 4, g.ROAD_HALF - 16, 8), Color(col.lightened(0.5), 0.8 * a))
-			text_c(str(opt["label"]), Vector2(x0 + g.ROAD_HALF * 0.5, y - 26), 30 if str(opt["label"]).length() < 16 else 22, Color(1, 1, 1, a))
+			draw_rect(Rect2(x0 + 8, y - 70, g.road_half - 16, 70), Color(col, (0.28 + pulse) * a))
+			draw_rect(Rect2(x0 + 8, y - 70, g.road_half - 16, 70), Color(col.lightened(0.4), 0.9 * a), false, 4.0)
+			draw_rect(Rect2(x0 + 8, y - 4, g.road_half - 16, 8), Color(col.lightened(0.5), 0.8 * a))
+			text_c(str(opt["label"]), Vector2(x0 + g.road_half * 0.5, y - 26), 30 if str(opt["label"]).length() < 16 else 22, Color(1, 1, 1, a))
 		draw_rect(Rect2(636 - g.cam_x, y - 80, 8, 84), Color("e8e8f0"))
 
 func paint_pickups() -> void:
