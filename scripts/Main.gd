@@ -10,7 +10,8 @@ const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
-const GAME_VERSION = "v0.1.19"
+const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
+const GAME_VERSION = "v0.1.20"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -96,10 +97,13 @@ var pickups: Array = []
 var texts: Array = []
 var delayed: Array = []
 var barrels: Array = []
+var obstacles: Array = []
 var gates: Array = []
 var shop_items: Array = []
 var map_cols: Array = []
 var map_at = 0
+var map_full = false
+var map_view_first = 0
 var map_pick = -1
 var map_path: Array = []
 var clear_t = 0.0
@@ -310,7 +314,7 @@ func _process(delta: float) -> void:
 	portrait = vp.y > vp.x * 1.1
 	var k: float
 	if portrait:
-		road_half = ROAD_HALF
+		road_half = RoadObstacles.road_half_for_sector(sector, ROAD_HALF)
 		landscape_width = 1280.0
 		landscape_left = 0.0
 		k = vp.x / 720.0
@@ -325,7 +329,7 @@ func _process(delta: float) -> void:
 		k = ScreenFit.landscape_scale(vp)
 		landscape_width = ScreenFit.canvas_width(vp)
 		landscape_left = ScreenFit.canvas_left(vp)
-		road_half = ScreenFit.road_half(vp)
+		road_half = RoadObstacles.road_half_for_sector(sector, ScreenFit.road_half(vp))
 		ui_height = 720.0
 		view_top = 0.0
 		view_bottom = 720.0
@@ -382,8 +386,7 @@ func _process(delta: float) -> void:
 				focus = killer_ref["pos"]
 		var target = focus.y - hero_offset()
 		cam_y = lerpf(cam_y, target, 1.0 - exp(-7.0 * cdt))
-		var side_limit = maxf(0.0, road_half - 360.0 + 28.0)
-		var target_x = clampf(float(focus.x), -side_limit, side_limit) if portrait else 0.0
+		var target_x = RoadObstacles.camera_x(float(focus.x), road_half, 720.0 if portrait else landscape_width)
 		cam_x = lerpf(cam_x, target_x, 1.0 - exp(-7.0 * cdt))
 	shake = maxf(0.0, shake - delta * 30.0)
 	banner_t = maxf(0.0, banner_t - delta)
@@ -530,6 +533,8 @@ func start_run() -> void:
 	map_cols.clear()
 	gen_map(8)
 	map_at = 0
+	map_full = false
+	map_view_first = 0
 	map_path = [Vector2i(0, 0)]
 	route_risk = 0
 	shop_bonus = 0.0
@@ -639,6 +644,7 @@ func proc_cap() -> int:
 
 func begin_sector() -> void:
 	phase = "fight"
+	road_half = RoadObstacles.road_half_for_sector(sector, ROAD_HALF if portrait else maxf(ROAD_HALF, landscape_width * 0.5 - 110.0))
 	sector_start_y = hero["pos"].y
 	finish_y = sector_start_y - SECTOR_LEN
 	spawn_acc = 0.0
@@ -658,6 +664,8 @@ func begin_sector() -> void:
 	enemies.clear()
 	gates.clear()
 	barrels.clear()
+	obstacles.clear()
+	obstacles = RoadObstacles.generate(sector, road_half, sector_start_y, SECTOR_LEN)
 	# No stale bomb or boss telegraph may carry into the next sector.
 	delayed.clear()
 	for i in range(6 + mini(sector, 8)):
@@ -745,6 +753,9 @@ func move_hero(dt: float) -> void:
 	h["iframe"] = maxf(0.0, float(h["iframe"]) - dt)
 	h["flash"] = maxf(0.0, float(h["flash"]) - dt)
 	clamp_hero()
+	if not obstacles.is_empty():
+		h["pos"] = RoadObstacles.push_circle(h["pos"], RoadObstacles.HERO_RADIUS, obstacles)
+		clamp_hero()
 	var moved = prev.distance_to(h["pos"])
 	if moved > 0.5:
 		Effects.walked(self, moved)
@@ -1429,7 +1440,9 @@ func continue_after_boss() -> void:
 	open_map()
 
 func open_map() -> void:
-	gen_map(sector + 7)
+	gen_map(maxi(sector + 18, WIN_SECTOR))
+	map_full = false
+	map_view_first = maxi(0, sector - 1)
 	phase = "map"
 	state = "map"
 	map_pick = -1
@@ -1439,6 +1452,19 @@ func open_map() -> void:
 	sfx.play("pick")
 
 ## Select a route without moving. GO starts a non-interactive map departure.
+func toggle_full_map() -> void:
+	if state != "map":
+		return
+	map_full = not map_full
+	map_view_first = maxi(0, sector - 2)
+	sfx.play("pick")
+
+func pan_route_map(delta_cols: int) -> void:
+	if state != "map" or not map_full:
+		return
+	map_view_first = clampi(map_view_first + delta_cols, 0, maxi(0, map_cols.size() - 10))
+	sfx.play("pick")
+
 func map_select(i: int) -> void:
 	if state != "map":
 		return
@@ -2238,7 +2264,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				if code in [KEY_ENTER, KEY_SPACE]:
 					continue_after_boss()
 			"map":
-				if code >= KEY_1 and code <= KEY_4:
+				if code in [KEY_M, KEY_ESCAPE]:
+					toggle_full_map()
+				elif code == KEY_LEFT:
+					pan_route_map(-5)
+				elif code == KEY_RIGHT:
+					pan_route_map(5)
+				elif code >= KEY_1 and code <= KEY_4:
 					map_select(code - KEY_1)
 				elif code == KEY_ENTER:
 					map_go()
@@ -2493,6 +2525,12 @@ func do_action(action: String) -> void:
 			hud.selected_collection_item = null
 		"map_go":
 			map_go()
+		"map_full":
+			toggle_full_map()
+		"map_prev":
+			pan_route_map(-5)
+		"map_next":
+			pan_route_map(5)
 		"event_continue":
 			if state == "event" and event_stage == "result":
 				open_map()
