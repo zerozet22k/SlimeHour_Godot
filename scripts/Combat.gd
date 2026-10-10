@@ -106,6 +106,32 @@ static func update_delayed(g, dt: float) -> void:
 			item["pos"] += shift
 			item["a"] += shift
 			item["b"] += shift
+		# Traveling boulder: visible predicted course, real moving hitbox.
+		if str(item.get("fn", "")) == "boss_boulder":
+			item["arm"] = maxf(0.0, float(item["arm"]) - dt)
+			if float(item["arm"]) <= 0.0:
+				item["pos"] += Vector2(item["vel"]) * dt
+				if absf(float(item["pos"].x)) > g.road_half - float(item["tele"]):
+					item["vel"] = Vector2(-float(item["vel"].x), float(item["vel"].y))
+					item["pos"].x = clampf(item["pos"].x, -g.road_half + float(item["tele"]), g.road_half - float(item["tele"]))
+				if not bool(item["spent"]) and g.hero["pos"].distance_to(item["pos"]) <= float(item["tele"]) + 11.0:
+					item["spent"] = true
+					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's rolling boulder")
+		elif str(item.get("fn", "")) == "boss_gravity":
+			item["arm"] = maxf(0.0, float(item["arm"]) - dt)
+			if float(item["arm"]) <= 0.0:
+				var offset: Vector2 = item["pos"] - g.hero["pos"]
+				if offset.length() < float(item["tele"]) and offset.length() > 28.0:
+					g.hero["push"] = g.hero.get("push", Vector2.ZERO) + offset.normalized() * (230.0 * dt)
+				# Projectiles bend gradually, never snap direction in a single frame.
+				var bent = 0
+				for projectile in g.shots:
+					if bent >= 40:
+						break
+					var bend: Vector2 = item["pos"] - projectile["pos"]
+					if bend.length_squared() < 200.0 * 200.0 and bend.length_squared() > 100.0:
+						projectile["vel"] = Vector2(projectile["vel"]).lerp(bend.normalized() * float(projectile["speed"]), minf(0.35, dt * 0.48))
+						bent += 1
 		item["t"] = float(item["t"]) - dt
 		if float(item["t"]) <= 0.0:
 			due.append(item)
@@ -176,6 +202,44 @@ static func update_delayed(g, dt: float) -> void:
 							g.hero["push"] = g.hero.get("push", Vector2.ZERO) + pull.normalized() * 410.0
 					elif connected and style == "piston_lockdown":
 						g.hero["arena_stagger_t"] = 1.1
+			"boss_boulder":
+				g.spawn_ring_fx(item["pos"], Color("e3a078"), 35.0)
+			"boss_gravity":
+				g.spawn_ring_fx(item["pos"], Color("a18aff"), float(item["tele"]))
+			"boss_missile":
+				var missile_owner: Dictionary = item.get("boss", {})
+				if not missile_owner.is_empty() and not bool(missile_owner.get("dead", false)):
+					var missile_dir: Vector2 = item["pos"] - missile_owner["pos"]
+					if missile_dir.length_squared() < 0.1:
+						missile_dir = Vector2.DOWN
+					var missile = shot(g, missile_owner["pos"], missile_dir.normalized(), float(item["dmg"]),
+						{"friendly": false, "speed": 225.0, "life": 4.4, "r": 10.0,
+						"kind": "enemy", "color": Color("ffc369"), "src": "Heli-Copter's guided missile"})
+					if missile != null:
+						missile["homing"] = 0.72 + float(item.get("stage", 0)) * 0.10
+					g.sfx.play_projectile("boss_fire")
+			"boss_serpent_emerge":
+				var serpent: Dictionary = item.get("boss", {})
+				if not serpent.is_empty() and not bool(serpent.get("dead", false)):
+					var previous: Vector2 = serpent["pos"]
+					serpent["pos"] = item["pos"]
+					serpent["burrowing"] = false
+					g.spawn_ring_fx(item["pos"], Color("65efb2"), float(item["tele"]))
+					if g.hero["pos"].distance_to(item["pos"]) <= float(item["tele"]) + 11.0:
+						g.hurt(float(item["dmg"]), item["pos"], "Coil Queen's burrowing strike")
+					# A distinct, narrow tail follows the head instead of a screen attack.
+					schedule_boss_line(g, previous, serpent["pos"], 21.0, float(item["dmg"]) * 0.60, 0.67, "65efb2")
+			"boss_echo":
+				var oracle: Dictionary = item.get("boss", {})
+				if not oracle.is_empty() and not bool(oracle.get("dead", false)):
+					var echo_dir: Vector2 = Vector2(item["target"]) - Vector2(item["pos"])
+					if echo_dir.length_squared() < 0.1:
+						echo_dir = Vector2.DOWN
+					for k in range(2 + int(item.get("stage", 0))):
+						shot(g, item["pos"], echo_dir.normalized().rotated((float(k) - (1.0 + float(item.get("stage", 0))) * 0.5) * 0.30),
+							float(item["dmg"]), {"friendly": false, "speed": 305.0, "life": 2.8, "r": 6.0,
+							"kind": "enemy", "color": Color("8ceeff"), "src": "Glass Oracle's movement echo"})
+					g.spawn_ring_fx(item["pos"], Color("8ceeff"), 29.0)
 			"boss_blast":
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
@@ -867,7 +931,11 @@ static func boss_identity_damage_factor(g, e: Dictionary) -> float:
 				if not bool(node.get("dead", false)) and int(node.get("oracle_owner", -1)) == int(e["id"]):
 					return 0.48
 		"dreadengine":
-			return 1.75 if float(e.get("vent_t", 0.0)) > 0.0 else 0.58
+			if float(e.get("vent_t", 0.0)) > 0.0:
+				return 1.75
+			if bool(e.get("engine_parts_spawned", false)) and int(e.get("engine_parts_last", 0)) == 0:
+				return 0.88
+			return 0.58
 	return 1.0
 
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
@@ -1338,6 +1406,8 @@ static func update_enemies(g, dt: float) -> void:
 			if bool(e["boss"]):
 				boss_arena_tick(g, e, dt)
 			desired = ai(g, e, dir, dist, dt, charmed)
+			if bool(e["boss"]):
+				desired = boss_engagement(g, e, desired, dir, dist)
 		if bool(e["dead"]):
 			continue
 		e["vel"] = e["vel"].lerp(desired * float(e["speed"]) * speed_mul, 1.0 - exp(-8.0 * dt))
@@ -1519,66 +1589,174 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
 
 
-## A boss-wide ultimate is no longer avoidable by standing at the
-## opposite road edge. The warning fills the VISIBLE battlefield and players
-## must time their dodge/iframe. Follow-ups are spaced beyond dash recharge.
-## Count active attacks PER owner, not globally, so other minion warnings
-## cannot prevent a boss from using its own ultimate.
+## Boss setpieces are DIFFERENT combat systems, not differently colored
+## fullscreen damage. Their warnings mark the actual collision area.
+## Long-range retreat triggers pursuit through the existing boss AI.
 static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dead", false)):
 		return
-	e["arena_t"] = float(e.get("arena_t", 2.6)) - dt
+	var kind: String = str(e["kind"])
+	var hero_pos: Vector2 = g.hero["pos"]
+	var stage: int = boss_stage(e)
+	# Keep an older player position for Oracle's delayed imitation.
+	if kind == "glassoracle":
+		e["echo_sample_t"] = float(e.get("echo_sample_t", 0.0)) - dt
+		if float(e["echo_sample_t"]) <= 0.0:
+			e["echo_previous"] = e.get("echo_latest", hero_pos)
+			e["echo_latest"] = hero_pos
+			e["echo_sample_t"] = 1.1
+	# Engine weapon pods are physical, destructible summons tied to the hull.
+	if kind == "dreadengine" and bool(e.get("engine_parts_spawned", false)):
+		var remaining = 0
+		for part in g.enemies:
+			if not bool(part.get("dead", false)) and int(part.get("engine_owner", -1)) == int(e["id"]):
+				remaining += 1
+				part["pos"] = e["pos"] + Vector2(float(part.get("part_side", 1.0)) * (float(e["r"]) + 25.0), 0.0)
+		if remaining < int(e.get("engine_parts_last", remaining)):
+			e["engine_heat"] = minf(100.0, float(e.get("engine_heat", 0.0)) + (int(e["engine_parts_last"]) - remaining) * 35.0)
+		e["engine_parts_last"] = remaining
+	e["arena_t"] = float(e.get("arena_t", 3.2)) - dt
 	if float(e["arena_t"]) > 0.0:
 		return
-	var stage = boss_stage(e)
-	e["arena_t"] = maxf(8.0, 10.7 - float(stage) * 0.7)
-	if g.delayed.size() >= 120:
+	e["arena_t"] = maxf(5.1, 8.1 - float(stage) * 0.85) * (0.88 if g.hard_mode else 1.0)
+	if g.delayed.size() >= 110:
 		return
-	var kind = str(e["kind"])
-	var style = {
-		"chonkzilla": "earthquake",
-		"heli": "bombardment",
-		"necro": "soul_eclipse",
-		"kingblob": "tidal_surge",
-		"coilqueen": "venom_collapse",
-		"glassoracle": "prism_flash",
-		"voidweaver": "rift_implosion",
-		"dreadengine": "piston_lockdown"
-	}.get(kind, "")
-	if style == "":
-		return
-	var delay = 1.75 if g.hard_mode else 2.15
-	var label = {
-		"chonkzilla": "EARTHQUAKE",
-		"heli": "CARPET BOMBING",
-		"necro": "SOUL ECLIPSE",
-		"kingblob": "ROYAL TSUNAMI",
-		"coilqueen": "VENOM COLLAPSE",
-		"glassoracle": "PRISM FLASH",
-		"voidweaver": "VOID IMPLOSION",
-		"dreadengine": "PISTON LOCKDOWN"
-	}.get(kind, "WORLD ATTACK")
-	var color = {
-		"chonkzilla": "ff7d62", "heli": "ffbb5c",
-		"necro": "bd8cff", "kingblob": "ff6ba3",
-		"coilqueen": "60e7b3", "glassoracle": "89edff",
-		"voidweaver": "b397ff", "dreadengine": "ffc368"
-	}.get(kind, "ff9944")
-	g.delayed.append({"fn": "arena_event", "pos": g.hero["pos"],
-		"style": style, "label": label, "color": color, "owner": int(e["id"]),
-		"boss": e, "t": delay, "life": delay, "dmg": float(e["dmg"]) * (1.15 + stage * 0.15),
-		"stage": stage})
+	var lead: Vector2 = hero_pos + Vector2(g.hero.get("vel", Vector2.ZERO)) * (0.35 + float(stage) * 0.06)
+	lead.x = clampf(lead.x, -g.road_half + 50.0, g.road_half - 50.0)
+	var damage: float = float(e["dmg"])
+	var owner_id: int = int(e["id"])
+	match kind:
+		"chonkzilla":
+			# A moving boulder crosses the arena instead of a stationary ring.
+			# Position and timing change as the player moves; its course is committed.
+			for k in range(1 + int(stage >= 1)):
+				var side = -1.0 if k == 0 else 1.0
+				var origin = Vector2(clampf(lead.x + side * 360.0, -g.road_half + 38.0, g.road_half - 38.0), lead.y - 125.0)
+				var velocity: Vector2 = (lead - origin).normalized() * (255.0 + stage * 37.0)
+				g.delayed.append({"fn": "boss_boulder", "pos": origin, "vel": velocity, "arm": 0.85,
+					"t": 3.45, "life": 3.45, "tele": 36.0, "dmg": damage * 0.90,
+					"color": "e3a078", "boss": e, "owner": owner_id, "spent": false})
+		"heli":
+			# Acquire one readable missile lock; the launched projectile homes
+			# for a short duration and CAN be outrun or dodged.
+			g.delayed.append({"fn": "boss_missile", "pos": lead, "origin": e["pos"], "boss": e,
+				"t": 1.45, "life": 1.45, "tele": 49.0, "dmg": damage * 0.75,
+				"stage": stage, "color": "ffc369", "owner": owner_id})
+		"necro":
+			# Possession really changes an existing soldier's combat stats.
+			# Killing it ends the additional pressure; no ghostly invulnerable add.
+			var candidates = []
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("soul_owner", -1)) == owner_id and not bool(mob.get("possessed", false)):
+					candidates.append(mob)
+			if not candidates.is_empty():
+				var host: Dictionary = candidates[0]
+				host["possessed"] = true
+				host["speed"] = float(host["speed"]) * 1.55
+				host["dmg"] = float(host["dmg"]) * 1.45
+				host["hp"] = float(host["hp"]) + float(host["max_hp"]) * 0.65
+				host["max_hp"] = float(host["max_hp"]) * 1.65
+				host["sprint_t"] = 5.0
+				g.spawn_ring_fx(host["pos"], Color("d4a0ff"), 75.0)
+				for k in range(2 + stage):
+					var direction: Vector2 = (lead - host["pos"]).normalized().rotated((float(k) - (1.0 + stage) * 0.5) * 0.23)
+					var spirit = shot(g, host["pos"], direction, damage * 0.48,
+						{"friendly": false, "speed": 205.0, "life": 3.0, "r": 7.0, "kind": "skull",
+						"color": Color("d6aaff"), "src": "Necro-Dad's possessed soldier"})
+					if spirit != null:
+						spirit["homing"] = 0.56
+			else:
+				# An empty army is a real opening, but Necro attempts to rebuild.
+				e["cd"] = minf(float(e["cd"]), 0.15)
+		"kingblob":
+			# Physical division flanks the player. Divided mass is recoverable
+			# only by reaching the spawned bodies, and they can all be killed.
+			var splits = mini(3, 2 + stage)
+			for k in range(splits):
+				if g.enemies.size() >= g.enemy_cap():
+					break
+				var angle: float = TAU * float(k) / float(splits) + PI * 0.25
+				var where: Vector2 = lead + Vector2.from_angle(angle) * 180.0
+				where.x = clampf(where.x, -g.road_half + 34.0, g.road_half - 34.0)
+				var fragment = g.spawn_enemy("blob", where, false, false)
+				fragment["summon"] = true
+				fragment["royal_owner"] = owner_id
+				fragment["speed"] = float(fragment["speed"]) * (1.3 + stage * 0.1)
+				fragment["sprint_t"] = 3.5
+			e["r"] = maxf(float(g.enemy_db["kingblob"]["r"]) * 0.78, float(e["r"]) - 5.5)
+			g.spawn_ring_fx(e["pos"], Color("ff83c0"), 110.0)
+		"coilqueen":
+			# Burrowed lunge moves the BODY, not just a green circle.
+			# Its destination is locked when the warning appears.
+			if not bool(e.get("burrowing", false)):
+				e["burrowing"] = true
+				g.delayed.append({"fn": "boss_serpent_emerge", "pos": lead,
+					"boss": e, "t": 1.35, "life": 1.35, "tele": 68.0,
+					"dmg": damage * 1.05, "color": "65efb2", "owner": owner_id})
+			if stage >= 1:
+				for k in range(2):
+					if g.enemies.size() >= g.enemy_cap():
+						break
+					var hatch: Vector2 = lead + Vector2(-140.0 if k == 0 else 140.0, 100.0)
+					hatch.x = clampf(hatch.x, -g.road_half + 20.0, g.road_half - 20.0)
+					var child = g.spawn_enemy("mini", hatch, false, false)
+					child["summon"] = true
+					child["coil_owner"] = owner_id
+					child["speed"] = float(child["speed"]) * 1.30
+		"glassoracle":
+			# Echo fires from where the PLAYER WAS, through where they were
+			# moving. A separate older snapshot prevents instantaneous tracking.
+			var echo_at: Vector2 = e.get("echo_previous", hero_pos)
+			g.delayed.append({"fn": "boss_echo", "pos": echo_at, "target": lead,
+				"t": 1.12, "life": 1.12, "tele": 26.0, "stage": stage,
+				"dmg": damage * 0.65, "color": "8ceeff", "boss": e, "owner": owner_id})
+		"voidweaver":
+			# A temporary gravity knot affects BOTH player positioning and
+			# projectile trajectories. Destroying/evading the knot area is
+			# different from its existing paired-portal crossfire.
+			var center: Vector2 = lead + Vector2(100.0 if int(e.get("pattern", 0)) % 2 == 0 else -100.0, -40.0)
+			center.x = clampf(center.x, -g.road_half + 160.0, g.road_half - 160.0)
+			g.delayed.append({"fn": "boss_gravity", "pos": center, "arm": 0.95,
+				"t": 4.2, "life": 4.2, "tele": 170.0, "color": "a18aff",
+				"boss": e, "owner": owner_id})
+		"dreadengine":
+			# Breakable weapon modules speed up the reactor's overheat.
+			# Destroyed modules NEVER respawn during this encounter.
+			if not bool(e.get("engine_parts_spawned", false)):
+				e["engine_parts_spawned"] = true
+				e["engine_parts_last"] = 0
+				for side in [-1.0, 1.0]:
+					if g.enemies.size() >= g.enemy_cap():
+						break
+					var pod = g.spawn_enemy("mirror", e["pos"] + Vector2(side * (float(e["r"]) + 25.0), 0.0), false, false)
+					pod["summon"] = true
+					pod["engine_owner"] = owner_id
+					pod["part_side"] = side
+					pod["speed"] = 0.0
+					pod["hp"] = float(pod["hp"]) * 1.8
+					pod["max_hp"] = float(pod["hp"])
+					e["engine_parts_last"] = int(e["engine_parts_last"]) + 1
+			# Narrow piston crossings, not a road-wide unavoidable impact.
+			var span: float = 280.0
+			var a = lead + Vector2(-span, -130.0)
+			var b = lead + Vector2(span, 130.0)
+			schedule_boss_line(g, a, b, 26.0, damage * 0.78, 1.13, "ffce83")
+			if stage >= 1:
+				schedule_boss_line(g, lead + Vector2(span, -130.0),
+					lead + Vector2(-span, 130.0), 26.0, damage * 0.78, 1.53, "ffce83")
 	g.sfx.play("boss_warn")
-	g.add_shake(3.0)
-	# These double impacts intentionally demand a SECOND correctly timed
-	# dodge rather than an impossible 0.2-second double-hit. Default recharge
-	# is 1.5 seconds, follow-up lands 1.85 seconds after the first.
-	if kind in ["chonkzilla", "heli", "glassoracle", "dreadengine"] and g.delayed.size() < 120:
-		g.delayed.append({"fn": "arena_event", "pos": g.hero["pos"],
-			"style": style, "label": "SECOND IMPACT", "color": color,
-			"owner": int(e["id"]), "boss": e, "t": delay + 1.85,
-			"life": delay + 1.85, "dmg": float(e["dmg"]) * (1.30 + stage * 0.15),
-			"stage": stage, "second": true})
+
+
+## Extra pressure when a player runs beyond the boss's engagement range.
+## Respect visible windups, stagger, vent, flight passes and burrow states.
+static func boss_engagement(g, e: Dictionary, desired: Vector2, dir: Vector2, dist: float) -> Vector2:
+	if dist < maxf(420.0, g.road_half * 0.94):
+		return desired
+	if float(e.get("wind", 0.0)) > 0.0 or float(e.get("boss_recover", 0.0)) > 0.0:
+		return desired
+	if float(e.get("vent_t", 0.0)) > 0.0 or float(e.get("flight_t", 0.0)) > 0.0 or bool(e.get("burrowing", false)):
+		return desired
+	return (desired * 0.18 + dir * 1.5).limit_length(1.6)
 
 ## Bosses have separate gameplay loops, not different colors for the same
 ## lane/ring/blast rotation. All hazards are limited, warned, and phase-aware.
@@ -1587,6 +1765,8 @@ static func boss_identity_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: fl
 	var stage = boss_stage(e)
 	var hero_pos: Vector2 = g.hero["pos"]
 	var lead: Vector2 = hero_pos + g.hero["vel"] * 0.28
+	if bool(e.get("burrowing", false)):
+		return Vector2.ZERO
 	match kind:
 		"chonkzilla":
 			# A lumbering pressure tank: winds up a committed advancing stomp;
