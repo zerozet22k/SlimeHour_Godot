@@ -180,6 +180,11 @@ var rush_queue = 0
 var rush_done = false
 var gate_done = false
 var boss_spawned = false
+# Boss intro runs in the existing game world with all combat frozen.
+const BOSS_INTRO_DURATION = 3.6
+var boss_intro_t = 0.0
+var boss_intro_kind = ""
+var boss_intro_pos = Vector2.ZERO
 var goblin_t = 0.0
 var hitstop = 0.0
 var slowmo_t = 0.0
@@ -436,6 +441,10 @@ func _process(delta: float) -> void:
 			cdt = delta / maxf(0.01, Engine.time_scale)
 			if not killer_ref.is_empty():
 				focus = killer_ref["pos"]
+		elif boss_intro_t > 1.05 and state == "playing":
+			# Follow the boss like the existing death-killer camera,
+			# then pan home before resuming movement and projectiles.
+			focus = boss_intro_pos
 		var target = focus.y - hero_offset()
 		cam_y = lerpf(cam_y, target, 1.0 - exp(-7.0 * cdt))
 		var target_x = RoadObstacles.camera_x(float(focus.x), road_half, 720.0 if portrait else landscape_width)
@@ -449,6 +458,8 @@ func _process(delta: float) -> void:
 	flash_t = maxf(0.0, flash_t - delta)
 	offer_t += delta
 	var real_dt = delta / maxf(0.01, Engine.time_scale)
+	if boss_intro_t > 0.0 and state == "playing" and not debug_panel_open:
+		boss_intro_t = maxf(0.0, boss_intro_t - real_dt)
 	if dying_t > 0.0:
 		dying_t -= real_dt
 		if dying_t <= 0.0:
@@ -506,6 +517,9 @@ func _physics_process(delta: float) -> void:
 	if debug_panel_open:
 		return
 	if state != "playing":
+		return
+	# One synchronous pause freezes hero, guns, enemies, bullets and director.
+	if boss_intro_t > 0.0:
 		return
 	frame_procs = 0
 	frame_booms = 0
@@ -572,6 +586,8 @@ func start_run() -> void:
 	state = "playing"
 	phase = "fight"
 	boss_result_t = 0.0
+	boss_intro_t = 0.0
+	boss_intro_kind = ""
 	travel_t = 0.0
 	travel_title = ""
 	cam_x = 0.0
@@ -723,6 +739,8 @@ func begin_sector() -> void:
 	sector_elite_chests = 0
 	gate_done = false
 	boss_spawned = false
+	boss_intro_t = 0.0
+	boss_intro_kind = ""
 	goblin_t = randf_range(10.0, 25.0)
 	gate_mods.clear()
 	stats_dirty = true
@@ -1193,6 +1211,33 @@ func boss_alive() -> bool:
 			return true
 	return false
 
+## The boss enters only when every budget and rush monster is exhausted.
+## Gold goblins also count, avoiding an overlap with their retreat animation.
+func regular_crowd_defeated() -> bool:
+	if budget_spawned < sector_budget or not rush_done or rush_queue > 0:
+		return false
+	for e in enemies:
+		if not bool(e["dead"]) and not bool(e["boss"]):
+			return false
+	return true
+
+func begin_boss_reveal(kind: String) -> void:
+	boss_spawned = true
+	boss_intro_kind = kind
+	boss_intro_t = BOSS_INTRO_DURATION
+	boss_intro_pos = Vector2(0.0, cam_y - maxf(410.0, ui_height * 0.5 + 115.0))
+	var actor = spawn_enemy(kind, boss_intro_pos, true)
+	actor["cd"] = maxf(float(actor["cd"]), 1.1)
+	# The crowd phase has ended; no leftover enemy projectile or delayed
+	# trap should turn the cinematic into an unseen hit.
+	for projectile in shots.duplicate():
+		if not bool(projectile.get("friendly", true)):
+			shots.erase(projectile)
+	delayed.clear()
+	banner(str(enemy_db[kind]["name"]), "BOSS ENCOUNTER", BOSS_INTRO_DURATION)
+	sfx.play("horn")
+	add_shake(11.0)
+
 func update_director(dt: float) -> void:
 	if phase == "cleared":
 		clear_t -= dt
@@ -1211,7 +1256,7 @@ func update_director(dt: float) -> void:
 	var cap = enemy_cap()
 	var rate = (1.6 + (sector - 1) * 0.75 + p * 2.2) * pow(1.035, float(maxi(0, sector - 5))) * float(route.get("spawns", 1.0)) * midgame_relief()
 	if is_boss_sector() and boss_spawned:
-		rate *= 0.3
+		rate = 0.0
 	# Each sector has a fixed crowd. It unlocks as you push forward, so standing still
 	# (or stalling a boss) cannot farm endless gold and EXP.
 	sector_time += dt
@@ -1257,18 +1302,14 @@ func update_director(dt: float) -> void:
 			rush_acc -= 1.0
 	# Buff gates: classic pick-a-door, applies for the rest of the sector.
 	goblin_t -= dt * (1.0 + st("goblins") * 1.5)
-	if goblin_t <= 0.0:
+	if goblin_t <= 0.0 and not (is_boss_sector() and budget_spawned >= sector_budget and rush_queue == 0):
 		goblin_t = randf_range(22.0, 40.0)
 		spawn_enemy("goblin", Vector2(randf_range(-300, 300), cam_y - maxf(380.0, ui_height * 0.5 + 80.0)))
 		say(hero["pos"] + Vector2(0, -80), "A GOLD GOBLIN!", Color("ffd24d"), 24)
-	if is_boss_sector() and not boss_spawned and (p > 0.75 or sector_time > 50.0):
-		boss_spawned = true
+	if is_boss_sector() and not boss_spawned and regular_crowd_defeated():
 		var bosses = ["chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
 		var kind = bosses[((sector - WIN_SECTOR - 1) if sector > WIN_SECTOR else (int(sector / 5) - 1)) % bosses.size()]
-		spawn_enemy(kind, Vector2(0, cam_y - maxf(330.0, ui_height * 0.5 + 40.0)), true)
-		banner(str(enemy_db[kind]["name"]), "BOSS", 2.5)
-		sfx.play("horn")
-		add_shake(14.0)
+		begin_boss_reveal(kind)
 	update_gates()
 	if crowd_cleared():
 		sector_clear()
