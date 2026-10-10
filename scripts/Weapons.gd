@@ -489,7 +489,8 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"pierce": int(d["pierce"]) + int(g.st("pierce")) + int(wm(w, "pierce")),
 		"bounce": int(d["bounce"]) + int(g.st("bounce")) + int(wm(w, "bounce")),
 		"rico": int(d["rico"]) + int(g.st("rico")) + int(wm(w, "rico")),
-		"homing": g.st("homing"), "boomer": g.st("boomer") > 0, "wave": g.st("wave"), "curve": g.st("curve"),
+		"homing": g.st("homing"), "boomer": g.st("boomer") > 0,
+		"wave": Compatibility.projectile_wave(g, w), "curve": Compatibility.projectile_curve(g, w),
 		"accel": g.st("accel") > 0, "split": int(g.st("split")) + int(wm(w, "split")),
 		"knock": float(d["knock"]), "crit": float(d["crit"]) + wm(w, "crit"),
 		"blast": float(d["blast"]) * (1.0 + wm(w, "blast")) * (1.0 + g.st("area")),
@@ -852,6 +853,8 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 	volley(g, w, slot, muzzle, aim, {})
 
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
+	# Keep displayed laser geometry identical to the snake-card hit path.
+	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.22 if bool(w["evolved"]) else 1.0))
 	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
@@ -947,6 +950,7 @@ static func next_chain_target(g, from: Vector2, seen: Dictionary) -> Variant:
 	return nearest
 
 static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
 	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
@@ -986,6 +990,7 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 	chain_line(g, targets, line_ricochets(g, w), dmg, 14.0, str(w["id"]), dmg_pool(g, w), color)
 
 static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var lvl = int(w["lvl"])
 	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.support_bonus(g, w) * 0.8)
 	var first = null
@@ -1030,7 +1035,7 @@ static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -
 	if first == null:
 		g.beams.append({"a": a, "b": a + dir * reach * 0.6, "t": 0.06, "w": 3.0, "color": Color("8fc8ff"), "zig": true})
 		return
-	var jumps = int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0) + (2 if bool(w["evolved"]) else 0)
+	var jumps = mini(12, int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0) + (2 if bool(w["evolved"]) else 0) + Compatibility.adapted_pierce(g, w))
 	chain_from(g, a, first, jumps, dmg, lvl >= 5, {})
 
 static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float, fork: bool, visited: Dictionary) -> void:
@@ -1064,6 +1069,7 @@ static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float,
 	g.sfx.play("zap")
 
 static func fire_rail(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
+	dir = dir.rotated(Compatibility.instant_sway(g, w))
 	var length = 1100.0
 	var width = 14.0 * (1.0 + g.st("size") * 0.5)
 	var segments = line_segments(g, a, dir, length, line_bounces(g, w))
