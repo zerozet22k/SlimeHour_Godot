@@ -167,6 +167,21 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 			if sha256 == "":
 				_fail("The release checksum is missing or invalid.")
 				return
+			# A verified downloaded archive survives a cancelled/restarted game.
+			# Never download hundreds of megabytes twice if its size and
+			# checksum already match the exact expected release asset.
+			if FileAccess.file_exists(pending_zip):
+				var size = int(_asset(download_name).get("size", 0))
+				var existing = FileAccess.open(pending_zip, FileAccess.READ)
+				var valid_size = existing != null and existing.get_length() == size
+				if existing != null:
+					existing.close()
+				if valid_size and FileAccess.get_sha256(pending_zip).to_lower() == sha256:
+					total_bytes = size
+					transferred_bytes = size
+					_set_status("ready", "Previous verified download found. Install and restart.")
+					return
+				DirAccess.remove_absolute(pending_zip)
 			_set_status("downloading", "Downloading " + download_name + "...")
 			_send("zip", str(_asset(download_name)["browser_download_url"]), 0, pending_zip)
 		"zip":
@@ -202,6 +217,11 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 func begin_download() -> void:
 	if status not in ["available", "error"]:
 		return
+	# Do not re-download an already installed version, even if a previous
+	# update check left the screen in an error/retry state.
+	if latest != "" and not version_is_newer(latest, local_version):
+		_set_status("up_to_date", "This version is already installed.")
+		return
 	if latest == "":
 		check(local_version)
 		return
@@ -230,8 +250,8 @@ func _begin_asset(name: String) -> void:
 		_fail("Release size exceeds the safety limit.")
 		return
 	pending_zip = staging.path_join(latest + "-" + name)
-	if FileAccess.file_exists(pending_zip):
-		DirAccess.remove_absolute(pending_zip)
+	# Retain a previously downloaded archive until we have the remote
+	# checksum; the checksum stage validates it before any reuse.
 	_set_status("checking", "Fetching SHA-256 checksum...")
 	_send("checksum", str(_asset(name + ".sha256")["browser_download_url"]), 512)
 
