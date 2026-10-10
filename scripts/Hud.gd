@@ -2367,12 +2367,13 @@ var _mob_tex: Dictionary = {}
 ## Portrait cut from the baked enemy atlas, usable anywhere a card expects art.
 func mob_tex(kind: String) -> Texture2D:
 	var v = g.visuals
-	if v.atlas == null or not v.atlas_cell.has(kind):
+	var preview = str(g.enemy_db[kind].get("mix", [kind])[0])
+	if v.atlas == null or not v.atlas_cell.has(preview):
 		return null
 	if not _mob_tex.has(kind):
 		var at = AtlasTexture.new()
 		at.atlas = v.atlas
-		at.region = v.atlas_cell[kind]
+		at.region = v.atlas_cell[preview]
 		_mob_tex[kind] = at
 	return _mob_tex[kind]
 
@@ -2393,23 +2394,31 @@ func mob_info(kind: String) -> Dictionary:
 ## Enemy portrait from the baked atlas (nothing in headless runs).
 func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 	var v = g.visuals
-	if v.atlas != null and v.atlas_cell.has(kind):
+	var description: Dictionary = g.enemy_db.get(kind, {})
+	var pair: Array = description.get("mix", [])
+	var preview = str(pair[0]) if not pair.is_empty() else kind
+	if v.atlas != null and v.atlas_cell.has(preview):
 		var size = minf(r.size.x, r.size.y)
 		var dst = Rect2(r.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))
-		var src: Rect2 = v.atlas_cell[kind]
-		var accent = Color(str(g.enemy_db[kind]["color"]))
+		var src: Rect2 = v.atlas_cell[preview]
+		var accent = Color(str(description["color"]))
 		draw_circle(dst.get_center() + Vector2(0, size * 0.18), size * 0.42, Color(0, 0, 0, 0.35 * a))
 		draw_circle(dst.get_center() + Vector2(0, -size * 0.04), size * 0.37, Color(accent, 0.11 * a))
 		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(50, 50), Vector2(100, 100)), Color(1, 1, 1, a))
-		var face = str(g.enemy_db[kind].get("look", {}).get("face", ""))
+		if pair.size() == 2:
+			var parts: Dictionary = description.get("look", {})
+			var second = Color(str(g.enemy_db[str(pair[1])]["color"]))
+			v.draw_hybrid_trait(self, dst.get_center(), size * 0.34,
+				str(parts.get("trait", "ears")), Color(second, a), int(parts.get("variant", 0)))
+		var face = str(description.get("look", {}).get("face", ""))
 		if face != "visor" and kind not in ["heli", "necro", "totem", "riot"]:
 			for side in [-1.0, 1.0]:
 				draw_circle(dst.get_center() + Vector2(side * size * 0.14, -size * 0.07), maxf(2.0, size * 0.033), Color("142035"))
 				draw_circle(dst.get_center() + Vector2(side * size * 0.14 - 1.0, -size * 0.09), maxf(1.0, size * 0.011), Color.WHITE)
 
-const KILL_LINES = {"blob": "blob.", "zoomer": "too slow.", "nurse": "no refunds.", "spitter": "ptooey.",
+const KILL_LINES = {"blob": "blob.", "zoomer": "too slow.", "spitter": "ptooey.",
 	"kaboomba": "worth it.", "chonk": "oops. sat on you.", "mitosis": "we won.", "mini": "small but mighty.",
-	"riot": "denied.", "bull": "moo.", "larry": "pew.", "tick": "tick tock.", "mama": "go to your room.",
+	"riot": "denied.", "bull": "moo.", "tick": "tick tock.", "mama": "go to your room.",
 	"mortar": "incoming.", "totem": "hype!", "blinky": "boo.", "goblin": "mine now.",
 	"ashwing": "I always come back.", "mirror": "right back at you.", "burrower": "surprise!", "siren": "follow my lead.",
 	"chonkzilla": "BELLY FLOP.", "heli": "air support.", "necro": "rise. oh wait.", "kingblob": "kneel."}
