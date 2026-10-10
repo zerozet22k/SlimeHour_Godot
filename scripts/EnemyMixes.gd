@@ -59,10 +59,16 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	var id = id_for(a, b)
 	if db.has(id):
 		return id
-	var first: Dictionary = db[a]
-	var second: Dictionary = db[b]
+	# Keep parent roles STABLE regardless of random roll order, restored save
+	# order or when the same pair was encountered in a different run.
+	var parents = [a, b]
+	parents.sort()
+	var primary = str(parents[0])
+	var secondary = str(parents[1])
+	var first: Dictionary = db[primary]
+	var second: Dictionary = db[secondary]
 	var one: Dictionary = first.get("look", {})
-	var options = traits_for(b)
+	var options = traits_for(secondary)
 	# Distinct pairs get stable signature parts, while spawned members can
 	# display other parts inherited from the SAME secondary archetype.
 	var feature = str(options[posmod(id.hash(), options.size())])
@@ -76,11 +82,11 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 		"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
 		"xp": maxi(int(first["xp"]), int(second["xp"])) + 2,
 		"mass": maxf(float(first["mass"]), float(second["mass"])),
-		"color": ca.lerp(cb, 0.43).to_html(false), "mix": [a, b],
+		"color": ca.lerp(cb, 0.43).to_html(false), "mix": [primary, secondary],
 		"look": {"body": one.get("body", "round"), "face": one.get("face", "normal"),
 			"second_color": str(second["color"]), "gear": one.get("gear", []).duplicate(),
 			"trait": feature, "trait_options": options.duplicate(),
-			"variant": posmod(id.hash(), 4), "mix_parent": b}
+			"variant": posmod(id.hash(), 4), "mix_parent": secondary}
 	}
 	return id
 
