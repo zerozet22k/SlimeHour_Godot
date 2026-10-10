@@ -45,28 +45,28 @@ const EVOLVE_MORE = 1.3
 
 ## Evolution enhances the gun's existing resource loop, not all guns with another projectile.
 const EVOLUTION_DESCRIPTIONS = {
-	"pistol": "+30% damage and +20% firing rate. Still one standard sidearm shot.",
-	"revolver": "+30% damage and +20% firing rate. The six-round cylinder stays.",
-	"shotgun": "+30% damage and +20% firing rate. Pellet count stays unchanged.",
-	"smg": "+30% damage and +20% firing rate. Bullet count stays unchanged.",
-	"minigun": "+30% damage and 30% faster spin-up. Same ammo consumption.",
-	"sniper": "+30% damage and +20% firing rate. Same accurate bullet.",
-	"rocket": "+30% damage and +20% blast radius. No extra rocket.",
-	"grenade": "+30% damage and +20% blast radius. No extra grenade.",
-	"laser": "+30% damage and +25% laser reach. Uses heat, not ammo.",
-	"tesla": "+30% damage and +25% initial chain reach.",
-	"flame": "+30% damage, +25% flame reach and +25% fuel tank.",
-	"disc": "+30% damage and 30% faster returns. Same in-flight disc slots.",
-	"boomerang": "+30% damage and 30% faster return. Same throw slots.",
-	"rail": "+30% damage and 20% faster charge. Same 3-shot magazine.",
-	"bees": "+30% damage and +20% firing rate. Same bees per volley.",
-	"bowling": "+30% damage and +20% firing rate. Same bowling balls.",
-	"nailgun": "+30% damage and +20% firing rate. Same nails per volley.",
-	"chicken": "+30% damage and +20% firing rate. Same chickens.",
-	"bubble": "+30% damage and +20% firing rate. Same trap bubbles.",
-	"pinball": "+30% damage and +20% firing rate. Same steel balls.",
-	"splitbow": "+30% damage and +20% firing rate. Same splitting bolt.",
-	"snow": "+30% damage and +20% firing rate. Same growing snowball."
+	"pistol": "FAST DRAW: Every 9th trigger strikes with triple power. Improved critical precision.",
+	"revolver": "SHOWDOWN: +8% critical chance and stronger knockback. Exactly six chambers.",
+	"shotgun": "BREACHMASTER: Tighter spread, heavier impact, and stronger point-blank control.",
+	"smg": "CYCLONE X: Locks accuracy twice as fast. Every sixth volley fires piercing electric-blue tracers.",
+	"minigun": "OVERDRIVE: Spins up faster, retains momentum and penetrates at high spool.",
+	"sniper": "LAST WORD: Higher critical chance and two more enemies pierced per shot.",
+	"rocket": "PAYLOAD ZERO: Larger explosions ignite a short-lived burning zone.",
+	"grenade": "RICOCHET STORM: Larger explosions and two additional wall banks.",
+	"laser": "PRISM CORE: Longer reach and a wider continuous cutting beam.",
+	"tesla": "ARC REACTOR: Longer arcs chain through two additional targets.",
+	"flame": "INFERNO: Extra fuel, longer reach and hotter burn buildup.",
+	"disc": "RAZORSTORM: Faster returns, harder cutting and stronger impact.",
+	"boomerang": "RETURN PROTOCOL: Faster catches and a heavier returning strike.",
+	"rail": "GAUSS BREAKER: Faster charge; Level 5 leaves a damaging ion scar.",
+	"bees": "HIVE MIND: Faster-targeting bees deliver stronger venom.",
+	"bowling": "IMPACT PRIME: Heavier bowling balls fling enemies farther.",
+	"nailgun": "RIVETSTORM: Faster nails with a higher pinning chance.",
+	"chicken": "FOWL PLAY: Wider blasts from every bouncing chicken.",
+	"bubble": "PRESSURE CHAMBER: Entrap enemies longer through tougher bubbles.",
+	"pinball": "OVERDRIVE: Two additional banks on every steel ball.",
+	"splitbow": "HYDRA BOW: Fragments home toward nearby enemies earlier.",
+	"snow": "ABSOLUTE ZERO: Snowballs accumulate freeze significantly faster."
 }
 static func evolution_description(w: Dictionary) -> String:
 	return str(EVOLUTION_DESCRIPTIONS.get(str(w["id"]), "+30% damage."))
@@ -184,7 +184,7 @@ static func update(g, dt: float) -> void:
 		var want = g.fire_wanted(i)
 		# Sustained SMG fire tightens its spray; lifting the trigger resets control.
 		if w["id"] == "smg":
-			w["focus"] = minf(1.0, float(w.get("focus", 0.0)) + dt * 0.8) if want else maxf(0.0, float(w.get("focus", 0.0)) - dt * 2.2)
+			w["focus"] = minf(1.0, float(w.get("focus", 0.0)) + dt * (1.6 if bool(w["evolved"]) else 0.8)) if want else maxf(0.0, float(w.get("focus", 0.0)) - dt * (0.85 if bool(w["evolved"]) else 2.2))
 		w["cd"] = float(w["cd"]) - dt
 		w["flash"] = maxf(0.0, float(w["flash"]) - dt)
 		var gun_aim = aim_for_slot(g, i)
@@ -231,7 +231,7 @@ static func update(g, dt: float) -> void:
 			if float(w["cd"]) < -0.2:
 				w["cd"] = 0.0
 		var mul = 1.0
-		if w["id"] == "pistol" and (int(w.get("count", 0)) + 1) % 12 == 0:
+		if w["id"] == "pistol" and (int(w.get("count", 0)) + 1) % (9 if bool(w["evolved"]) else 12) == 0:
 			# Signature last-round payoff survives magazine growth and Infinite Ammo.
 			mul = 3.0
 		if g.st("goldshot") > 0 and g.gold > 0:
@@ -360,7 +360,9 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		return
 	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
 	if w["id"] == "smg":
-		spread *= lerpf(1.0, 0.55, float(w.get("focus", 0.0))) * (1.0 - Compatibility.support_bonus(g, w) * 0.65)
+		spread *= lerpf(1.0, 0.30 if bool(w["evolved"]) else 0.55, float(w.get("focus", 0.0))) * (1.0 - Compatibility.support_bonus(g, w) * 0.65)
+	if w["id"] == "shotgun" and bool(w["evolved"]):
+		spread *= 0.7
 	var random_spread = kind in ["pellet", "flame"] or w["id"] == "smg" and n == 1
 	if n > 1 and not random_spread:
 		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
@@ -494,7 +496,7 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 			if lvl >= 5:
 				flags["breach"] = true
 		"minigun":
-			if lvl >= 5 and float(w["spin"]) >= 0.92:
+			if lvl >= 5 and float(w["spin"]) >= (0.75 if evolved else 0.92):
 				flags["vulcan_sweep"] = true
 				o["pierce"] += 1
 		"sniper":
@@ -577,6 +579,52 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"boomerang":
 			if lvl >= 5:
 				flags["momentum_catch"] = true
+	# Evolution adds a weapon-native attack effect, not an indiscriminate
+	# projectile-count increase. Secondary procs obey their original budgets.
+	if evolved:
+		match str(w["id"]):
+			"pistol":
+				o["crit"] += 0.06
+			"revolver":
+				o["crit"] += 0.08
+				o["knock"] *= 1.30
+			"shotgun":
+				o["knock"] *= 1.45
+			"smg":
+				if int(w["count"]) % 6 == 0:
+					o["pierce"] += 2
+					o["color"] = Color("72dfff")
+					flags["cyclone_tracer"] = true
+			"minigun":
+				if float(w["spin"]) >= 0.8:
+					o["pierce"] += 1
+					o["color"] = Color("ffe88b")
+			"sniper":
+				o["crit"] += 0.15
+				o["pierce"] += 2
+			"rocket":
+				flags["fire_puddle"] = true
+			"grenade":
+				o["bounce"] += 2
+			"bees":
+				o["homing"] = maxf(float(o["homing"]), 6.5)
+				o["st"]["poison"] = float(o["st"].get("poison", 0.7)) + 0.4
+			"bowling":
+				o["knock"] *= 1.45
+			"nailgun":
+				flags["pin"] = minf(0.95, float(flags.get("pin", 0.35)) + 0.18)
+			"chicken":
+				o["blast"] *= 1.24
+			"bubble":
+				flags["trap_bonus"] = maxf(0.22, float(flags.get("trap_bonus", 0.0)))
+			"pinball":
+				o["bounce"] += 2
+			"splitbow":
+				flags["frag_home"] = true
+			"snow":
+				o["st"]["freeze"] = float(o["st"].get("freeze", 1.0)) + 0.4
+			"disc", "boomerang":
+				o["knock"] *= 1.35
 	# A capped magazine doesn't mean a dead card: each gun interprets
 	# the virtual overflow through its existing signature behavior.
 	match str(w["id"]):
@@ -593,7 +641,7 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"nailgun":
 			o["flags"]["pin"] = minf(0.95, float(o["flags"].get("pin", 0.35)) + specialty * 0.6)
 		"bubble":
-			o["flags"]["trap_bonus"] = specialty
+			o["flags"]["trap_bonus"] = maxf(float(o["flags"].get("trap_bonus", 0.0)), specialty)
 		"pinball":
 			o["flags"]["bank_bonus"] = specialty
 		"splitbow":
@@ -679,7 +727,7 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		var distance_ratio = clampf(origin.distance_to(enemy["pos"]) / maxf(1.0, reach), 0.0, 1.0)
 		var travelling_heat = 1.0 + (0.20 * distance_ratio if g.st("accel") > 0.0 else 0.0)
 		Combat.hit(g, enemy, damage * travelling_heat, {"pos": enemy["pos"], "gen": 0, "dir": direction,
-			"knock": 8.0, "src": "flame", "st": {"burn": 1.0 + Compatibility.support_bonus(g, w)}, "pool": dmg_pool(g, w)})
+			"knock": 8.0, "src": "flame", "st": {"burn": 1.0 + Compatibility.support_bonus(g, w) + (0.35 if bool(w["evolved"]) else 0.0)}, "pool": dmg_pool(g, w)})
 		if anchor == null and not bool(enemy["dead"]):
 			anchor = enemy
 		hits += 1
@@ -786,7 +834,7 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 
 static func beam_visual(g, w: Dictionary, a: Vector2, dir: Vector2) -> void:
 	var length = 560.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
-	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5))
+	var width = minf(g.projectile_size_cap() * 2.0, 9.0 * (2.0 if int(w["lvl"]) >= 5 else 1.0) * (1.0 + g.st("size") * 0.5) * (1.22 if bool(w["evolved"]) else 1.0))
 	for segment in line_segments(g, a, dir, length, line_bounces(g, w)):
 		g.beams.append({"a": segment["a"], "b": segment["b"], "t": 0.05, "w": width,
 			"color": Color("ffd75e") if bool(w["evolved"]) else Color(str(g.weapon_db[w["id"]]["color"]))})
@@ -932,7 +980,7 @@ static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -
 	if first == null:
 		g.beams.append({"a": a, "b": a + dir * reach * 0.6, "t": 0.06, "w": 3.0, "color": Color("8fc8ff"), "zig": true})
 		return
-	var jumps = int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0)
+	var jumps = int(g.weapon_db[w["id"]]["rico"]) + int(g.st("rico")) + int(wm(w, "rico")) + (3 if lvl >= 3 else 0) + (2 if bool(w["evolved"]) else 0)
 	chain_from(g, a, first, jumps, dmg, lvl >= 5, {})
 
 static func chain_from(g, a: Vector2, first: Dictionary, jumps: int, dmg: float, fork: bool, visited: Dictionary) -> void:
