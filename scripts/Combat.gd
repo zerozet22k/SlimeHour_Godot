@@ -1158,6 +1158,10 @@ static func update_enemies(g, dt: float) -> void:
 			e["kb"] = Vector2.ZERO
 			if float(e["rebirth_t"]) <= 0.0:
 				g.spawn_ring_fx(e["pos"], Color("ff9d59"), 52.0)
+				# Phoenix resurrection now also leaves a warned ember nova,
+				# instead of becoming only a second health bar.
+				if g.delayed.size() < 140:
+					schedule_boss_blast(g, e["pos"], 70.0, float(e["dmg"]) * 0.75, 0.79, "ff9959")
 				g.sfx.play("whoosh")
 			continue
 		e["flash"] = maxf(0.0, float(e["flash"]) - dt)
@@ -1230,7 +1234,10 @@ static func update_enemies(g, dt: float) -> void:
 		var to_t: Vector2 = target_pos - e["pos"]
 		var dist = to_t.length()
 		var dir = to_t / dist if dist > 0.1 else Vector2.DOWN
-		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * 6.0)).normalized()
+		# Riot's directional shield turns slowly enough that circling it
+		# actually exposes its weak back; other enemies still track quickly.
+		var turn_rate = 1.6 if has_role(g, e, "riot") else 6.0
+		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * turn_rate)).normalized()
 		var desired = Vector2.ZERO
 		if not disabled:
 			desired = ai(g, e, dir, dist, dt, charmed)
@@ -1243,6 +1250,8 @@ static func update_enemies(g, dt: float) -> void:
 			e["kb"] = Vector2.ZERO
 		if float(e["charge"]) > 0.0 and not disabled:
 			e["vel"] = e["cdir"] * 560.0
+		if float(e.get("sprint_t", 0.0)) > 0.0 and not disabled:
+			e["vel"] *= 1.85
 		var skitter_dashing = str(e["kind"]) == "skitter" and float(e["charge"]) > 0.0 and not disabled
 		var before_dash_move: Vector2 = e["pos"]
 		e["pos"] += (e["vel"] + e["kb"]) * dt
@@ -1565,8 +1574,24 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return dir if dist > 360.0 else -dir * 0.45
 		"leech":
-			# Rush into melee; actual HP drain is resolved only on successful contact.
-			return (dir * 0.85 + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.24).normalized()
+			# Blood tether has a breakable 0.95s channel at medium range;
+			# winning melee contact also heals, but it's now a true ranged threat.
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var leash: float = e["pos"].distance_to(hero_pos)
+					if leash < 180.0 and hero_pos.distance_to(Vector2(e.get("lock", hero_pos))) < 110.0:
+						if g.hurt(float(e["dmg"]) * 0.65, e["pos"], "a Leech blood tether"):
+							var heal = minf(float(e["max_hp"]) * 0.09, float(e["dmg"]) * 1.2)
+							e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + heal)
+							g.spawn_ring_fx(hero_pos, Color("bc72ef"), 28.0)
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist < 185.0 and dist > 60.0:
+				e["cd"] = 5.2 if not g.hard_mode else 4.2
+				e["wind"] = 0.95
+				e["lock"] = hero_pos
+				return Vector2.ZERO
+			return (dir * 0.9 + dir.orthogonal() * sin(float(e["t"]) * 3.1 + float(e["phase"])) * 0.18).normalized()
 		"ashwing":
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
@@ -1641,23 +1666,22 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["squash"] = 0.55
 					g.sfx.play("gate")
 			return dir if dist > 280.0 else -dir * 0.45
-		"zoomer", "mini":
-			# From sector 7 zoomers wind up and lunge (telegraphed line).
-			if kind == "zoomer" and g.sector >= 7:
-				if float(e["charge"]) > 0.0:
-					e["charge"] = float(e["charge"]) - dt
-					return Vector2.ZERO
-				if float(e["wind"]) > 0.0:
-					e["wind"] = float(e["wind"]) - dt
-					if float(e["wind"]) <= 0.0:
-						e["charge"] = 0.32
-						e["cdir"] = (hero_pos - e["pos"]).normalized()
-					return Vector2.ZERO
-				if e["cd"] <= 0.0 and dist < 230.0:
-					e["cd"] = 3.0
-					e["wind"] = 0.45
-					return Vector2.ZERO
-			return (dir + dir.orthogonal() * sin(float(e["t"]) * 5.0 + float(e["phase"])) * 0.7).normalized()
+		"zoomer":
+			# Zoomers are reactive circle-strafers with short, visible acceleration
+			# bursts. They NEVER copy Skitter's long committed through-player dash.
+			if float(e.get("sprint_t", 0.0)) > 0.0:
+				e["sprint_t"] = maxf(0.0, float(e["sprint_t"]) - dt)
+				var turn: float = -1.0 if int(e.get("id", 0)) % 2 == 0 else 1.0
+				return (dir * 0.32 + dir.orthogonal() * turn * 1.3).normalized()
+			if g.sector >= 6 and float(e["cd"]) <= 0.0 and dist < 290.0 and dist > 65.0:
+				e["cd"] = 3.6 if not g.hard_mode else 2.8
+				e["sprint_t"] = 0.85
+				g.spawn_ring_fx(e["pos"], Color("f9bb63"), 25.0)
+				return dir.orthogonal() * (1.0 if int(e.get("id", 0)) % 2 == 0 else -1.0)
+			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 6.0 + float(e["phase"])) * 0.85).normalized()
+		"mini":
+			# Minis scatter from projectiles rather than using a full-size dash.
+			return (dir * 0.9 + dir.orthogonal() * sin(float(e["t"]) * 8.0 + float(e["phase"])) * 0.33).normalized()
 		"chonk":
 			# From sector 4 chonks belly-slam when you get close.
 			if g.sector >= 4:
@@ -1738,21 +1762,33 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return dir
 		"spitter":
+			# Spitters launch curving acid hooks around the player's flank,
+			# not Mirror's reflective frontal shotgun. Lock the aim on wind-up.
 			if float(e["wind"]) > 0.0:
-				e["wind"] = float(e["wind"]) - dt
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					# From sector 6 spitters fire a three-shot spread.
+					var lock: Vector2 = e.get("lock", hero_pos)
+					var aim: Vector2 = (lock - e["pos"]).normalized()
+					if aim.length_squared() < 0.01:
+						 aim = dir
+					var stream = enemy_fire(g, e, aim, 1, 0.0, 245.0, 5.5)
+					if stream != null:
+						stream["color"] = Color("a2ff83")
 					if g.sector >= 6:
-						enemy_fire(g, e, dir, 3, 0.5, 270.0)
-					else:
-						enemy_fire(g, e, dir, 1, 0.0, 270.0)
+						for side in [-1.0, 1.0]:
+							var hook = enemy_fire(g, e, aim.rotated(side * 0.31), 1, 0.0, 225.0, 5.5)
+							if hook != null:
+								hook["curve"] = -side * 0.60
+								hook["color"] = Color("a2ff83")
 				return Vector2.ZERO
-			if e["cd"] <= 0.0 and dist < 360.0:
-				e["cd"] = 2.4 if g.sector < 6 else maxf(1.4, 2.4 - 0.06 * float(g.sector - 5))
-				e["wind"] = maxf(0.2, 0.35 - 0.01 * float(maxi(0, g.sector - 5)))
-			if dist < 220.0:
-				return -dir * 0.6
-			return dir if dist > 280.0 else dir.orthogonal() * 0.5
+			if float(e["cd"]) <= 0.0 and dist < 420.0:
+				e["cd"] = maxf(1.75, 3.1 - 0.04 * float(maxi(0, g.sector - 6)))
+				e["wind"] = 0.58
+				e["lock"] = hero_pos + g.hero["vel"] * 0.17
+				return Vector2.ZERO
+			if dist < 210.0:
+				return -dir * 0.75
+			return dir if dist > 340.0 else dir.orthogonal() * 0.65
 		"larry":
 			if float(e["wind"]) > 0.0:
 				e["wind"] = float(e["wind"]) - dt
