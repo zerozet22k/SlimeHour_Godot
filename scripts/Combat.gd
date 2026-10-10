@@ -781,7 +781,7 @@ static func totem_protected_damage(g, e: Dictionary, amount: float) -> float:
 		return amount
 	if g.run_time >= float(e.get("shield_fx_next", 0.0)):
 		e["shield_fx_next"] = g.run_time + 0.8
-		e["shield_flash_t"] = 0.22
+		e["shield_flash_until"] = g.run_time + 0.22
 		# A restrained local feedback spark; never one per projectile/tick.
 		g.spawn_burst(e["pos"], Color("79d7ff"), 2, 90.0, 2.2)
 	return amount * 0.5
