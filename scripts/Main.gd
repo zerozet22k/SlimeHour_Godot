@@ -261,9 +261,24 @@ func _on_update_checked(_result: int, response_code: int, _headers: PackedString
 	if not release is Dictionary:
 		return
 	var latest = str(release.get("tag_name", ""))
-	if latest.begins_with("v") and latest != GAME_VERSION:
+	if latest.begins_with("v") and version_is_newer(latest, GAME_VERSION):
 		update_version = latest
 		update_available = true
+
+## Compare numeric major.minor.patch so old releases never appear as upgrades.
+static func version_is_newer(candidate: String, installed: String) -> bool:
+	var next_parts = candidate.trim_prefix("v").split(".")
+	var current_parts = installed.trim_prefix("v").split(".")
+	if next_parts.size() != 3 or current_parts.size() != 3:
+		return false
+	for i in range(3):
+		if not next_parts[i].is_valid_int() or not current_parts[i].is_valid_int():
+			return false
+		var next_value = int(next_parts[i])
+		var current_value = int(current_parts[i])
+		if next_value != current_value:
+			return next_value > current_value
+	return false
 
 func install_update() -> void:
 	var updater = OS.get_executable_path().get_base_dir().path_join("update_and_run.ps1")

@@ -475,6 +475,9 @@ static func line_ricochets(g, w: Dictionary) -> int:
 ## Instant-hit weapons need their own wall path; they never create Combat.shot projectiles.
 static func line_segments(g, from: Vector2, direction: Vector2, length: float, bounces: int) -> Array:
 	var segments = []
+	# Avoid zero-length tracer/hit segments when aim is temporarily unset.
+	if length <= 0.1 or direction.length_squared() < 0.000001:
+		return segments
 	var wall = float(g.ROAD_HALF) - 5.0
 	var start = Vector2(clampf(from.x, -wall, wall), from.y)
 	var dir = direction.normalized()

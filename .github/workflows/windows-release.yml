@@ -1,0 +1,110 @@
+name: Build and release Slime Hour for Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/windows-release.yml
+      - scripts/**
+      - scenes/**
+      - assets/**
+      - data/**
+      - tools/line_weapon_test.gd
+      - project.godot
+      - export_presets.cfg
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: slime-hour-release
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Check game version and existing release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(python3 -c 'import pathlib,re; t=pathlib.Path("scripts/Main.gd").read_text(); m=re.search(r"^const GAME_VERSION = \"(v[0-9]+\\.[0-9]+\\.[0-9]+)\"$",t,re.M); print(m.group(1) if m else "")')"
+          if [ -z "$tag" ]; then echo "Missing GAME_VERSION"; exit 1; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Release $tag already exists."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Godot 4.7.2 and Windows export template
+        if: steps.version.outputs.needed == 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable"
+          curl --fail --location --retry 4 --retry-delay 5 "$base/Godot_v4.7.2-stable_linux.x86_64.zip" -o /tmp/godot-linux.zip
+          unzip -oq /tmp/godot-linux.zip -d /tmp/godot-bin
+          cp /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 ./godot-ci
+          chmod +x ./godot-ci
+          ./godot-ci --headless --version
+
+          curl --fail --location --retry 4 --retry-delay 5 "$base/Godot_v4.7.2-stable_export_templates.tpz" -o /tmp/godot-templates.tpz
+          version_dir="$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          mkdir -p "$version_dir"
+          template="$(unzip -Z1 /tmp/godot-templates.tpz | grep -E '(^|/)windows_release_x86_64.exe$' | head -1)"
+          test -n "$template"
+          unzip -p /tmp/godot-templates.tpz "$template" > "$version_dir/windows_release_x86_64.exe"
+          test -s "$version_dir/windows_release_x86_64.exe"
+          rm -f /tmp/godot-linux.zip /tmp/godot-templates.tpz
+
+      - name: Import and validate game
+        if: steps.version.outputs.needed == 'true'
+        run: |
+          set -euo pipefail
+          python3 tools/validate.py
+          timeout 300 ./godot-ci --headless --path . --editor --import --quit
+          timeout 120 ./godot-ci --headless --path . --script tools/line_weapon_test.gd
+
+      - name: Export, package, and verify Windows release
+        if: steps.version.outputs.needed == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          timeout 600 ./godot-ci --headless --path . --export-release "Windows Desktop" dist/SlimeHour.exe
+          test -s dist/SlimeHour.exe
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          files = [Path("dist/SlimeHour.exe"), Path("update_and_run.ps1"), Path("updater_config.json"), Path("Start_Slime_Hour.bat")]
+          with ZipFile("SlimeHour-Windows.zip", "w", ZIP_DEFLATED, compresslevel=6) as out:
+              for path in files:
+                  assert path.is_file(), f"Missing: {path}"
+                  out.write(path, path.name)
+          with ZipFile("SlimeHour-Windows.zip") as package:
+              assert "SlimeHour.exe" in package.namelist()
+              assert "update_and_run.ps1" in package.namelist()
+              assert package.testzip() is None
+          PY
+          sha256sum SlimeHour-Windows.zip > SlimeHour-Windows.zip.sha256
+
+      - name: Publish only after successful validation
+        if: steps.version.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" SlimeHour-Windows.zip SlimeHour-Windows.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Slime Hour $RELEASE_TAG" \
+            --notes "Windows release: Railgun and Beam Me reflect at road edges, chain through enemies, and only offer newer in-game updates. Extract the ZIP and launch SlimeHour.exe."

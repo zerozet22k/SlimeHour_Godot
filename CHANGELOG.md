@@ -1,3 +1,10 @@
+## v0.1.3 — Beam edge correction and updater safeguards
+
+- Railgun and Beam Me now handle shots originating at or beyond a road edge when wall reflection is active (fix already on main).
+- Added regression checks for left/right edges, reflected hits, rail piercing and enemy ricochet target selection.
+- Ignore empty aim rays, and compare update versions numerically to avoid accidental downgrades.
+- Added automated Windows export and SHA256-checked GitHub release publishing for new game versions.
+
 # Harder enemies, kill-all sectors, PC controls (2026-10-09)
 
 - **No finish line**: a sector ends when its whole crowd (and boss) is dead. The HUD shows ENEMIES LEFT. The crowd is finite and arrives over time and as you kill.
