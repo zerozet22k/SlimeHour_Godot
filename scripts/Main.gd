@@ -8,6 +8,7 @@ const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
+const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const GAME_VERSION = "v0.1.14"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
@@ -100,6 +101,9 @@ var map_at = 0
 var map_pick = -1
 var map_path: Array = []
 var clear_t = 0.0
+var boss_result_t = 0.0
+var travel_t = 0.0
+var travel_title = ""
 var route_risk = 0
 var shop_bonus = 0.0
 var event: Dictionary = {}
@@ -398,6 +402,12 @@ func _process(delta: float) -> void:
 			unlock_toasts.pop_front()
 	if state == "event":
 		update_event(delta)
+	if state == "boss_result":
+		boss_result_t += real_dt
+	if state == "travel":
+		travel_t -= real_dt
+		if travel_t <= 0.0:
+			finish_travel()
 	# Adaptive combat mix is sampled rather than recomputed every draw frame.
 	music_refresh_t -= delta
 	if music_refresh_t <= 0.0:
@@ -407,7 +417,7 @@ func _process(delta: float) -> void:
 		var danger = 0.0
 		var boss_now = false
 		var boss_rage = false
-		if state == "playing" and not hero.is_empty():
+		if state == "playing" and phase == "fight" and not hero.is_empty():
 			var hp_ratio = float(hero["hp"]) / maxf(1.0, float(hero["maxhp"]))
 			for enemy in enemies:
 				if bool(enemy["dead"]):
@@ -422,7 +432,7 @@ func _process(delta: float) -> void:
 			if str(route.get("name", "")) == "HELL LANE":
 				danger = minf(1.0, danger + 0.12)
 		sfx.music_context(biome_index(), boss_now, boss_rage, danger, cornered)
-	sfx.music_on(state in ["playing", "levelup", "replace", "arsenal", "paused"])
+	sfx.music_on(RouteFlow.should_play_combat_music(state, phase))
 	visuals.queue_redraw()
 	hud.queue_redraw()
 
@@ -490,6 +500,9 @@ func on_screen(p: Vector2, margin = 60.0) -> bool:
 func start_run() -> void:
 	state = "playing"
 	phase = "fight"
+	boss_result_t = 0.0
+	travel_t = 0.0
+	travel_title = ""
 	cam_x = 0.0
 	touch_aim_dir = Vector2.ZERO
 	for arr in [enemies, shots, fx, zones, pickups, texts, delayed, barrels, gates, turrets, saws, pets, temp_orbitals, beams, buffs]:
@@ -1044,8 +1057,12 @@ func boss_alive() -> bool:
 func update_director(dt: float) -> void:
 	if phase == "cleared":
 		clear_t -= dt
-		if clear_t <= 0.0 and pending_levels == 0 and pending_chests == 0:
-			open_map()
+		if RouteFlow.ready_after_clear(clear_t, pending_levels, pending_chests):
+			if RouteFlow.requires_boss_result(is_boss_sector(), sector, WIN_SECTOR):
+				state = "boss_result"
+				boss_result_t = 0.0
+			else:
+				open_map()
 		return
 	if phase != "fight":
 		return
@@ -1375,6 +1392,12 @@ func link_cols(a: Array, b: Array) -> void:
 				best_i = i
 		a[best_i]["next"].append(j)
 
+## The boss-clear intermission remains until the player explicitly continues.
+func continue_after_boss() -> void:
+	if state != "boss_result" or boss_result_t < RouteFlow.RESULT_MIN_WAIT:
+		return
+	open_map()
+
 func open_map() -> void:
 	gen_map(sector + 7)
 	phase = "map"
@@ -1385,27 +1408,36 @@ func open_map() -> void:
 		map_pick = int(nxt[0])
 	sfx.play("pick")
 
-## Tap a reachable node to select it; tap it again (or GO) to travel.
+## Select a route without moving. GO starts a non-interactive map departure.
 func map_select(i: int) -> void:
 	if state != "map":
 		return
 	var nxt: Array = map_cols[sector - 1][map_at]["next"]
 	if not nxt.has(i):
 		return
-	if map_pick == i:
-		map_go()
-	else:
+	if map_pick != i:
 		map_pick = i
 		sfx.play("pick")
 
 func map_go() -> void:
 	if state != "map" or map_pick < 0:
 		return
+	if not map_cols[sector - 1][map_at]["next"].has(map_pick):
+		return
+	travel_title = str(NODE_INFO[str(map_cols[sector][map_pick]["type"])]["name"])
+	travel_t = RouteFlow.TRAVEL_DURATION
+	state = "travel"
+	sfx.play("gate")
+
+## Change the scene only after the route animation has finished.
+func finish_travel() -> void:
+	if state != "travel":
+		return
 	var node = map_cols[sector][map_pick]
 	map_at = map_pick
 	map_path.append(Vector2i(sector, map_pick))
 	sector += 1
-	sfx.play("gate")
+	travel_t = 0.0
 	match str(node["type"]):
 		"shop":
 			open_shop()
@@ -2170,6 +2202,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					try_bash()
 				elif code == KEY_R:
 					manual_reload()
+			"boss_result":
+				if code in [KEY_ENTER, KEY_SPACE]:
+					continue_after_boss()
 			"map":
 				if code >= KEY_1 and code <= KEY_4:
 					map_select(code - KEY_1)
@@ -2229,7 +2264,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					state = "menu"
 			"victory":
 				if code == KEY_ENTER:
-					state = "playing"
+					open_map()
 				elif code == KEY_ESCAPE:
 					state = "menu"
 			"upgrades":
@@ -2387,7 +2422,9 @@ func do_action(action: String) -> void:
 		"menu":
 			state = "menu"
 		"continue_run":
-			state = "playing"
+			open_map()
+		"boss_continue":
+			continue_after_boss()
 		"back":
 			state = settings_back
 		"reroll":
