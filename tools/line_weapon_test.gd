@@ -8,6 +8,7 @@ const Main = preload("res://scripts/Main.gd")
 class MockGame:
 	extends RefCounted
 	const ROAD_HALF = 530.0
+	var road_half = ROAD_HALF
 	var stats: Dictionary = {}
 	var enemies: Array = []
 	var weapon_db: Dictionary = {
