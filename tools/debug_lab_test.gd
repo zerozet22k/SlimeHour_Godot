@@ -52,7 +52,7 @@ func _run() -> void:
 	check(DebugLab.items(game, "ENEMIES")[0]["id"] == "blob", "Enemy picker uses actual enemy identifiers")
 	check(DebugLab.categories(game, "ENEMIES") == ["ALL", "NORMAL", "BOSSES", "MUTATIONS"], "Enemy filter always exposes all four groups")
 	check(DebugLab.items(game, "ENEMIES", "NORMAL").size() == 1 and DebugLab.items(game, "ENEMIES", "BOSSES").is_empty(), "Base enemies are separated from bosses")
-	check(DebugLab.items(game, "ENEMIES", "NORMAL", "chaser").size() == 1, "Search can match combat-mechanic names")
+	check(DebugLab.items(game, "ENEMIES", "NORMAL", "barricade").size() == 1, "Search can match combat-mechanic names")
 	game.db_cards = [{"id": "fake", "name": "Fake Card", "cat": "volley", "desc": "Extra projectiles"}, {"id": "shield", "name": "Safe Card", "cat": "defense", "desc": "Block one hit"}]
 	check(DebugLab.categories(game, "CARDS") == ["ALL", "DEFENSE", "VOLLEY"], "Cards are categorized by effect type")
 	check(DebugLab.items(game, "CARDS", "VOLLEY", "projectile").size() == 1, "Card category and search work together")
