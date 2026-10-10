@@ -362,7 +362,7 @@ func paint_telegraphs() -> void:
 			continue
 		# Laser/piston warnings are full collision-width rectangles,
 		# never misleading circular warnings at the midpoint.
-		if str(d["fn"]) == "boss_line":
+		if str(d["fn"]) in ["boss_line", "coil_wall"]:
 			var a = P(d["a"])
 			var b = P(d["b"])
 			var width = float(d["tele"])
@@ -388,6 +388,10 @@ func paint_telegraphs() -> void:
 		var warning_color = Color(str(d.get("color", "ff744e")))
 		draw_circle(p, r * k, Color(warning_color, 0.12 + 0.12 * k))
 		draw_arc(p, r, 0, TAU, 40, Color(warning_color, 0.85), 2.8)
+		if str(d["fn"]) == "rift_emit":
+			var exit_target = P(d.get("target", d["pos"]))
+			draw_line(p, exit_target, Color("b397ff", 0.28 + k * 0.4), 2.5)
+			draw_arc(p, r + 6.0, g.anim_t * 2.5, g.anim_t * 2.5 + PI * 1.5, 32, Color("d9baff", 0.82), 4.0)
 		if str(d["fn"]) in ["boss_blast", "elite_boom"]:
 			draw_arc(p, r * (0.35 + k * 0.65), -PI * 0.5, -PI * 0.5 + TAU * k, 40, Color("fff1c4", 0.85), 4.0)
 			for j in range(4):
@@ -504,6 +508,49 @@ func paint_enemies() -> void:
 		elif e["kind"] == "burrower" and float(e.get("emerge_t", 0.0)) > 0.0:
 			draw_arc(p, 66.0, 0, TAU, 48, Color("ffe2a3", 0.9), 3.0)
 			draw_circle(p, 66.0, Color("ffe2a3", 0.12))
+		# Boss signatures are visible even without reading the Bestiary.
+		# Compact indicators avoid adding sprites or labels to normal crowds.
+		if bool(e.get("boss", false)):
+			match str(e["kind"]):
+				"chonkzilla":
+					if float(e.get("boss_recover", 0.0)) > 0.0:
+						draw_arc(p, r + 8.0, 0, TAU, 36, Color("ffe07f"), 4.0)
+						text_c("STAGGERED - HIT NOW", p + Vector2(0, -r - 31), 13, Color("ffe07f"), 2)
+				"heli":
+					if float(e.get("flight_t", 0.0)) > 0.0:
+						var side = float(e.get("flight_side", 1.0))
+						draw_line(p, p + Vector2(side * 145.0, 0.0), Color("ffcb72", 0.8), 4.0)
+						text_c("STRAFE RUN", p + Vector2(0, -r - 30), 13, Color("ffcb72"), 2)
+				"necro":
+					var linked = 0
+					for ward in g.enemies:
+						if not bool(ward.get("dead", false)) and int(ward.get("soul_owner", -1)) == int(e["id"]):
+							linked += 1
+							draw_line(p, P(ward["pos"]), Color("c797ff", 0.35), 2.0)
+					if linked > 0:
+						text_c("SOUL ANCHORS %d - BREAK LINKS" % linked, p + Vector2(0, -r - 30), 13, Color("dfb4ff"), 2)
+				"kingblob":
+					text_c("MASS %d" % int(e["r"]), p + Vector2(0, -r - 28), 12, Color("ffc1db"), 2)
+				"glassoracle":
+					var mirrors = 0
+					for node in g.enemies:
+						if not bool(node.get("dead", false)) and int(node.get("oracle_owner", -1)) == int(e["id"]):
+							mirrors += 1
+							draw_line(p, P(node["pos"]), Color("80f3ff", 0.30), 2.0)
+					if mirrors > 0:
+						draw_arc(p, r + 8.0, 0, TAU, 32, Color("91ecff", 0.9), 3.0)
+						text_c("MIRROR ARMOR - BREAK CLONES", p + Vector2(0, -r - 30), 12, Color("9ffaff"), 2)
+				"voidweaver":
+					if float(e.get("wind", 0.0)) > 0.0:
+						text_c("RIFT SWAP", p + Vector2(0, -r - 30), 13, Color("e7c1ff"), 2)
+				"dreadengine":
+					if float(e.get("vent_t", 0.0)) > 0.0:
+						draw_arc(p, r + 9.0, 0, TAU, 36, Color("ffe78a"), 4.0)
+						text_c("CORE EXPOSED - ATTACK", p + Vector2(0, -r - 30), 13, Color("ffe78a"), 2)
+					else:
+						var heat = clampf(float(e.get("engine_heat", 0.0)) / 100.0, 0.0, 1.0)
+						draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * maxf(0.01, heat), 36, Color("ff975c"), 4.0)
+						text_c("ARMORED // HEAT %d%%" % int(heat * 100.0), p + Vector2(0, -r - 30), 12, Color("ffb68a"), 2)
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif enemy_has_role(e, "totem"):
