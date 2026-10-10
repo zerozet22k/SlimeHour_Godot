@@ -1,3 +1,12 @@
+## v0.1.26 — Horizontal Collection browsing and Windows patch-download repair
+
+- Make the Collection truly horizontal: desktop shows four cards left-to-right and portrait shows two side-by-side; Next/Previous advances by one item instead of jumping an entire 12-card page.
+- Reserve the right-hand desktop details panel so collection cards no longer overlap its artwork. Keyboard arrows and mouse wheel use the same sequence.
+- Download incremental patches up to 16 MiB into bounded memory before writing them to disk. This bypasses the file-stream errors that displayed HTTP 200 but zero bytes in the previous updater.
+- Report the real request error alongside the HTTP response code to separate download-file, DNS, TLS, timeout and network failures.
+- Preserve existing ZIP size and SHA-256 verification, large-file streaming, delta compatibility checks and verified restart.
+- Add regression checks for scrolling order, horizontal viewport bounds, small-patch buffering and updater error diagnostics.
+
 ## v0.1.25 — Interactive developer Debug Lab
 
 - Open the in-game Debug Lab with F3 from menus, combat, card picks, shops, map, and boss result screens. F4 now independently shows performance counters.

@@ -10,6 +10,7 @@ const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/rel
 const ASSET_ROOT = "https://github.com/zerozet22k/SlimeHour_Godot/releases/download/"
 const FULL = "SlimeHour-Windows.zip"
 const DELTA = "SlimeHour-Delta.zip"
+const MAX_MEMORY_ZIP = 16 * 1024 * 1024
 
 var status = "idle"
 var message = ""
@@ -21,6 +22,7 @@ var use_delta = false
 var local_version = ""
 var sha256 = ""
 var pending_zip = ""
+var zip_in_memory = false
 var pending_release: Dictionary = {}
 var assets: Dictionary = {}
 var current_step = ""
@@ -57,6 +59,22 @@ static func parse_checksum(body: String, file_name: String) -> String:
 	var filename = str(parts[parts.size() - 1]).strip_edges().trim_prefix("*")
 	return hash_value if filename == file_name else ""
 
+static func zip_use_memory(size: int) -> bool:
+	return size > 0 and size <= MAX_MEMORY_ZIP
+
+static func describe_result(code: int) -> String:
+	match code:
+		HTTPRequest.RESULT_SUCCESS: return "success"
+		HTTPRequest.RESULT_CANT_CONNECT: return "connection refused"
+		HTTPRequest.RESULT_CANT_RESOLVE: return "DNS lookup failed"
+		HTTPRequest.RESULT_CONNECTION_ERROR: return "connection lost during transfer"
+		HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR: return "TLS handshake failed"
+		HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN: return "could not open download file"
+		HTTPRequest.RESULT_DOWNLOAD_FILE_WRITE_ERROR: return "failed writing download file"
+		HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED: return "response exceeds size limit"
+		HTTPRequest.RESULT_TIMEOUT: return "request timed out"
+		_: return "request error %d" % code
+
 static func delta_matches(meta: Dictionary, installed: String, wanted: String) -> bool:
 	return str(meta.get("base_version", "")) == installed and str(meta.get("target_version", "")) == wanted
 
@@ -88,8 +106,12 @@ func check(installed: String) -> void:
 
 func _send(step: String, url: String, max_body: int = 0, output: String = "") -> void:
 	current_step = step
-	http.download_file = output
-	http.body_size_limit = max_body
+	# Small incremental archives download to memory first, avoiding Godot's
+	# download-file failures on some Windows installations. Large files still
+	# stream to disk without buffering hundreds of megabytes.
+	zip_in_memory = step == "zip" and zip_use_memory(total_bytes)
+	http.download_file = "" if zip_in_memory else output
+	http.body_size_limit = (total_bytes + 1) if zip_in_memory else max_body
 	http.timeout = 900.0 if step == "zip" else 30.0
 	var headers = PackedStringArray(["User-Agent: SlimeHour-InGame-Updater", "Accept: application/vnd.github+json"])
 	var result = http.request(url, headers)
@@ -106,7 +128,7 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 		if step == "delta_meta":
 			_begin_asset(FULL)
 			return
-		_fail("Download failed (HTTP %d). Check your connection, then retry." % response_code)
+		_fail("Download %s failed: %s (HTTP %d). Retry or download the release ZIP manually." % [step, describe_result(result), response_code])
 		return
 	match step:
 		"release":
@@ -143,6 +165,16 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 			_set_status("downloading", "Downloading " + download_name + "...")
 			_send("zip", str(_asset(download_name)["browser_download_url"]), 0, pending_zip)
 		"zip":
+			if zip_in_memory:
+				if body.size() != total_bytes:
+					_fail("Incomplete patch: received %d of %d bytes." % [body.size(), total_bytes])
+					return
+				var patch_file = FileAccess.open(pending_zip, FileAccess.WRITE)
+				if patch_file == null:
+					_fail("Could not save the patch to disk (error %d)." % FileAccess.get_open_error())
+					return
+				patch_file.store_buffer(body)
+				patch_file.close()
 			if not FileAccess.file_exists(pending_zip):
 				_fail("Downloaded update file was not saved.")
 				return

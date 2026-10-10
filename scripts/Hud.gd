@@ -4,6 +4,7 @@ extends Node2D
 
 const Weapons = preload("res://scripts/Weapons.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
+const CollectionPaging = preload("res://scripts/CollectionPaging.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const CardArt = preload("res://scripts/CardArt.gd")
 
@@ -196,7 +197,9 @@ func click(pos: Vector2) -> void:
 			return
 
 func scroll(d: int) -> void:
-	collection_page = maxi(0, collection_page + d)
+	var visible = CollectionPaging.window_size(g.portrait)
+	collection_page = CollectionPaging.offset(get_collection_items().size(), visible, collection_page, d)
+	selected_collection_item = null
 
 func collection_key(code: int) -> void:
 	if code == KEY_RIGHT:
@@ -772,17 +775,18 @@ func paint_portrait_collection() -> void:
 	txt(cat_label, Vector2(360, 170), fit(cat_label, 420, 28), Color("ffd24d"), 1, bold, 3)
 	button(Rect2(596, 124, 96, 72), ">", "mobile_cat_next", false, 34)
 	var items = get_collection_items()
-	var row_h = 160.0
-	var per_page = clampi(int((h - 420.0) / (row_h + 14.0)), 2, 8)
-	var pages = maxi(1, ceili(float(items.size()) / per_page))
-	collection_page = clampi(collection_page, 0, pages - 1)
-	for i in range(per_page):
-		var idx = collection_page * per_page + i
-		if idx >= items.size():
-			break
-		var r = Rect2(24, 222 + i * (row_h + 14.0), 672, row_h)
-		portrait_offer_row(r, collection_info(items[idx]))
+	var visible = CollectionPaging.window_size(true)
+	collection_page = clampi(collection_page, 0, CollectionPaging.max_start(items.size(), visible))
+	var shown: Array = CollectionPaging.range_indices(items.size(), visible, collection_page)
+	# The cards are a horizontal strip; NEXT moves one card to the left.
+	for i in range(shown.size()):
+		var idx = int(shown[i])
+		var r = Rect2(28.0 + float(i) * 342.0, 232.0, 322.0, 282.0)
+		mini_card(r, collection_info(items[idx]))
 		buttons.append({"rect": r, "action": "select_card_%d" % idx})
+	if shown.is_empty():
+		txt("NO ITEMS", Vector2(360, 350), 30, Color("aeb8cf"), 1, bold)
+	txt("SWIPE THROUGH THE COLLECTION  /  LEFT TO RIGHT", Vector2(360, 567), 16, Color("aabbd0"), 1, body)
 	if selected_collection_item != null:
 		var info = collection_info(selected_collection_item)
 		buttons.clear()
@@ -795,9 +799,10 @@ func paint_portrait_collection() -> void:
 			wrap_text("LV5: " + str(gun["lv5"]), 70, 130 + detail_h + 100, 580, 21, Color("ffd24d"), 26, body, true, 2)
 		button(Rect2(190, h - 130, 340, 84), "CLOSE", "mobile_close_detail", true, 32)
 		return
-	button(Rect2(150, h - 214, 110, 72), "<", "page-1", false, 34, collection_page > 0)
-	txt("%d / %d" % [collection_page + 1, pages], Vector2(360, h - 166), 26, Color.WHITE, 1, bold, 3)
-	button(Rect2(460, h - 214, 110, 72), ">", "page1", false, 34, collection_page < pages - 1)
+	button(Rect2(80, h - 214, 175, 72), "< PREV", "page-1", false, 24, collection_page > 0)
+	var last_number = mini(items.size(), collection_page + visible)
+	txt("%d-%d / %d" % [mini(collection_page + 1, items.size()), last_number, items.size()], Vector2(360, h - 166), 22, Color.WHITE, 1, bold, 3)
+	button(Rect2(465, h - 214, 175, 72), "NEXT >", "page1", false, 24, collection_page < CollectionPaging.max_start(items.size(), visible))
 	button(Rect2(190, h - 120, 340, 84), "BACK", "back", true, 32)
 
 func paint_portrait_result() -> void:
@@ -1506,32 +1511,35 @@ func paint_collection() -> void:
 		buttons.append({"rect": r, "action": "cat_" + c})
 		tx += w + 5
 	var items = get_collection_items()
-	var per = 12
-	var pages = maxi(1, ceili(float(items.size()) / per))
-	collection_page = clampi(collection_page, 0, pages - 1)
-	for i in range(per):
-		var k = collection_page * per + i
-		if k >= items.size():
-			break
-		var r2 = Rect2(30 + (i % 6) * 150, 130 + int(i / 6) * 270, 140, 258)
+	var per = CollectionPaging.window_size(false)
+	collection_page = clampi(collection_page, 0, CollectionPaging.max_start(items.size(), per))
+	var shown: Array = CollectionPaging.range_indices(items.size(), per, collection_page)
+	txt("BROWSE LEFT  /  RIGHT    •    NEXT ADVANCES ONE CARD", Vector2(30, 168), 19, Color("aec5de"), 0, bold)
+	for i in range(shown.size()):
+		var k = int(shown[i])
+		# Four cards flow left to right; the details pane is reserved on the right.
+		var r2 = Rect2(30.0 + float(i) * 215.0, 206.0, 197.0, 300.0)
 		var info = collection_info(items[k])
 		mini_card(r2, info)
 		buttons.append({"rect": r2, "action": "select_card_%d" % k})
 		if r2.has_point(g.mouse_screen):
 			hover_card = items[k]
+	if shown.is_empty():
+		txt("NO CARDS IN THIS CATEGORY", Vector2(450, 375), 24, Color("aab7d2"), 1, bold)
 	if selected_collection_item != null:
 		hover_card = selected_collection_item
 	if hover_card != null:
-		draw_card(Rect2(950, 130, 300, 470), collection_info(hover_card), true, 1.0, -1)
+		draw_card(Rect2(940, 130, 300, 470), collection_info(hover_card), true, 1.0, -1)
 		if hover_card["type"] == "gun_new":
 			var d = g.weapon_db[hover_card["gun"]]
 			wrap_text("LV3: " + str(d["lv3"]), 960, 622, 280, 14, Color("ffd24d"), 18, body)
 			wrap_text("LV5: " + str(d["lv5"]), 960, 660, 280, 14, Color("ffd24d"), 18, body)
 	else:
 		txt("tap / hover a card", Vector2(1100, 360), 22, Color("6a7a98"), 1, bold)
-	button(Rect2(330, 668, 60, 42), "<", "page-1", false, 26, collection_page > 0)
-	txt("%d / %d" % [collection_page + 1, pages], Vector2(450, 698), 20, Color.WHITE, 1, bold, 3)
-	button(Rect2(510, 668, 60, 42), ">", "page1", false, 26, collection_page < pages - 1)
+	button(Rect2(242, 638, 160, 56), "< PREVIOUS", "page-1", false, 20, collection_page > 0)
+	var last_number = mini(items.size(), collection_page + per)
+	txt("%d-%d / %d" % [mini(items.size(), collection_page + 1), last_number, items.size()], Vector2(450, 674), 21, Color.WHITE, 1, bold, 3)
+	button(Rect2(500, 638, 160, 56), "NEXT >", "page1", false, 20, collection_page < CollectionPaging.max_start(items.size(), per))
 	txt("%d cards  ·  %d guns" % [g.db_cards.size(), g.weapon_ids.size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
 	button(Rect2(1040, 660, 200, 48), "BACK", "back", true, 24)
 
