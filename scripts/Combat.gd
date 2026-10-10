@@ -236,6 +236,8 @@ static func update_delayed(g, dt: float) -> void:
 							"kind": "enemy", "color": Color("8ceeff"), "src": "Glass Oracle's movement echo"})
 					g.spawn_ring_fx(item["pos"], Color("8ceeff"), 29.0)
 			"boss_blast":
+				if item.has("source") and bool(item["source"].get("dead", false)):
+					continue
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
 				ProjectileVfx.boss_impact(g, item["pos"], "boss_ember" if str(item.get("color", "")) == "ff9944" else "boss_void", radius)
@@ -1653,6 +1655,7 @@ static func boss_map_pattern(g, e: Dictionary, stage: int) -> void:
 	var kind: String = str(e["kind"])
 	var cycle: int = int(e.get("map_cycle", 0))
 	e["map_cycle"] = cycle + 1
+	var first_event: int = g.delayed.size()
 	var y: float = float(g.hero["pos"].y)
 	# ScreenFit can make the road wider than the camera. Keep warnings visible.
 	var half: float = minf(g.road_half, 530.0)
@@ -1741,6 +1744,120 @@ static func boss_map_pattern(g, e: Dictionary, stage: int) -> void:
 						"life": 1.1 + pass_index * 0.48, "dmg": damage * 0.51,
 						"color": "ffce83", "map_pattern": kind,
 						"map_pass": pass_index, "map_gap": gap})
+
+	# All arena events belong to their actual boss. End-of-fight cleanup
+	# removes armed warnings BEFORE their hitboxes can trigger.
+	for i in range(first_event, g.delayed.size()):
+		g.delayed[i]["owner"] = int(e["id"])
+	# Phase 2/3 sequences change the movement decision AFTER the primary
+	# setpiece has been read; never hide unavoidable damage under one warning.
+	if stage >= 1 and (stage >= 2 or cycle % 2 == 0):
+		boss_countersequence(g, e, stage, cycle)
+
+## Countersequences are individual follow-ups to the boss's primary mechanic.
+## They begin AFTER the first attack and use already supported real collisions.
+## Each is limited to a few warnings and preserves meaningful lateral escape.
+static func boss_countersequence(g, e: Dictionary, stage: int, cycle: int) -> void:
+	if g.delayed.size() > 104:
+		return
+	var kind: String = str(e["kind"])
+	var center: Vector2 = g.hero["pos"]
+	var half: float = minf(g.road_half, 530.0)
+	var damage: float = float(e["dmg"])
+	var owner_id: int = int(e["id"])
+	var first: int = g.delayed.size()
+	match kind:
+		"heli":
+			# Rotor downwash sweeps behind the diagonal bombing run.
+			# The alternating sweep begins far enough after the leading bombs.
+			var row: float = center.y + (160.0 if cycle % 2 == 0 else -160.0)
+			schedule_boss_line(g, Vector2(-half + 30.0, row),
+				Vector2(half - 30.0, row), 20.0, damage * 0.44, 2.72, "ffc369")
+			if stage == 2:
+				schedule_boss_line(g, Vector2(-half + 30.0, row - 165.0),
+					Vector2(half - 30.0, row - 165.0), 18.0, damage * 0.40, 3.22, "ffc369")
+		"necro":
+			# Ward-powered soul spokes converge on the player's OLD position.
+			# Killing a ward cancels its scheduled follow-up.
+			var ward_count := 0
+			for mob in g.enemies:
+				if ward_count >= 2 + stage:
+					break
+				if bool(mob.get("dead", false)) or int(mob.get("soul_owner", -1)) != owner_id:
+					continue
+				ward_count += 1
+				var a: Vector2 = mob["pos"]
+				var b: Vector2 = center + Vector2(float(ward_count - 2) * 56.0, -40.0)
+				g.delayed.append({"fn": "boss_soul_link", "source": mob,
+					"pos": (a + b) * 0.5, "a": a, "b": b,
+					"tele": 17.0, "t": 2.48 + 0.26 * ward_count,
+					"life": 2.48 + 0.26 * ward_count, "dmg": damage * 0.43,
+					"color": "c49cff", "countersequence": kind})
+		"kingblob":
+			# A rolling mass impact splashes outward in staggered lobes.
+			# The final lobe creates a new fragment and can be interrupted.
+			for k in range(2 + stage):
+				if g.delayed.size() >= 108:
+					break
+				var x: float = center.x + (float(k) - float(1 + stage) * 0.5) * 180.0
+				x = clampf(x, -half + 90.0, half - 90.0)
+				var t: float = 2.45 + 0.34 * k
+				g.delayed.append({"fn": "boss_blast", "pos": Vector2(x, center.y + (95.0 if k % 2 == 0 else -95.0)),
+					"tele": 62.0 + 8.0 * stage, "t": t, "life": t,
+					"dmg": damage * 0.38, "color": "ff83c0",
+					"royal_spawn": k == 1 + stage, "boss": e, "countersequence": kind})
+		"coilqueen":
+			# A serpentine escape route: a slashing diagonal follows the closing
+			# walls, then the opposite fang comes from the other side.
+			var sign_side := -1.0 if cycle % 2 == 0 else 1.0
+			schedule_boss_line(g,
+				center + Vector2(-sign_side * 240.0, -225.0),
+				center + Vector2(sign_side * 240.0, 225.0),
+				20.0, damage * 0.50, 2.42, "65efb2")
+			if stage == 2:
+				schedule_boss_line(g,
+					center + Vector2(sign_side * 245.0, -220.0),
+					center + Vector2(-sign_side * 245.0, 220.0),
+					20.0, damage * 0.48, 2.98, "65efb2")
+		"glassoracle":
+			# Two breakable mirrors exchange rays across the player's prior
+			# position. Killing either source shuts that ray down.
+			var reflection_nodes: Array = []
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("oracle_owner", -1)) == owner_id:
+					reflection_nodes.append(mob)
+			for k in range(mini(2, reflection_nodes.size())):
+				var source: Dictionary = reflection_nodes[k]
+				var target: Vector2 = center + Vector2(-95.0 if k == 0 else 95.0, 110.0 if k == 0 else -110.0)
+				var t := 2.63 + k * 0.50
+				var from: Vector2 = source["pos"]
+				g.delayed.append({"fn": "boss_line", "source": source,
+					"pos": (from + target) * 0.5, "a": from, "b": target,
+					"tele": 17.0, "t": t, "life": t, "dmg": damage * 0.46,
+					"color": "8ceeff", "countersequence": kind})
+		"voidweaver":
+			# Crossed exit gates: the safe escape from the first side becomes
+			# the entrance to a delayed shot from its opposite portal.
+			for k in range(2 + stage):
+				var side := -1.0 if (cycle + k) % 2 == 0 else 1.0
+				var origin := Vector2(side * (half - 62.0), center.y + (k - 1) * 115.0)
+				var t: float = 2.40 + k * 0.35
+				g.delayed.append({"fn": "rift_emit", "pos": origin,
+					"target": center + Vector2(-side * 95.0, -40.0),
+					"tele": 41.0, "t": t, "life": t, "dmg": damage * 0.42,
+					"color": "b397ff", "stage": stage, "countersequence": kind})
+		"dreadengine":
+			# Vertical pistons first; alternating horizontal hydraulic shutters
+			# then punish sitting forever in the original 'safe' column.
+			var y: float = center.y + (185.0 if cycle % 2 == 0 else -185.0)
+			schedule_boss_line(g, Vector2(-half + 25.0, y),
+				Vector2(half - 25.0, y), 23.0, damage * 0.45, 2.76, "ffce83")
+			if stage == 2:
+				schedule_boss_line(g, Vector2(-half + 25.0, y - 185.0),
+					Vector2(half - 25.0, y - 185.0), 23.0, damage * 0.42, 3.35, "ffce83")
+	# Helpers like schedule_boss_line do not take ownership directly.
+	for i in range(first, g.delayed.size()):
+		g.delayed[i]["owner"] = owner_id
 
 ## Sustained, bounded projectile pressure between the large arena attacks.
 ## Each boss changes the origin and flight rule of its own bullets.
