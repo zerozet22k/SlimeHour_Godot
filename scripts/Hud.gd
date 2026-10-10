@@ -1817,6 +1817,7 @@ func bestiary_tile(r: Rect2, kind: String) -> void:
 	var recipe = MutationRecipes.recipe_for_id(kind)
 	if bestiary_filter == "MUTATIONS" and not recipe.is_empty():
 		var available = mutation_unlocked(kind)
+		var known = found or available
 		rbox(r, Color("243450") if found else (Color("18273c") if available else Color("0d1425")),
 			13, Color("ffdb75") if bestiary_selected == kind else (Color("73d8b2") if available else Color("40536b")),
 			3 if bestiary_selected == kind else 1)
@@ -1825,14 +1826,12 @@ func bestiary_tile(r: Rect2, kind: String) -> void:
 		else:
 			txt("?" if available else "X", r.get_center() + Vector2(0, 7),
 				52, Color("7bd9bd") if available else Color("44566e"), 1, bold)
-		var label = str(recipe["name"]).to_upper() if available else "LOCKED"
-		txt(label, Vector2(r.get_center().x, r.end.y - 21),
-			fit(label, r.size.x - 10, 15, bold, 11), Color.WHITE if available else Color("8997af"), 1, bold)
-		if not available:
-			txt("N%d / H%d" % [int(recipe["normal_sector"]), int(recipe["hard_sector"])],
-				Vector2(r.get_center().x, r.end.y - 5), 11, Color("9caac0"), 1, body)
-		elif not found:
-			txt("NOT YET DEFEATED", Vector2(r.get_center().x, r.end.y - 5), 10, Color("a6dccc"), 1, body)
+		var label = str(recipe["name"]).to_upper() if known else "LOCKED"
+		txt(label, Vector2(r.get_center().x, r.end.y - 23),
+			fit(label, r.size.x - 10, 15, bold, 11), Color.WHITE if known else Color("8997af"), 1, bold)
+		var status = "ACTIVE THIS RUN" if available else ("KNOWN / RUN LOCKED" if found else "N%d / H%d" % [int(recipe["normal_sector"]), int(recipe["hard_sector"])])
+		txt(status, Vector2(r.get_center().x, r.end.y - 5), fit(status, r.size.x - 10, 10, body, 9),
+			Color("91efbd") if available else Color("9caac0"), 1, body)
 		return
 	rbox(r, Color("1b2c42") if found else Color("10192b"), 13, Color("ffdb75") if bestiary_selected == kind else Color("456782"), 3 if bestiary_selected == kind else 1)
 	if found:
@@ -1852,7 +1851,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 	var recipe = MutationRecipes.recipe_for_id(kind)
 	if not recipe.is_empty() and not found:
 		var revealed = mutation_unlocked(kind)
-		txt("MUTATION UNLOCKED" if revealed else "MUTATION LOCKED",
+		txt("ACTIVE THIS RUN" if revealed else "LOCKED THIS RUN",
 			Vector2(r.get_center().x, r.position.y + 75), 27,
 			Color("7dffcf") if revealed else Color("98a9bf"), 1, bold)
 		txt(str(recipe["name"]).to_upper() if revealed else "???",
@@ -1860,7 +1859,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 		if revealed:
 			txt("%s  +  %s" % [str(recipe["a"]).to_upper(), str(recipe["b"]).to_upper()],
 				Vector2(r.get_center().x, r.position.y + 186), 19, Color("ffd28d"), 1, bold)
-			wrap_text("This mutation can now appear in its unlocked sector or later. Defeat it to reveal its abilities, stats and combat record.",
+			wrap_text("Unlocked for the CURRENT run only. Defeat it to add a permanent entry to the Mutation Book.",
 				r.position.x + 32, r.position.y + 220, r.size.x - 64, 19,
 				Color("c9e8de"), 27, body, false, 5)
 		else:
@@ -1868,7 +1867,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 				Vector2(r.get_center().x, r.position.y + 184), 20, Color("e1d4aa"), 1, bold)
 			txt("HARD  SECTOR %d" % int(recipe["hard_sector"]),
 				Vector2(r.get_center().x, r.position.y + 225), 20, Color("ffb29a"), 1, bold)
-			wrap_text("Reach its introduction sector to unlock this entry. Every run still introduces mutations according to its own difficulty.",
+			wrap_text("This mutation cannot spawn in the current run yet. Each run starts locked, even when a previous run discovered this mutation.",
 				r.position.x + 32, r.position.y + 280, r.size.x - 64, 18,
 				Color("b5c5d9"), 26, body, false, 5)
 		return
@@ -1899,6 +1898,10 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 	wrap_text(str(note[1]), x + 20, ty + 27, ww - 40, 16, Color("daeaff"), 20, body, false, 3)
 	txt("COUNTERPLAY", Vector2(x + 20, ty + 105), 17, Color("8ed8ff"), 0, bold)
 	wrap_text(str(note[2]), x + 20, ty + 132, ww - 40, 16, Color("c8ddf3"), 19, body, false, 3)
+	if not recipe.is_empty():
+		var status = "CURRENT RUN: UNLOCKED" if mutation_unlocked(kind) else "CURRENT RUN: LOCKED"
+		txt(status, Vector2(r.get_center().x, r.end.y - 38),
+			fit(status, ww - 32, 14), Color("8feaba") if mutation_unlocked(kind) else Color("f0b4a1"), 1, bold)
 	txt("KILLS  %d    •    XP  %d    •    BASE STATS" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], Vector2(r.get_center().x, r.end.y - 14), fit("KILLS %d XP %d BASE" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], ww - 32, 14), Color("a4b8ce"), 1, body)
 
 func paint_bestiary() -> void:
@@ -1918,7 +1921,7 @@ func paint_bestiary() -> void:
 				unlocked += 1
 			if int(g.profile["mobs"].get(id, 0)) > 0:
 				defeated += 1
-		txt("%d UNLOCKED  /  %d DISCOVERED  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+		txt("%d RUN UNLOCKED  /  %d PERMANENTLY FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
 			Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
 	else:
 		txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
@@ -1930,6 +1933,8 @@ func paint_bestiary() -> void:
 			if int(g.profile["mobs"].get(id, 0)) > 0:
 				bestiary_selected = str(id)
 				break
+		if bestiary_selected == "" and bestiary_filter == "MUTATIONS" and not items.is_empty():
+			bestiary_selected = str(items[0])
 	var pages = maxi(1, ceili(float(items.size()) / 12.0))
 	bestiary_page = clampi(bestiary_page, 0, pages - 1)
 	for i in range(12):
@@ -1963,7 +1968,7 @@ func paint_portrait_bestiary() -> void:
 				unlocked += 1
 			if int(g.profile["mobs"].get(id, 0)) > 0:
 				defeated += 1
-		txt("%d UNLOCKED  /  %d FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+		txt("%d RUN UNLOCKED  /  %d FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
 			Vector2(360, 110), 20, Color("a6d8f5"), 1, bold)
 	else:
 		txt("%d / %d DISCOVERED" % [known, g.mob_order().size()], Vector2(360, 110), 21, Color("a6d8f5"), 1, bold)
