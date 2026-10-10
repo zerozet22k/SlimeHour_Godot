@@ -5,7 +5,7 @@ extends RefCounted
 
 ## Hybrid inheritance is anatomical, NOT a second complete monster face.
 ## Every second parent supplies one recognizable peripheral body feature.
-const RETIRED = ["nurse", "larry"]
+const RETIRED = [] # Medic and Laser Larry are active normal monster species.
 const FEATURES = {
 	"blob": ["cheeks", "tail"], "zoomer": ["ears", "tail"],
 	"chonk": ["shell", "cheeks"], "spitter": ["antennae", "spikes"],
@@ -18,7 +18,8 @@ const FEATURES = {
 	"mirror": ["crystal", "spikes"], "burrower": ["claws", "ears"],
 	"siren": ["fins", "antennae"], "skitter": ["legs", "antennae"],
 	"sapper": ["armor", "helmet"], "lancer": ["horns", "claws"],
-	"leech": ["tentacles", "tail"]
+	"leech": ["tentacles", "tail"],
+	"nurse": ["cap", "antennae"], "larry": ["laser_lens", "spikes"]
 }
 const TRAIT_NAMES = {
 	"horns": "Horned", "ears": "Long-Eared", "antennae": "Whiskered",
@@ -27,7 +28,7 @@ const TRAIT_NAMES = {
 	"armor": "Armored", "shoulders": "Shouldered", "crest": "Crested",
 	"helmet": "Helmeted", "crown": "Crowned", "legs": "Spider-Legged",
 	"crystal": "Crystal-Spined", "claws": "Clawed", "fins": "Finned",
-	"tentacles": "Tentacled"
+	"tentacles": "Tentacled", "cap": "Capped", "laser_lens": "Laser-Eyed"
 }
 
 static func retired(id: String) -> bool:

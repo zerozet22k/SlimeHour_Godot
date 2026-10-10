@@ -116,6 +116,7 @@ var pickups: Array = []
 var pickup_merge_timer = 0.0
 var texts: Array = []
 var delayed: Array = []
+var enemy_hazards: Array = []
 var barrels: Array = []
 var obstacles: Array = []
 var gates: Array = []
@@ -277,8 +278,7 @@ func _ready() -> void:
 	var args = OS.get_cmdline_user_args()
 	portrait_preview = args.has("--portrait-preview")
 	load_options()
-	# Retired Nurse/Larry and their historical hybrids are migrated out of
-	# older profiles, not resurrected when rebuilding the Bestiary.
+	# Retain historical Medic/Nurse and Larry records for save compatibility.
 	for key in ["mobs", "announced_mobs"]:
 		var records: Dictionary = profile.get(key, {})
 		for known in records.keys():
@@ -594,7 +594,7 @@ func start_run() -> void:
 	travel_title = ""
 	cam_x = 0.0
 	touch_aim_dir = Vector2.ZERO
-	for arr in [enemies, shots, fx, zones, pickups, texts, delayed, barrels, gates, turrets, saws, pets, temp_orbitals, beams, buffs]:
+	for arr in [enemies, shots, fx, zones, pickups, texts, delayed, enemy_hazards, barrels, gates, turrets, saws, pets, temp_orbitals, beams, buffs]:
 		arr.clear()
 	# Never let a Hype Totem from the previous run protect a future spawn.
 	totems.clear()
@@ -754,6 +754,7 @@ func begin_sector() -> void:
 	obstacles = RoadObstacles.generate(sector, road_half, sector_start_y, SECTOR_LEN)
 	# No stale bomb or boss telegraph may carry into the next sector.
 	delayed.clear()
+	enemy_hazards.clear()
 	for i in range(6 + mini(sector, 8)):
 		spawn_barrel(Vector2(randf_range(-road_half + 50, road_half - 50), sector_start_y - randf_range(350, SECTOR_LEN - 150)))
 	if route.get("heal", 0) > 0:
@@ -1355,17 +1356,19 @@ func rush_size() -> int:
 ## Establish fresh base types first. Legacy Nurse/Larry live in old save
 ## records but are no longer hard-coded as standard roster introductions.
 ## New combinations use ANY TWO distinct previously encountered main types.
-const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba"], ["skitter", "sapper", "mirror", "burrower"],
+const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba", "nurse"], ["skitter", "sapper", "mirror", "burrower"],
 	["leech", "ashwing", "siren", "riot"], ["bull", "mortar", "lancer", "tick"],
-	["mama", "totem", "blinky", "chonk", "mitosis"]]
+	["mama", "totem", "blinky", "chonk", "mitosis", "larry"]]
 const STARTER_ENEMIES = ["blob", "zoomer", "spitter", "kaboomba"]
 const ROUTE_INTRO_ORDER = ["skitter", "sapper", "mirror", "burrower", "leech", "ashwing", "siren", "riot",
-	"bull", "mortar", "lancer", "tick", "mama", "totem", "blinky", "chonk", "mitosis"]
+	"bull", "mortar", "lancer", "tick", "mama", "totem", "blinky", "chonk", "mitosis", "larry"]
 
 static func mix_id(pair: Array) -> String:
 	return EnemyMixes.id_for(str(pair[0]), str(pair[1]))
 
 static func introduction_for(s: int) -> String:
+	if s == 4:
+		return "nurse"
 	if s >= 6 and (s - 6) % 2 == 0:
 		var i = int((s - 6) / 2)
 		return ROUTE_INTRO_ORDER[i] if i < ROUTE_INTRO_ORDER.size() else ""
@@ -1373,6 +1376,8 @@ static func introduction_for(s: int) -> String:
 
 static func available_enemies(s: int) -> Array:
 	var out = STARTER_ENEMIES.duplicate()
+	if s >= 4:
+		out.append("nurse")
 	for i in range(ROUTE_INTRO_ORDER.size()):
 		if s >= 6 + 2 * i:
 			out.append(ROUTE_INTRO_ORDER[i])
@@ -1381,7 +1386,7 @@ static func available_enemies(s: int) -> Array:
 const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "spitter": 2.2, "kaboomba": 1.5, "chonk": 1.4,
 	"mitosis": 1.7, "riot": 1.2, "bull": 1.2, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35,
 	"blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55,
-	"skitter": 2.0, "sapper": 1.1, "lancer": 1.3, "leech": 0.9}
+	"skitter": 2.0, "sapper": 1.1, "lancer": 1.3, "leech": 0.9, "nurse": 0.24, "larry": 0.48}
 
 func pick_enemy() -> String:
 	var newcomer = introduction_for(sector)
@@ -2079,6 +2084,7 @@ func mutation_is_discovered(kind: String) -> bool:
 
 func mob_order() -> Array:
 	var out = STARTER_ENEMIES.duplicate()
+	out.append("nurse")
 	out.append_array(ROUTE_INTRO_ORDER)
 	# Only true enemy species live in the Bestiary. Curated or historic
 	# hybrids are recorded exclusively in the separate Mutation Book.
@@ -2097,6 +2103,8 @@ func mob_tier(kind: String) -> int:
 		return mini(4, 1 + int(maxi(0, index) / 4))
 	if ROUTE_INTRO_ORDER.has(kind):
 		return mini(4, 1 + int(ROUTE_INTRO_ORDER.find(kind) / 4))
+	if kind == "nurse":
+		return 0
 	for t in range(ENEMY_TIERS.size()):
 		if ENEMY_TIERS[t].has(kind):
 			return t

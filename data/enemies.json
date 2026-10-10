@@ -284,6 +284,43 @@
     }
   },
   {
+    "id": "nurse",
+    "name": "Medic",
+    "hp": 54,
+    "speed": 100,
+    "dmg": 6,
+    "r": 16,
+    "xp": 3,
+    "mass": 0.9,
+    "color": "9af0cd",
+    "look": {
+      "body": "round",
+      "face": "normal",
+      "gear": [
+        "cap"
+      ]
+    }
+  },
+  {
+    "id": "larry",
+    "name": "Laser Larry",
+    "hp": 115,
+    "speed": 58,
+    "dmg": 20,
+    "r": 20,
+    "xp": 5,
+    "mass": 1.7,
+    "color": "f35a8a",
+    "range": 950,
+    "look": {
+      "body": "round",
+      "face": "normal",
+      "gear": [
+        "laser_lens"
+      ]
+    }
+  },
+  {
     "id": "chonkzilla",
     "name": "CHONKZILLA",
     "hp": 2400,
