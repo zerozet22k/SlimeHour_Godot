@@ -1,3 +1,12 @@
+## v0.1.49 — Clearer weapon descriptions and upgrade previews
+
+- Rewrite all 22 guns' base descriptions to explain their unique firing patterns and effects in plain, specific language.
+- Rewrite Level 3, Level 5 and Evolution explanations, including accurate numeric bonuses and conditions.
+- In Arsenal, show short Level 5 summaries instead of clipping long paragraphs.
+- In Collection, display full base, Level 3, Level 5 and Evolution details together in a bounded weapon inspector.
+- Give weapon-related level-up cards more room for text by reducing decorative artwork height.
+- Add automated copy-coverage and UI integration tests. No weapon stats, status effects, firing behavior or balance were changed.
+
 ## v0.1.48 — Fix invisible gameplay world
 
 - Fix a GDScript parse error in `scripts/Visuals.gd` that prevented Godot from attaching the world renderer. Symptoms: the HUD remained visible but the road, player, enemies, pickups and attacks disappeared into the background.
