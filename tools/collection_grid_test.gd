@@ -43,6 +43,9 @@ func _run() -> void:
 					visited[int(index)] = true
 			check(has_no_blank_rows and valid_indices, "All scroll rows valid at %d cards / %s" % [total, "portrait" if portrait else "desktop"])
 			check(visited.size() == total, "Every one of %d entries is reachable in %s" % [total, "portrait" if portrait else "desktop"])
+	var hud = FileAccess.get_file_as_string("res://scripts/Hud.gd")
+	check(hud.contains("draw_collection_gun_details") and hud.contains("Rect2(944, 124, 296, 505)"), "Desktop weapon notes use the bounded right-side inspector")
+	check(hud.contains("LEVEL 3") and hud.contains("LEVEL 5"), "Both weapon milestones remain readable in collection")
 	var square = Grid.aspect_fit(Vector2(1024, 1024), Rect2(0, 0, 190, 150))
 	check(is_equal_approx(square.size.x, 150.0) and is_equal_approx(square.size.y, 150.0), "Square card art is never squashed into a 190x150 frame")
 	var wide = Grid.aspect_fit(Vector2(1024, 512), Rect2(10, 20, 190, 150))
