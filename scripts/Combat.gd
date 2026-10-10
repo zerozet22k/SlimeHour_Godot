@@ -113,7 +113,9 @@ static func update_delayed(g, dt: float) -> void:
 				item["pos"] += Vector2(item["vel"]) * dt
 				if absf(float(item["pos"].x)) > g.road_half - float(item["tele"]):
 					item["vel"] = Vector2(-float(item["vel"].x), float(item["vel"].y))
-					item["pos"].x = clampf(item["pos"].x, -g.road_half + float(item["tele"]), g.road_half - float(item["tele"]))
+					var bounced_pos: Vector2 = item["pos"]
+					bounced_pos.x = clampf(bounced_pos.x, -g.road_half + float(item["tele"]), g.road_half - float(item["tele"]))
+					item["pos"] = bounced_pos
 				if not bool(item["spent"]) and g.hero["pos"].distance_to(item["pos"]) <= float(item["tele"]) + 11.0:
 					item["spent"] = true
 					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's rolling boulder")
@@ -174,34 +176,6 @@ static func update_delayed(g, dt: float) -> void:
 					g.hurt(float(item["dmg"]), item["pos"], "a Mortar Mike shell")
 			"kaboomba_boom":
 				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]))
-			"arena_event":
-				# A full-screen event checks the player's dodge state ONLY at
-				# resolution. Hiding in a corner does not dodge the attack.
-				# The normal hurt() path still handles shields, invulnerability,
-				# Perfect Dodge, difficulty scaling and actual damage.
-				var owner: Dictionary = item.get("boss", {})
-				if not owner.is_empty() and not bool(owner.get("dead", true)):
-					var player_pos: Vector2 = g.hero["pos"]
-					var style: String = str(item.get("style", ""))
-					var color = Color(str(item.get("color", "ff9944")))
-					g.spawn_ring_fx(player_pos, color, g.road_half * 1.4)
-					g.add_shake(14.0 if bool(item.get("second", false)) else 10.0)
-					g.sfx.play_projectile("boss_impact")
-					var connected = g.hurt(float(item["dmg"]), owner["pos"], str(item.get("label", "BOSS ULTIMATE")))
-					if connected and style == "soul_eclipse":
-						owner["hp"] = minf(float(owner["max_hp"]), float(owner["hp"]) + float(owner["max_hp"]) * 0.07)
-					elif connected and style == "tidal_surge":
-						owner["r"] = minf(90.0, float(owner["r"]) + 3.5)
-					elif connected and style == "venom_collapse":
-						# Debuff the PLAYER, not the friendly weapon-zone system.
-						g.hero["arena_corrosion_t"] = 2.2
-					elif connected and style == "rift_implosion":
-						# Violently drag the player toward the rift's owner.
-						var pull: Vector2 = owner["pos"] - player_pos
-						if pull.length_squared() > 1.0:
-							g.hero["push"] = g.hero.get("push", Vector2.ZERO) + pull.normalized() * 410.0
-					elif connected and style == "piston_lockdown":
-						g.hero["arena_stagger_t"] = 1.1
 			"boss_boulder":
 				g.spawn_ring_fx(item["pos"], Color("e3a078"), 35.0)
 			"boss_gravity":
