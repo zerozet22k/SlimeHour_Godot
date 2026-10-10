@@ -63,6 +63,10 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	# order or when the same pair was encountered in a different run.
 	var parents = [a, b]
 	parents.sort()
+	# Vary the body donor across pairs; otherwise early-alphabet species
+	# dominate the appearance of nearly every sector-40 hybrid.
+	if posmod(id.hash(), 2) == 1:
+		parents.reverse()
 	var primary = str(parents[0])
 	var secondary = str(parents[1])
 	var first: Dictionary = db[primary]
