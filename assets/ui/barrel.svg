@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200">
+<defs><linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffb05b"/><stop offset=".22" stop-color="#b56b42"/><stop offset=".7" stop-color="#763f30"/><stop offset="1" stop-color="#44252d"/></linearGradient>
+<linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dadfea"/><stop offset=".4" stop-color="#6f7a94"/><stop offset="1" stop-color="#27364d"/></linearGradient>
+<linearGradient id="fire" x1="0" y1="1" x2="0" y2="0"><stop stop-color="#ff563c"/><stop offset=".55" stop-color="#ffbf34"/><stop offset="1" stop-color="#fffbb7"/></linearGradient></defs>
+<path d="M79 35L81 17Q81 8 96 8L107 11" fill="none" stroke="#332137" stroke-width="10" stroke-linecap="round"/>
+<path d="M79 35L81 17Q81 8 96 8L107 11" fill="none" stroke="#b0b4bd" stroke-width="4" stroke-linecap="round"/>
+<path d="M108 9L119 0L117 13L132 13L121 23L124 36L111 30L100 38L104 24L95 18Z" fill="#fff8a0" stroke="#fc6225" stroke-width="2"/>
+<g stroke="#352233" stroke-width="6" stroke-linejoin="round">
+<path d="M32 39Q74 27 126 39L138 55L139 165L124 183Q76 195 32 182L20 168L20 54Z" fill="url(#wood)"/>
+<ellipse cx="79" cy="41" rx="49" ry="13" fill="#c67d48"/>
+<path d="M26 49Q77 62 134 49L138 70Q79 83 20 70Z" fill="url(#metal)"/>
+<path d="M21 150Q80 164 138 150L133 174Q78 190 25 174Z" fill="url(#metal)"/>
+<path d="M52 78V150M81 79V152M111 77V151" stroke="#432637" stroke-width="4" fill="none" opacity=".5"/>
+</g>
+<path d="M42 81Q50 105 37 138" stroke="#ffc888" stroke-width="6" fill="none" stroke-linecap="round" opacity=".7"/>
+<circle cx="80" cy="115" r="30" fill="#efeee4" stroke="#55343a" stroke-width="4"/>
+<path d="M62 111L71 106L75 116L66 122L59 118ZM88 107L98 111L101 119L91 121L85 116Z" fill="#5f3641"/>
+<path d="M76 126H84L90 138H70Z" fill="#5f3641"/>
+<path d="M59 174Q81 181 105 175" stroke="#dce0e8" stroke-width="3" fill="none" opacity=".7"/>
+</svg>
