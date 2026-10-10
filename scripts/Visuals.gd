@@ -377,8 +377,8 @@ func paint_telegraphs() -> void:
 			var armed: bool = float(d.get("arm", 0.0)) <= 0.0
 			var pulse: float = 1.0 - clampf(float(d.get("pulse", 0.0)) / 0.91, 0.0, 1.0)
 			var shade: Color = Color("ff9670")
-			draw_line(a, b, Color(shade, 0.13 if not armed else 0.23), float(d["tele"]) * 2.0)
-			draw_line(a, b, Color(shade, 0.70 if not armed else 0.88), 3.0 + pulse * 3.0)
+			draw_line(a, b, Color(shade, 0.045 if not armed else 0.13), float(d["tele"]) * 2.0)
+			draw_line(a, b, Color(shade, 0.48 if not armed else 0.73), 1.8 + pulse * 2.2)
 			for cut in range(5):
 				var t = float(cut) / 5.0
 				var spot = a.lerp(b, t)
@@ -475,13 +475,23 @@ func paint_telegraphs() -> void:
 				draw_circle(mp, 10, Color("ffd24d"))
 	for e in g.enemies:
 		if str(e.get("chonk_state", "")) == "windup":
-			var origin: Vector2 = P(e["pos"])
+			# Subtle diegetic tell only: small glowing footprint / boss compression,
+			# not a full-width warning bar or a huge instructional label.
 			var landing: Vector2 = P(e.get("lock", g.hero["pos"]))
-			var progress: float = 1.0 - clampf(float(e.get("wind", 0.0)) / maxf(0.1, float(e.get("chonk_wind_initial", 0.9))), 0.0, 1.0)
-			draw_line(origin, landing, Color("ff895e", 0.20 + progress * 0.22), float(e["r"]) * 1.65)
-			draw_line(origin, landing, Color("ffe0a5", 0.68 + progress * 0.22), 4.0)
-			draw_arc(landing, float(e["r"]) + 17.0, 0, TAU, 40, Color("ffe8bb"), 3.0)
-			text_c("CHARGE - MOVE SIDEWAYS", landing + Vector2(0, -float(e["r"]) - 33.0), 13, Color("ffe0a5"), 2)
+			var origin: Vector2 = P(e["pos"])
+			var progress: float = 1.0 - clampf(float(e.get("wind", 0.0)) /
+				maxf(0.1, float(e.get("chonk_wind_initial", 0.75))), 0.0, 1.0)
+			var direction: Vector2 = (landing - origin).normalized()
+			if direction.length_squared() <= 0.01:
+				direction = Vector2.DOWN
+			draw_circle(origin, float(e["r"]) * (0.94 - progress * 0.10),
+				Color("ff8a5c", 0.06 + progress * 0.12))
+			draw_arc(origin, float(e["r"]) + 5.0, -PI * 0.1, PI * (0.7 + progress),
+				24, Color("ffb47e", 0.34 + progress * 0.35), 2.6)
+			# A narrow shadow facing the committed charge direction.
+			draw_line(origin + direction * float(e["r"]),
+				origin + direction * (float(e["r"]) + 80.0),
+				Color("ffb989", 0.16 + progress * 0.28), 2.2)
 			continue
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
@@ -629,13 +639,9 @@ func paint_enemies() -> void:
 			match str(e["kind"]):
 				"chonkzilla":
 					if str(e.get("chonk_state", "")) == "rush":
-						draw_arc(p, r + 12.0, 0, TAU, 36, Color("ff835c"), 5.0)
-						text_c("RAMPAGE", p + Vector2(0, -r - 31), 15, Color("ffad7e"), 2)
+						draw_arc(p, r + 8.0, 0, TAU, 32, Color("ff835c", 0.75), 2.8)
 					elif float(e.get("boss_recover", 0.0)) > 0.0:
-						draw_arc(p, r + 8.0, 0, TAU, 36, Color("ffe07f"), 4.0)
-						text_c("ARMOR BROKEN - ATTACK!", p + Vector2(0, -r - 31), 13, Color("ffe07f"), 2)
-					elif int(e.get("chonk_combo", 0)) > 0:
-						text_c("CHAIN x%d" % (int(e["chonk_combo"]) + 1), p + Vector2(0, -r - 31), 12, Color("ffb48b"), 2)
+						draw_arc(p, r + 7.0, 0, TAU, 32, Color("ffe07f", 0.85), 3.0)
 				"heli":
 					if float(e.get("flight_t", 0.0)) > 0.0:
 						var side = float(e.get("flight_side", 1.0))
