@@ -103,6 +103,9 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 	var step = current_step
 	current_step = ""
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		if step == "delta_meta":
+			_begin_asset(FULL)
+			return
 		_fail("Download failed (HTTP %d). Check your connection, then retry." % response_code)
 		return
 	match step:
@@ -129,7 +132,9 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 			var meta = JSON.parse_string(body.get_string_from_utf8())
 			if meta is Dictionary and delta_matches(meta, local_version, latest):
 				use_delta = true
-			_begin_asset(DELTA)
+				_begin_asset(DELTA)
+			else:
+				_begin_asset(FULL)
 		"checksum":
 			sha256 = parse_checksum(body.get_string_from_utf8(), download_name)
 			if sha256 == "":
@@ -141,7 +146,10 @@ func _on_request_complete(result: int, response_code: int, _headers: PackedStrin
 			if not FileAccess.file_exists(pending_zip):
 				_fail("Downloaded update file was not saved.")
 				return
-			var size = FileAccess.get_length(pending_zip) if FileAccess.file_exists(pending_zip) else -1
+			var file_handle = FileAccess.open(pending_zip, FileAccess.READ)
+			var size = file_handle.get_length() if file_handle != null else -1
+			if file_handle != null:
+				file_handle.close()
 			if size != total_bytes:
 				_fail("Incomplete download. Expected %d bytes, got %d." % [total_bytes, size])
 				return
@@ -227,8 +235,8 @@ func install_and_restart() -> bool:
 	if not FileAccess.file_exists(updater_script):
 		_fail("Installation helper is missing. Download the full game from GitHub Releases.")
 		return false
-	var arguments = ' -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -InstallDownloaded "%s" -InstallVersion "%s" -ExpectedSha256 "%s" -BaseDirectory "%s" -WaitPid %d -PatchDownloaded:%s' % [
-		updater_script, pending_zip, latest, sha256, installed_dir, OS.get_process_id(), "true" if use_delta else "false"]
+	var arguments = ' -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -InstallDownloaded "%s" -InstallVersion "%s" -ExpectedSha256 "%s" -BaseDirectory "%s" -WaitPid %d -DownloadKind "%s"' % [
+		updater_script, pending_zip, latest, sha256, installed_dir, OS.get_process_id(), "delta" if use_delta else "full"]
 	# wscript.exe creates a genuinely hidden process. No cmd or PowerShell UI appears.
 	# All paths originate locally or from a strictly validated release tag.
 	var script_file = staging.path_join("apply_in_background.vbs")
