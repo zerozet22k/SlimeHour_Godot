@@ -108,6 +108,24 @@ func _run() -> void:
 		if boss_id == "dreadengine":
 			var first_pass = field.filter(func(d): return int(d["map_pass"]) == 0)
 			check(first_pass.size() == 4, "Dread Engine's piston bank leaves one open lane")
+	# Between arena attacks, each boss maintains an actual moving bullet curtain.
+	for boss_id in bosses:
+		if boss_id == "chonkzilla":
+			continue
+		reset(g)
+		g.hero["pos"] = Vector2.ZERO
+		var shooter = specimen(g, boss_id, 1100 + bosses.find(boss_id))
+		if boss_id == "necro" or boss_id == "glassoracle":
+			var source_kind = "leech" if boss_id == "necro" else "mirror"
+			var source = g.spawn_enemy(source_kind, Vector2(170.0, -120.0), false, false)
+			source["soul_owner" if boss_id == "necro" else "oracle_owner"] = int(shooter["id"])
+		Combat.boss_bullet_hell(g, shooter, 1, 0.5)
+		var first_count: int = g.shots.size()
+		Combat.boss_bullet_hell(g, shooter, 1, 0.8)
+		check(first_count >= 3 and g.shots.size() > first_count,
+			boss_id + " fires sustained, moving boss bullets")
+		check(g.shots.size() <= 18 and g.shots.all(func(p): return int(p.get("boss_owner", -1)) == int(shooter["id"])),
+			boss_id + " owns a bounded projectile curtain")
 
 	# Chonkzilla is a distinct charge/terrain encounter, not a short teleport stomp.
 	reset(g)

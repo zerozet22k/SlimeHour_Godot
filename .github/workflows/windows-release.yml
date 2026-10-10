@@ -34,6 +34,7 @@ on:
       - tools/mutation_progression_test.gd
       - tools/boss_identity_test.gd
       - tools/boss_encounter_test.gd
+      - tools/chonkzilla_encounter_test.gd
       - tools/projectile_compatibility_test.gd
       - tools/barrel_weapon_test.gd
       - tools/collection_download_test.gd
@@ -131,6 +132,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/boss_identity_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/boss_encounter_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/chonkzilla_encounter_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_description_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/cinder_balance_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/enemy_part_mix_test.gd
@@ -192,7 +194,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Slime Hour $RELEASE_TAG" \
-            --notes "Slime Hour $RELEASE_TAG Windows. First install: download the full ZIP, extract and launch. New installations use a separate .pck game-data file. On future updates, the launcher automatically downloads changed chunks when a matching delta is available, SHA256 verifies the assembled game, and otherwise falls back to the full download."
+            --notes "Slime Hour $RELEASE_TAG Windows. All eight bosses now have distinct arena mechanics and sustained bullet-hell patterns, with clearer attack indicators and visible dodge routes. First install: download the full ZIP, extract and launch Start_Slime_Hour.bat. Future updates are checked automatically and downloaded as verified changed chunks when available, with a full-download fallback."
 
       # One-time repository cleanup requested after auditing all four old
       # branches. Only remove a branch if its HEAD is exactly the audited SHA.

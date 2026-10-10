@@ -1,16 +1,6 @@
 name: Build Android APK for Slime Hour
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/android-release.yml
-      - scripts/**
-      - scenes/**
-      - assets/**
-      - data/**
-      - project.godot
-      - export_presets.cfg
   workflow_dispatch:
 
 permissions:

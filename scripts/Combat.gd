@@ -1742,6 +1742,118 @@ static func boss_map_pattern(g, e: Dictionary, stage: int) -> void:
 						"color": "ffce83", "map_pattern": kind,
 						"map_pass": pass_index, "map_gap": gap})
 
+## Sustained, bounded projectile pressure between the large arena attacks.
+## Each boss changes the origin and flight rule of its own bullets.
+static func boss_bullet_hell(g, e: Dictionary, stage: int, dt: float) -> void:
+	if float(e.get("vent_t", 0.0)) > 0.0 or bool(e.get("burrowing", false)):
+		return
+	e["hell_t"] = float(e.get("hell_t", 0.42)) - dt
+	if float(e["hell_t"]) > 0.0:
+		return
+	e["hell_t"] = maxf(0.34, 0.72 - stage * 0.12)
+	var owned := 0
+	for projectile in g.shots:
+		if not bool(projectile.get("dead", false)) and int(projectile.get("boss_owner", -1)) == int(e["id"]):
+			owned += 1
+	if owned >= 76 or g.shots.size() >= g.shot_cap() - 8:
+		return
+	var kind: String = str(e["kind"])
+	var from: Vector2 = e["pos"]
+	var target: Vector2 = g.hero["pos"]
+	var base: Vector2 = (target - from).normalized()
+	if base.length_squared() < 0.01:
+		base = Vector2.DOWN
+	var turn: int = int(e.get("hell_turn", 0))
+	e["hell_turn"] = turn + 1
+	var directions: Array = []
+	var speed := 260.0
+	var color := Color("ffbd78")
+	var homing := 0.0
+	var bounce := 0
+	var bend := 0.0
+	match kind:
+		"heli":
+			# Fixed downward strafing curtains travel with the aircraft.
+			speed = 350.0
+			color = Color("ffc369")
+			for i in range(3 + stage):
+				directions.append(Vector2((float(i) - 1.0 - stage * 0.5) * 0.23, 1.0).normalized())
+		"necro":
+			# Killable soul anchors become the skull emitters.
+			color = Color("c49cff")
+			speed = 215.0
+			homing = 0.24
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("soul_owner", -1)) == int(e["id"]):
+					from = mob["pos"]
+					break
+			base = (target - from).normalized()
+			for i in range(3 + stage):
+				directions.append(base.rotated((float(i) - 1.0 - stage * 0.5) * 0.29))
+		"kingblob":
+			# Slow expanding spokes have a locked gap facing the player.
+			color = Color("ff83c0")
+			speed = 215.0
+			for i in range(7 + stage * 2):
+				var angle: float = turn * 0.31 + TAU * float(i) / float(7 + stage * 2)
+				if absf(wrapf(angle - base.angle(), -PI, PI)) < 0.33:
+					continue
+				directions.append(Vector2.from_angle(angle))
+		"coilqueen":
+			# Curving venom fans weave around straight movement.
+			color = Color("65efb2")
+			bend = 0.27 if turn % 2 == 0 else -0.27
+			for i in range(3 + stage):
+				directions.append(base.rotated((float(i) - 1.0 - stage * 0.5) * 0.21))
+		"glassoracle":
+			# Mirror nodes emit ricochets; destroying them ends this curtain.
+			color = Color("8ceeff")
+			speed = 285.0
+			bounce = 1
+			var found := false
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("oracle_owner", -1)) == int(e["id"]):
+					from = mob["pos"]
+					found = true
+					break
+			if not found:
+				return
+			base = (target - from).normalized()
+			for i in range(3 + stage):
+				directions.append(base.rotated((float(i) - 1.0 - stage * 0.5) * 0.25))
+		"voidweaver":
+			# Alternating edge portals fire inward, not from the boss body.
+			color = Color("b397ff")
+			speed = 295.0
+			var side: float = -1.0 if turn % 2 == 0 else 1.0
+			from = Vector2(side * (minf(g.road_half, 530.0) - 56.0), target.y - 150.0)
+			base = (target - from).normalized()
+			for i in range(3 + stage):
+				directions.append(base.rotated((float(i) - 1.0 - stage * 0.5) * 0.23))
+		"dreadengine":
+			# Rotating gear spokes leave a player-facing wedge.
+			color = Color("ffce83")
+			speed = 255.0
+			for i in range(7 + stage * 2):
+				var angle: float = turn * 0.27 + TAU * float(i) / float(7 + stage * 2)
+				if absf(wrapf(angle - base.angle(), -PI, PI)) < 0.31:
+					continue
+				directions.append(Vector2.from_angle(angle))
+		_:
+			return
+	for direction in directions.slice(0, 9):
+		if g.shots.size() >= g.shot_cap() or owned >= 84:
+			break
+		var projectile = shot(g, from + Vector2(direction) * (float(e["r"]) + 8.0),
+			direction, float(e["dmg"]) * 0.31,
+			{"friendly": false, "kind": "enemy", "speed": speed, "life": 3.0,
+				"r": 5.5, "color": color, "homing": homing, "bounce": bounce,
+				"src": str(g.enemy_db[kind]["name"]) + " barrage"})
+		if projectile != null:
+			projectile["boss_owner"] = int(e["id"])
+			projectile["curve"] = bend
+			owned += 1
+
 static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dead", false)):
 		return
@@ -1764,6 +1876,7 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 				projectile["boss_owner"] = int(e["id"])
 				projectile["curve"] = float(emission.get("curve", 0.0))
 		return
+	boss_bullet_hell(g, e, stage, dt)
 	# Keep an older player position for Oracle's delayed imitation.
 	if kind == "glassoracle":
 		e["echo_sample_t"] = float(e.get("echo_sample_t", 0.0)) - dt
