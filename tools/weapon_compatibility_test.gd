@@ -79,7 +79,18 @@ func _run() -> void:
 		recent.append(hybrid)
 		if recent.size() > 9:
 			recent.pop_front()
-	check(seen.size() >= 7, "Dynamic generator produces several distinct hybrids")
+	check(seen.size() == 1 and seen.has(EnemyMixes.recipe_id(0)),
+		"Sector 16 only introduces the first authored mutation, not random cross-pairs")
+	seen.clear()
+	recent.clear()
+	var later = Main.available_enemies(23)
+	for i in range(90):
+		var hybrid = EnemyMixes.roll(g.enemy_db, later, 24, false, recent)
+		if hybrid != "":
+			seen[hybrid] = true
+	check(seen.size() == 3, "Normal sector 24 exposes exactly three distinct mutation recipes")
+	for kind in seen:
+		check(not g.enemy_db[kind]["mix"].has("nurse") and not g.enemy_db[kind]["mix"].has("larry"), "No retired parents return")
 	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")
 	g.free()
 	print("COMPATIBILITY + PROCEDURAL ENEMY TESTS: ", "PASS" if failed == 0 else "%d failures" % failed)
