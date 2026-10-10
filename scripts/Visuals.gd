@@ -392,10 +392,14 @@ func paint_telegraphs() -> void:
 			var radius: float = float(d["tele"])
 			var warned: bool = float(d["arm"]) > 0.0
 			var progress: float = 1.0 - clampf(float(d["arm"]) / maxf(0.01, float(d["life"]) - 0.28), 0.0, 1.0)
-			draw_circle(center, radius, Color("ff713e", 0.06 if warned else 0.18))
-			draw_arc(center, radius, 0.0, TAU, 40, Color("ffbe83", 0.78), 2.5)
-			draw_arc(center, radius - 7.0, -PI * 0.5, -PI * 0.5 + TAU * progress,
-				40, Color("fff1d0", 0.95), 3.0)
+			draw_circle(center, radius, Color("ff713e", 0.040 if warned else 0.10))
+			draw_arc(center, radius, 0.0, TAU, 32, Color("ffbe83", 0.72), 2.0)
+			# Short, localized edge ticks indicate detonation progress.
+			for tick in range(4):
+				var angle: float = -PI * 0.5 + float(tick) * TAU / 4.0
+				draw_line(center + Vector2.from_angle(angle) * (radius - 8.0),
+					center + Vector2.from_angle(angle) * (radius + 5.0),
+					Color("ffe1ae", 0.42 + progress * 0.32), 2.0)
 			continue
 		if str(d.get("fn", "")) == "boss_soul_link":
 			if bool(d.get("source", {}).get("dead", false)):
@@ -427,19 +431,43 @@ func paint_telegraphs() -> void:
 		# Laser/piston warnings are full collision-width rectangles,
 		# never misleading circular warnings at the midpoint.
 		if str(d["fn"]) in ["boss_line", "coil_wall", "blink_slash"]:
-			var a = P(d["a"])
-			var b = P(d["b"])
-			var width = float(d["tele"])
-			var total = maxf(0.01, float(d.get("life", 1.0)))
-			var progress = 1.0 - clampf(float(d["t"]) / total, 0.0, 1.0)
-			var col = Color(str(d.get("color", "ff9944")))
-			var normal = (b - a).normalized().orthogonal()
-			draw_line(a, b, Color(col, 0.06 + progress * 0.12), width * 2.0)
-			draw_line(a + normal * width, b + normal * width, Color(col, 0.80), 2.0)
-			draw_line(a - normal * width, b - normal * width, Color(col, 0.80), 2.0)
-			draw_line(a, b, Color.WHITE, 1.2 + progress * 1.8)
-			var marker: Vector2 = a.lerp(b, progress)
-			draw_line(marker - normal * (width + 8.0), marker + normal * (width + 8.0), Color.WHITE, 2.0)
+			var a: Vector2 = P(d["a"])
+			var b: Vector2 = P(d["b"])
+			var width: float = float(d["tele"])
+			var total: float = maxf(0.01, float(d.get("life", 1.0)))
+			var progress: float = 1.0 - clampf(float(d["t"]) / total, 0.0, 1.0)
+			var col: Color = Color(str(d.get("color", "ff9944")))
+			var tangent: Vector2 = (b - a).normalized()
+			var normal: Vector2 = tangent.orthogonal()
+			# Low-opacity collision strip accurately marks width, without a
+			# bright white bar across the entire battlefield.
+			draw_line(a, b, Color(col, 0.065 + progress * 0.095), width * 2.0)
+			if str(d["fn"]) == "coil_wall":
+				# Venom is an advancing double helix, not a rigid laser.
+				var wiggle := PackedVector2Array()
+				for k in range(15):
+					var t: float = float(k) / 14.0
+					var offset: float = sin(t * TAU * 3.0 + g.anim_t * 4.0) * minf(7.0, width * 0.4)
+					wiggle.append(a.lerp(b, t) + normal * offset)
+				draw_polyline(wiggle, Color(col, 0.74), 2.8)
+				draw_line(a + normal * width, b + normal * width, Color(col, 0.44), 1.5)
+				draw_line(a - normal * width, b - normal * width, Color(col, 0.44), 1.5)
+			elif str(d.get("map_pattern", d.get("countersequence", ""))) == "dreadengine" or str(d.get("countersequence", "")) == "dreadengine":
+				# Parallel rails and marching piston notches identify the Engine.
+				draw_line(a + normal * width, b + normal * width, Color(col, 0.78), 2.6)
+				draw_line(a - normal * width, b - normal * width, Color(col, 0.78), 2.6)
+				for notch in range(1, 7):
+					var point: Vector2 = a.lerp(b, float(notch) / 7.0)
+					draw_line(point - normal * (width + 6.0), point + normal * (width + 6.0),
+						Color(col, 0.26 + progress * 0.3), 2.0)
+			else:
+				# Refraction / soul attacks use clean slender beam outlines.
+				draw_line(a + normal * width, b + normal * width, Color(col, 0.53), 1.6)
+				draw_line(a - normal * width, b - normal * width, Color(col, 0.53), 1.6)
+				draw_line(a, b, Color(col.lightened(0.48), 0.62 + progress * 0.20), 1.4)
+				if str(d.get("map_pattern", d.get("countersequence", ""))) == "glassoracle":
+					var glint: Vector2 = a.lerp(b, progress)
+					draw_circle(glint, 4.5, Color("c9f9ff", 0.65))
 			continue
 		var pos: Vector2 = d["pos"]
 		var tgt = d.get("enemy")
@@ -455,10 +483,28 @@ func paint_telegraphs() -> void:
 			draw_arc(p, r * 0.72, -PI * 0.5, -PI * 0.5 + TAU * k,
 				40, Color(warning_color, 0.9), 2.5)
 		else:
-			draw_circle(p, r, Color(warning_color, 0.045 + 0.09 * k))
-			draw_arc(p, r, 0.0, TAU, 40, Color(warning_color, 0.92), 2.5)
-			draw_arc(p, r - 7.0, -PI * 0.5, -PI * 0.5 + TAU * k,
-				40, Color.WHITE, 2.8)
+			# One truthful collision radius, themed by the attack's SOURCE.
+			# No giant white progress ring; flashes are subtle and world-space.
+			var origin_kind: String = str(d.get("map_pattern", d.get("countersequence", "")))
+			if origin_kind == "heli" or str(d.get("color", "")) == "ffc369":
+				draw_circle(p, r, Color(warning_color, 0.035 + 0.055 * k))
+				draw_arc(p, r, -PI * 0.5, PI * 1.5, 32, Color(warning_color, 0.70), 2.0)
+				for compass in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+					draw_line(p + compass * (r - 11.0), p + compass * (r + 6.0),
+						Color(warning_color, 0.8), 2.0)
+				draw_circle(p, 3.0, Color(warning_color, 0.7))
+			elif origin_kind == "kingblob" or str(d.get("color", "")) == "ff83c0":
+				draw_circle(p, r, Color(warning_color, 0.045 + 0.075 * k))
+				for scallop in range(10):
+					var angle: float = TAU * float(scallop) / 10.0 + g.anim_t * 0.22
+					draw_arc(p + Vector2.from_angle(angle) * 3.0, r - 3.0,
+						angle - 0.25, angle + 0.25, 5, Color(warning_color, 0.77), 2.5)
+				draw_circle(p, 5.0 + 3.0 * k, Color(warning_color, 0.56))
+			else:
+				draw_circle(p, r, Color(warning_color, 0.035 + 0.075 * k))
+				draw_arc(p, r, 0.0, TAU, 32, Color(warning_color, 0.73), 2.0)
+				draw_arc(p, maxf(6.0, r - 8.0), -PI * 0.5, -PI * 0.5 + TAU * k,
+					28, Color(warning_color.lightened(0.45), 0.72), 2.0)
 		if str(d["fn"]) == "boss_missile":
 			var source: Vector2 = P(d.get("origin", d["pos"]))
 			draw_line(source, p, Color("ffbd74", 0.22 + k * 0.32), 1.7)
