@@ -1499,7 +1499,7 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dead", false)):
 		return
-	e["arena_t"] = float(e.get("arena_t", 8.0)) - dt
+	e["arena_t"] = float(e.get("arena_t", 2.6)) - dt
 	if float(e["arena_t"]) > 0.0:
 		return
 	var stage = boss_stage(e)
