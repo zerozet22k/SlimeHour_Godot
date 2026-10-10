@@ -1306,11 +1306,46 @@ func paint_shots() -> void:
 				draw_line(p, p + Vector2.from_angle(a) * r * 1.2, c, 6.0)
 				draw_line(p, p + Vector2.from_angle(a + 1.9) * r * 1.2, c, 6.0)
 			"bee":
-				draw_set_transform(p, d.angle(), Vector2.ONE)
-				draw_circle(Vector2(-2, -4), 3.5, Color(1, 1, 1, 0.6))
-				draw_circle(Vector2(-2, 4), 3.5, Color(1, 1, 1, 0.6))
-				draw_circle(Vector2.ZERO, 4.5, Color("ffd94d"))
-				draw_line(Vector2(-1, -4), Vector2(-1, 4), Color("201810"), 2.0)
+				# Swarmcaster's actors are BEES: a striped golden abdomen,
+				# round head, two fluttering transparent wings and a stinger.
+				# Facing follows the velocity, not a generic alien orb.
+				var bee_scale = clampf(r / 4.0, 0.95, 1.5)
+				var flap = 0.65 + 0.35 * absf(sin(g.anim_t * 58.0 + float(s["phase"])))
+				draw_set_transform(p, d.angle(), Vector2.ONE * bee_scale)
+				# The wings sit BEHIND the body so the yellow/black stripes
+				# remain legible even in a dense swarm.
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(-4.0, -1.8), Vector2(-9.0, -6.0 * flap),
+					Vector2(-6.0, -9.0 * flap), Vector2(0.3, -3.0)]),
+					Color("d8f5ff", 0.72))
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(-4.0, 1.8), Vector2(-9.0, 6.0 * flap),
+					Vector2(-6.0, 9.0 * flap), Vector2(0.3, 3.0)]),
+					Color("d8f5ff", 0.72))
+				# Pointed abdomen with two distinct thick black stripes.
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(-11.0, 0.0), Vector2(-7.6, -4.3),
+					Vector2(-1.5, -5.0), Vector2(3.8, -3.5),
+					Vector2(4.7, 0.0), Vector2(3.8, 3.5),
+					Vector2(-1.5, 5.0), Vector2(-7.6, 4.3)]),
+					Color("251b11"))
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(-9.0, 0.0), Vector2(-6.0, -3.6),
+					Vector2(-1.5, -4.0), Vector2(3.0, -2.8),
+					Vector2(3.5, 0.0), Vector2(3.0, 2.8),
+					Vector2(-1.5, 4.0), Vector2(-6.0, 3.6)]),
+					Color("ffd43f"))
+				draw_line(Vector2(-4.8, -3.5), Vector2(-4.8, 3.5), Color("21170d"), 2.2)
+				draw_line(Vector2(-0.8, -3.8), Vector2(-0.8, 3.8), Color("21170d"), 2.2)
+				# Small head, eyes, antennae and the pointed tail.
+				draw_circle(Vector2(5.6, 0.0), 3.5, Color("281e10"))
+				draw_circle(Vector2(5.6, 0.0), 2.8, Color("ffe26c"))
+				draw_circle(Vector2(7.3, -1.3), 1.1, Color("151515"))
+				draw_line(Vector2(6.4, -2.5), Vector2(7.8, -5.0), Color("2c2014"), 1.0)
+				draw_line(Vector2(6.1, 2.7), Vector2(7.3, 5.0), Color("2c2014"), 1.0)
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(-10.0, -1.5), Vector2(-14.0, 0.0),
+					Vector2(-10.0, 1.5)]), Color("27211a"))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			"ball":
 				draw_circle(p, r, Color("3a2a5a"))
@@ -1377,50 +1412,7 @@ func paint_beams() -> void:
 		var e = P(b["b"])
 		var c: Color = b["color"]
 		var w = float(b["w"])
-		if bool(b.get("flame_stream", false)):
-			# Animated Cinder fire: rolling yellow/orange tongues and airborne
-			# embers, rather than a rigid triangle or invisible collision bullets.
-			# The single damage cone is still calculated by Weapons.fire_flame.
-			var length = a.distance_to(e)
-			if length < 1.0:
-				continue
-			var forward = (e - a) / length
-			var side = forward.orthogonal()
-			var fade = clampf(float(b["t"]) / 0.095, 0.0, 1.0)
-			var phase = g.anim_t * 10.0 + a.x * 0.013 + a.y * 0.009
-			# A very faint hot-air envelope gives coverage without hiding foes.
-			var envelope = PackedVector2Array([a, e + side * w * 0.72, e - side * w * 0.72])
-			draw_colored_polygon(envelope, Color("ff5226", 0.055 * fade))
-			# Flame tongues travel from the nozzle towards the visible edge.
-			# All vertices are drawn directly on the GPU; no physics objects.
-			for strand in range(15):
-				var seed = float(strand)
-				var progress = fposmod(seed * 0.173 + g.anim_t * (1.2 + 0.08 * sin(seed * 2.1)), 1.0)
-				var advance = length * (0.05 + progress * 0.90)
-				var flare = maxf(2.5, w * progress * 0.83)
-				var lateral = sin(seed * 2.71 + phase * 0.62) * flare * 0.75
-				var center = a + forward * advance + side * lateral
-				var size = maxf(5.0, length * (0.085 + 0.04 * sin(seed * 4.3)) * (1.0 - 0.40 * progress))
-				var radius = maxf(2.5, flare * (0.22 + 0.11 * sin(seed * 1.8)))
-				var sway = side * sin(phase + seed * 3.17) * radius * 0.9
-				var tail = center - forward * size * 0.52
-				var tip = center + forward * size * 0.72 + sway
-				var left = tail + side * radius
-				var right = tail - side * radius
-				var hue = strand % 3
-				var ember = Color("ff6127") if hue == 0 else (Color("ff9b32") if hue == 1 else Color("ffd25b"))
-				var alpha = (1.0 - progress * 0.57) * fade
-				draw_colored_polygon(PackedVector2Array([left, tip, right, center - forward * size * 0.1]), Color(ember, 0.40 * alpha))
-				if strand % 2 == 0:
-					var hot_tip = center + forward * size * 0.47 + sway * 0.5
-					draw_colored_polygon(PackedVector2Array([center + side * radius * 0.42, hot_tip, center - side * radius * 0.42]), Color("fff1a4", 0.43 * alpha))
-				# Floating embers are smaller farther from the hot core.
-				if strand % 3 == 0:
-					var spark = center + side * sin(seed * 4.61 + phase) * radius * 1.2
-					draw_circle(spark, maxf(1.1, 2.6 * (1.0 - progress)), Color("ffe7a0", 0.45 * alpha))
-			# White-hot ignition near the muzzle, fading into the larger flames.
-			draw_line(a, a + forward * minf(42.0, length * 0.3), Color("fff0aa", 0.46 * fade), 4.5)
-		elif bool(b.get("zig", false)):
+		if bool(b.get("zig", false)):
 			zigzag(a, e, c, w)
 		elif bool(b.get("rail", false)):
 			var k = clampf(float(b["t"]) / 0.22, 0.0, 1.0)
@@ -1519,6 +1511,22 @@ func paint_fx() -> void:
 		var p = P(f["pos"])
 		var c: Color = f["color"]
 		match f["kind"]:
+			"cinder_flame":
+				# Restore Cinder's ORIGINAL moving, overlapping flame puffs.
+				# Draw only: no enemy collision, no emitted bullet or cone fan.
+				var fade = pow(maxf(0.0, 1.0 - k), 1.25)
+				var flicker = 0.91 + 0.09 * sin(g.anim_t * 42.0 + float(f["seed"]))
+				var radius = float(f["size"]) * (0.76 + k * 0.95) * flicker
+				var forward = f["vel"].normalized()
+				# Soft red outer flame, orange body, yellow inner core.
+				draw_circle(p, radius * 1.22, Color("ed4018", 0.24 * fade))
+				draw_circle(p - forward * radius * 0.28, radius * 0.93, Color("ff6e23", 0.55 * fade))
+				draw_circle(p + forward * radius * 0.18, radius * 0.65, Color("ffaf31", 0.71 * fade))
+				draw_circle(p + forward * radius * 0.28, radius * 0.34,
+					Color("ffeb81", 0.76 * fade * (1.0 - k * 0.6)))
+				if k < 0.35:
+					draw_circle(p + forward * radius * 0.37, radius * 0.18,
+						Color("fff8cb", 0.72 * fade))
 			"projectile_vfx":
 				paint_projectile_event(f, p, k)
 			"spark":
