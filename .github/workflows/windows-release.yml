@@ -108,6 +108,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/prerequisite_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/bash_bomber_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/screen_fit_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/world_scene_script_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/boss_music_barrel_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/route_transition_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_vfx_balance_test.gd
