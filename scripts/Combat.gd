@@ -358,6 +358,8 @@ static func catch(g, s: Dictionary, caught: bool = true) -> void:
 	var w = s.get("gun")
 	if w != null and bool(s["flags"].get("owner", false)):
 		w["ammo"] = mini(int(w["mag_max"]), int(w["ammo"]) + 1)
+		if caught:
+			Weapons.return_catch_card_cycle(g, w)
 
 ## Explosive rounds consume their collider on contact, so ordinary ricochet
 ## never executes. Convert a ricochet card into at most two small, visible,
