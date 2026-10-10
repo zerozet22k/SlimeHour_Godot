@@ -17,9 +17,9 @@ func _check() -> void:
 	# after a broader range of main types has been introduced.
 	var introductions = {"nurse": 4, "larry": 40, "skitter": 6, "sapper": 8, "mirror": 10, "burrower": 12, "leech": 14, "ashwing": 16, "siren": 18}
 	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
-	if main.mob_order().size() != 33:
+	if main.mob_order().size() != 25:
 		missing += 1
-		push_error("EXPECTED 25 STANDARD SPECIES AND 8 BOSSES")
+		push_error("EXPECTED 25 NORMAL SPECIES; BOSS DATABASE IS NOT INITIALIZED HERE")
 	var ids = {}
 	if roster_data is Array:
 		for spec in roster_data:
