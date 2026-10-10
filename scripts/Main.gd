@@ -854,6 +854,9 @@ func clamp_hero() -> void:
 
 ## R: reload every gun that is not full (beams and returning discs have nothing to reload).
 func manual_reload() -> void:
+	# Infinite Ammo must never reintroduce a real reload via the R key.
+	if st("infammo") > 0.0:
+		return
 	for w in guns:
 		var k = Weapons.kind_of(self, w)
 		if k in ["beam", "disc", "boomerang"] or float(w["reload"]) > 0.0 or int(w["ammo"]) >= int(w["mag_max"]):
