@@ -521,15 +521,16 @@ func xp_for(l: int) -> int:
 func sector_scale() -> float:
 	return 1.0 + 0.06 * (sector - 1)
 
-## Enemy durability per sector. Gentle (+7% per sector) for sectors 1-5, then steep ramp:
-## climbs hard through the mid/late game (s12 ~140x, s20 ~750x) and endless mode past s20.
+## A smoother health curve for a deliberately low-card economy.
+## Normal Sector 8 is ~4x base HP, not ~26x; density and elites still create pressure.
+## Keep later sectors progressively tougher without early enemies becoming HP walls.
 func enemy_scale() -> float:
 	var s = sector - 1
 	if s <= 4:
 		return 1.0 + 0.07 * float(s)
 	var early_base = 1.0 + 0.07 * 4.0
 	var m = float(s - 4)
-	var scale = early_base * (1.0 + 0.6 * m + 1.8 * m * m + 0.05 * m * m * m)
+	var scale = early_base * (1.0 + 0.30 * m + 0.12 * m * m + 0.008 * m * m * m)
 	if sector > WIN_SECTOR:
 		scale *= pow(1.35, float(mini(sector - WIN_SECTOR, 20)))
 	return scale

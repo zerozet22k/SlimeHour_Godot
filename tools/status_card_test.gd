@@ -2,6 +2,7 @@ extends SceneTree
 ## Run with Godot 4: godot --headless --path . --script tools/status_card_test.gd
 const Combat = preload("res://scripts/Combat.gd")
 const Effects = preload("res://scripts/Effects.gd")
+const Main = preload("res://scripts/Main.gd")
 
 class FakeGame:
 	extends RefCounted
@@ -62,5 +63,16 @@ func _run() -> void:
 	g.owned["fire"] = 1
 	_check(Effects.stack_preview(g, "fire").contains("35% > +60%"), "second copy previews diminished return")
 	_check(Effects.stack_preview(g, "fire", true).contains("+35%"), "collection view shows current card value")
+	# Sector health should not become an early-game HP wall after reducing card rewards.
+	var game = Main.new()
+	var last_hp = 0.0
+	for sector in [1, 5, 6, 8, 10, 12, 20, 30]:
+		game.sector = sector
+		var hp = game.enemy_scale()
+		_check(hp >= last_hp, "sector %d health scales monotonically" % sector)
+		if sector == 8:
+			_check(hp > 3.5 and hp < 5.0, "sector 8 normal enemy health near 4x base")
+		last_hp = hp
+	game.free()
 	print("STATUS / CARD TESTS: ", "PASS" if failed == 0 else str(failed) + " failed")
 	quit(1 if failed > 0 else 0)

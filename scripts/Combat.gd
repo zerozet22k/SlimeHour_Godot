@@ -629,32 +629,32 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1.0, moving: bool = false) -> float:
 	var base = 0.0
 	var hp_ratio = 0.0
-	var power = ""
+	var bonus = 1.0
 	match kind:
 		"burn":
 			base = 1.6
 			hp_ratio = 0.0008
-			power = "burnpow"
+			bonus = maxf(0.0, 1.0 + g.st("burnpow"))
 		"poison":
 			base = 0.45 * stacks
 			hp_ratio = 0.00022 * stacks
-			power = "poisonpow"
+			bonus = maxf(0.0, 1.0 + g.st("poisonpow"))
 		"bleed":
 			var movement = 2.0 if moving else 1.0
 			base = 0.55 * stacks * movement
 			hp_ratio = 0.00025 * stacks * movement
-			power = "bleedpow"
+			bonus = maxf(0.0, 1.0 + g.st("bleedpow"))
 		"shock":
 			base = 4.0
 			hp_ratio = 0.0005
-			power = "shockpow"
+			bonus = maxf(0.0, 1.0 + g.st("shockpow"))
 		_:
 			return 0.0
 	var flat = base * g.sector_scale() * g.dmg_mult()
 	var durability = maxf(0.0, float(e.get("max_hp", 0.0))) * hp_ratio
 	if bool(e.get("boss", false)):
 		durability *= 0.25
-	return maxf(0.0, (flat + durability) * maxf(0.0, 1.0 + g.st(power)))
+	return maxf(0.0, (flat + durability) * bonus)
 
 static func dot(g, e: Dictionary, amount: float, color: Color) -> void:
 	if bool(e["dead"]):
