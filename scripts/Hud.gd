@@ -868,12 +868,26 @@ func paint_portrait_collection() -> void:
 		buttons.clear()
 		collection_track = Rect2()
 		dim(0.9)
-		var detail_h = minf(640.0, h - 420.0)
-		draw_card(Rect2(100, 130, 520, detail_h), info, false, 1.0, -1)
 		if selected_collection_item["type"] == "gun_new":
 			var gun = g.weapon_db[selected_collection_item["gun"]]
-			wrap_text("LV3: " + str(gun["lv3"]), 70, 130 + detail_h + 36, 580, 21, Color("ffd24d"), 26, body, true, 2)
-			wrap_text("LV5: " + str(gun["lv5"]), 70, 130 + detail_h + 92, 580, 20, Color("ffd24d"), 25, body, true, 3)
+			# Use the full portrait viewport, reserving the bottom for CLOSE.
+			panel(Rect2(72, 118, 576, h - 278), PANEL, PANEL_EDGE, 3)
+			var ar = Rect2(105, 172, 510, minf(360.0, maxf(190.0, h * 0.27)))
+			card_art(ar, info, Color("9adbf8"))
+			txt(str(info["title"]).to_upper(), Vector2(360, ar.end.y + 45),
+				fit(str(info["title"]).to_upper(), 520, 35, bold, 18), Color.WHITE, 1, bold)
+			var desc_bottom = wrap_text(str(info["desc"]), 101, ar.end.y + 78,
+				518, 22, Color("dbe7f2"), 28, body, true, 4)
+			var lv3_top = desc_bottom + 26
+			txt("LEVEL 3", Vector2(105, lv3_top), 22, Color("94dfff"), 0, bold)
+			var lv5_top = wrap_text(str(gun["lv3"]), 105, lv3_top + 34, 505, 20,
+				Color("e4f3ff"), 26, body, false, 3) + 27
+			txt("LEVEL 5", Vector2(105, lv5_top), 22, Color("ffd24d"), 0, bold)
+			wrap_text(str(gun["lv5"]), 105, lv5_top + 34, 505, 19,
+				Color("fff1b9"), 25, body, false, 4)
+		else:
+			var detail_h = minf(640.0, h - 420.0)
+			draw_card(Rect2(100, 130, 520, detail_h), info, false, 1.0, -1)
 		button(Rect2(190, h - 130, 340, 84), "CLOSE", "mobile_close_detail", true, 32)
 
 func paint_portrait_result() -> void:
@@ -1680,16 +1694,45 @@ func paint_collection() -> void:
 	if hover_card == null and selected_collection_item != null:
 		hover_card = selected_collection_item
 	if hover_card != null:
-		draw_card(Rect2(944, 124, 296, 484), collection_info(hover_card), true, 1.0, -1)
 		if hover_card["type"] == "gun_new":
-			var d = g.weapon_db[hover_card["gun"]]
-			wrap_text("LV3: " + str(d["lv3"]), 950, 630, 294, 14, Color("ffd24d"), 17, body, false, 2)
-			wrap_text("LV5: " + str(d["lv5"]), 950, 667, 294, 13, Color("ffd24d"), 16, body, false, 2)
+			# Level-three / Level-five weapon notes must stay ABOVE the Back
+			# button rather than spilling beneath the viewport.
+			draw_collection_gun_details(Rect2(944, 124, 296, 505), collection_info(hover_card),
+				g.weapon_db[hover_card["gun"]])
+		else:
+			draw_card(Rect2(944, 124, 296, 484), collection_info(hover_card), true, 1.0, -1)
 	else:
 		txt("HOVER OR SELECT A CARD", Vector2(1095, 380), 20, Color("6a7a98"), 1, bold)
 	txt("%d cards  ·  %d guns   ·   MOUSE WHEEL / UP / DOWN" % [g.db_cards.size(), g.weapon_ids.size()],
 		Vector2(32, 667), 17, Color("9fb8d0"), 0, bold, 3)
 	button(Rect2(1028, 651, 215, 55), "BACK", "back", true, 24)
+
+## Collection-only gun inspector: art, description and BOTH upgrade tiers in
+## one bounded panel. No tooltip text is drawn behind the navigation buttons.
+func draw_collection_gun_details(r: Rect2, info: Dictionary, gun: Dictionary) -> void:
+	panel(r, PANEL, Color("9fb5c7"), 3)
+	rbox(Rect2(r.position + Vector2(6, 6), Vector2(r.size.x - 12, 33)),
+		Color("354153"), 10)
+	txt("WEAPON DETAILS", Vector2(r.position.x + 18, r.position.y + 27),
+		17, Color("e4edf5"), 0, bold)
+	var art_rect = Rect2(r.position + Vector2(12, 49), Vector2(r.size.x - 24, 172))
+	card_art(art_rect, info, Color("d7e9fc"))
+	var name = str(info["title"]).to_upper()
+	txt(name, Vector2(r.get_center().x, r.position.y + 250),
+		fit(name, r.size.x - 25, 23, bold, 13), Color.WHITE, 1, bold)
+	wrap_text(str(info["desc"]), r.position.x + 14, r.position.y + 279,
+		r.size.x - 28, 15, Color("e4e9f2"), 18, body, true, 3)
+	var div = r.position.y + 344
+	draw_line(Vector2(r.position.x + 13, div), Vector2(r.end.x - 13, div), Color("637588"), 1.2)
+	txt("LEVEL 3", Vector2(r.position.x + 15, div + 20),
+		14, Color("94dfff"), 0, bold)
+	wrap_text(str(gun["lv3"]), r.position.x + 15, div + 39,
+		r.size.x - 30, 14, Color("e4f3ff"), 17, body, false, 2)
+	txt("LEVEL 5", Vector2(r.position.x + 15, div + 78),
+		14, Color("ffd24d"), 0, bold)
+	wrap_text(str(gun["lv5"]), r.position.x + 15, div + 97,
+		r.size.x - 30, 13, Color("fff1b9"), 16, body, false, 4)
+
 
 func mini_card(r: Rect2, info: Dictionary, selected: bool = false) -> void:
 	var rc: Color = RCOL[int(info["rar"])]
