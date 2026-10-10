@@ -13,9 +13,9 @@ func _check() -> void:
 			push_error("BESTIARY MISSING: " + str(id))
 		elif Bestiary.info(id).size() != 3:
 			missing += 1
-	# One base joins every four map choices; each pair's mix follows next.
-	var introductions = {"nurse": 6, "larry": 10, "mortar": 14, "bull": 18,
-		"mix_nurse_larry": 11, "mix_mortar_bull": 19}
+	# Dynamic roster: new base species debut every two sectors, with
+	# independently rolled freeform hybrids from sector 11 onward.
+	var introductions = {"nurse": 6, "skitter": 8, "larry": 10, "leech": 12, "sapper": 14, "mortar": 16, "bull": 18}
 	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
 	var ids = {}
 	if roster_data is Array:
@@ -25,7 +25,7 @@ func _check() -> void:
 		if Main.introduction_for(int(introductions[id])) != id:
 			missing += 1
 			push_error("BAD ROUTE INTRO: " + str(id))
-		elif not id.begins_with("mix_") and not ids.has(id):
+		elif not ids.has(id):
 			missing += 1
 			push_error("MISSING BASE ENEMY DATA: " + str(id))
 		elif not Main.available_enemies(int(introductions[id])).has(id) or Main.available_enemies(int(introductions[id]) - 1).has(id):
