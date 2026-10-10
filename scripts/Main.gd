@@ -578,6 +578,8 @@ func start_run() -> void:
 	touch_aim_dir = Vector2.ZERO
 	for arr in [enemies, shots, fx, zones, pickups, texts, delayed, barrels, gates, turrets, saws, pets, temp_orbitals, beams, buffs]:
 		arr.clear()
+	# Never let a Hype Totem from the previous run protect a future spawn.
+	totems.clear()
 	owned.clear()
 	owned_order.clear()
 	S.clear()  # Never allow stale stat prerequisites from the previous run.
@@ -725,6 +727,7 @@ func begin_sector() -> void:
 	gate_mods.clear()
 	stats_dirty = true
 	enemies.clear()
+	totems.clear()
 	gates.clear()
 	barrels.clear()
 	obstacles.clear()
@@ -1408,6 +1411,10 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		if e["affix"].has("HASTED"):
 			e["speed"] = float(e["speed"]) * 1.6
 	enemies.append(e)
+	# Totem shields apply immediately—even before the next AI simulation tick.
+	# Keep this cache coherent when Debug Lab or summons spawn support units.
+	if Combat.has_role(self, e, "totem"):
+		totems.append(e)
 	return e
 
 func spawn_barrel(pos: Vector2, dropped = false) -> void:

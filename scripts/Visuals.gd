@@ -2,6 +2,7 @@ extends Node2D
 ## World rendering. Everything is drawn in one canvas pass from the dictionaries in Main.
 
 const Weapons = preload("res://scripts/Weapons.gd")
+const Combat = preload("res://scripts/Combat.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -466,6 +467,13 @@ func paint_enemies() -> void:
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
 			continue
 		draw_enemy(e, p, r)
+		# Allies protected by a nearby Hype Totem must look protected.
+		# Draw only a thin, translucent outline to keep mass encounters fast.
+		if not Combat.protecting_totem(g, e).is_empty():
+			draw_circle(p, r + 4.0, Color("5cbcff", 0.09))
+			draw_arc(p, r + 5.0, 0.0, TAU, 18, Color("8fdcff", 0.46), 2.1)
+			if float(e.get("shield_flash_until", 0.0)) > g.run_time:
+				draw_arc(p, r + 8.0, 0.0, TAU, 22, Color("d9faff", 0.86), 3.0)
 		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
 			var progress = 1.0 - float(e["rebirth_t"]) / 1.35
 			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
@@ -480,9 +488,9 @@ func paint_enemies() -> void:
 			draw_circle(p, 66.0, Color("ffe2a3", 0.12))
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
-		elif e["kind"] == "totem":
-			draw_arc(p, 230.0, 0, TAU, 64, Color(0.48, 0.82, 1.0, 0.25 + 0.15 * sin(g.anim_t * 3.0)), 3.0)
-			text_c("SHIELDS NEARBY", p + Vector2(0, -r - 34), 13, Color("7ad1ff"), 3)
+		elif enemy_has_role(e, "totem"):
+			draw_arc(p, Combat.TOTEM_R, 0, TAU, 64, Color(0.48, 0.82, 1.0, 0.25 + 0.15 * sin(g.anim_t * 3.0)), 3.0)
+			text_c("HALVES ALLY DAMAGE", p + Vector2(0, -r - 34), 13, Color("7ad1ff"), 3)
 
 # ---------------------------------------------------------------- baked enemy sprites
 ## Each enemy look (kind + elite) is drawn once into a texture at startup; per frame an enemy is
