@@ -403,6 +403,22 @@ static func on_wall(g, s: Dictionary) -> void:
 	if str(s["kind"]) == "chicken":
 		g.sfx.play("honk")
 
+## Reusable weapon/barrel collision for hitscan beams, electric arcs and
+## lingering fields. Bullets keep their own pierce and impact handling below.
+## Any genuine weapon hit arms the normal 0.85 s fuse via update_barrels().
+static func damage_barrels_segment(g, start: Vector2, stop: Vector2, width: float, damage: float) -> int:
+	if damage <= 0.0 or g.barrels.is_empty():
+		return 0
+	var struck = 0
+	for barrel in g.barrels:
+		if float(barrel["hp"]) <= 0.0 or bool(barrel.get("armed", false)) or float(barrel["drop"]) > 0.0:
+			continue
+		var radius = 20.0 + maxf(0.0, width)
+		if seg_dist2(start, stop, barrel["pos"]) <= radius * radius:
+			barrel["hp"] = maxf(0.0, float(barrel["hp"]) - damage)
+			struck += 1
+	return struck
+
 static func collide_barrels(g, s: Dictionary) -> void:
 	for b in g.barrels:
 		if float(b["hp"]) <= 0.0 or bool(b.get("armed", false)) or float(b["drop"]) > 0.0:
@@ -1740,6 +1756,11 @@ static func confetti(g, pos: Vector2, r: float, dmg: float, gen: int) -> void:
 
 static func shockwave(g, pos: Vector2, r: float, dmg: float, push: float, gen: int) -> void:
 	g.fx.append({"kind": "shock", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.35, "color": Color("dff6ff"), "size": r})
+	# Weapon-generated shockwaves can set off explosive barrels too.
+	if dmg > 0.0:
+		for barrel in g.barrels:
+			if float(barrel["hp"]) > 0.0 and float(barrel["drop"]) <= 0.0 and not bool(barrel.get("armed", false)) and pos.distance_to(barrel["pos"]) <= r + 20.0:
+				barrel["hp"] = maxf(0.0, float(barrel["hp"]) - dmg)
 	for e in query(g, pos, r):
 		if bool(e["dead"]):
 			continue
@@ -1986,6 +2007,8 @@ static func update_zones(g, dt: float) -> void:
 		z["tick"] = 0.25
 		var gen = int(z.get("gen", 1))
 		if kind == "lightning":
+			# Ion Scar can also electrify an explosive barrel in its path.
+			damage_barrels_segment(g, z["a"], z["b"], float(z["r"]), 8.0 * ss * g.dmg_mult())
 			# Ion Scar is an actual line-segment AREA for its entire lifetime,
 			# not a circle centred at the shot origin. Scan the segment plus
 			# the zone width and each enemy's body radius.
