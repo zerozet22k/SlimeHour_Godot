@@ -7,6 +7,9 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
+const GAME_VERSION = "v0.1.1"
+const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
+const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
 const DESIGN = Vector2(1280, 720)
 const ROAD_HALF = 530.0
@@ -58,6 +61,8 @@ var debug_mode = false
 var sfx = null
 var autotest = ""
 var no_save = false            # tool scripts set this so checks never touch the real save
+var update_available = false
+var update_version = ""
 var autotest_t = 0.0
 var shot_queue: Array = []
 
@@ -236,6 +241,38 @@ func _ready() -> void:
 	compute_unlocks()
 	if autotest != "":
 		get_node("/root").add_child.call_deferred(AutoTest.new())
+	elif OS.has_feature("windows"):
+		check_for_updates()
+
+func check_for_updates() -> void:
+	var request = HTTPRequest.new()
+	request.timeout = 10.0
+	add_child(request)
+	request.request_completed.connect(_on_update_checked.bind(request))
+	var headers = PackedStringArray(["User-Agent: SlimeHour-Game", "Accept: application/vnd.github+json"])
+	if request.request(RELEASE_API, headers) != OK:
+		request.queue_free()
+
+func _on_update_checked(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest) -> void:
+	request.queue_free()
+	if response_code != 200:
+		return
+	var release = JSON.parse_string(body.get_string_from_utf8())
+	if not release is Dictionary:
+		return
+	var latest = str(release.get("tag_name", ""))
+	if latest.begins_with("v") and latest != GAME_VERSION:
+		update_version = latest
+		update_available = true
+
+func install_update() -> void:
+	var updater = OS.get_executable_path().get_base_dir().path_join("update_and_run.ps1")
+	if FileAccess.file_exists(updater):
+		var args = PackedStringArray(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", updater])
+		if OS.create_process("powershell.exe", args) != -1:
+			get_tree().quit()
+			return
+	OS.shell_open(RELEASE_URL)
 
 # ================================================================= frame loop
 func _process(delta: float) -> void:
@@ -2204,6 +2241,8 @@ func do_action(action: String) -> void:
 			hud.selected_collection_item = null
 		"quit":
 			get_tree().quit()
+		"update":
+			install_update()
 		"resume":
 			state = "playing"
 		"menu":

@@ -1198,7 +1198,11 @@ func paint_menu() -> void:
 	button(Rect2(645, 376, 185, 56), "UPGRADES", "upgrades", false, 22)
 	button(Rect2(450, 448, 185, 56), "COLLECTION", "collection", false, 22)
 	button(Rect2(645, 448, 185, 56), "SETTINGS", "settings", false, 22)
-	button(Rect2(548, 520, 185, 50), "QUIT", "quit", false, 20)
+	if g.update_available:
+		button(Rect2(450, 520, 185, 50), "UPDATE " + g.update_version, "update", true, 20)
+		button(Rect2(645, 520, 185, 50), "QUIT", "quit", false, 20)
+	else:
+		button(Rect2(548, 520, 185, 50), "QUIT", "quit", false, 20)
 	goo_chip(Vector2(640, 588))
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 628), 16, MUTED, 1, body)
 
