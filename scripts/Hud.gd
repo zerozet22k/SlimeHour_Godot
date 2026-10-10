@@ -1708,7 +1708,7 @@ func paint_hub_backdrop() -> void:
 	else:
 		screen_bg()
 	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, 720, g.ui_height),
-		Color(0.016, 0.025, 0.063, 0.87))
+		Color(0.016, 0.025, 0.063, 0.985))
 	var w = sw()
 	var y = 42.0 if not g.portrait else 38.0
 	txt("ROUTE STOP  //  SECTOR %d" % g.sector, Vector2(w * 0.5, y), 15, Color("7b9abd"), 1, bold)
@@ -1938,7 +1938,7 @@ func paint_rest() -> void:
 	var W = sw()
 	var H = sh()
 	paint_hub_backdrop()
-	var c = Vector2(W * 0.5, 250 if g.portrait else 200)
+	var c = Vector2(W * 0.5, 250 if g.portrait else 150)
 	# a little campfire
 	for k in range(3):
 		var fl = sin(g.anim_t * (7.0 + k)) * 6.0
@@ -1946,18 +1946,19 @@ func paint_rest() -> void:
 	draw_line(c + Vector2(-60, 60), c + Vector2(60, 40), Color("8a5a3a"), 14)
 	draw_line(c + Vector2(-60, 40), c + Vector2(60, 60), Color("6b4329"), 14)
 	txt("CAMPFIRE", Vector2(W * 0.5, 82 if g.portrait else 64), 58 if g.portrait else 48, Color("7dff9a"), 1, bold, 6)
-	status_chips(c.y + 92)
-	var y = c.y + 170
+	status_chips(c.y + (92 if g.portrait else 65))
+	var y = c.y + (170 if g.portrait else 145)
 	var bw = 560.0 if g.portrait else 520.0
 	var bx = W * 0.5 - bw * 0.5
 	var heal_amt = roundi(float(g.hero["maxhp"]) * 0.4)
-	button(Rect2(bx, y, bw, 96), "REST: HEAL %d HP" % heal_amt, "rest_heal", true, 32)
-	txt("OR TRAIN A GUN (+1 LEVEL)", Vector2(W * 0.5, y + 150), 22, Color.WHITE, 1, bold, 3)
+	button(Rect2(bx, y, bw, 78 if g.portrait else 72), "REST: HEAL %d HP" % heal_amt, "rest_heal", true, 30)
+	txt("OR TRAIN A GUN (+1 LEVEL)", Vector2(W * 0.5, y + (140 if g.portrait else 119)), 22, Color.WHITE, 1, bold, 3)
 	for i in range(g.guns.size()):
 		var w = g.guns[i]
 		var lv = int(w["lvl"])
 		var label = "%s  LV %d » %d" % [Weapons.display_name(g, w).to_upper(), lv, lv + 1] if lv < 5 else "%s  MAX LEVEL" % Weapons.display_name(g, w).to_upper()
-		button(Rect2(bx, y + 176 + i * 96, bw, 80), label, "rest_train_%d" % i, false, 26, lv < 5)
+		var row_gap = 96.0 if g.portrait else 77.0
+		button(Rect2(bx, y + (166 if g.portrait else 140) + i * row_gap, bw, 76 if g.portrait else 65), label, "rest_train_%d" % i, false, 24, lv < 5)
 	if g.portrait:
 		icon_button(Vector2(660, 62), 28, "open_arsenal", "bag")
 
@@ -2163,7 +2164,73 @@ func road(a: Vector2, b: Vector2, col: Color, w: float, dashed_live: bool) -> vo
 			var p = pts[idx].lerp(pts[idx + 1], t * 12.0 - idx)
 			draw_circle(p, w * 0.32, Color(1, 1, 1, 0.8))
 
+## Complete route exploration, ten sectors per page, independent of 16:9 size.
+## Nonadjacent nodes are previews only; they do not bypass the selection rules.
+func paint_map_overview() -> void:
+	var cols = g.map_cols
+	if cols.is_empty():
+		return
+	var cur = g.sector - 1
+	var first = clampi(g.map_view_first, 0, maxi(0, cols.size() - 10))
+	var last = mini(cols.size() - 1, first + 9)
+	var left = g.landscape_left + 62.0
+	var width = g.landscape_width - 124.0
+	var step = width / 10.0
+	draw_rect(g.landscape_rect(), Color("090f20"))
+	for i in range(12):
+		var y = 135.0 + i * 43.0
+		draw_line(Vector2(g.landscape_left, y), Vector2(g.landscape_left + g.landscape_width, y), Color("2c496d", 0.08), 1.0)
+	txt("FULL ROUTE MAP", Vector2(left, 68), 42, Color.WHITE, 0, bold, 5)
+	var subtitle = "SECTORS %d - %d / %d  ·  ARROW KEYS TO BROWSE" % [first + 1, last + 1, cols.size()]
+	txt(subtitle, Vector2(left, 103), 19, Color("ffce61"), 0, bold)
+	var reachable: Array = cols[cur][g.map_at]["next"] if cur >= 0 and cur < cols.size() else []
+	var positions = {}
+	for c in range(first, last + 1):
+		var n = cols[c].size()
+		for i in range(n):
+			positions[Vector2i(c, i)] = Vector2(left + step * (float(c - first) + 0.5), 190.0 + (float(i) + 0.5) / float(n) * 400.0)
+	for c in range(first, last):
+		for i in range(cols[c].size()):
+			for j in cols[c][i]["next"]:
+				var a: Vector2 = positions[Vector2i(c, i)]
+				var b: Vector2 = positions[Vector2i(c + 1, int(j))]
+				var active = c == cur and i == g.map_at
+				draw_line(a, b, Color("ffcd58", 0.86) if active else Color("426083", 0.36), 4.0 if active else 2.0, true)
+	for c in range(first, last + 1):
+		for i in range(cols[c].size()):
+			var node: Dictionary = cols[c][i]
+			var p: Vector2 = positions[Vector2i(c, i)]
+			var info: Dictionary = g.NODE_INFO[str(node["type"])]
+			var col = Color(str(info["color"]))
+			var current = c == cur and i == g.map_at
+			var reach = c == cur + 1 and reachable.has(i)
+			var chosen = reach and g.map_pick == i
+			var radius = 25.0 if str(node["type"]) == "boss" else 19.0
+			draw_circle(p, radius + 4.0, Color("ffffff") if chosen else Color(col, 0.65 if current or reach else 0.2))
+			draw_circle(p, radius, col.darkened(0.55) if current or reach else Color("233047"))
+			CardArt.node_icon(self, str(node["type"]), p, radius * 0.65, col)
+			if current:
+				txt("YOU", p + Vector2(0, radius + 23), 16, Color("57eaff"), 1, bold)
+			elif reach:
+				buttons.append({"rect": Rect2(p - Vector2(25, 25), Vector2(50, 50)), "action": "map_node_%d" % i})
+			if c == last or c == first or str(node["type"]) == "boss":
+				var label = str(info["name"])
+				txt(label, p + Vector2(0, radius + 19), fit(label, step - 4.0, 12, bold, 9), Color(col, 0.88), 1, bold)
+	for c in range(first, last + 1):
+		var x = left + step * (float(c - first) + 0.5)
+		txt("S%d" % (c + 1), Vector2(x, 644), 19, Color("ff758a") if (c + 1) % 5 == 0 else Color("a0b5d2"), 1, bold)
+	button(Rect2(left, 670, 180, 43), "PREV  <<", "map_prev", false, 19, first > 0)
+	button(Rect2(left + width * 0.5 - 110, 670, 220, 43), "RETURN TO MAP", "map_full", true, 18)
+	button(Rect2(left + width - 180.0, 670, 180, 43), "NEXT  >>", "map_next", false, 19, last < cols.size() - 1)
+	if g.map_pick >= 0:
+		var node = cols[cur + 1][g.map_pick]
+		var note = "SELECTED: " + str(g.NODE_INFO[str(node["type"])]["name"]) + "  ·  Return to map to depart"
+		txt(note, Vector2(g.landscape_left + g.landscape_width * 0.5, 111), 15, Color("d8ffe6"), 1, bold)
+
 func paint_map_wide() -> void:
+	if g.map_full:
+		paint_map_overview()
+		return
 	var cols = g.map_cols
 	var cur = g.sector - 1
 	var last = mini(cols.size() - 1, cur + 5)
@@ -2202,6 +2269,8 @@ func paint_map_wide() -> void:
 		var s = c + 1
 		txt("S%d" % s, Vector2(x, 680), 18, Color("ff6b7a") if s % 5 == 0 or s > 20 else Color("6f84a8"), 1, bold, 2)
 	paint_map_panel(nxt, cols, cur)
+	if g.state == "map":
+		button(Rect2(728, 88, 158, 39), "FULL MAP", "map_full", false, 17)
 
 func paint_map_node(node: Dictionary, p: Vector2, c: int, i: int, cur: int, nxt: Array) -> void:
 	var t = str(node["type"])
