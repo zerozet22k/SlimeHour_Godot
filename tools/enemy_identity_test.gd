@@ -85,6 +85,22 @@ func _run() -> void:
 	Combat.ai(g, mole, Vector2.DOWN, 260.0, 1.05, false)
 	check(not bool(mole.get("burrowing", true)), "Burrower resurfaces at the marked exit")
 	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "boss_line") and g.delayed.any(func(d): return str(d.get("fn", "")) == "boss_blast"), "Burrower warns an exit quake and a separate tunnel collapse")
+	var sapper = specimen(g, "sapper")
+	Combat.ai(g, sapper, Vector2.DOWN, 260.0, 0.016, false)
+	check(g.enemy_hazards.any(func(h): return str(h["kind"]) == "mine"), "Sapper plants an armed, persistent mine")
+	g.enemy_hazards.clear()
+	var mama = specimen(g, "mama")
+	Combat.ai(g, mama, Vector2.DOWN, 260.0, 0.016, false)
+	check(g.enemy_hazards.size() == 2 and str(g.enemy_hazards[0]["kind"]) == "egg", "Mama Blob plants destructible eggs")
+	g.enemy_hazards.clear()
+	var lar = specimen(g, "larry")
+	lar["wind"] = 0.2
+	lar["lock"] = Vector2.ZERO
+	Combat.ai(g, lar, Vector2.DOWN, 260.0, 0.3, false)
+	check(float(lar.get("laser_t", 0.0)) > 0.0, "Laser Larry fires after a charge")
+	lar["laser_t"] = 0.05
+	Combat.ai(g, lar, Vector2.DOWN, 260.0, 0.2, false)
+	check(float(lar.get("overheat_t", 0.0)) > 0.0, "Laser Larry overheats after sustained sweeping")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('e["kind"] == "leech"') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
 	g.free()
