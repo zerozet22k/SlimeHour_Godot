@@ -112,6 +112,8 @@ static func update(g, dt: float) -> void:
 			continue
 		if kind == "rail":
 			if want and int(w["ammo"]) > 0:
+				if float(w["charge"]) < 0.08:
+					g.sfx.play_projectile("rail_charge")
 				var charge_speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5)
 				w["charge"] = minf(1.0, float(w["charge"]) + dt * charge_speed)
 			else:
@@ -267,6 +269,12 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	# Play ONE distinctive synthesized gun voice per volley, never per pellet.
 	# The old gun's quirky honk is retained as a quiet novelty accent.
 	var sound_style = ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {}))
+	if kind == "beam":
+		sound_style = "laser"
+	elif kind == "rail":
+		sound_style = "rail"
+	elif str(w["id"]) == "shotgun":
+		sound_style = "shotgun"
 	g.sfx.play_projectile("fire", sound_style, fire_pattern)
 	if str(d.get("sfx", "")) == "honk":
 		g.sfx.play("honk", 0.05, 0.28)
