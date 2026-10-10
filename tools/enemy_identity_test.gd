@@ -57,7 +57,10 @@ func _run() -> void:
 	Combat.ai(g, spitter, Vector2.DOWN, 260.0, 0.016, false)
 	check(float(spitter["wind"]) > 0.0 and spitter.has("lock"), "Spitter warns and locks a predicted acid attack")
 	Combat.ai(g, spitter, Vector2.DOWN, 260.0, 0.75, false)
-	check(g.shots.size() == 3 and g.shots.any(func(s): return absf(float(s["curve"])) > 0.2), "Spitter fires true curving projectiles")
+	check(g.shots.size() == 3 and g.shots.any(func(s): return absf(float(s["curve"])) > 0.2), "Spitter retains curving acid projectiles")
+	check(g.enemy_hazards.size() == 1 and str(g.enemy_hazards[0]["kind"]) == "acid_trail", "Spitter leaves one continuous ribbon, never multiple circles")
+	check(g.enemy_hazards[0].has("a") and g.enemy_hazards[0].has("b") and g.enemy_hazards[0]["a"].distance_to(g.enemy_hazards[0]["b"]) >= 170.0, "Poison damage follows the actual long segment")
+	g.enemy_hazards.clear()
 	g.shots.clear()
 	var zoomer = specimen(g, "zoomer")
 	Combat.ai(g, zoomer, Vector2.DOWN, 200.0, 0.016, false)
@@ -67,15 +70,40 @@ func _run() -> void:
 	check(float(leech["wind"]) > 0.0 and leech.has("lock"), "Leech begins a breakable channeled siphon")
 	g.hero["pos"] = Vector2(340, 0)
 	var original_hp = float(leech["hp"])
-	Combat.ai(g, leech, Vector2.RIGHT, 400.0, 1.1, false)
-	check(is_equal_approx(float(leech["hp"]), original_hp), "Breaking leash range prevents Leech healing")
+	Combat.ai(g, leech, Vector2.RIGHT, 700.0, 1.1, false)
+	check(is_equal_approx(float(leech["hp"]), original_hp), "Breaking long-range conduit prevents Leech healing")
+	var recipient = specimen(g, "riot", 51)
+	recipient["pos"] = Vector2(10.0, -285.0)
+	recipient["hp"] = float(recipient["max_hp"]) * 0.50
+	leech["siphon_target"] = recipient
+	leech["tether_t"] = 1.5
+	leech["tether_tick"] = 5.0 # Probe ally empowerment without inflicting hero test damage.
+	Combat.ai(g, leech, Vector2.DOWN, 290.0, 0.016, false)
+	check(float(recipient.get("siphon_empowered_t", 0.0)) > 0.60, "Long-range Leech conduit empowers its nearby ally")
+	leech["tether_t"] = 0.0
 	g.hero["pos"] = Vector2.ZERO
 	g.delayed.clear()
 	var blink = specimen(g, "blinky")
 	Combat.ai(g, blink, Vector2.DOWN, 260.0, 0.016, false)
 	check(float(blink["wind"]) > 0.0 and blink.has("rift_origin"), "Blinky marks a teleport with a persistent departure point")
 	Combat.ai(g, blink, Vector2.DOWN, 260.0, 0.95, false)
-	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "boss_line") and g.shots.size() > 0, "Blinky creates an old-position echo beam plus new-position projectile threat")
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "blink_slash") and g.shots.size() > 0, "Blinky creates the telegraphed teleport slash and new-position shots")
+	var rift = g.delayed.filter(func(d): return str(d.get("fn", "")) == "blink_slash")
+	if rift.size() == 1:
+		check(Vector2(rift[0]["a"]).is_equal_approx(Vector2(blink["rift_origin"])) and Vector2(rift[0]["b"]).is_equal_approx(Vector2(blink["pos"])), "Rift slash damage segment matches Blinky's actual traveled path")
+	else:
+		check(false, "Exactly one rift slash uses the departure and arrival endpoints")
+	g.delayed.clear()
+	g.shots.clear()
+	var lancer = specimen(g, "lancer", 52)
+	Combat.ai(g, lancer, Vector2.DOWN, 170.0, 0.016, false)
+	check(str(lancer.get("lancer_attack", "")) == "sweep" and float(lancer["wind"]) > 0.0, "Close-range Lancer commits to wide melee sweep")
+	lancer["wind"] = 0.0
+	lancer["cd"] = 0.0
+	Combat.ai(g, lancer, Vector2.DOWN, 400.0, 0.016, false)
+	check(str(lancer.get("lancer_attack", "")) == "spear" and float(lancer["wind"]) > 0.0, "Distant Lancer switches to piercing spear throw")
+	Combat.ai(g, lancer, Vector2.DOWN, 400.0, 0.90, false)
+	check(g.shots.size() == 1 and int(g.shots[0]["pierce"]) >= 3, "Thrown spear is a real heavy piercing projectile")
 	g.delayed.clear()
 	g.shots.clear()
 	var mole = specimen(g, "burrower")
@@ -101,8 +129,15 @@ func _run() -> void:
 	lar["laser_t"] = 0.05
 	Combat.ai(g, lar, Vector2.DOWN, 260.0, 0.2, false)
 	check(float(lar.get("overheat_t", 0.0)) > 0.0, "Laser Larry overheats after sustained sweeping")
+	var phoenix = specimen(g, "ashwing", 71)
+	Combat.kill(g, phoenix, {"gen": 1, "pos": phoenix["pos"]}, 0.0)
+	check(float(phoenix.get("rebirth_t", 0.0)) > 0.0 and not bool(phoenix["dead"]), "Adult Ashwing becomes an egg rather than granting a kill")
+	phoenix["rebirth_t"] = 0.0
+	Combat.kill(g, phoenix, {"gen": 1, "pos": phoenix["pos"]}, 0.0)
+	check(float(phoenix.get("rebirth_t", 0.0)) > 0.0 and not bool(phoenix["dead"]), "Adult Ashwing can produce a second egg and repeat indefinitely")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('e["kind"] == "leech"') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
+	check(visuals.contains('"acid_trail"') and visuals.contains('"blink_slash"') and visuals.contains("lancer_attack"), "The five mechanics have visible, hitbox-matched tells")
 	g.free()
 	print("ENEMY IDENTITY: ", "PASS" if failures == 0 else str(failures) + " failures")
 	quit(1 if failures > 0 else 0)
