@@ -3,6 +3,7 @@ extends Node2D
 ## frame while drawing; click() resolves them.
 
 const Weapons = preload("res://scripts/Weapons.gd")
+const DebugLab = preload("res://scripts/DebugLab.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const CardArt = preload("res://scripts/CardArt.gd")
 
@@ -227,11 +228,17 @@ func _draw() -> void:
 			"arsenal":
 				paint_hub_backdrop()
 				paint_arsenal()
+		if g.debug_panel_open:
+			buttons.clear()
+			paint_debug_panel()
 		return
 	if g.portrait:
 		if g.state in ["levelup", "replace", "arsenal"] and g.phase in ["shop", "rest", "event", "treasure", "cleared", "map"]:
 			paint_hub_backdrop()
 		paint_portrait()
+		if g.debug_panel_open:
+			buttons.clear()
+			paint_debug_panel()
 		return
 	# Shop rewards and weapon replacement belong to the route interface, not the battlefield.
 	if g.state in ["levelup", "replace", "arsenal"] and g.phase in ["shop", "rest", "event", "treasure", "cleared", "map"]:
@@ -246,6 +253,9 @@ func _draw() -> void:
 				paint_replace()
 			"arsenal":
 				paint_arsenal()
+		if g.debug_panel_open:
+			buttons.clear()
+			paint_debug_panel()
 		return
 	match g.state:
 		"menu":
@@ -287,7 +297,10 @@ func _draw() -> void:
 			paint_lost()
 		"victory":
 			paint_victory()
-	if g.debug_mode:
+	if g.debug_panel_open:
+		buttons.clear()
+		paint_debug_panel()
+	if g.debug_mode and not g.debug_panel_open:
 		panel(Rect2(10, 160, 230, 110), Color(0, 0, 0, 0.75), Color("4fe0ff"), 1.0)
 		txt("FPS %d" % Engine.get_frames_per_second(), Vector2(20, 185), 16, Color.WHITE, 0, body)
 		txt("enemies %d  shots %d" % [g.enemies.size(), g.shots.size()], Vector2(20, 207), 14, Color.WHITE, 0, body)
@@ -354,6 +367,7 @@ func paint_portrait() -> void:
 			rbox(Rect2(110, h - 168, 500, 52), Color(0, 0, 0, 0.45), 26)
 			txt(best, Vector2(360, h - 133), 21, Color("ffd24d"), 1, bold)
 			txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(360, h - 34), 18, Color("9db2ce"), 1, bold)
+			button(Rect2(16, 22, 174, 44), "DEBUG LAB", "debug_open", false, 18)
 		"playing":
 			paint_portrait_hud()
 		"paused":
@@ -1221,6 +1235,93 @@ func paint_arsenal() -> void:
 		button(Rect2(540, 650, 200, 50), "BACK", "arsenal_close", true, 22)
 
 # ================================================================= menus
+## Development sandbox: always overlays every game state, including treasure
+## choices, boss results, route map and shops. Only its own buttons stay live.
+func paint_debug_panel() -> void:
+	var w = sw()
+	var h = sh()
+	var px = 15.0 if g.portrait else 122.0
+	var pw = w - 30.0 if g.portrait else 1036.0
+	var py = 28.0 if g.portrait else 27.0
+	var ph = h - 56.0 if g.portrait else 665.0
+	draw_rect(Rect2(0, 0, w, h), Color("020714", 0.95))
+	panel(Rect2(px, py, pw, ph), Color("111d35"), Color("5beaff"), 3.0)
+	var heading = "DEBUG LAB  //  " + g.GAME_VERSION
+	txt(heading, Vector2(px + 22, py + 44), fit(heading, pw - 180, 35, bold), Color("8ff2ff"), 0, bold, 2)
+	button(Rect2(px + pw - 143, py + 12, 122, 48), "CLOSE  F3", "debug_close", false, 19)
+	var progress_label = "SANDBOX / NO SAVES   |   SECTOR %d   |   FPS %d" % [g.sector, Engine.get_frames_per_second()]
+	txt(progress_label, Vector2(px + 22, py + 81), fit(progress_label, pw - 44, 17, bold, 12), Color("ffd268"), 0, bold)
+	var tabs = ["ROUTE", "CARDS", "WEAPONS", "ENEMIES", "TOOLS"]
+	var pad = 13.0
+	var tabw = (pw - 42.0 - pad * 4.0) / 5.0
+	for i in range(tabs.size()):
+		button(Rect2(px + 20 + i * (tabw + pad), py + 103, tabw, 47), tabs[i], "debug_tab_" + tabs[i], g.debug_tab == tabs[i], 19)
+	var y = py + 177.0
+	match g.debug_tab:
+		"ROUTE":
+			txt("JUMP DIRECTLY TO ANY SECTOR", Vector2(px + 24, y), 24, Color.WHITE, 0, bold)
+			var quick = [1, 5, 8, 10, 15, 20, 25, 30, 40]
+			var gridw = (pw - 65.0) / 3.0
+			for i in range(quick.size()):
+				var row = int(i / 3)
+				var col = i % 3
+				button(Rect2(px + 22.0 + col * (gridw + 8.0), y + 20.0 + row * 49.0, gridw, 42.0), "SECTOR %d" % quick[i], "debug_sector_%d" % quick[i], false, 19)
+			var by = y + 178.0
+			var stepw = (pw - 65.0) / 4.0
+			for i in range(4):
+				var steps = [-5, -1, 1, 5]
+				var n = int(steps[i])
+				button(Rect2(px + 22.0 + i * (stepw + 8.0), by, stepw, 43.0), "%+d SECTORS" % n, "debug_step_%d" % n, false, 18)
+			txt("ENTER ANY ROAD OR STOP", Vector2(px + 24, by + 76.0), 24, Color.WHITE, 0, bold)
+			var destinations = ["map", "fight", "elite", "hell", "boss", "shop", "rest", "treasure", "event"]
+			for i in range(destinations.size()):
+				var row = int(i / 3)
+				var col = i % 3
+				var label = destinations[i].to_upper()
+				if label == "REST":
+					label = "CAMPFIRE"
+				button(Rect2(px + 22.0 + col * (gridw + 8.0), by + 91.0 + row * 50.0, gridw, 44.0), label, "debug_place_" + destinations[i], destinations[i] == "boss", 19)
+		"TOOLS":
+			txt("TEST A FIGHT WITHOUT GRINDING", Vector2(px + 24, y), 24, Color.WHITE, 0, bold)
+			var hw = (pw - 65.0) * 0.5
+			button(Rect2(px + 22, y + 37, hw, 60), "START DEBUG RUN", "debug_start", true, 23)
+			button(Rect2(px + 30 + hw, y + 37, hw, 60), "OPEN ROUTE MAP", "debug_map", false, 23)
+			button(Rect2(px + 22, y + 116, hw, 60), "FULL HEAL", "debug_heal", false, 23)
+			button(Rect2(px + 30 + hw, y + 116, hw, 60), "+500 GOLD", "debug_gold", false, 23)
+			button(Rect2(px + 22, y + 195, hw, 60), "INVINCIBLE: ON" if g.debug_godmode else "INVINCIBLE: OFF", "debug_god", g.debug_godmode, 22)
+			button(Rect2(px + 30 + hw, y + 195, hw, 60), "CLEAR ENEMIES", "debug_kill", false, 23)
+			wrap_text("F3: close/open the Lab  |  F4: performance numbers  |  Debug runs never overwrite your normal save or record.", px + 24, y + 321, pw - 50, 20, Color("b8c6e3"), 26, body, false, 3)
+		_:
+			var entries: Array = DebugLab.items(g, g.debug_tab)
+			var n = entries.size()
+			var page_count = maxi(1, int(ceil(float(n) / float(DebugLab.ITEM_PAGE_SIZE))))
+			var page = clampi(g.debug_page, 0, page_count - 1)
+			var start = page * DebugLab.ITEM_PAGE_SIZE
+			if g.debug_tab == "WEAPONS":
+				txt("EQUIP INTO SLOT:", Vector2(px + 24, y - 1), 20, Color("d7faff"), 0, bold)
+				for i in range(3):
+					button(Rect2(px + 240 + i * 124, y - 26, 112, 42), "SLOT %d" % (i + 1), "debug_slot_%d" % i, g.debug_slot == i, 18)
+			elif g.debug_tab == "CARDS":
+				txt("GRANT ANY CARD, EVEN WITHOUT PREREQUISITES", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
+			else:
+				txt("SPAWN ANY MONSTER OR BOSS AHEAD OF THE HERO", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
+			var cw = (pw - 64.0) * 0.5
+			for i in range(start, mini(n, start + DebugLab.ITEM_PAGE_SIZE)):
+				var entry: Dictionary = entries[i]
+				var col = (i - start) % 2
+				var row = int((i - start) / 2)
+				var id = str(entry["id"])
+				var label = str(entry["label"]).to_upper()
+				if g.debug_tab == "CARDS":
+					label += "  x%d" % int(g.owned.get(id, 0))
+				var action = ("debug_card_" if g.debug_tab == "CARDS" else ("debug_gun_" if g.debug_tab == "WEAPONS" else "debug_spawn_")) + id
+				button(Rect2(px + 22.0 + col * (cw + 12.0), y + 32.0 + row * 66.0, cw, 56), label, action, false, 21)
+			button(Rect2(px + 23.0, y + 375.0, 195.0, 48), "PREVIOUS", "debug_prev", false, 20, page > 0)
+			txt("PAGE %d / %d    -    %d ITEMS" % [page + 1, page_count, n], Vector2(px + pw * 0.5, y + 404), 18, Color("ffd268"), 1, bold)
+			button(Rect2(px + pw - 219.0, y + 375.0, 195.0, 48), "NEXT", "debug_next", false, 20, page < page_count - 1)
+	var status = "LAST: " + g.debug_notice if g.debug_notice != "" else "Choose a tab or jump directly to a test sector."
+	txt(status, Vector2(px + 24, py + ph - 30), fit(status, pw - 48, 18, bold, 12), Color("a8ffc1"), 0, bold)
+
 func paint_menu_bg() -> void:
 	draw_rect(g.landscape_rect(), Color("07080f"))
 	var art = g.tex("res://assets/ui/title.png")
@@ -1258,6 +1359,7 @@ func paint_menu() -> void:
 	goo_chip(Vector2(640, 635))
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
 	txt(g.GAME_VERSION, Vector2(1244, 699), 16, Color("adc0d7"), 2, bold)
+	button(Rect2(32, 640, 175, 44), "DEBUG LAB  F3", "debug_open", false, 17)
 
 ## Fully in-game update panel: accurate bytes, source, download stage,
 ## recovery and explicit verified install. No console or external browser.
