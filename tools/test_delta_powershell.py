@@ -100,6 +100,10 @@ def test():
         metadata = json.loads((broken / "release_manifest.json").read_text(encoding="utf-8-sig"))
         assert metadata["version"] == "v1.0.0"
         assert failed_zip.is_file(), "Failed install must preserve downloaded ZIP for retry"
+        # The next launch through the SAME original shortcut must still be
+        # fully playable with the old manifest, never a mixed-version pair.
+        assert sha256(broken / "SlimeHour.exe") == sha256(older / "SlimeHour.exe")
+        assert sha256(broken / "SlimeHour.pck") == sha256(older / "SlimeHour.pck")
         assert (local / "SlimeHour" / "update_error.log").is_file()
         print("PASS: failed in-place update rolls back every file and preserves verified download")
 
