@@ -1,6 +1,7 @@
 extends SceneTree
 const Main = preload("res://scripts/Main.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
+const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 
 var failures := 0
 func check(value: bool, label: String) -> void:
@@ -49,6 +50,39 @@ func _run() -> void:
 	check(DebugLab.items(game, "CARDS")[0]["label"] == "Fake Card", "Card picker labels show readable names")
 	game.enemy_db = {"blob": {"name": "Blob"}}
 	check(DebugLab.items(game, "ENEMIES")[0]["id"] == "blob", "Enemy picker uses actual enemy identifiers")
+	check(DebugLab.categories(game, "ENEMIES") == ["ALL", "NORMAL", "BOSSES", "MUTATIONS"], "Enemy filter always exposes all four groups")
+	check(DebugLab.items(game, "ENEMIES", "NORMAL").size() == 1 and DebugLab.items(game, "ENEMIES", "BOSSES").is_empty(), "Base enemies are separated from bosses")
+	check(DebugLab.items(game, "ENEMIES", "NORMAL", "chaser").size() == 1, "Search can match combat-mechanic names")
+	game.db_cards = [{"id": "fake", "name": "Fake Card", "cat": "volley", "desc": "Extra projectiles"}, {"id": "shield", "name": "Safe Card", "cat": "defense", "desc": "Block one hit"}]
+	check(DebugLab.categories(game, "CARDS") == ["ALL", "DEFENSE", "VOLLEY"], "Cards are categorized by effect type")
+	check(DebugLab.items(game, "CARDS", "VOLLEY", "projectile").size() == 1, "Card category and search work together")
+	check(DebugLab.items(game, "CARDS", "DEFENSE", "projectile").is_empty(), "Search honors active card category")
+	game.weapon_db["sniper"]["kind"] = "beam"
+	game.weapon_db["pistol"]["kind"] = "bullet"
+	check(DebugLab.items(game, "WEAPONS", "BEAM", "final").size() == 1, "Weapon type and name search work together")
+	game.debug_panel_open = true
+	game.debug_category = "BOSSES"
+	game.debug_query = "unused"
+	game.debug_page = 5
+	DebugLab.run_action(game, "debug_tab_ENEMIES")
+	check(game.debug_category == "ALL" and game.debug_query == "" and game.debug_page == 0, "Switching tabs clears stale search and category")
+	DebugLab.run_action(game, "debug_category_MUTATIONS")
+	check(game.debug_category == "MUTATIONS" and game.debug_page == 0, "Changing categories resets result pagination")
+	# Authored mutations must be browseable without eagerly populating enemy_db,
+	# then created with their actual named combat recipe when spawned.
+	for id in ["blob", "mirror"]:
+		game.enemy_db[id] = {"name": id, "hp": 40, "speed": 90, "dmg": 12,
+			"r": 15, "xp": 2, "mass": 1.0, "color": "ff99aa"}
+	game.enemy_db["chonkzilla"] = {"name": "Chonkzilla", "boss": true}
+	var mutation_id = EnemyMixes.id_for("mirror", "blob")
+	var mutation_list = DebugLab.items(game, "ENEMIES", "MUTATIONS")
+	check(mutation_list.size() >= 1 and mutation_list[0]["id"] == mutation_id, "Mutations list contains authored uncreated recipes")
+	check(not game.enemy_db.has(mutation_id), "Browsing the debug catalog does not generate mutations")
+	check(DebugLab.items(game, "ENEMIES", "BOSSES", "earthbreaker").size() == 1, "Bosses are searchable by distinctive mechanics")
+	check(DebugLab.items(game, "ENEMIES", "NORMAL", "mirror").size() == 1, "Normal monster search excludes mutation names")
+	check(DebugLab.prepare_enemy(game, mutation_id), "Lazy recipe can be prepared for debug spawning")
+	check(game.enemy_db.has(mutation_id) and str(game.enemy_db[mutation_id].get("fusion_style", "")) == "echo", "Debug-created mutations retain their combat behavior")
+	check(DebugLab.items(game, "ENEMIES", "NORMAL").size() == 2, "Generated mutations do not leak into normal mob category")
 	game.free()
 	print("DEBUG LAB TESTS: ", "PASS" if failures == 0 else str(failures) + " failure(s)")
 	quit(1 if failures > 0 else 0)

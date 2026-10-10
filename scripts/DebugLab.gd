@@ -1,6 +1,8 @@
 extends RefCounted
 const Effects = preload("res://scripts/Effects.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
+const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
+const Bestiary = preload("res://scripts/Bestiary.gd")
 ## A developer sandbox. This is intentionally not a profile progression system:
 ## first opening the lab snapshots persistent progress and disables disk saves.
 ## Leaving to the menu restores the original profile/records and clears the sandbox.
@@ -132,8 +134,22 @@ static func give_gun(g, id: String) -> bool:
 	g.debug_notice = "GUN %d: %s" % [slot + 1, g.weapon_db[id]["name"]]
 	return true
 
+static func prepare_enemy(g, id: String) -> bool:
+	# Fusion recipes are created lazily in normal play. The sandbox must be
+	# able to summon them without revealing/unlocking them in the real run.
+	if g.enemy_db.has(id):
+		return EnemyMixes.usable(id)
+	var recipe: Dictionary = EnemyMixes.recipe_for_id(id)
+	if recipe.is_empty():
+		return false
+	if EnemyMixes.ensure(g.enemy_db, str(recipe["a"]), str(recipe["b"])) != id:
+		return false
+	g.enemy_db[id]["name"] = str(recipe["name"])
+	g.enemy_db[id]["fusion_style"] = str(recipe["style"])
+	return true
+
 static func spawn(g, id: String, elite: bool = false) -> bool:
-	if not g.enemy_db.has(id):
+	if not prepare_enemy(g, id):
 		return false
 	enter_run(g)
 	# Spawning from a hub moves to combat without clearing the debug inventory.
@@ -146,19 +162,76 @@ static func spawn(g, id: String, elite: bool = false) -> bool:
 	g.debug_notice = "SPAWNED: " + str(g.enemy_db[id]["name"])
 	return true
 
-static func items(g, tab: String) -> Array:
+static func items(g, tab: String, category: String = "ALL", query: String = "") -> Array:
 	var result: Array = []
 	match tab:
 		"CARDS":
 			for c in g.db_cards:
-				result.append({"id": str(c["id"]), "label": str(c.get("name", c["id"]))})
+				result.append({
+					"id": str(c["id"]), "label": str(c.get("name", c["id"])),
+					"category": str(c.get("cat", "other")).to_upper(),
+					"detail": str(c.get("desc", "Card upgrade"))
+				})
 		"WEAPONS":
 			for id in g.weapon_ids:
-				result.append({"id": str(id), "label": str(g.weapon_db[id].get("name", id))})
+				if not g.weapon_db.has(id):
+					continue
+				var weapon: Dictionary = g.weapon_db[id]
+				result.append({
+					"id": str(id), "label": str(weapon.get("name", id)),
+					"category": str(weapon.get("kind", "other")).to_upper(),
+					"detail": str(weapon.get("desc", "")) + " " + str(weapon.get("lv5", ""))
+				})
 		"ENEMIES":
+			var seen: Dictionary = {}
 			for id in g.enemy_db:
-				result.append({"id": str(id), "label": str(g.enemy_db[id].get("name", id))})
-	return result
+				var kind = str(id)
+				if not EnemyMixes.usable(kind):
+					continue
+				var monster: Dictionary = g.enemy_db[id]
+				var group = "MUTATIONS" if kind.begins_with("mix_") else ("BOSSES" if bool(monster.get("boss", false)) else "NORMAL")
+				var notes: Array = Bestiary.info(kind)
+				result.append({
+					"id": kind, "label": str(monster.get("name", id)),
+					"category": group, "detail": str(notes[0]),
+					"search_extra": "%s %s %s" % [notes[0], notes[1], notes[2]]
+				})
+				seen[kind] = true
+			# Include every authored mutation, even if this run has not yet
+			# generated it. Debug-only creation happens when it is clicked.
+			for i in range(EnemyMixes.RECIPES.size()):
+				var recipe: Dictionary = EnemyMixes.RECIPES[i]
+				var id = EnemyMixes.recipe_id(i)
+				if seen.has(id) or not g.enemy_db.has(str(recipe["a"])) or not g.enemy_db.has(str(recipe["b"])):
+					continue
+				var notes: Array = Bestiary.info(id)
+				result.append({
+					"id": id, "label": str(recipe["name"]), "category": "MUTATIONS",
+					"detail": str(notes[0]),
+					"search_extra": "%s %s %s %s %s %s" % [recipe["a"], recipe["b"], recipe["style"], notes[0], notes[1], notes[2]]
+				})
+	var needle = query.strip_edges().to_lower()
+	var filtered: Array = []
+	for entry in result:
+		if category != "ALL" and str(entry["category"]) != category:
+			continue
+		var haystack = "%s %s %s %s %s" % [entry["label"], entry["id"], entry["category"], entry["detail"], entry.get("search_extra", "")]
+		if needle != "" and not haystack.to_lower().contains(needle):
+			continue
+		filtered.append(entry)
+	filtered.sort_custom(func(a, b): return str(a["label"]).to_lower() < str(b["label"]).to_lower())
+	return filtered
+
+static func categories(g, tab: String) -> Array:
+	if tab == "ENEMIES":
+		return ["ALL", "NORMAL", "BOSSES", "MUTATIONS"]
+	var groups: Dictionary = {}
+	for entry in items(g, tab):
+		groups[str(entry["category"])] = true
+	var keys: Array = groups.keys()
+	keys.sort()
+	keys.push_front("ALL")
+	return keys
 
 static func run_action(g, action: String) -> void:
 	if action == "debug_open":
@@ -201,6 +274,25 @@ static func run_action(g, action: String) -> void:
 		return
 	if action.begins_with("debug_tab_"):
 		g.debug_tab = action.trim_prefix("debug_tab_")
+		g.debug_page = 0
+		g.debug_category = "ALL"
+		g.debug_query = ""
+		return
+	if action.begins_with("debug_category_"):
+		g.debug_category = action.trim_prefix("debug_category_")
+		g.debug_page = 0
+		return
+	if action in ["debug_cat_prev", "debug_cat_next"]:
+		var groups = categories(g, g.debug_tab)
+		var index = maxi(0, groups.find(g.debug_category))
+		var direction = -1 if action == "debug_cat_prev" else 1
+		g.debug_category = str(groups[posmod(index + direction, groups.size())])
+		g.debug_page = 0
+		return
+	if action == "debug_search_focus":
+		return # Keyboard typing works immediately whenever an item tab is open.
+	if action == "debug_search_clear":
+		g.debug_query = ""
 		g.debug_page = 0
 		return
 	if action == "debug_prev":

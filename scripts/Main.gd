@@ -15,7 +15,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.54"
+const GAME_VERSION = "v0.1.55"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -81,6 +81,8 @@ var debug_session = false
 var debug_snapshot: Dictionary = {}
 var debug_tab = "ROUTE"
 var debug_page = 0
+var debug_category = "ALL"
+var debug_query = ""
 var debug_slot = 0
 var debug_godmode = false
 var debug_notice = ""
@@ -2531,6 +2533,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if debug_panel_open:
 			if code == KEY_ESCAPE:
 				debug_panel_open = false
+			elif debug_tab in ["CARDS", "WEAPONS", "ENEMIES"]:
+				var previous_query = debug_query
+				if code == KEY_BACKSPACE:
+					if event.ctrl_pressed or event.meta_pressed:
+						debug_query = ""
+					elif not debug_query.is_empty():
+						debug_query = debug_query.substr(0, debug_query.length() - 1)
+				elif code == KEY_DELETE and (event.ctrl_pressed or event.meta_pressed):
+					debug_query = ""
+				elif event.unicode >= 32 and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed and debug_query.length() < 64:
+					debug_query += char(event.unicode)
+				if previous_query != debug_query:
+					debug_page = 0
 			return
 		match state:
 			"menu":

@@ -1402,33 +1402,72 @@ func paint_debug_panel() -> void:
 			button(Rect2(px + 30 + hw, y + 195, hw, 60), "CLEAR ENEMIES", "debug_kill", false, 23)
 			wrap_text("F3: close/open the Lab  |  F4: performance numbers  |  Debug runs never overwrite your normal save or record.", px + 24, y + 321, pw - 50, 20, Color("b8c6e3"), 26, body, false, 3)
 		_:
-			var entries: Array = DebugLab.items(g, g.debug_tab)
-			var n = entries.size()
-			var page_count = maxi(1, int(ceil(float(n) / float(DebugLab.ITEM_PAGE_SIZE))))
-			var page = clampi(g.debug_page, 0, page_count - 1)
-			var start = page * DebugLab.ITEM_PAGE_SIZE
+			var groups: Array = DebugLab.categories(g, g.debug_tab)
+			if not groups.has(g.debug_category):
+				g.debug_category = "ALL"
 			if g.debug_tab == "WEAPONS":
 				txt("EQUIP INTO SLOT:", Vector2(px + 24, y - 1), 20, Color("d7faff"), 0, bold)
 				for i in range(3):
 					button(Rect2(px + 240 + i * 124, y - 26, 112, 42), "SLOT %d" % (i + 1), "debug_slot_%d" % i, g.debug_slot == i, 18)
 			elif g.debug_tab == "CARDS":
-				txt("GRANT ANY CARD, EVEN WITHOUT PREREQUISITES", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
+				txt("GRANT ANY CARD  //  FILTER BY EFFECT TYPE", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
 			else:
-				txt("SPAWN ANY MONSTER OR BOSS AHEAD OF THE HERO", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
-			var cw = (pw - 64.0) * 0.5
-			for i in range(start, mini(n, start + DebugLab.ITEM_PAGE_SIZE)):
+				txt("SPAWN ENEMIES  //  NORMAL, BOSSES OR MUTATIONS", Vector2(px + 24, y - 1), 18, Color("d7faff"), 0, bold)
+			if g.debug_tab == "ENEMIES":
+				var catw = (pw - 53.0) / 4.0
+				for i in range(groups.size()):
+					var cat = str(groups[i])
+					var count = DebugLab.items(g, g.debug_tab, cat, g.debug_query).size()
+					button(Rect2(px + 22.0 + i * (catw + 3.0), y + 25, catw, 37),
+						"%s  %d" % [cat, count], "debug_category_" + cat, cat == g.debug_category, 16)
+			else:
+				var cat_index = maxi(0, groups.find(g.debug_category))
+				button(Rect2(px + 22, y + 25, 72, 37), "<", "debug_cat_prev", false, 22, groups.size() > 1)
+				button(Rect2(px + pw - 94, y + 25, 72, 37), ">", "debug_cat_next", false, 22, groups.size() > 1)
+				var current_category = "%s   (%d / %d)" % [g.debug_category.replace("_", " "), cat_index + 1, groups.size()]
+				rbox(Rect2(px + 105, y + 25, pw - 210, 37), Color("203b58"), 9, Color("3d7291"), 1)
+				txt(current_category, Vector2(px + pw * 0.5, y + 49), fit(current_category, pw - 235, 17, bold, 11), Color("d9f9ff"), 1, bold)
+			var search_rect = Rect2(px + 22, y + 72, pw - 241, 43)
+			rbox(search_rect, Color("0c1729"), 9, Color("5b91b6"), 2)
+			var search_value = "SEARCH:  " + (g.debug_query if g.debug_query != "" else "type a name, ID or ability...")
+			txt(search_value, Vector2(search_rect.position.x + 13, search_rect.position.y + 28),
+				fit(search_value, search_rect.size.x - 25, 18, body, 11),
+				Color.WHITE if g.debug_query != "" else Color("91a9c6"), 0, body)
+			button(Rect2(px + pw - 208, y + 72, 186, 43), "CLEAR SEARCH", "debug_search_clear", false, 17, g.debug_query != "")
+			var entries: Array = DebugLab.items(g, g.debug_tab, g.debug_category, g.debug_query)
+			var n = entries.size()
+			var page_count = maxi(1, int(ceil(float(n) / float(DebugLab.ITEM_PAGE_SIZE))))
+			var page = clampi(g.debug_page, 0, page_count - 1)
+			var first = page * DebugLab.ITEM_PAGE_SIZE
+			var cw = (pw - 56.0) * 0.5
+			var row_start = y + 125.0
+			if n == 0:
+				txt("NO RESULTS - TRY A DIFFERENT CATEGORY OR SEARCH", Vector2(px + pw * 0.5, row_start + 105),
+					fit("NO RESULTS - TRY A DIFFERENT CATEGORY OR SEARCH", pw - 60, 19, bold, 11),
+					Color("a9bfd8"), 1, bold)
+			for i in range(first, mini(n, first + DebugLab.ITEM_PAGE_SIZE)):
 				var entry: Dictionary = entries[i]
-				var col = (i - start) % 2
-				var row = int((i - start) / 2)
+				var col = (i - first) % 2
+				var row = int((i - first) / 2)
 				var id = str(entry["id"])
 				var label = str(entry["label"]).to_upper()
 				if g.debug_tab == "CARDS":
 					label += "  x%d" % int(g.owned.get(id, 0))
 				var action = ("debug_card_" if g.debug_tab == "CARDS" else ("debug_gun_" if g.debug_tab == "WEAPONS" else "debug_spawn_")) + id
-				button(Rect2(px + 22.0 + col * (cw + 12.0), y + 32.0 + row * 66.0, cw, 56), label, action, false, 21)
-			button(Rect2(px + 23.0, y + 375.0, 195.0, 48), "PREVIOUS", "debug_prev", false, 20, page > 0)
-			txt("PAGE %d / %d    -    %d ITEMS" % [page + 1, page_count, n], Vector2(px + pw * 0.5, y + 404), 18, Color("ffd268"), 1, bold)
-			button(Rect2(px + pw - 219.0, y + 375.0, 195.0, 48), "NEXT", "debug_next", false, 20, page < page_count - 1)
+				var tile = Rect2(px + 22.0 + col * (cw + 12.0), row_start + row * 52.0, cw, 46.0)
+				var hovered = tile.has_point(g.mouse_screen)
+				var accent = Color("dd9eff") if str(entry["category"]) == "MUTATIONS" else (Color("ffb59a") if str(entry["category"]) == "BOSSES" else Color("5beaff"))
+				rbox(tile, Color("223a57") if hovered else Color("16273f"), 9, accent, 2 if hovered else 1)
+				txt(label, Vector2(tile.position.x + 13, tile.position.y + 20), fit(label, tile.size.x - 26, 17, bold, 10), Color.WHITE, 0, bold)
+				var detail = str(entry.get("detail", ""))
+				if detail.length() > 64:
+					detail = detail.substr(0, 61) + "..."
+				txt(detail, Vector2(tile.position.x + 13, tile.position.y + 37), fit(detail, tile.size.x - 26, 13, body, 9), Color("a8c5dc"), 0, body)
+				buttons.append({"rect": tile, "action": action})
+			button(Rect2(px + 23.0, y + 390.0, 178.0, 43), "PREVIOUS", "debug_prev", false, 18, page > 0)
+			var pager = "PAGE %d / %d   -   %d RESULTS" % [page + 1, page_count, n]
+			txt(pager, Vector2(px + pw * 0.5, y + 418), fit(pager, pw - 420, 17, bold, 12), Color("ffd268"), 1, bold)
+			button(Rect2(px + pw - 201.0, y + 390.0, 178.0, 43), "NEXT", "debug_next", false, 18, page < page_count - 1)
 	var status = "LAST: " + g.debug_notice if g.debug_notice != "" else "Choose a tab or jump directly to a test sector."
 	txt(status, Vector2(px + 24, py + ph - 30), fit(status, pw - 48, 18, bold, 12), Color("a8ffc1"), 0, bold)
 
