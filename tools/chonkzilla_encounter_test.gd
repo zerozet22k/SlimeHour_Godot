@@ -145,8 +145,12 @@ func _run() -> void:
 	live_boss["spiral_t"] = 0.0
 	live_boss["intercept_t"] = 0.0
 	Combat.boss_arena_tick(g, live_boss, 0.1)
-	check(g.shots.any(func(p): return int(p.get("boss_owner", -1)) == int(live_boss["id"])
-		and not bool(p["friendly"])), "Integrated barrage emits real enemy-owned bullets")
+	var found_owned := false
+	for projectile in g.shots:
+		if int(projectile.get("boss_owner", -1)) == int(live_boss["id"]) and not bool(projectile["friendly"]):
+			found_owned = true
+			break
+	check(found_owned, "Integrated barrage emits real enemy-owned bullets")
 
 	var visuals: String = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('"chonk_fault"') and visuals.contains('"chonk_pillar"'),
