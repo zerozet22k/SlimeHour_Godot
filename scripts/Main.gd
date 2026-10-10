@@ -7,7 +7,7 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
-const GAME_VERSION = "v0.1.4"
+const GAME_VERSION = "v0.1.5"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -2139,11 +2139,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			"upgrades":
 				if code == KEY_ESCAPE:
 					state = "menu"
-			"settings", "collection":
+			"settings", "collection", "bestiary":
 				if code == KEY_ESCAPE:
 					state = settings_back
 				elif state == "collection":
 					hud.collection_key(code)
+				elif state == "bestiary":
+					if code == KEY_LEFT:
+						hud.bestiary_page = maxi(0, hud.bestiary_page - 1)
+					elif code == KEY_RIGHT:
+						hud.bestiary_page += 1
 	if event is InputEventScreenTouch:
 		var p = hud.to_local(event.position)
 		if is_touch_active():
@@ -2163,8 +2168,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				try_dash()
 			else:
 				hud.click(mouse_screen)
-		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and state == "collection":
-			hud.scroll(-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and state in ["collection", "bestiary"]:
+			if state == "bestiary":
+				hud.bestiary_page = maxi(0, hud.bestiary_page + (-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1))
+			else:
+				hud.scroll(-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
 
 ## Floating joystick: the first finger down anywhere (not on a button) becomes the stick.
 ## With manual aim, the right half of the screen aims instead.
@@ -2255,6 +2263,18 @@ func do_action(action: String) -> void:
 			state = "collection"
 			hud.collection_page = 0
 			hud.selected_collection_item = null
+		"bestiary":
+			settings_back = state
+			state = "bestiary"
+			hud.bestiary_page = 0
+			hud.bestiary_filter = "ALL"
+			hud.bestiary_selected = ""
+		"bestiary_close":
+			hud.bestiary_selected = ""
+		"bestiary_prev":
+			hud.bestiary_page = maxi(0, hud.bestiary_page - 1)
+		"bestiary_next":
+			hud.bestiary_page += 1
 		"quit":
 			get_tree().quit()
 		"update":
@@ -2334,6 +2354,12 @@ func do_action(action: String) -> void:
 				hud.selected_collection_item = null
 			elif action.begins_with("select_card_"):
 				hud.select_collection_index(int(action.trim_prefix("select_card_")))
+			elif action.begins_with("bestiary_filter_"):
+				hud.bestiary_filter = action.trim_prefix("bestiary_filter_")
+				hud.bestiary_page = 0
+				hud.bestiary_selected = ""
+			elif action.begins_with("bestiary_select_"):
+				hud.bestiary_select(int(action.trim_prefix("bestiary_select_")), 9 if portrait else 12)
 			elif action.begins_with("inspect_card_"):
 				hud.inspected_card_id = action.trim_prefix("inspect_card_")
 

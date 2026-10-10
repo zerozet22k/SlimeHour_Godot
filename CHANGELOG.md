@@ -1,3 +1,11 @@
+## v0.1.5 — Dedicated Bestiary
+
+- Added a standalone Bestiary tab to desktop and portrait main menus.
+- Removed monsters from Collection. Every monster has a discoverable full-page entry.
+- Unlocked entries show portrait, base HP, damage, speed, ability, counterplay, XP and lifetime kills.
+- Added All, Street, Bosses and Discovered filters with paginated grids and hidden undiscovered enemies.
+- Included v0.1.4 status scaling, detailed card bonuses, and reduced Sector 8 enemy HP.
+
 ## v0.1.4 — Status scaling and readable card benefits
 
 - Smoothed enemy HP growth: Sector 8 now targets about 4x base HP rather than 26x, compensating for the reduced card economy.

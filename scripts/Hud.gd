@@ -13,6 +13,9 @@ var buttons: Array = []
 var peek = false
 var collection_cat = "volley"
 var collection_page = 0
+var bestiary_page = 0
+var bestiary_filter = "ALL"
+var bestiary_selected = ""
 var hover_card = null
 var hp_trail = 1.0
 var last_click_frame = -1
@@ -227,6 +230,8 @@ func _draw() -> void:
 			paint_menu()
 		"collection":
 			paint_collection()
+		"bestiary":
+			paint_bestiary()
 		"upgrades":
 			paint_menu_bg()
 			paint_upgrades()
@@ -313,13 +318,14 @@ func paint_portrait() -> void:
 			portrait_bg()
 			paint_conga(h - 60.0, 720.0)
 			logo(Vector2(360, h * 0.2), 1.0)
-			button(Rect2(130, h * 0.46, 460, 100), "PLAY", "play", true, 46)
-			button(Rect2(130, h * 0.46 + 122, 460, 80), "HARD MODE", "play_hard", false, 30)
-			button(Rect2(130, h * 0.46 + 222, 460, 80), "COLLECTION", "collection", false, 30)
-			button(Rect2(130, h * 0.46 + 322, 460, 80), "SETTINGS", "settings", false, 30)
-			button(Rect2(130, h * 0.46 + 422, 460, 80), "UPGRADES", "upgrades", false, 30)
-			goo_chip(Vector2(360, h * 0.46 + 540))
-			profile_bar(Vector2(360, h * 0.46 - 70), 460.0)
+			button(Rect2(130, h * 0.39, 460, 86), "PLAY", "play", true, 42)
+			button(Rect2(130, h * 0.39 + 102, 460, 66), "HARD MODE", "play_hard", false, 28)
+			button(Rect2(130, h * 0.39 + 183, 460, 66), "UPGRADES", "upgrades", false, 28)
+			button(Rect2(130, h * 0.39 + 264, 460, 66), "COLLECTION", "collection", false, 28)
+			button(Rect2(130, h * 0.39 + 345, 460, 66), "BESTIARY", "bestiary", false, 28)
+			button(Rect2(130, h * 0.39 + 426, 460, 66), "SETTINGS", "settings", false, 28)
+			goo_chip(Vector2(360, h * 0.39 + 530))
+			profile_bar(Vector2(360, h * 0.39 - 72), 460.0)
 			var best = "BEST  SECTOR %d   ·   %d KILLS" % [int(g.best["sector"]), int(g.best["kills"])]
 			rbox(Rect2(110, h - 168, 500, 52), Color(0, 0, 0, 0.45), 26)
 			txt(best, Vector2(360, h - 133), 21, Color("ffd24d"), 1, bold)
@@ -346,6 +352,8 @@ func paint_portrait() -> void:
 			paint_portrait_settings()
 		"collection":
 			paint_portrait_collection()
+		"bestiary":
+			paint_portrait_bestiary()
 		"upgrades":
 			portrait_bg()
 			paint_upgrades()
@@ -704,7 +712,6 @@ func paint_portrait_settings() -> void:
 func portrait_collection_cat(delta: int) -> void:
 	var cats = g.categories.keys()
 	cats.append("weapons")
-	cats.append("mobs")
 	var idx = cats.find(collection_cat)
 	collection_cat = str(cats[posmod(idx + delta, cats.size())])
 	collection_page = 0
@@ -715,7 +722,7 @@ func paint_portrait_collection() -> void:
 	portrait_bg()
 	txt("COLLECTION", Vector2(360, 92), 56, Color.WHITE, 1, bold, 6)
 	button(Rect2(28, 124, 96, 72), "<", "mobile_cat_prev", false, 34)
-	var cat_label = {"weapons": "GUNS", "mobs": "MONSTERS"}.get(collection_cat, str(g.categories.get(collection_cat, "")).to_upper())
+	var cat_label = {"weapons": "GUNS"}.get(collection_cat, str(g.categories.get(collection_cat, "")).to_upper())
 	rbox(Rect2(140, 128, 440, 62), Color(0, 0, 0, 0.5), 31)
 	txt(cat_label, Vector2(360, 170), fit(cat_label, 420, 28), Color("ffd24d"), 1, bold, 3)
 	button(Rect2(596, 124, 96, 72), ">", "mobile_cat_next", false, 34)
@@ -1189,7 +1196,7 @@ func paint_menu_bg() -> void:
 
 func paint_menu() -> void:
 	paint_menu_bg()
-	panel(Rect2(380, 70, 520, 568), Color(0.025, 0.045, 0.09, 0.92), Color("304868"), 2)
+	panel(Rect2(380, 50, 520, 620), Color(0.025, 0.045, 0.09, 0.92), Color("304868"), 2)
 	glitch_txt("SLIME HOUR", Vector2(640, 172), 92, Color.WHITE)
 	txt("//  D O N ' T   S T O P   S H O O T I N G  //", Vector2(640, 212), 20, NEON, 1, body)
 	profile_bar(Vector2(640, 262), 380.0)
@@ -1197,14 +1204,13 @@ func paint_menu() -> void:
 	button(Rect2(450, 376, 185, 56), "HARD MODE", "play_hard", false, 22)
 	button(Rect2(645, 376, 185, 56), "UPGRADES", "upgrades", false, 22)
 	button(Rect2(450, 448, 185, 56), "COLLECTION", "collection", false, 22)
-	button(Rect2(645, 448, 185, 56), "SETTINGS", "settings", false, 22)
+	button(Rect2(645, 448, 185, 56), "BESTIARY", "bestiary", false, 22)
+	button(Rect2(450, 520, 185, 50), "SETTINGS", "settings", false, 20)
+	button(Rect2(645, 520, 185, 50), "QUIT", "quit", false, 20)
 	if g.update_available:
-		button(Rect2(450, 520, 185, 50), "UPDATE " + g.update_version, "update", true, 20)
-		button(Rect2(645, 520, 185, 50), "QUIT", "quit", false, 20)
-	else:
-		button(Rect2(548, 520, 185, 50), "QUIT", "quit", false, 20)
-	goo_chip(Vector2(640, 588))
-	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 628), 16, MUTED, 1, body)
+		button(Rect2(510, 577, 260, 42), "UPDATE " + g.update_version, "update", true, 19)
+	goo_chip(Vector2(640, 635))
+	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
 
 func paint_pause() -> void:
 	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.06, 0.75))
@@ -1252,8 +1258,6 @@ func paint_settings() -> void:
 
 ## Locked cards show their rarity but not what they do.
 func collection_info(item: Dictionary) -> Dictionary:
-	if item["type"] == "mob":
-		return mob_info(str(item["id"]))
 	if item["type"] == "card" and not g.unlocked_cards.has(str(item["id"])):
 		var c = g.card_by_id[item["id"]]
 		var more = (int(g.unlock_index.get(str(item["id"]), 0)) - g.START_CARDS - g.CARDS_PER_LEVEL * int(g.profile["level"]) + 1) * g.KILLS_PER_CARD - g.lifetime_kills()
@@ -1270,9 +1274,6 @@ func get_collection_items() -> Array:
 	if collection_cat == "weapons":
 		for id in g.weapon_ids:
 			items.append({"type": "gun_new", "gun": id, "preview": true})
-	elif collection_cat == "mobs":
-		for k in g.mob_order():
-			items.append({"type": "mob", "id": k})
 	else:
 		for c in g.db_cards:
 			if c["cat"] == collection_cat:
@@ -1290,10 +1291,9 @@ func paint_collection() -> void:
 	txt("COLLECTION", Vector2(640, 60), 52, Color.WHITE, 1, bold, 7)
 	var cats = g.categories.keys()
 	cats.append("weapons")
-	cats.append("mobs")
 	var tx = 30.0
 	for c in cats:
-		var label = {"weapons": "GUNS", "mobs": "MONSTERS"}.get(c, str(g.categories.get(c, c)))
+		var label = {"weapons": "GUNS"}.get(c, str(g.categories.get(c, c)))
 		var w = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 20
 		var r = Rect2(tx, 80, w, 32)
 		var sel = c == collection_cat
@@ -1329,7 +1329,7 @@ func paint_collection() -> void:
 	button(Rect2(330, 668, 60, 42), "<", "page-1", false, 26, collection_page > 0)
 	txt("%d / %d" % [collection_page + 1, pages], Vector2(450, 698), 20, Color.WHITE, 1, bold, 3)
 	button(Rect2(510, 668, 60, 42), ">", "page1", false, 26, collection_page < pages - 1)
-	txt("%d cards  ·  %d guns  ·  %d / %d monsters" % [g.db_cards.size(), g.weapon_ids.size(), g.profile["mobs"].size(), g.mob_order().size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
+	txt("%d cards  ·  %d guns  //  For monsters, open BESTIARY" % [g.db_cards.size(), g.weapon_ids.size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
 	button(Rect2(1040, 660, 200, 48), "BACK", "back", true, 24)
 
 func mini_card(r: Rect2, info: Dictionary) -> void:
@@ -1357,6 +1357,141 @@ func mini_tile(r: Rect2, id: String) -> void:
 		rbox(r, hue.darkened(0.65), 6)
 		CardArt.glyph(self, str(c["cat"]), r.get_center(), r.size.y * 0.32, hue)
 	rbox(r.grow(1), Color(0, 0, 0, 0), 6, RCOL[int(c["rarity"])], 2)
+
+
+# ================================================================= BESTIARY — dedicated enemy encyclopedia
+const Bestiary = preload("res://scripts/Bestiary.gd")
+func bestiary_entries() -> Array:
+	var entries: Array = []
+	for kind in g.mob_order():
+		var is_boss = bool(g.enemy_db[kind].get("boss", false))
+		var found = int(g.profile["mobs"].get(kind, 0)) > 0
+		if bestiary_filter == "BOSSES" and not is_boss:
+			continue
+		if bestiary_filter == "STREET" and is_boss:
+			continue
+		if bestiary_filter == "FOUND" and not found:
+			continue
+		entries.append(kind)
+	return entries
+
+func bestiary_select(index: int, page_size: int) -> void:
+	var entries = bestiary_entries()
+	var idx = bestiary_page * page_size + index
+	if idx >= 0 and idx < entries.size():
+		bestiary_selected = str(entries[idx])
+
+func bestiary_filters(x: float, y: float, tile_width: float) -> void:
+	var filters = ["ALL", "STREET", "BOSSES", "FOUND"]
+	for i in range(filters.size()):
+		var key = str(filters[i])
+		var r = Rect2(x + float(i) * (tile_width + 7.0), y, tile_width, 34)
+		rbox(r, Color("2a5a7b") if bestiary_filter == key else Color("1a2840"), 9)
+		txt(key, r.get_center() + Vector2(0, 6), fit(key, tile_width - 12, 15), Color.WHITE, 1, bold)
+		buttons.append({"rect": r, "action": "bestiary_filter_" + key})
+
+func bestiary_tile(r: Rect2, kind: String) -> void:
+	var found = int(g.profile["mobs"].get(kind, 0)) > 0
+	rbox(r, Color("1b2c42") if found else Color("10192b"), 13, Color("ffdb75") if bestiary_selected == kind else Color("456782"), 3 if bestiary_selected == kind else 1)
+	if found:
+		enemy_icon(kind, Rect2(r.position + Vector2(10, 7), r.size - Vector2(20, 40)))
+		var label = str(g.enemy_db[kind]["name"]).to_upper()
+		txt(label, Vector2(r.get_center().x, r.end.y - 12), fit(label, r.size.x - 12, 16, bold, 11), Color.WHITE, 1, bold)
+	else:
+		txt("?", r.get_center() + Vector2(0, 10), 58, Color("52617a"), 1, bold)
+		txt("UNKNOWN", Vector2(r.get_center().x, r.end.y - 12), 14, Color("9aacc5"), 1, bold)
+
+func bestiary_detail(kind: String, r: Rect2) -> void:
+	rbox(r, Color("111d31"), 19, Color("4a6f8d"), 2)
+	if kind == "":
+		txt("SELECT AN ENEMY", r.get_center(), 24, Color("adbed3"), 1, bold)
+		return
+	var found = int(g.profile["mobs"].get(kind, 0)) > 0
+	if not found:
+		txt("UNDISCOVERED", Vector2(r.get_center().x, r.position.y + 70), 32, Color("a9bed2"), 1, bold)
+		txt("?", r.get_center(), 110, Color("53647a"), 1, bold)
+		wrap_text("Defeat this enemy to unlock its stats, abilities and tactics.", r.position.x + 25, r.end.y - 110, r.size.x - 50, 18, Color("bfd0de"), 22, body, false, 3)
+		return
+	var enemy: Dictionary = g.enemy_db[kind]
+	var note: Array = Bestiary.info(kind)
+	var x = r.position.x
+	var y = r.position.y
+	var ww = r.size.x
+	var art_h = minf(154.0, r.size.y * 0.29)
+	txt("BOSS" if bool(enemy.get("boss", false)) else "MONSTER", Vector2(x + 22, y + 27), 16, Color("ffb1c1") if bool(enemy.get("boss", false)) else Color("8ed8ff"), 0, bold)
+	enemy_icon(kind, Rect2(x + ww * 0.3, y + 34, ww * 0.4, art_h))
+	var title = str(enemy["name"]).to_upper()
+	txt(title, Vector2(r.get_center().x, y + art_h + 61), fit(title, ww - 30, 28, bold, 15), Color.WHITE, 1, bold)
+	var stat_y = y + art_h + 81
+	for i in range(3):
+		var key = ["hp", "dmg", "speed"][i]
+		var chip = Rect2(x + 14 + float(i) * (ww - 28) / 3.0, stat_y, (ww - 42) / 3.0, 50)
+		rbox(chip, Color("273750"), 7)
+		txt(["BASE HP", "ATK", "SPEED"][i], Vector2(chip.get_center().x, chip.position.y + 16), 12, Color("b5cee4"), 1, bold)
+		txt("%d" % int(enemy[key]), Vector2(chip.get_center().x, chip.position.y + 40), 21, Color.WHITE, 1, bold)
+	var ty = stat_y + 76
+	txt(str(note[0]), Vector2(x + 20, ty), 18, Color("ffd38a"), 0, bold)
+	wrap_text(str(note[1]), x + 20, ty + 7, ww - 40, 16, Color("daeaff"), 20, body, false, 3)
+	txt("COUNTERPLAY", Vector2(x + 20, ty + 103), 17, Color("8ed8ff"), 0, bold)
+	wrap_text(str(note[2]), x + 20, ty + 111, ww - 40, 16, Color("c8ddf3"), 19, body, false, 3)
+	txt("KILLS  %d    •    XP  %d    •    BASE STATS" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], Vector2(r.get_center().x, r.end.y - 14), fit("KILLS %d XP %d BASE" % [int(g.profile["mobs"][kind]), int(enemy["xp"])], ww - 32, 14), Color("a4b8ce"), 1, body)
+
+func paint_bestiary() -> void:
+	paint_menu_bg()
+	draw_rect(Rect2(0, 0, 1280, 720), Color(0.01, 0.02, 0.06, 0.77))
+	txt("BESTIARY", Vector2(34, 64), 52, Color.WHITE, 0, bold, 4)
+	var known = 0
+	for id in g.mob_order():
+		if int(g.profile["mobs"].get(id, 0)) > 0:
+			known += 1
+	txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
+	bestiary_filters(35, 111, 118)
+	var items = bestiary_entries()
+	var pages = maxi(1, ceili(float(items.size()) / 12.0))
+	bestiary_page = clampi(bestiary_page, 0, pages - 1)
+	for i in range(12):
+		var idx = bestiary_page * 12 + i
+		if idx >= items.size():
+			break
+		var rect = Rect2(35 + float(i % 4) * 182, 155 + float(int(i / 4)) * 151, 170, 140)
+		bestiary_tile(rect, str(items[idx]))
+		buttons.append({"rect": rect, "action": "bestiary_select_%d" % i})
+	bestiary_detail(bestiary_selected, Rect2(793, 118, 454, 512))
+	button(Rect2(150, 633, 75, 45), "<", "bestiary_prev", false, 26, bestiary_page > 0)
+	txt("PAGE %d / %d" % [bestiary_page + 1, pages], Vector2(358, 665), 21, Color.WHITE, 1, bold)
+	button(Rect2(501, 633, 75, 45), ">", "bestiary_next", false, 26, bestiary_page < pages - 1)
+	button(Rect2(990, 650, 210, 48), "BACK", "back", true, 24)
+
+func paint_portrait_bestiary() -> void:
+	var h = g.ui_height
+	portrait_bg()
+	dim(0.7)
+	txt("BESTIARY", Vector2(360, 68), 57, Color.WHITE, 1, bold, 5)
+	var known = 0
+	for id in g.mob_order():
+		if int(g.profile["mobs"].get(id, 0)) > 0:
+			known += 1
+	txt("%d / %d DISCOVERED" % [known, g.mob_order().size()], Vector2(360, 110), 21, Color("a6d8f5"), 1, bold)
+	bestiary_filters(22, 128, 162)
+	var items = bestiary_entries()
+	var pages = maxi(1, ceili(float(items.size()) / 9.0))
+	bestiary_page = clampi(bestiary_page, 0, pages - 1)
+	for i in range(9):
+		var idx = bestiary_page * 9 + i
+		if idx >= items.size():
+			break
+		var rect = Rect2(24 + float(i % 3) * 232, 186 + float(int(i / 3)) * 179, 216, 165)
+		bestiary_tile(rect, str(items[idx]))
+		buttons.append({"rect": rect, "action": "bestiary_select_%d" % i})
+	button(Rect2(110, h - 192, 105, 68), "<", "bestiary_prev", false, 30, bestiary_page > 0)
+	txt("%d / %d" % [bestiary_page + 1, pages], Vector2(360, h - 146), 25, Color.WHITE, 1, bold)
+	button(Rect2(505, h - 192, 105, 68), ">", "bestiary_next", false, 30, bestiary_page < pages - 1)
+	button(Rect2(190, h - 108, 340, 77), "BACK", "back", true, 30)
+	if bestiary_selected != "":
+		buttons.clear()
+		dim(0.93)
+		bestiary_detail(bestiary_selected, Rect2(50, 120, 620, minf(775.0, h - 280.0)))
+		button(Rect2(190, h - 111, 340, 76), "CLOSE", "bestiary_close", true, 30)
 
 func paint_victory() -> void:
 	draw_rect(Rect2(0, 0, 1280, 720), Color("090e1c"))

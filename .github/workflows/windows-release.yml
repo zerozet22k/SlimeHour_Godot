@@ -11,6 +11,7 @@ on:
       - data/**
       - tools/line_weapon_test.gd
       - tools/status_card_test.gd
+      - tools/bestiary_test.gd
       - project.godot
       - export_presets.cfg
   workflow_dispatch:
@@ -75,6 +76,7 @@ jobs:
           timeout 300 ./godot-ci --headless --path . --editor --import --quit
           timeout 120 ./godot-ci --headless --path . --script tools/line_weapon_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/status_card_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
 
       - name: Export, package, and verify Windows release
         if: steps.version.outputs.needed == 'true'
