@@ -80,7 +80,8 @@ func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
 const PROJECTILE_EVENT_GAP = {
 	"fire": 0.045, "impact": 0.062, "status": 0.12, "crit": 0.11,
 	"bounce": 0.12, "pierce": 0.12, "split": 0.18,
-	"boss_fire": 0.20, "boss_warn": 0.50, "boss_impact": 0.19
+	"boss_fire": 0.20, "boss_warn": 0.50, "boss_impact": 0.19,
+	"barrel_warn": 0.2, "barrel_boom": 0.19
 }
 
 static func projectile_clip(event: String, style: String = "kinetic", pattern: String = "") -> String:
@@ -135,6 +136,8 @@ static func projectile_clip(event: String, style: String = "kinetic", pattern: S
 				_: return "vfx_rocket"
 		"boss_warn": return "vfx_boss_warn"
 		"boss_impact": return "vfx_boss_impact"
+		"barrel_warn": return "vfx_barrel_warn"
+		"barrel_boom": return "vfx_barrel_boom"
 	return ""
 
 func play_projectile(event: String, style: String = "kinetic", pattern: String = "", volume: float = 1.0) -> void:
@@ -161,6 +164,8 @@ func play_projectile(event: String, style: String = "kinetic", pattern: String =
 		"boss_fire": gain *= 0.67
 		"boss_warn": gain *= 0.78
 		"boss_impact": gain *= 0.98
+		"barrel_warn": gain *= 0.67
+		"barrel_boom": gain *= 0.74
 	play(clip, 0.035 if event in ["crit", "boss_warn"] else 0.075, gain)
 
 ## World-driven music selection, called at low frequency by Main.
@@ -406,6 +411,10 @@ func build_all() -> void:
 		synth(0.32, 130, 75, "sine", 0.04, 8.0, 0.46, 0.37), int(0.065 * RATE)))
 	streams["vfx_boss_impact"] = to_stream(mix(synth(0.33, 130, 42, "sine", 0.72, 7.0, 0.82, 0.28),
 		synth(0.09, 2000, 290, "saw", 0.80, 28.0, 0.32, 0.42)))
+	streams["vfx_barrel_warn"] = to_stream(mix(synth(0.09, 1400, 1850, "square", 0.05, 20.0, 0.34, 0.68),
+		synth(0.07, 880, 1220, "sine", 0.03, 24.0, 0.27)))
+	streams["vfx_barrel_boom"] = to_stream(mix(synth(0.23, 120, 35, "sine", 0.60, 12.0, 0.65, 0.29),
+		synth(0.14, 1700, 220, "saw", 0.70, 25.0, 0.32, 0.40)))
 	streams["boom2"] = streams["boom"]
 	streams["shot"] = streams["pew"]
 
