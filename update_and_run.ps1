@@ -301,260 +301,32 @@ $installRoot = Join-Path $env:LOCALAPPDATA 'SlimeHour'
 $versionsRoot = Join-Path $installRoot 'versions'
 $lastPath = Join-Path $installRoot 'last_installed.txt'
 New-Item -ItemType Directory -Path $versionsRoot -Force | Out-Null
-# In-game path: Godot has already downloaded and SHA256-checked this exact
-# archive. A hidden WScript host starts this worker after the game exits.
-# Nothing is downloaded here; the previous installation remains untouched
-# until every reconstructed release file has been verified.
+# The game itself downloads the update and verifies its SHA256. This
+# installer is spawned hidden after Godot exits, only to replace locked files.
 if ($InstallDownloaded -ne '') {
     $errorLog = Join-Path $installRoot 'update_error.log'
     $temporary = Join-Path $installRoot ('.ingame-' + [guid]::NewGuid().ToString('N'))
     $previousExe = Join-Path $BaseDirectory $exeName
     try {
-        if ($InstallVersion -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+
-$cachedExe = Join-Path $scriptRoot $exeName
-if (Test-Path -LiteralPath $lastPath) {
-    $prior = (Get-Content -LiteralPath $lastPath -Raw).Trim()
-    if ($prior -match '^v[0-9]+\.[0-9]+\.[0-9]+$') {
-        $installed = Join-Path $versionsRoot $prior
-        if (Test-Path -LiteralPath (Join-Path $installed $exeName)) {
-            $baseDir = $installed
-            $cachedExe = Join-Path $installed $exeName
-        }
-    }
-}
-# A downloaded ZIP can be launched directly without a prior installed cache.
-$sourceManifest = Read-Manifest $scriptRoot
-if ($null -ne $sourceManifest) {
-    $cachedManifest = Read-Manifest $baseDir
-    if ($null -eq $cachedManifest -or
-        [version]($sourceManifest.version.TrimStart('v')) -gt
-        [version]($cachedManifest.version.TrimStart('v'))) {
-        $baseDir = $scriptRoot
-        $cachedExe = Join-Path $scriptRoot $exeName
-    }
-}
-try {
-    Write-Host "Checking $repo for Slime Hour updates..."
-    $headers = @{ 'User-Agent' = 'SlimeHour-Launcher'; 'Accept' = 'application/vnd.github+json' }
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers $headers -TimeoutSec 20
-    $tag = [string]$release.tag_name
-    if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Unsafe or missing release tag.' }
-    $targetDir = Join-Path $versionsRoot $tag
-    $exePath = Join-Path $targetDir $exeName
-    $baseManifest = Read-Manifest $baseDir
-    $baseVersion = if ($null -eq $baseManifest) { '' } else { [string]$baseManifest.version }
-
-    if (-not (Test-Path -LiteralPath $exePath)) {
-        if ($baseVersion -eq $tag -and (Test-Path -LiteralPath $cachedExe)) {
-            Start-Game $cachedExe
-            exit 0
-        }
-        if ($baseVersion -ne '' -and
-            [version]($baseVersion.TrimStart('v')) -gt [version]($tag.TrimStart('v'))) {
-            Write-Host 'Local version is newer than the published release.'
-            Start-Game $cachedExe
-            exit 0
-        }
-        $tmp = Join-Path $installRoot ('.update-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-        try {
-            $built = Join-Path $tmp 'assembled'
-            $patched = $false
-            $metaAsset = Find-Asset $release $deltaMetaName
-            if ($null -ne $baseManifest -and $null -ne $metaAsset) {
-                try {
-                    $metaFile = Join-Path $tmp $deltaMetaName
-                    Download-Asset $metaAsset $metaFile 45
-                    $meta = Get-Content -LiteralPath $metaFile -Raw | ConvertFrom-Json
-                    if ($meta.base_version -ceq $baseVersion -and $meta.target_version -ceq $tag) {
-                        $deltaAsset = Find-Asset $release $deltaName
-                        if ($null -ne $deltaAsset) {
-                            Write-Host "Small update available: $baseVersion -> $tag"
-                            $deltaPath = Download-Verified $release $deltaName $tmp
-                            Apply-Delta $baseDir $deltaPath $built $tag
-                            $patched = $true
-                        }
-                    } else {
-                        Write-Host 'This version needs a full update (no matching patch).'
-                    }
-                }
-                catch {
-                    Write-Warning ("Partial update failed; using the verified full download: " + $_.Exception.Message)
-                    if (Test-Path -LiteralPath $built) {
-                        Remove-Item -LiteralPath $built -Recurse -Force
-                    }
-                }
-            }
-            if (-not $patched) {
-                $zipPath = Download-Verified $release $assetName $tmp
-                Expand-Archive -LiteralPath $zipPath -DestinationPath $built -Force
-                if (-not (Test-Path -LiteralPath (Join-Path $built $exeName))) {
-                    throw 'Full release ZIP is missing the game executable.'
-                }
-                $newManifest = Read-Manifest $built
-                if ($null -ne $newManifest) {
-                    if ($newManifest.version -cne $tag) { throw 'Full ZIP version does not match release tag.' }
-                    foreach ($entry in $newManifest.files) {
-                        if ($validNames -cnotcontains [string]$entry.name) { throw 'Unexpected full-release file name.' }
-                        Verify-File (Join-Path $built ([string]$entry.name)) $entry
-                    }
-                }
-            }
-            if (Test-Path -LiteralPath $targetDir) { Remove-Item -LiteralPath $targetDir -Recurse -Force }
-            Move-Item -LiteralPath $built -Destination $targetDir
-            Write-Host "Slime Hour updated to $tag."
-        }
-        finally {
-            if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Recurse -Force }
-        }
-    }
-    Set-Content -LiteralPath $lastPath -Value $tag -Encoding ASCII
-    Start-Game $exePath
-    exit 0
-}
-catch {
-    Write-Warning ("Update failed or offline: " + $_.Exception.Message)
-    if (Test-Path -LiteralPath $cachedExe) {
-        Write-Host 'Playing the previously installed version.'
-        Start-Game $cachedExe
-        exit 0
-    }
-    throw 'No playable Slime Hour installation was found. Install the full ZIP from GitHub Releases.'
-}
-) { throw 'Invalid update version.' }
-        if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}
-$cachedExe = Join-Path $scriptRoot $exeName
-if (Test-Path -LiteralPath $lastPath) {
-    $prior = (Get-Content -LiteralPath $lastPath -Raw).Trim()
-    if ($prior -match '^v[0-9]+\.[0-9]+\.[0-9]+$') {
-        $installed = Join-Path $versionsRoot $prior
-        if (Test-Path -LiteralPath (Join-Path $installed $exeName)) {
-            $baseDir = $installed
-            $cachedExe = Join-Path $installed $exeName
-        }
-    }
-}
-# A downloaded ZIP can be launched directly without a prior installed cache.
-$sourceManifest = Read-Manifest $scriptRoot
-if ($null -ne $sourceManifest) {
-    $cachedManifest = Read-Manifest $baseDir
-    if ($null -eq $cachedManifest -or
-        [version]($sourceManifest.version.TrimStart('v')) -gt
-        [version]($cachedManifest.version.TrimStart('v'))) {
-        $baseDir = $scriptRoot
-        $cachedExe = Join-Path $scriptRoot $exeName
-    }
-}
-try {
-    Write-Host "Checking $repo for Slime Hour updates..."
-    $headers = @{ 'User-Agent' = 'SlimeHour-Launcher'; 'Accept' = 'application/vnd.github+json' }
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers $headers -TimeoutSec 20
-    $tag = [string]$release.tag_name
-    if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Unsafe or missing release tag.' }
-    $targetDir = Join-Path $versionsRoot $tag
-    $exePath = Join-Path $targetDir $exeName
-    $baseManifest = Read-Manifest $baseDir
-    $baseVersion = if ($null -eq $baseManifest) { '' } else { [string]$baseManifest.version }
-
-    if (-not (Test-Path -LiteralPath $exePath)) {
-        if ($baseVersion -eq $tag -and (Test-Path -LiteralPath $cachedExe)) {
-            Start-Game $cachedExe
-            exit 0
-        }
-        if ($baseVersion -ne '' -and
-            [version]($baseVersion.TrimStart('v')) -gt [version]($tag.TrimStart('v'))) {
-            Write-Host 'Local version is newer than the published release.'
-            Start-Game $cachedExe
-            exit 0
-        }
-        $tmp = Join-Path $installRoot ('.update-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-        try {
-            $built = Join-Path $tmp 'assembled'
-            $patched = $false
-            $metaAsset = Find-Asset $release $deltaMetaName
-            if ($null -ne $baseManifest -and $null -ne $metaAsset) {
-                try {
-                    $metaFile = Join-Path $tmp $deltaMetaName
-                    Download-Asset $metaAsset $metaFile 45
-                    $meta = Get-Content -LiteralPath $metaFile -Raw | ConvertFrom-Json
-                    if ($meta.base_version -ceq $baseVersion -and $meta.target_version -ceq $tag) {
-                        $deltaAsset = Find-Asset $release $deltaName
-                        if ($null -ne $deltaAsset) {
-                            Write-Host "Small update available: $baseVersion -> $tag"
-                            $deltaPath = Download-Verified $release $deltaName $tmp
-                            Apply-Delta $baseDir $deltaPath $built $tag
-                            $patched = $true
-                        }
-                    } else {
-                        Write-Host 'This version needs a full update (no matching patch).'
-                    }
-                }
-                catch {
-                    Write-Warning ("Partial update failed; using the verified full download: " + $_.Exception.Message)
-                    if (Test-Path -LiteralPath $built) {
-                        Remove-Item -LiteralPath $built -Recurse -Force
-                    }
-                }
-            }
-            if (-not $patched) {
-                $zipPath = Download-Verified $release $assetName $tmp
-                Expand-Archive -LiteralPath $zipPath -DestinationPath $built -Force
-                if (-not (Test-Path -LiteralPath (Join-Path $built $exeName))) {
-                    throw 'Full release ZIP is missing the game executable.'
-                }
-                $newManifest = Read-Manifest $built
-                if ($null -ne $newManifest) {
-                    if ($newManifest.version -cne $tag) { throw 'Full ZIP version does not match release tag.' }
-                    foreach ($entry in $newManifest.files) {
-                        if ($validNames -cnotcontains [string]$entry.name) { throw 'Unexpected full-release file name.' }
-                        Verify-File (Join-Path $built ([string]$entry.name)) $entry
-                    }
-                }
-            }
-            if (Test-Path -LiteralPath $targetDir) { Remove-Item -LiteralPath $targetDir -Recurse -Force }
-            Move-Item -LiteralPath $built -Destination $targetDir
-            Write-Host "Slime Hour updated to $tag."
-        }
-        finally {
-            if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Recurse -Force }
-        }
-    }
-    Set-Content -LiteralPath $lastPath -Value $tag -Encoding ASCII
-    Start-Game $exePath
-    exit 0
-}
-catch {
-    Write-Warning ("Update failed or offline: " + $_.Exception.Message)
-    if (Test-Path -LiteralPath $cachedExe) {
-        Write-Host 'Playing the previously installed version.'
-        Start-Game $cachedExe
-        exit 0
-    }
-    throw 'No playable Slime Hour installation was found. Install the full ZIP from GitHub Releases.'
-}
-) { throw 'Invalid expected SHA256.' }
-        if ($DownloadKind -cnotin @('full', 'delta')) { throw 'Invalid update archive kind.' }
-        if (-not (Test-Path -LiteralPath $InstallDownloaded -PathType Leaf)) { throw 'Downloaded update ZIP is missing.' }
+        if ($InstallVersion -notmatch '^v[0-9]+[.][0-9]+[.][0-9]+$') { throw 'Invalid update version.' }
+        if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Invalid expected SHA256.' }
+        if ($DownloadKind -notin @('full', 'delta')) { throw 'Invalid archive kind.' }
+        if (-not (Test-Path -LiteralPath $InstallDownloaded -PathType Leaf)) { throw 'Update archive missing.' }
         if (-not (Test-Path -LiteralPath $BaseDirectory -PathType Container)) { throw 'Original game directory missing.' }
-        # Wait for the game to release SlimeHour.pck / .exe before moving to a
-        # new versioned folder. Never overwrite the running installation.
         if ($WaitPid -gt 0) {
-            $startWait = [Diagnostics.Stopwatch]::StartNew()
+            $wait = [Diagnostics.Stopwatch]::StartNew()
             while (Get-Process -Id $WaitPid -ErrorAction SilentlyContinue) {
-                if ($startWait.Elapsed.TotalSeconds -gt 90) {
-                    throw 'The old game is still running; could not safely update.'
-                }
+                if ($wait.Elapsed.TotalSeconds -gt 90) { throw 'Original game did not close in time.' }
                 Start-Sleep -Milliseconds 200
             }
         }
-        $downloadedHash = (Get-FileHash -LiteralPath $InstallDownloaded -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($downloadedHash -cne $ExpectedSha256.ToLowerInvariant()) { throw 'Downloaded ZIP hash mismatch.' }
+        $actualHash = (Get-FileHash -LiteralPath $InstallDownloaded -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHash -cne $ExpectedSha256.ToLowerInvariant()) { throw 'Update ZIP hash mismatch.' }
         New-Item -ItemType Directory -Path $temporary -Force | Out-Null
         $built = Join-Path $temporary 'assembled'
-        if ($DownloadKind -ceq 'delta') {
+        if ($DownloadKind -eq 'delta') {
             $oldManifest = Read-Manifest $BaseDirectory
-            if ($null -eq $oldManifest) { throw 'Installed game has no patch base manifest.' }
+            if ($null -eq $oldManifest) { throw 'No base manifest for a chunk update.' }
             Apply-Delta $BaseDirectory $InstallDownloaded $built $InstallVersion
         }
         else {
@@ -562,23 +334,22 @@ catch {
         }
         $newManifest = Read-Manifest $built
         if ($null -eq $newManifest -or $newManifest.version -cne $InstallVersion) {
-            throw 'Assembled update has an invalid release manifest.'
+            throw 'Invalid output release manifest.'
         }
         foreach ($item in $newManifest.files) {
-            if ($validNames -cnotcontains [string]$item.name) { throw 'Unsafe file in release manifest.' }
+            if ($validNames -cnotcontains [string]$item.name) { throw 'Unsafe entry in release manifest.' }
             Verify-File (Join-Path $built ([string]$item.name)) $item
         }
         if (-not (Test-Path -LiteralPath (Join-Path $built $exeName) -PathType Leaf)) {
-            throw 'Verified Windows game executable missing.'
+            throw 'Game executable missing in update.'
         }
         $target = Join-Path $versionsRoot $InstallVersion
         if (Test-Path -LiteralPath $target) {
-            # A complete newer-version folder may already exist from a prior run.
             Remove-Item -LiteralPath $target -Recurse -Force
         }
         Move-Item -LiteralPath $built -Destination $target
+        $newPointer = Join-Path $installRoot 'last_installed.txt.new'
         $versionPointer = Join-Path $installRoot 'last_installed.txt'
-        $newPointer = $versionPointer + '.new'
         Set-Content -LiteralPath $newPointer -Value $InstallVersion -Encoding ASCII
         Move-Item -LiteralPath $newPointer -Destination $versionPointer -Force
         if (Test-Path -LiteralPath $errorLog) { Remove-Item -LiteralPath $errorLog -Force }
@@ -597,7 +368,6 @@ catch {
         if (Test-Path -LiteralPath $InstallDownloaded) { Remove-Item -LiteralPath $InstallDownloaded -Force }
     }
 }
-
 $baseDir = $scriptRoot
 $cachedExe = Join-Path $scriptRoot $exeName
 if (Test-Path -LiteralPath $lastPath) {

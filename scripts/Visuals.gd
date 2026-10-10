@@ -1107,12 +1107,12 @@ func paint_fx() -> void:
 						var a = (float(j) / float(rays)) * TAU + (0.4 if style == "shock" else 0.0)
 						var ray = Vector2.from_angle(a)
 						draw_line(p + ray * radius * 0.7, p + ray * radius * (1.4 + k), tone, 2.0 if style != "heavy" else 3.1)
-					if style in ["frost", "shard"]:
+						if style in ["frost", "shard"]:
 							draw_line(p + ray * radius, p + ray.rotated(0.5) * radius * 0.5, Color("f1ffff", 0.6 * alpha), 1.5)
-					if style == "shock":
-						draw_line(p + ray * radius * 1.2, p + ray.rotated(0.32) * radius * 1.65, Color("dcf6ff", 0.8 * alpha), 1.6)
-					if style == "toxic":
-						draw_circle(p + ray * radius * 1.4, maxf(1.0, radius * 0.2), Color("b9ff76", 0.4 * alpha))
+						if style == "shock":
+							draw_line(p + ray * radius * 1.2, p + ray.rotated(0.32) * radius * 1.65, Color("dcf6ff", 0.8 * alpha), 1.6)
+						if style == "toxic":
+							draw_circle(p + ray * radius * 1.4, maxf(1.0, radius * 0.2), Color("b9ff76", 0.4 * alpha))
 			"spark":
 				draw_circle(p, float(f["size"]) * (1.0 - k), Color(c, 1.0 - k))
 			"ring":
