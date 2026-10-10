@@ -1378,14 +1378,44 @@ func paint_beams() -> void:
 		var c: Color = b["color"]
 		var w = float(b["w"])
 		if bool(b.get("flame_stream", false)):
-			# Flame stream is ONE GPU-friendly cone, not scores of physics bullets.
-			var forward = (e - a).normalized()
+			# Cinder is a damage CONE, never a bullet. Draw a soft layered plume
+			# using a few polygon fills, not the old giant triangle/solid end arc.
+			# Geometry follows the exact length and half-width passed by Weapons.
+			var length = a.distance_to(e)
+			if length < 1.0:
+				continue
+			var forward = (e - a) / length
 			var side = forward.orthogonal()
-			var fade = clampf(float(b["t"]) / 0.065, 0.0, 1.0)
-			var corners = PackedVector2Array([a, e + side * w, e - side * w])
-			draw_colored_polygon(corners, Color(c, 0.20 * fade))
-			draw_line(a, e, Color("ffd37a", 0.26 * fade), 6.0)
-			draw_arc(e, w * 0.55, forward.angle() - PI * 0.5, forward.angle() + PI * 0.5, 10, Color("ffba56", 0.42 * fade), 3.0)
+			var fade = clampf(float(b["t"]) / 0.095, 0.0, 1.0)
+			var phase = g.anim_t * 12.0 + a.x * 0.017 + a.y * 0.009
+			var outer = PackedVector2Array()
+			var inner = PackedVector2Array()
+			var upper = PackedVector2Array()
+			var lower = PackedVector2Array()
+			var upper_inner = PackedVector2Array()
+			var lower_inner = PackedVector2Array()
+			var segments = 12
+			for j in range(segments + 1):
+				var k = float(j) / float(segments)
+				var distance = length * k
+				# Narrow nozzle, full-width heat at mid-range, rounded tip.
+				var envelope = k * (1.0 - 0.20 * smoothstep(0.88, 1.0, k))
+				var turbulence = 1.0 + 0.065 * sin(phase + k * 15.0) + 0.04 * sin(phase * 0.63 - k * 24.0)
+				var half_width = maxf(1.5, w * envelope * turbulence)
+				var center = a + forward * distance + side * (sin(phase + k * 8.0) * 2.0 * k)
+				upper.append(center + side * half_width)
+				lower.append(center - side * half_width)
+				upper_inner.append(center + side * half_width * 0.52)
+				lower_inner.append(center - side * half_width * 0.52)
+			for j in range(segments + 1):
+				outer.append(upper[j])
+				inner.append(upper_inner[j])
+			for j in range(segments, -1, -1):
+				outer.append(lower[j])
+				inner.append(lower_inner[j])
+			draw_colored_polygon(outer, Color("ff662e", 0.18 * fade))
+			draw_colored_polygon(inner, Color("ffb34f", 0.20 * fade))
+			draw_line(a, a + forward * minf(length * 0.40, 85.0), Color("fff3b1", 0.18 * fade), 3.0)
 		elif bool(b.get("zig", false)):
 			zigzag(a, e, c, w)
 		elif bool(b.get("rail", false)):
