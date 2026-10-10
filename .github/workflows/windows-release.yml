@@ -13,6 +13,7 @@ on:
       - tools/status_card_test.gd
       - tools/bestiary_test.gd
       - tools/prerequisite_test.gd
+      - tools/bash_bomber_test.gd
       - tools/chunk_release.py
       - tools/test_delta_powershell.py
       - update_and_run.ps1
@@ -84,6 +85,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/status_card_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/bestiary_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/prerequisite_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/bash_bomber_test.gd
           python3 tools/chunk_release.py selftest
           python3 tools/test_delta_powershell.py
 

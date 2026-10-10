@@ -131,6 +131,8 @@ static func update_delayed(g, dt: float) -> void:
 				explode(g, item["pos"], 72.0, 0.0, 9, Color("ffb84d"))
 				if g.hero["pos"].distance_to(item["pos"]) < 72.0 + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a Mortar Mike shell")
+			"kaboomba_boom":
+				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]))
 			"elite_boom":
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
@@ -729,7 +731,8 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 				var m = g.spawn_enemy("mini", pos + Vector2(randf_range(-14, 14), randf_range(-14, 14)), false, false)
 				m["kb"] = Vector2.from_angle(randf() * TAU) * 220.0
 		"kaboomba":
-			kaboom(g, pos, 85.0, float(e["dmg"]))
+			# Keep a visible, armed body after death instead of vanishing or exploding instantly.
+			g.delayed.append(kaboomba_fuse(pos, float(e["dmg"])))
 		"kingblob":
 			if int(e["gen"]) < 2:
 				for k in range(2):
@@ -788,6 +791,23 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 			g.beams.append({"a": pos, "b": o2["pos"], "t": 0.12, "w": 3.0, "color": Color("ff9de0")})
 			damage(g, o2, overkill, false, {"gen": gen + 1, "pos": o2["pos"]})
 	Effects.trigger(g, "kill", {"pos": pos, "enemy": e, "gen": gen, "dmg": float(e["max_hp"]), "shot": ctx.get("shot"), "dir": ctx.get("dir", Vector2.UP)})
+
+## One armed Kaboomba corpse per real death. Kills/loot are awarded immediately;
+## this explosion resolves 0.8s later so the player can react and dodge.
+static func kaboomba_fuse(pos: Vector2, damage: float) -> Dictionary:
+	return {"fn": "kaboomba_boom", "pos": pos, "t": 0.8, "life": 0.8, "tele": 85.0, "dmg": damage}
+
+## A forward-only melee sweep; enemy radius softens the angle and reach.
+static func bash_in_arc(origin: Vector2, forward: Vector2, target: Vector2, radius: float) -> bool:
+	var delta = target - origin
+	var dist = delta.length()
+	if dist > 90.0 + radius:
+		return false
+	if dist <= radius + 16.0:
+		return true
+	if forward.length_squared() < 0.001:
+		return false
+	return forward.normalized().dot(delta / dist) >= cos(deg_to_rad(72.0))
 
 static func kaboom(g, pos: Vector2, r: float, dmg: float) -> void:
 	# Kaboombas hurt you AND their friends. Lure them in.
@@ -1015,8 +1035,8 @@ static func update_enemies(g, dt: float) -> void:
 					damage(g, target_enemy, float(e["dmg"]) * 2.0 + 10.0 * ss, false, {"gen": 1, "pos": target_enemy["pos"]})
 		elif not disabled and e["pos"].distance_to(hero_pos) < float(e["r"]) + hero_r and float(e["dmg"]) > 0.0:
 			if e["kind"] == "kaboomba":
-				e["dead"] = true
-				kill(g, e, {"gen": 1}, 0.0)
+				# kill() must see a live enemy or it silently returns without a fuse.
+				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
 			if e["kind"] == "tick":
 				# Ticks latch on instead of bumping: they slow you and drain until you dash.

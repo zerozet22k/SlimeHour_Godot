@@ -7,7 +7,7 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
-const GAME_VERSION = "v0.1.9"
+const GAME_VERSION = "v0.1.10"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -192,6 +192,8 @@ var aim_touch_id = -1
 var touch_aim_dir = Vector2.ZERO
 var dash_touch_id = -1
 var dash_btn_pos = Vector2(1140, 510)
+var bash_btn_pos = Vector2(980, 510)
+var bash_btn_r = 51.0
 var dash_btn_r = 50.0
 var dash_pressed = false
 var portrait = false
@@ -324,6 +326,8 @@ func _process(delta: float) -> void:
 		stick_knob = stick_center
 	dash_btn_pos = Vector2(596, ui_height - 210.0) if portrait else Vector2(1150, 560)
 	dash_btn_r = 70.0 if portrait else 58.0
+	bash_btn_pos = Vector2(450, ui_height - 221.0) if portrait else Vector2(1000, 560)
+	bash_btn_r = 51.0
 	var m = hud.get_local_mouse_position()
 	var captured = state == "playing" and settings["aim"] == "mouse" and not is_touch_active() and autotest == ""
 	var mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
@@ -478,7 +482,7 @@ func start_run() -> void:
 	shop_items.clear()
 	hero = {"pos": Vector2(0, 0), "vel": Vector2.ZERO, "push": Vector2.ZERO, "hp": 100.0, "maxhp": 100.0,
 		"iframe": 0.0, "shield": 0, "shield_t": 0.0, "dash_t": 0.0, "dash_dir": Vector2.UP, "dash_charges": 1,
-		"dash_cd": 0.0, "dash_window": 0.0, "perfect_used": false, "aim": Vector2.UP, "moving": false,
+		"dash_cd": 0.0, "dash_window": 0.0, "perfect_used": false, "bash_cd": 0.0, "bash_t": 0.0, "bash_dir": Vector2.UP, "aim": Vector2.UP, "moving": false,
 		"flash": 0.0, "revives": 0, "dash_hits": {}, "trail_acc": 0.0, "last_pos": Vector2.ZERO}
 	guns = [Weapons.new_gun(self, "pistol")]
 	sector = 1
@@ -648,11 +652,13 @@ func move_hero(dt: float) -> void:
 		if S.get("dashtrail", 0) > 0 and float(h["trail_acc"]) > 34.0:
 			h["trail_acc"] = 0.0
 			add_zone("fire", h["pos"], 34.0, 2.5)
-		dash_contact()
+		dash_contact_line(prev, h["pos"])
 		if float(h["dash_t"]) <= 0.0:
 			Effects.trigger(self, "dashend", {"pos": h["pos"], "gen": 0})
 	else:
 		h["pos"] += (h["vel"] + h["push"]) * dt
+	h["bash_cd"] = maxf(0.0, float(h.get("bash_cd", 0.0)) - dt)
+	h["bash_t"] = maxf(0.0, float(h.get("bash_t", 0.0)) - dt)
 	h["dash_window"] = maxf(0.0, float(h["dash_window"]) - dt)
 	h["iframe"] = maxf(0.0, float(h["iframe"]) - dt)
 	h["flash"] = maxf(0.0, float(h["flash"]) - dt)
@@ -760,21 +766,64 @@ func dash_contact() -> void:
 			dash_hit(e)
 
 func dash_contact_line(a: Vector2, b: Vector2) -> void:
-	if S.get("dashdmg", 0) <= 0 and S.get("dashpush", 0) <= 0:
-		return
-	for e in enemies.duplicate():
-		if bool(e["dead"]):
+	# Even a vanilla dash activates Kaboomba's fuse; use swept contact, not just
+	# the final frame position, so high-speed dashes cannot pass through unseen.
+	var damaging = S.get("dashdmg", 0) > 0 or S.get("dashpush", 0) > 0
+	for e in enemies:
+		if bool(e["dead"]) or hero["dash_hits"].has(e["id"]):
+			continue
+		if not damaging and e["kind"] != "kaboomba":
 			continue
 		if Combat.seg_dist2(a, b, e["pos"]) < pow(float(e["r"]) + 22.0, 2):
+			hero["dash_hits"][e["id"]] = true
 			dash_hit(e)
 
 func dash_hit(e: Dictionary) -> void:
+	if e["kind"] == "kaboomba":
+		# Do not suppress kill() by marking it dead first. Always arm the fuse.
+		Combat.kill(self, e, {"gen": 1, "pos": e["pos"]}, 0.0)
+		return
 	var dir = (e["pos"] - hero["pos"]).normalized()
 	if S.get("dashpush", 0) > 0:
 		e["kb"] += dir * 900.0 / maxf(0.6, float(e["mass"]))
 		e["flung"] = 1.0
 	if S.get("dashdmg", 0) > 0:
 		Combat.hit(self, e, 30.0 * S["dashdmg"] * dmg_mult(), {"pos": e["pos"], "gen": 1, "dir": dir, "knock": 200.0})
+
+## Innate close-range bash (F, middle mouse or BASH touch button).
+## Short frontal sweep, a real cooldown, stagger, knockback and a visible impact.
+func try_bash() -> void:
+	if state != "playing" or dying_t > 0.0 or hero.is_empty():
+		return
+	if float(hero.get("bash_cd", 0.0)) > 0.0 or float(hero["dash_t"]) > 0.0:
+		return
+	var forward: Vector2 = hero["aim"].normalized()
+	if forward.length_squared() < 0.001:
+		forward = Vector2.UP
+	hero["bash_cd"] = 1.25
+	hero["bash_t"] = 0.23
+	hero["bash_dir"] = forward
+	var origin: Vector2 = hero["pos"]
+	var impact_count = 0
+	for e in enemies:
+		if bool(e["dead"]) or not Combat.bash_in_arc(origin, forward, e["pos"], float(e["r"])):
+			continue
+		var direction: Vector2 = (e["pos"] - origin).normalized()
+		if direction == Vector2.ZERO:
+			direction = forward
+		var dmg = 27.0 * pow(enemy_scale(), 0.55) * dmg_mult()
+		Combat.hit(self, e, dmg, {"gen": 1, "pos": e["pos"], "dir": direction, "knock": 560.0})
+		if not bool(e["dead"]):
+			e["stun"] = maxf(float(e["stun"]), 0.10 if bool(e["boss"]) else 0.32)
+		impact_count += 1
+		if impact_count >= 8:
+			break
+	if impact_count > 0:
+		spawn_burst(origin + forward * 49.0, Color("fff2b0"), mini(impact_count * 3, 18), 175.0, 3.5)
+		add_shake(3.0 + mini(impact_count, 5))
+		sfx.play("bonk")
+	else:
+		sfx.play("whoosh", 0.15, 0.65)
 
 func perfect_dodge() -> void:
 	if bool(hero["perfect_used"]):
@@ -2073,6 +2122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					try_dash()
 				elif code == KEY_TAB:
 					do_action("open_arsenal")
+				elif code == KEY_F:
+					try_bash()
 				elif code == KEY_R:
 					manual_reload()
 			"map":
@@ -2165,10 +2216,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_touch_drag(event.index, p)
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if state == "playing" and is_touch_active() and mouse_screen.distance_to(dash_btn_pos) <= dash_btn_r * 1.35:
+			if state == "playing" and is_touch_active() and mouse_screen.distance_to(bash_btn_pos) <= bash_btn_r * 1.2:
+				try_bash()
+			elif state == "playing" and is_touch_active() and mouse_screen.distance_to(dash_btn_pos) <= dash_btn_r * 1.35:
 				try_dash()
 			else:
 				hud.click(mouse_screen)
+		elif event.button_index == MOUSE_BUTTON_MIDDLE and state == "playing":
+			try_bash()
 		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and state in ["collection", "bestiary"]:
 			if state == "bestiary":
 				hud.bestiary_page = maxi(0, hud.bestiary_page + (-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1))
@@ -2183,6 +2238,9 @@ func _touch_down(id: int, p: Vector2) -> void:
 			if b["rect"].has_point(p):
 				hud.click(p)
 				return
+		if p.distance_to(bash_btn_pos) <= bash_btn_r * 1.25:
+			try_bash()
+			return
 		if p.distance_to(dash_btn_pos) <= dash_btn_r * 1.3:
 			dash_touch_id = id
 			dash_pressed = true

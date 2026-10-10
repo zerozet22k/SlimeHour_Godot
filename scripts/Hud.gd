@@ -885,9 +885,9 @@ func paint_hud() -> void:
 			txt(g.banner_sub.to_upper(), Vector2(640, y + 26), 16, Color(1, 0.85, 0.3, a), 1, bold, 3)
 	if bool(g.settings["hints"]) and g.run_time < 14.0 and g.sector == 1 and g.state == "playing":
 		if g.is_touch_active():
-			txt("DRAG LOWER LEFT TO MOVE   ·   TAP DASH TO DODGE   ·   GUNS AUTO-TARGET & FIRE", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
+			txt("DRAG LOWER LEFT TO MOVE   ·   TAP DASH TO DODGE   ·   TAP BASH TO STRIKE   ·   GUNS AUTO-TARGET & FIRE", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
 		else:
-			txt("WASD move   ·   LEFT CLICK gun 1   ·   RIGHT CLICK gun 2   ·   R reload   ·   SPACE dash   ·   TAB arsenal", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
+			txt("WASD move   ·   LEFT CLICK gun 1   ·   RIGHT CLICK gun 2   ·   R reload   ·   SPACE dash   ·   F bash   ·   TAB arsenal", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
 	if g.is_touch_active() and g.state == "playing":
 		paint_touch_controls()
 
@@ -943,6 +943,17 @@ func paint_touch_controls() -> void:
 	draw_circle(knob + Vector2(0, 4), 34.0, Color(0, 0, 0, 0.3 * a))
 	draw_circle(knob, 34.0, Color(0.31, 0.88, 1.0, 0.85 * a))
 	draw_circle(knob, 24.0, Color(0.75, 0.97, 1.0, 0.9 * a))
+	# Bash button: independent melee cooldown, separate from dash charges.
+	var bp: Vector2 = g.bash_btn_pos
+	var br: float = g.bash_btn_r
+	var bash_ready = float(h.get("bash_cd", 0.0)) <= 0.0
+	draw_circle(bp + Vector2(0, 7), br, Color(0, 0, 0, 0.35))
+	draw_circle(bp, br, Color("d29a36") if bash_ready else Color("273142"))
+	draw_circle(bp, br * 0.75, Color("ffdda0") if bash_ready else Color("495367"))
+	if not bash_ready:
+		var elapsed = 1.0 - clampf(float(h.get("bash_cd", 0.0)) / 1.25, 0.0, 1.0)
+		draw_arc(bp, br + 6, -PI * 0.5, -PI * 0.5 + TAU * elapsed, 32, Color("7dffcf"), 5.0)
+	txt("BASH", bp + Vector2(0, 9), 24, Color("42230f") if bash_ready else Color("9da7b8"), 1, bold, 3)
 	# Dash button with cooldown ring and charge pips.
 	var dp: Vector2 = g.dash_btn_pos
 	var dr: float = g.dash_btn_r

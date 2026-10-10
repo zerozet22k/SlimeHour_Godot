@@ -268,6 +268,16 @@ func paint_telegraphs() -> void:
 		var r = float(d["tele"])
 		draw_circle(p, r * k, Color(1, 0.3, 0.2, 0.18))
 		draw_arc(p, r, 0, TAU, 32, Color(1, 0.5, 0.3, 0.7), 2.0)
+		if d["fn"] == "kaboomba_boom":
+			# The dead bomber remains visible as a blinking armed body until detonation.
+			var blink = fmod(g.anim_t * (6.0 + k * 12.0), 1.0) < 0.5
+			draw_circle(p + Vector2(2, 6), 17.0, Color(0, 0, 0, 0.4))
+			draw_circle(p, 16.0 + k * 5.0, Color("ffb543") if blink else Color("c52a37"))
+			draw_circle(p - Vector2(5, 4), 4.0, Color.WHITE)
+			draw_circle(p + Vector2(5, -4), 4.0, Color.WHITE)
+			draw_circle(p + Vector2(0, -21), 3.0 + k * 3.0, Color("fff37b"))
+			draw_arc(p, r, -PI * 0.5, -PI * 0.5 + TAU * k, 32, Color("ffdf6d"), 5.0)
+			continue
 		var fall = (1.0 - k) * 420.0
 		match d["fn"]:
 			"anvil":
@@ -753,6 +763,16 @@ func paint_hero() -> void:
 		draw_circle(hat + side * s * 3.0 - aim * 2.0, 2.5, Color("2b2631"))
 		draw_circle(hat + side * s * 3.0 - aim * 2.0, 1.6, Color("a6e1e9"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Visible melee sweep follows the MC's aim, fading after the hit frame.
+	if float(h.get("bash_t", 0.0)) > 0.0:
+		var phase = 1.0 - clampf(float(h["bash_t"]) / 0.23, 0.0, 1.0)
+		var dir: Vector2 = h.get("bash_dir", aim)
+		var ang = dir.angle()
+		var half = deg_to_rad(72.0)
+		var swing = ang - half + phase * half * 1.0
+		for radius in [56.0, 77.0, 90.0]:
+			draw_arc(p, radius, swing, swing + half, 20, Color(1.0, 0.96, 0.65, 0.7 * (1.0 - phase)), 8.0 if radius == 77.0 else 3.0)
+		draw_line(p + dir * 17.0, p + dir.rotated(-0.28 + phase * 0.56) * 68.0, Color("fff5c2", 0.72 * (1.0 - phase)), 8.0)
 	# Guns in hand, using the generated weapon art.
 	for i in range(g.guns.size()):
 		var w = g.guns[i]

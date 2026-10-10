@@ -1,3 +1,11 @@
+## v0.1.10 — Card art, MC melee bash and reactive bombers
+
+- New Double Tap and Parallel Shots card illustrations.
+- Main character has an innate directional bash (F, middle mouse, or touch button) with knockback, short stun, cooldown and animated melee swipe.
+- Dashing into Kaboombas activates their 0.8-second visible fuse instead of deleting the enemy without its explosion.
+- Swept dash collision prevents fast dashes from skipping bombers; lethal gunshots also arm the delayed explosion.
+- Regression tests for bash hit arc and bomb countdown.
+
 ## v0.1.9 — Collection text cleanup
 
 - Removed the unnecessary Bestiary instruction from the Collection footer. Bestiary remains available directly from the main menu.
