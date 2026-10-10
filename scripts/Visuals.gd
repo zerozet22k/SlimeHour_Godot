@@ -434,7 +434,9 @@ func paint_telegraphs() -> void:
 				var color = Color("c1c8ff") if enemy_has_role(e, "lancer") else Color("ff5a82")
 				draw_line(p, p + dir * (650.0 if enemy_has_role(e, "lancer") else 900.0), Color(color, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
 			elif e.has("tele") and (e["kind"] in ["chonkzilla", "kingblob"] or enemy_has_role(e, "chonk")):
-				var at = P(e.get("lock", e["pos"])) if e["kind"] == "kingblob" else p
+				var landing_target: Vector2 = e.get("lock", e["pos"])
+				var landing_at: Vector2 = e["pos"].move_toward(landing_target, 170.0 + Combat.boss_stage(e) * 55.0)
+				var at = P(landing_target) if e["kind"] == "kingblob" else (P(landing_at) if e["kind"] == "chonkzilla" else p)
 				draw_arc(at, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
 				draw_circle(at, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
 			elif enemy_has_role(e, "bull") or e["kind"] in ["zoomer", "skitter"]:
