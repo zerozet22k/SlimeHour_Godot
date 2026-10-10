@@ -21,21 +21,22 @@ func _run() -> void:
 	var db = {}
 	for monster in raw:
 		db[str(monster["id"])] = monster
-	check(not db.has("nurse") and not db.has("larry"), "Retired Nurse and Laser Larry are removed from the actual roster")
-	check(not Mixes.usable("nurse") and not Mixes.usable("larry"), "Retired enemies never qualify for new hybrids")
-	check(not Mixes.usable("mix_larry_nurse") and not Mixes.usable("mix_blob_nurse"),
-		"Historical Nurse/Larry hybrids are excluded from restores and Bestiary")
+	check(db.has("nurse") and db.has("larry"), "Medic and Laser Larry are active base monsters")
+	check(Mixes.usable("nurse") and Mixes.usable("larry"), "Medic and Laser Larry are eligible mutation parents")
+	check(Mixes.usable("mix_larry_nurse") and Mixes.usable("mix_blob_nurse"),
+		"Old Medic/Larry hybrid records stay compatible with player saves")
 	check(not Mixes.allowed(["blob", "bull"], 15) and Mixes.allowed(["blob", "bull"], 16),
 		"New main archetypes are introduced before mixtures can spawn")
-	check(Mixes.ensure(db, "blob", "nurse") == "" and Mixes.ensure(db, "larry", "bull") == "",
-		"Retired parents are never created even by explicit ensure calls")
+	check(Mixes.ensure(db, "blob", "nurse") != "" and Mixes.ensure(db, "larry", "bull") != "",
+		"Medic and Larry can both contribute a single anatomical hybrid feature")
 
 	var basics = []
 	for id in Main.STARTER_ENEMIES:
 		basics.append(str(id))
+	basics.append("nurse")
 	for id in Main.ROUTE_INTRO_ORDER:
 		basics.append(str(id))
-	check(basics.size() == 21, "Twenty-one original combat main types remain with no retired faces")
+	check(basics.size() == 23, "Twenty-three core combat types including Medic and Larry")
 	var seen_traits = {}
 	var created = 0
 	for i in range(basics.size()):
@@ -55,7 +56,7 @@ func _run() -> void:
 			check(look.get("gear", []) == base.get("gear", []),
 				"Hybrid does not stack second face/cap/visor: " + id)
 			seen_traits[str(look["trait"])] = true
-	check(created == 210, "All 210 distinct base-type pairings can be generated")
+	check(created == 253, "All 253 distinct non-boss core-type pairings can be generated")
 	check(seen_traits.size() >= 12, "Pairs produce many visually distinct anatomical mutations")
 	check(Mixes.id_for("blob", "bull") == Mixes.id_for("bull", "blob"), "Pair IDs are canonical")
 
@@ -69,7 +70,7 @@ func _run() -> void:
 	check(main.contains('for key in ["mobs", "announced_mobs"]') and main.contains("records.erase(known)"),
 		"Old save bestiary and announcement records are migrated")
 	check(not autotest.contains('"nurse"') and not autotest.contains('"larry"'),
-		"Automated high-level mob spawning does not reintroduce retired enemies")
+		"Automated mob roster requires explicit species definitions")
 
 	var r = Mixes.roll(db, basics, 40)
 	check(r != "" and r.begins_with("mix_") and db.has(r), "Sector 40 generates modern combinations")
