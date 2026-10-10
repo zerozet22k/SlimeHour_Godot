@@ -55,6 +55,7 @@ func _draw() -> void:
 	paint_pickups()
 	paint_barrels()
 	paint_telegraphs()
+	paint_identity_hazards()
 	paint_enemies()
 	paint_pets()
 	paint_hero()
@@ -507,6 +508,34 @@ func paint_telegraphs() -> void:
 				draw_circle(p, float(e["r"]) * 1.15, Color(shade, 0.18))
 				draw_line(p, dest, Color(shade, 0.38), 2.0)
 
+## Persistent enemy hazards are rendered at their TRUE damage radii.
+func paint_identity_hazards() -> void:
+	for h in g.enemy_hazards:
+		var p: Vector2 = P(h["pos"])
+		if p.y < g.view_top - 120.0 or p.y > g.view_bottom + 120.0:
+			continue
+		var r = float(h["r"])
+		var armed = float(h["arm"]) <= 0.0
+		match str(h["kind"]):
+			"mine":
+				var col = Color("ffb861") if armed else Color("8f9daa")
+				draw_circle(p, r, Color(col, 0.13))
+				draw_arc(p, r, 0, TAU, 28, Color(col, 0.7), 2.5)
+				draw_circle(p, 10.0, Color("33242a"))
+				draw_circle(p, 4.0, Color("ff704e") if armed else Color("a9dafa"))
+			"egg":
+				draw_circle(p, r + 3.0, Color("7dffcf", 0.18))
+				draw_arc(p, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - float(h["life"]) / float(h["max_life"])), 30, Color("a9ffee"), 3.0)
+				draw_circle(p, r * 0.7, Color("caffeb"))
+			"acid":
+				draw_circle(p, r, Color("a3ff65", 0.22))
+				draw_arc(p, r, 0, TAU, 20, Color("8adf5a", 0.55), 2.0)
+			"fissure":
+				var a: Vector2 = P(h["a"])
+				var b: Vector2 = P(h["b"])
+				draw_line(a, b, Color("d7a36d", 0.18), r * 2.0)
+				draw_line(a, b, Color("f9cc83", 0.78 if armed else 0.3), 3.0)
+
 # ================================================================= enemies
 func paint_enemies() -> void:
 	for e in g.enemies:
@@ -523,6 +552,21 @@ func paint_enemies() -> void:
 			draw_arc(p, r + 8.0, 0, TAU, 24, Color("e4b873", 0.8), 2.5)
 			continue
 		draw_enemy(e, p, r)
+		# Real slime-wall links, only around visible threatening packs.
+		if e["kind"] == "blob" and e["pos"].distance_squared_to(g.hero["pos"]) < 210.0 * 210.0:
+			var linked = 0
+			for other in g.enemies:
+				if other == e or bool(other["dead"]) or str(other["kind"]) != "blob" or int(other["id"]) < int(e["id"]):
+					continue
+				if e["pos"].distance_squared_to(other["pos"]) < 75.0 * 75.0:
+					draw_line(p, P(other["pos"]), Color("ffadc1", 0.40), 8.0)
+					linked += 1
+					if linked >= 2:
+						break
+		if e["kind"] == "leech" and float(e.get("tether_t", 0.0)) > 0.0:
+			draw_line(p, P(g.hero["pos"]), Color("c86eff", 0.6 + 0.2 * sin(g.anim_t * 10.0)), 3.5)
+		if float(e.get("laser_t", 0.0)) > 0.0:
+			draw_arc(p, r + 8.0, 0, TAU, 22, Color("ff577a", 0.75), 3.0)
 		if float(e.get("sprint_t", 0.0)) > 0.0:
 			draw_arc(p, r + 6.0, 0, TAU, 20, Color("ffbc66", 0.75), 2.5)
 		# Allies protected by a nearby Hype Totem must look protected.
@@ -536,7 +580,16 @@ func paint_enemies() -> void:
 			var progress = 1.0 - float(e["rebirth_t"]) / 1.35
 			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
 			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80"), 4.0)
-			text_c("REBIRTHING", p + Vector2(0, -r - 32.0), 11, Color("ffdf80"), 2)
+			text_c("COCOON - SHOOT!", p + Vector2(0, -r - 32.0), 11, Color("ffdf80"), 2)
+		elif e["kind"] == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
+			draw_arc(p, r + 10.0, 0, TAU, 28, Color("ffcf8a"), 4.0)
+			text_c("OVERHEATED", p + Vector2(0, -r - 28.0), 11, Color("ffe5a4"), 2)
+		elif e["kind"] == "nurse" and e.get("patient") != null:
+			var patient = e["patient"]
+			if not bool(patient.get("dead", false)):
+				draw_line(p, P(patient["pos"]), Color("83efbb", 0.65), 2.5)
+				if float(e.get("treat_t", 0.0)) > 0.0:
+					draw_arc(p, r + 7.0, -PI * 0.5, -PI * 0.5 + TAU * minf(1.0, float(e["treat_t"]) / 1.15), 24, Color("83ffac"), 3.0)
 		elif enemy_has_role(e, "siren"):
 			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
 		elif enemy_has_role(e, "mirror") and float(e.get("wind", 0.0)) > 0.0:
@@ -590,6 +643,14 @@ func paint_enemies() -> void:
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif enemy_has_role(e, "totem"):
+			var linked_allies = 0
+			for ally in g.enemies:
+				if ally != e and not bool(ally["dead"]) and ally["pos"].distance_squared_to(e["pos"]) <= Combat.TOTEM_R * Combat.TOTEM_R:
+					if ally["pos"].distance_squared_to(g.hero["pos"]) < 300.0 * 300.0:
+						draw_line(p, P(ally["pos"]), Color("7ad1ff", 0.20), 1.3)
+						linked_allies += 1
+						if linked_allies >= 12:
+							break
 			draw_arc(p, Combat.TOTEM_R, 0, TAU, 64, Color(0.48, 0.82, 1.0, 0.25 + 0.15 * sin(g.anim_t * 3.0)), 3.0)
 			text_c("HALVES ALLY DAMAGE", p + Vector2(0, -r - 34), 13, Color("7ad1ff"), 3)
 
