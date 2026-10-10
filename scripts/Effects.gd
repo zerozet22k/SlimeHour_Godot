@@ -36,6 +36,11 @@ static func recalc(g) -> void:
 	if float(S.get("ambi", 0.0)) > 0.0 and g.guns.size() >= 2:
 		S["rate"] = float(S.get("rate", 0.0)) + 0.2 * float(S["ambi"])
 		S["mult"] = float(S.get("mult", 0.0)) + float(S["ambi"])
+	# The former mirrored Ghost Twin is a real companion. Keeping the legacy
+	# stat recognized also upgrades existing player saves without migration.
+	if float(S.get("ghost", 0.0)) > 0.0:
+		S["ghostwalk"] = float(S.get("ghostwalk", 0.0)) + float(S["ghost"])
+		S["ghost"] = 0.0
 	g.S = S
 	# Max HP changes keep the current missing HP the same.
 	if not g.hero.is_empty():

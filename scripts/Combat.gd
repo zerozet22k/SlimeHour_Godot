@@ -752,11 +752,21 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 		durability *= 0.25
 	return maxf(0.0, (flat + durability) * bonus)
 
-static func dot(g, e: Dictionary, amount: float, color: Color) -> void:
+static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "") -> void:
 	if bool(e["dead"]):
 		return
 	e["hp"] = float(e["hp"]) - amount
 	g.damage_dealt += amount
+	if label != "" and bool(g.settings.get("numbers", true)):
+		# Aggregate four DOT ticks/sec into legible 0.5-second damage numbers.
+		# This avoids a floating-text node per status per simulation tick.
+		var key = "dot_acc_" + label
+		var timer = "dot_at_" + label
+		e[key] = float(e.get(key, 0.0)) + amount
+		if g.run_time >= float(e.get(timer, 0.0)) or float(e["hp"]) <= 0.0:
+			g.dot_number(e["pos"], float(e[key]), color, label)
+			e[key] = 0.0
+			e[timer] = g.run_time + 0.5
 	if float(e["hp"]) <= 0.0:
 		kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 
@@ -1032,9 +1042,9 @@ static func update_enemies(g, dt: float) -> void:
 			if e.has("affix"):
 				elite_tick(g, e)
 			if float(e["burn"]) > 0.0:
-				dot(g, e, status_tick_damage(g, e, "burn"), Color("ff8a3d"))
+				dot(g, e, status_tick_damage(g, e, "burn"), Color("ff8a3d"), "BURN")
 			if float(e["poison"]) > 0.0:
-				dot(g, e, status_tick_damage(g, e, "poison", float(e["poison"])), Color("8dff6b"))
+				dot(g, e, status_tick_damage(g, e, "poison", float(e["poison"])), Color("8dff6b"), "POISON")
 			if float(e["bleed"]) > 0.0:
 				var moving = e["vel"].length() > 10.0
 				dot(g, e, status_tick_damage(g, e, "bleed", float(e["bleed"]), moving), Color("ff4d6a"))
@@ -1171,7 +1181,12 @@ static func update_enemies(g, dt: float) -> void:
 					g.say(hero_pos + Vector2(0, -40), "TICKED! DASH!", Color("9dff6b"), 20)
 				g.hurt(float(e["dmg"]), e["pos"], "a Lil Tick")
 				continue
-			if g.hurt(float(e["dmg"]), e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"])) and g.st("thorns") > 0.0:
+			var contact_hurt = g.hurt(float(e["dmg"]), e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"]))
+			if contact_hurt and has_role(g, e, "leech"):
+				var stolen = minf(float(e["max_hp"]) * 0.12, float(e["dmg"]) * 1.5)
+				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + stolen)
+				g.spawn_ring_fx(e["pos"], Color("a783ff"), 22.0)
+			if contact_hurt and g.st("thorns") > 0.0:
 				damage(g, e, g.st("thorns") * ss, false, {"gen": 1, "pos": e["pos"]})
 			elif g.st("thorns") > 0.0 and float(e.get("thorn_cd", 0.0)) <= 0.0:
 				e["thorn_cd"] = 0.5
@@ -1243,6 +1258,51 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 	var hero_pos: Vector2 = g.hero["pos"]
 	var ss = g.sector_scale()
 	match kind:
+		"skitter":
+			# Nimble flank attacker: short wind-up, diagonal burst and a real dodge window.
+			if float(e["charge"]) > 0.0:
+				e["charge"] = maxf(0.0, float(e["charge"]) - dt)
+				return Vector2.ZERO
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					e["charge"] = 0.26
+					e["cdir"] = (hero_pos - e["pos"]).normalized()
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist > 80.0 and dist < 300.0:
+				e["cd"] = 3.2
+				e["wind"] = 0.40
+				e["lock"] = hero_pos
+				return Vector2.ZERO
+			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 7.0 + float(e["phase"])) * 0.95).normalized()
+		"sapper":
+			# Ranged ground denial, but every mine is telegraphed before dealing damage.
+			if float(e["cd"]) <= 0.0 and dist < 460.0 and g.delayed.size() < 140:
+				e["cd"] = 4.4
+				var lead = hero_pos + g.hero["vel"] * 0.25
+				schedule_boss_blast(g, lead, 46.0, float(e["dmg"]) * 1.25, 1.3, "ffbb61")
+				e["squash"] = 0.4
+			return dir if dist > 320.0 else (-dir if dist < 205.0 else dir.orthogonal() * 0.5)
+		"lancer":
+			# Long-range spear burst: stationary aiming tell and fast pierce shot.
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var aim = (Vector2(e.get("lock", hero_pos)) - e["pos"]).normalized()
+					var dart = enemy_fire(g, e, aim, 1, 0.0, 520.0, 4.0)
+					if dart != null:
+						dart["pierce"] = 1
+						dart["life"] = 1.8
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist < 520.0:
+				e["cd"] = 3.4
+				e["wind"] = 0.68
+				e["lock"] = hero_pos + g.hero["vel"] * 0.23
+				return Vector2.ZERO
+			return dir if dist > 360.0 else -dir * 0.45
+		"leech":
+			# Rush into melee; actual HP drain is resolved only on successful contact.
+			return (dir * 0.85 + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.24).normalized()
 		"ashwing":
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
@@ -1461,11 +1521,17 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if e["cd"] <= 0.0:
 				e["cd"] = 3.8 - stage * 0.45
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				if int(e["pattern"]) % 3 == 1:
+				var attack = int(e["pattern"]) % 4
+				if attack == 1:
 					# Alternating offset slams force a lateral dodge.
 					for k in range(3 + stage):
 						var point = hero_pos + Vector2((k - 1) * 115.0, -35.0)
 						schedule_boss_blast(g, point, 53.0, float(e["dmg"]) * 0.6, 1.15 + k * 0.16)
+				elif attack == 3:
+					# New move: alternating diagonal quake lanes with visible exits.
+					for k in range(5 + stage):
+						var at = hero_pos + Vector2((k - 2) * 98.0, (1.0 if k % 2 == 0 else -1.0) * 90.0)
+						schedule_boss_blast(g, at, 54.0, float(e["dmg"]) * 0.57, 1.15 + 0.17 * k, "ff754b")
 				else:
 					e["wind"] = 1.0 - stage * 0.13
 					e["tele"] = 160.0
@@ -1480,9 +1546,15 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if e["cd"] <= 0.0:
 				e["cd"] = 2.75 - stage * 0.35
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 3
+				var pattern = int(e["pattern"]) % 4
 				if pattern == 0:
 					e["burst"] = 10 + stage * 3
+				elif pattern == 3:
+					# New move: staggered bombing lanes cross where the hero stood.
+					for k in range(6 + stage):
+						var left_to_right = -1.0 if k % 2 == 0 else 1.0
+						var point = hero_pos + Vector2(left_to_right * (175.0 - k * 13.0), (k - 3) * 78.0)
+						schedule_boss_blast(g, point, 45.0, float(e["dmg"]) * 0.6, 0.95 + 0.18 * k, "ffb36b")
 				elif pattern == 1:
 					# A visible carpet of bombs across the escape route.
 					for k in range(4 + stage):
@@ -1503,8 +1575,16 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if e["cd"] <= 0.0:
 				e["cd"] = 3.0 - stage * 0.35
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 3
-				if pattern == 0:
+				var pattern = int(e["pattern"]) % 4
+				if pattern == 3:
+					# New move: summon fast leeches to force displacement.
+					for k in range(2 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var minion = g.spawn_enemy("leech", e["pos"] + Vector2.from_angle(k * TAU / (2.0 + stage)) * 92.0, false, false)
+						minion["summon"] = true
+					g.spawn_ring_fx(e["pos"], Color("a783ff"), 98.0)
+				elif pattern == 0:
 					for k in range(5 + stage * 2):
 						var a = float(k - 2 - stage) * 0.27
 						var s = enemy_fire(g, e, dir.rotated(a), 1, 0.0, 190.0 + stage * 25.0)
@@ -1543,7 +1623,15 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if e["cd"] <= 0.0 and dist < 480.0:
 				e["cd"] = 4.0 - stage * 0.55
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				if int(e["pattern"]) % 2 == 0:
+				if int(e["pattern"]) % 4 == 3:
+					# New move: spawn flanking skitters and force repositioning.
+					for k in range(2 + stage):
+						if g.enemies.size() >= g.enemy_cap():
+							break
+						var skit = g.spawn_enemy("skitter", e["pos"] + Vector2(-85.0 + k * 65.0, 40.0), false, false)
+						skit["summon"] = true
+					g.spawn_ring_fx(e["pos"], Color("ff7b93"), 110.0)
+				elif int(e["pattern"]) % 2 == 0:
 					e["wind"] = 0.95 - stage * 0.13
 					e["lock"] = hero_pos
 					e["tele"] = 110.0
@@ -1922,7 +2010,7 @@ static func update_zones(g, dt: float) -> void:
 
 # ================================================================= allies
 static func sync_pets(g) -> void:
-	var want = {"drone": int(g.st("drone")), "intern": int(g.st("minion")), "chicken": int(g.st("chickenpet")), "dog": int(g.st("dog")), "saw": int(g.st("sawblade"))}
+	var want = {"drone": int(g.st("drone")), "intern": int(g.st("minion")), "chicken": int(g.st("chickenpet")), "dog": int(g.st("dog")), "saw": int(g.st("sawblade")), "ghost": mini(3, int(g.st("ghostwalk")))}
 	var have = {}
 	for p in g.pets:
 		have[p["kind"]] = int(have.get(p["kind"], 0)) + 1
@@ -2000,7 +2088,7 @@ static func update_allies(g, dt: float) -> void:
 				t["aim"] = (tgt["pos"] - t["pos"]).normalized()
 				player_shot(g, t["pos"] + t["aim"] * 16.0, t["aim"], 9.0 * dm)
 	# ---- pets
-	var idx = {"drone": 0, "intern": 0, "chicken": 0, "dog": 0}
+	var idx = {"drone": 0, "intern": 0, "chicken": 0, "dog": 0, "ghost": 0}
 	var counts = {"drone": int(g.st("drone")), "intern": int(g.st("minion"))}
 	for i in range(g.pets.size() - 1, -1, -1):
 		var p = g.pets[i]
@@ -2008,6 +2096,23 @@ static func update_allies(g, dt: float) -> void:
 		p["cd"] = float(p.get("cd", 0.0)) - dt
 		var k = str(p["kind"])
 		match k:
+			"ghost":
+				# Actual spectral follower, not a mirrored volley on the other road.
+				var gi = int(idx["ghost"])
+				idx["ghost"] = gi + 1
+				var side = -1.0 if gi % 2 == 0 else 1.0
+				var row = int(gi / 2)
+				var home = hero_pos + Vector2(side * (42.0 + row * 23.0), 30.0 + row * 22.0)
+				p["pos"] = p["pos"].lerp(home, 1.0 - exp(-5.0 * dt))
+				if float(p["cd"]) <= 0.0:
+					var target = g.nearest_enemy(p["pos"], 440.0)
+					if target != null:
+						p["cd"] = 0.86
+						var aim = (target["pos"] - p["pos"]).normalized()
+						p["aim"] = aim
+						player_shot(g, p["pos"] + aim * 11.0, aim, (10.0 + g.st("ghostwalk") * 3.0) * dm, "bullet",
+							{"r": 3.0, "color": Color("b6a6ff"), "src": "ghost_walker", "vfx_style": "magic", "gen": 1})
+						g.sfx.play_projectile("fire", "magic", "", 0.35)
 			"drone":
 				var di = int(idx["drone"])
 				idx["drone"] = di + 1

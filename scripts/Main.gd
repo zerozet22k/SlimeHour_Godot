@@ -13,6 +13,7 @@ const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
+const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
 const GAME_VERSION = "v0.1.34"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
@@ -107,6 +108,7 @@ var shots: Array = []
 var fx: Array = []
 var zones: Array = []
 var pickups: Array = []
+var pickup_merge_timer = 0.0
 var texts: Array = []
 var delayed: Array = []
 var barrels: Array = []
@@ -255,26 +257,7 @@ func _ready() -> void:
 		weapon_ids.append(str(w["id"]))
 	for e in data["enemies"]:
 		enemy_db[str(e["id"])] = e
-	for pair in MIX_PAIRS:
-		var first: Dictionary = enemy_db[pair[0]]
-		var second: Dictionary = enemy_db[pair[1]]
-		var id = mix_id(pair)
-		var first_look: Dictionary = first.get("look", {})
-		var second_look: Dictionary = second.get("look", {})
-		var gear: Array = first_look.get("gear", []).duplicate()
-		for item in second_look.get("gear", []):
-			if not gear.has(item):
-				gear.append(item)
-		enemy_db[id] = {"id": id, "name": str(first["name"]) + " + " + str(second["name"]),
-			"hp": (float(first["hp"]) + float(second["hp"])) * 0.7,
-			"speed": (float(first["speed"]) + float(second["speed"])) * 0.5,
-			"dmg": maxf(float(first["dmg"]), float(second["dmg"])),
-			"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
-			"xp": maxi(int(first["xp"]), int(second["xp"])) + 1,
-			"mass": maxf(float(first["mass"]), float(second["mass"])),
-			"color": str(first["color"]), "mix": pair,
-			"look": {"body": "round", "face": first_look.get("face", "normal"),
-				"second_color": str(second["color"]), "gear": gear}}
+	# Dynamic hybrids are registered only when encountered; no pre-baked pair list.
 	sfx = SfxScript.new()
 	add_child(sfx)
 	in_game_updater = InGameUpdater.new()
@@ -283,6 +266,16 @@ func _ready() -> void:
 	var args = OS.get_cmdline_user_args()
 	portrait_preview = args.has("--portrait-preview")
 	load_options()
+	# Preserve previously encountered hybrids from existing profile saves.
+	for known_kind in profile.get("mobs", {}):
+		if str(known_kind).begins_with("mix_") and not enemy_db.has(known_kind):
+			var pair_parts = str(known_kind).trim_prefix("mix_").split("_")
+			if pair_parts.size() == 2:
+				var restored = EnemyMixes.ensure(enemy_db, pair_parts[0], pair_parts[1])
+				if restored != "" and restored != known_kind:
+					# Noncanonical historical IDs must continue to resolve in saves.
+					enemy_db[known_kind] = enemy_db[restored].duplicate(true)
+					enemy_db[known_kind]["id"] = known_kind
 	if not OS.has_feature("mobile") and not portrait_preview:
 		settings["touch"] = "off"
 	elif portrait_preview:
@@ -1252,55 +1245,64 @@ func rush_size() -> int:
 	var hard_mul = 1.25 if hard_mode else 1.0
 	return int((30 + 9 * mini(sector, 25) + 3 * maxi(0, sector - 25)) * float(route.get("spawns", 1.0)) * early_ease(0.55) * crowd_ramp() * hard_mul)
 
-## The street roster grows only when you kill a boss: tier N opens after N bosses.
-const ENEMY_TIERS = [["blob", "zoomer", "nurse", "spitter"], ["kaboomba", "chonk", "mitosis", "ashwing"],
-	["riot", "bull", "larry", "mirror"], ["tick", "mama", "mortar", "burrower"], ["totem", "blinky", "siren"]]
-## Each map choice advances one sector. Four starter species are followed by one
-## new base every four choices; the next choice after each pair introduces its mix.
+## New base species are introduced before combinations that can contain them.
+## Every two distinct, introduced base species can combine from sector 11 onward.
+const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba"], ["nurse", "skitter", "larry", "sapper"],
+	["riot", "bull", "mortar", "mirror"], ["tick", "mama", "lancer", "leech"], ["totem", "blinky", "siren", "ashwing", "chonk", "mitosis", "burrower"]]
 const STARTER_ENEMIES = ["blob", "zoomer", "spitter", "kaboomba"]
-const ROUTE_INTRO_ORDER = ["nurse", "larry", "mortar", "bull", "riot", "mirror", "tick", "mama", "totem", "blinky", "ashwing", "siren", "chonk", "mitosis", "burrower"]
-const MIX_PAIRS = [["nurse", "larry"], ["mortar", "bull"], ["riot", "mirror"], ["tick", "mama"], ["totem", "blinky"], ["ashwing", "siren"], ["chonk", "mitosis"]]
+const ROUTE_INTRO_ORDER = ["nurse", "skitter", "larry", "leech", "sapper", "mortar", "bull", "riot", "mirror",
+	"lancer", "tick", "mama", "totem", "blinky", "ashwing", "siren", "chonk", "mitosis", "burrower"]
+
 static func mix_id(pair: Array) -> String:
-	return "mix_" + str(pair[0]) + "_" + str(pair[1])
+	return EnemyMixes.id_for(str(pair[0]), str(pair[1]))
 
 static func introduction_for(s: int) -> String:
-	if s >= 6 and (s - 6) % 4 == 0:
-		var i = int((s - 6) / 4)
+	if s >= 6 and (s - 6) % 2 == 0:
+		var i = int((s - 6) / 2)
 		return ROUTE_INTRO_ORDER[i] if i < ROUTE_INTRO_ORDER.size() else ""
-	if s >= 11 and (s - 11) % 8 == 0:
-		var i = int((s - 11) / 8)
-		return mix_id(MIX_PAIRS[i]) if i < MIX_PAIRS.size() else ""
 	return ""
 
 static func available_enemies(s: int) -> Array:
 	var out = STARTER_ENEMIES.duplicate()
 	for i in range(ROUTE_INTRO_ORDER.size()):
-		if s >= 6 + 4 * i:
+		if s >= 6 + 2 * i:
 			out.append(ROUTE_INTRO_ORDER[i])
-	for i in range(MIX_PAIRS.size()):
-		if s >= 11 + 8 * i:
-			out.append(mix_id(MIX_PAIRS[i]))
 	return out
-const ENEMY_WEIGHT = {"blob": 10.0, "zoomer": 4.0, "nurse": 0.8, "spitter": 2.0, "kaboomba": 1.5, "chonk": 1.5,
-	"mitosis": 2.0, "riot": 1.2, "bull": 1.2, "larry": 1.0, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35, "blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55}
+
+const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "nurse": 0.8, "spitter": 2.2, "kaboomba": 1.5, "chonk": 1.4,
+	"mitosis": 1.7, "riot": 1.2, "bull": 1.2, "larry": 0.8, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35,
+	"blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55,
+	"skitter": 2.0, "sapper": 1.1, "lancer": 1.3, "leech": 0.9}
 
 func pick_enemy() -> String:
-	var pool = {}
-	for k in available_enemies(sector):
-		if k == "totem" and totems.size() >= 2:
-			continue
-		var w = float(ENEMY_WEIGHT.get(k, 0.75))
-		if k == introduction_for(sector):
-			w = maxf(w * 3.0, 3.0)
-		pool[k] = w
+	var newcomer = introduction_for(sector)
+	var base = available_enemies(sector)
+	# Mix chance is independent of fixed map/sector numbers. Never combine
+	# a species in the sector where it first debuts.
+	var known = available_enemies(sector - 1)
+	var mix_chance = minf(0.25, 0.09 + 0.008 * float(maxi(0, sector - 11)))
+	if randf() < mix_chance:
+		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2)
+		if hybrid != "":
+			return hybrid
 	var total = 0.0
-	for k in pool:
-		total += pool[k]
-	var r = randf() * total
-	for k in pool:
-		r -= pool[k]
-		if r <= 0.0:
-			return k
+	for name in base:
+		if name == "totem" and totems.size() >= 2:
+			continue
+		var w = float(ENEMY_WEIGHT.get(name, 1.0))
+		if name == newcomer:
+			w = maxf(w * 2.5, 3.0)
+		total += w
+	var roll = randf() * total
+	for name in base:
+		if name == "totem" and totems.size() >= 2:
+			continue
+		var w = float(ENEMY_WEIGHT.get(name, 1.0))
+		if name == newcomer:
+			w = maxf(w * 2.5, 3.0)
+		roll -= w
+		if roll <= 0.0:
+			return str(name)
 	return "blob"
 
 func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -> Dictionary:
@@ -1931,19 +1933,24 @@ func note_mob(kind: String) -> void:
 ## Collection order: street tiers, the extras, then bosses.
 func mob_order() -> Array:
 	var out = STARTER_ENEMIES.duplicate()
-	for i in range(ROUTE_INTRO_ORDER.size()):
-		out.append(ROUTE_INTRO_ORDER[i])
-		if i % 2 == 1 and int(i / 2) < MIX_PAIRS.size():
-			out.append(mix_id(MIX_PAIRS[int(i / 2)]))
+	out.append_array(ROUTE_INTRO_ORDER)
+	# Encountered hybrids, not an enormous list of theoretical possibilities.
+	for kind in enemy_db:
+		if str(kind).begins_with("mix_") and profile.get("mobs", {}).has(kind):
+			out.append(kind)
 	out.append_array(["mini", "goblin"])
-	for k in enemy_db:
-		if bool(enemy_db[k].get("boss", false)):
-			out.append(k)
+	for kind in enemy_db:
+		if bool(enemy_db[kind].get("boss", false)):
+			out.append(kind)
 	return out
 
 func mob_tier(kind: String) -> int:
 	if kind.begins_with("mix_"):
-		return mini(4, 1 + int(MIX_PAIRS.find(enemy_db.get(kind, {}).get("mix", []))))
+		var pair: Array = enemy_db.get(kind, {}).get("mix", [])
+		var index = 0
+		for part in pair:
+			index = maxi(index, ROUTE_INTRO_ORDER.find(part))
+		return mini(4, 1 + int(maxi(0, index) / 4))
 	if ROUTE_INTRO_ORDER.has(kind):
 		return mini(4, 1 + int(ROUTE_INTRO_ORDER.find(kind) / 4))
 	for t in range(ENEMY_TIERS.size()):
@@ -2071,16 +2078,73 @@ func award_profile() -> void:
 
 # ================================================================= pickups & xp
 func spawn_pickup(kind: String, pos: Vector2, value: int) -> void:
-	if pickups.size() > 320 and kind == "xp":
-		# Merge into an existing gem so the floor never turns into a lag carpet.
-		var target = pickups[randi() % pickups.size()]
-		if target["kind"] == "xp":
-			target["value"] = int(target["value"]) + value
-			return
+	# At high densities, grow a nearby stack rather than spawning another object.
+	# Merge only identical currencies, preserving all earned value exactly.
+	if kind in ["xp", "gold"] and pickups.size() >= 120:
+		for attempt in range(10):
+			var target = pickups[randi() % pickups.size()]
+			if target["kind"] == kind and target["pos"].distance_squared_to(pos) < 72.0 * 72.0:
+				var previous_value = int(target["value"])
+				target["value"] = previous_value + value
+				if kind == "gold":
+					var part = str(value)
+					var parts: Dictionary = target.get("gold_parts", {})
+					if parts.is_empty():
+						parts[str(previous_value)] = 1
+					parts[part] = int(parts.get(part, 0)) + 1
+					target["gold_parts"] = parts
+				return
 	pickups.append({"kind": kind, "pos": pos + Vector2(randf_range(-10, 10), randf_range(-10, 10)),
-		"vel": Vector2.from_angle(randf() * TAU) * randf_range(40, 140), "value": value, "t": 0.0, "vacuum": false})
+		"vel": Vector2.from_angle(randf() * TAU) * randf_range(40, 140), "value": value,
+		"gold_parts": {str(value): 1} if kind == "gold" else {}, "t": 0.0, "vacuum": false})
+
+## Spatial-bucket consolidation amortizes pickup cost without O(n^2) searches.
+## XP merges with XP and gold with gold. Hearts/chests remain distinct.
+func merge_nearby_pickups() -> void:
+	var bins = {}
+	var merged = false
+	for item in pickups:
+		var kind = str(item["kind"])
+		if kind not in ["gold", "xp"] or bool(item.get("merged", false)):
+			continue
+		var px = floori(float(item["pos"].x) / 72.0)
+		var py = floori(float(item["pos"].y) / 72.0)
+		var parent = null
+		for dx in range(-1, 2):
+			for dy in range(-1, 2):
+				var key = "%s:%d:%d" % [kind, px + dx, py + dy]
+				var candidate = bins.get(key)
+				if candidate != null and candidate["pos"].distance_squared_to(item["pos"]) <= 72.0 * 72.0:
+					parent = candidate
+					break
+			if parent != null:
+				break
+		if parent != null:
+			parent["value"] = int(parent["value"]) + int(item["value"])
+			if kind == "gold":
+				var parent_parts: Dictionary = parent.get("gold_parts", {})
+				var child_parts: Dictionary = item.get("gold_parts", {})
+				# Keep source denominations for correct rounding of gold bonuses.
+				if parent_parts.is_empty():
+					parent_parts[str(int(parent["value"]) - int(item["value"]))] = 1
+				if child_parts.is_empty():
+					child_parts = {str(item["value"]): 1}
+				for denomination in child_parts:
+					parent_parts[denomination] = int(parent_parts.get(denomination, 0)) + int(child_parts[denomination])
+				parent["gold_parts"] = parent_parts
+			item["merged"] = true
+			merged = true
+		else:
+			bins["%s:%d:%d" % [kind, px, py]] = item
+	if merged:
+		pickups = pickups.filter(func(item): return not bool(item.get("merged", false)))
 
 func update_pickups(dt: float) -> void:
+	pickup_merge_timer -= dt
+	if pickup_merge_timer <= 0.0:
+		pickup_merge_timer = 0.45
+		if pickups.size() >= 32:
+			merge_nearby_pickups()
 	var hp: Vector2 = hero["pos"]
 	var radius = 90.0 * (1.0 + st("magnet"))
 	for i in range(pickups.size() - 1, -1, -1):
@@ -2105,7 +2169,15 @@ func collect(p: Dictionary) -> void:
 			if procs.has("xp"):
 				Effects.trigger(self, "xp", {"pos": p["pos"], "gen": 0})
 		"gold":
-			var amount = maxi(1, roundi(float(p["value"]) * (1.0 + st("goldp")) * float(route.get("gold", 1.0))))
+			var bonus = (1.0 + st("goldp")) * float(route.get("gold", 1.0))
+			var amount = 0
+			var parts: Dictionary = p.get("gold_parts", {})
+			if parts.is_empty():
+				amount = maxi(1, roundi(float(p["value"]) * bonus))
+			else:
+				for denomination in parts:
+					# Equivalent to collecting each original coin separately.
+					amount += int(parts[denomination]) * maxi(1, roundi(float(int(denomination)) * bonus))
 			gold += amount
 			sfx.play("coin")
 		"heart":
@@ -2235,6 +2307,14 @@ func say(pos: Vector2, t: String, c: Color = Color.WHITE, size: int = 22) -> voi
 	if texts.size() > 90:
 		texts.remove_at(0)
 	texts.append({"pos": pos, "text": t, "color": c, "size": size, "t": 0.0, "life": 1.1, "vel": Vector2(randf_range(-20, 20), -70)})
+
+func dot_number(pos: Vector2, amount: float, color: Color, label: String) -> void:
+	if not bool(settings.get("numbers", true)) or amount <= 0.0 or texts.size() >= 68:
+		return
+	var amount_text = "%0.1f" % amount if amount < 10.0 else str(roundi(amount))
+	texts.append({"pos": pos + Vector2(randf_range(-11, 11), -17), "text": label + " " + amount_text,
+		"color": color, "size": 13, "t": 0.0, "life": 0.65,
+		"vel": Vector2(randf_range(-14, 14), -61), "num": true})
 
 func number(pos: Vector2, amount: float, crit: bool) -> void:
 	if not bool(settings["numbers"]):

@@ -204,10 +204,16 @@ func paint_pickups() -> void:
 				draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s - bob), p + Vector2(s * 0.7, 0), p + Vector2(0, s), p + Vector2(-s * 0.7, 0)]), c)
 				draw_line(p + Vector2(-1, -s * 0.5), p + Vector2(1, s * 0.2), Color(1, 1, 1, 0.7), 1.5)
 			"gold":
+				# Consolidated piles visually grow from copper to bright gold coins.
+				var worth = int(pk["value"])
+				var scale_coin = clampf(1.0 + log(float(maxi(1, worth))) * 0.15, 1.0, 2.3)
+				var coin_color = Color("fff0a2") if worth >= 20 else (Color("ffd24d") if worth >= 5 else Color("cba15e"))
 				var wsx = absf(cos(g.anim_t * 5.0 + float(pk["t"]) * 3.0))
 				draw_set_transform(p, 0.0, Vector2(maxf(0.25, wsx), 1.0))
-				draw_circle(Vector2.ZERO, 7.0, Color("b8860b"))
-				draw_circle(Vector2.ZERO, 5.5, Color("ffd24d"))
+				draw_circle(Vector2.ZERO, 7.0 * scale_coin, Color("946b23", 0.95))
+				draw_circle(Vector2.ZERO, 5.5 * scale_coin, coin_color)
+				if worth >= 10:
+					draw_circle(Vector2(-3, -4) * scale_coin, 1.8 * scale_coin, Color("fff2cd", 0.85))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			"heart":
 				heart(p + Vector2(0, bob), 9.0, Color("ff4d6a"))
@@ -367,16 +373,18 @@ func paint_telegraphs() -> void:
 	for e in g.enemies:
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
-			if enemy_has_role(e, "larry"):
+			if enemy_has_role(e, "larry") or enemy_has_role(e, "lancer"):
 				var lock: Vector2 = e.get("lock", g.hero["pos"])
 				var dir = (lock - e["pos"]).normalized()
-				draw_line(p, p + dir * 900.0, Color(1, 0.2, 0.3, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
+				var color = Color("c1c8ff") if enemy_has_role(e, "lancer") else Color("ff5a82")
+				draw_line(p, p + dir * (650.0 if enemy_has_role(e, "lancer") else 900.0), Color(color, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
 			elif e.has("tele") and (e["kind"] in ["chonkzilla", "kingblob"] or enemy_has_role(e, "chonk")):
 				var at = P(e.get("lock", e["pos"])) if e["kind"] == "kingblob" else p
 				draw_arc(at, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
 				draw_circle(at, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
-			elif enemy_has_role(e, "bull") or e["kind"] == "zoomer":
-				draw_line(p, P(g.hero["pos"]), Color(1, 0.6, 0.2, 0.45), 6.0)
+			elif enemy_has_role(e, "bull") or e["kind"] in ["zoomer", "skitter"]:
+				var color = Color("83eaff") if e["kind"] == "skitter" else Color(1, 0.6, 0.2)
+				draw_line(p, P(g.hero["pos"]), Color(color, 0.45), 5.0)
 			elif enemy_has_role(e, "blinky"):
 				var dest = P(e.get("lock", g.hero["pos"]))
 				draw_arc(dest, 22.0, 0, TAU, 24, Color(0.8, 0.55, 1.0, 0.5 + 0.5 * fmod(g.anim_t * 6.0, 1.0)), 3.0)
@@ -485,7 +493,11 @@ func bake_enemies() -> void:
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	var kind = str(e["kind"])
 	var parts: Dictionary = g.enemy_db[kind].get("look", {})
-	var src = atlas_cell.get(kind + ("*" if bool(e["elite"]) else ""))
+	# Dynamic hybrids reuse an already-baked parent quad; no N^2 atlas explosion.
+	var mixed = kind.begins_with("mix_")
+	var parents: Array = g.enemy_db[kind].get("mix", []) if mixed else []
+	var base_kind = str(parents[0]) if not parents.is_empty() else kind
+	var src = atlas_cell.get(base_kind + ("*" if bool(e["elite"]) else ""))
 	if atlas == null or src == null:
 		draw_enemy_live(e, p, r)
 		return
@@ -555,6 +567,10 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		var perp = aim.orthogonal()
 		draw_line(sp - perp * r * 1.1, sp + perp * r * 1.1, Color("2a3a60"), 9.0)
 		draw_line(sp - perp * r * 1.0, sp + perp * r * 1.0, Color("a8c0ff"), 5.0)
+	if mixed and parents.size() >= 2:
+		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
+		draw_arc(p, r + 3.5, -PI * 0.8, PI * 0.8, 20, Color(secondary, 0.70), 3.5)
+		draw_circle(p + Vector2(r * 0.6, -r * 0.7), 3.6, secondary)
 	draw_status(e, p, r)
 
 ## Fallback before the atlas is baked: draw the vector art directly.
@@ -620,6 +636,21 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_circle(lobe, r * (0.43 if k % 2 == 0 else 0.36), dark)
 			ci.draw_circle(lobe + Vector2(0, -2), r * (0.39 if k % 2 == 0 else 0.32), body)
 	match kind:
+		"skitter":
+			for signum in [-1.0, 1.0]:
+				ci.draw_line(Vector2(signum * r * 0.35, r * 0.4), Vector2(signum * r * 1.4, r * 1.1), Color("d6faff"), 3.0)
+				ci.draw_circle(Vector2(signum * r * 1.4, r * 1.1), r * 0.18, Color("58bbdf"))
+		"sapper":
+			ci.draw_circle(Vector2(0, -r * 0.65), r * 0.6, Color("8a6041"))
+			ci.draw_line(Vector2(-r * 0.65, -r * 0.15), Vector2(r * 0.6, r * 0.18), Color("ffe0ac"), 3.0)
+			ci.draw_circle(Vector2(r * 0.6, r * 0.2), r * 0.22, Color("ff7a46"))
+		"lancer":
+			ci.draw_line(Vector2(r * 0.4, r * 0.9), Vector2(r * 1.35, -r * 1.5), Color("e4e8ff"), 4.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(r * 1.35, -r * 1.55), Vector2(r * 1.0, -r * 0.9), Vector2(r * 1.7, -r * 0.9)]), Color("9caaff"))
+		"leech":
+			ci.draw_circle(Vector2(-r * 0.52, r * 0.67), r * 0.35, Color("58329b"))
+			ci.draw_circle(Vector2(r * 0.52, r * 0.67), r * 0.35, Color("58329b"))
+			ci.draw_arc(Vector2(0, r * 0.2), r * 0.52, PI * 0.2, PI * 0.85, 12, Color("3c145a"), 4.0)
 		"ashwing":
 			# Jagged flaming wings and a burnt phoenix crown.
 			for side in [-1.0, 1.0]:
@@ -1027,7 +1058,21 @@ func paint_pets() -> void:
 		draw_arc(p, 16, -PI * 0.5, -PI * 0.5 + TAU * float(t["t"]) / 8.0, 20, Color(0.3, 0.9, 1.0, 0.5), 2.0)
 	for pet in g.pets:
 		var p = P(pet["pos"])
+		if p.y < g.view_top - 50.0 or p.y > g.view_bottom + 50.0:
+			continue
 		match pet["kind"]:
+			"ghost":
+				# Transparent ally follows close to the player; it is not a mirror shot.
+				var bob = sin(g.anim_t * 4.0 + float(pet["slot"])) * 3.0
+				var aim: Vector2 = pet.get("aim", Vector2.UP)
+				var cp = p + Vector2(0, bob)
+				draw_circle(cp + Vector2(0, 4), 14.0, Color("cbb8ff", 0.13))
+				draw_circle(cp, 12.0, Color("b6a1ff", 0.21))
+				draw_circle(cp + Vector2(0, -2), 9.0, Color("e0d4ff", 0.51))
+				for side in [-1.0, 1.0]:
+					draw_circle(cp + Vector2(side * 3.3, -3) + aim * 1.5, 1.7, Color("412f62", 0.88))
+				draw_line(cp + aim * 5.0, cp + aim * 18.0, Color("ddcaff", 0.72), 3.0)
+				draw_arc(cp, 15.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI, 15, Color("d8c8ff", 0.35), 1.5)
 			"drone":
 				var bob = sin(g.anim_t * 8.0 + float(pet["slot"])) * 3.0
 				p.y += bob
@@ -1175,15 +1220,23 @@ func paint_projectile_travel(s: Dictionary, p: Vector2, direction: Vector2) -> v
 
 
 func paint_shots() -> void:
-	for s in g.shots:
+	var shot_count = g.shots.size()
+	var trail_stride = 1 if shot_count < 140 else (2 if shot_count < 280 else 3)
+	if str(g.settings.get("vfx_quality", "medium")) == "low":
+		trail_stride *= 2
+	for shot_index in range(shot_count):
+		var s = g.shots[shot_index]
 		var p = P(s["pos"])
 		if p.y < g.view_top - 40.0 or p.y > g.view_bottom + 40.0:
 			continue
 		var c: Color = s["color"]
+		# Less visual clutter in bullet-heavy builds; enemy warning shots remain strong.
+		if bool(s["friendly"]):
+			c.a *= 0.62
 		var r = float(s["r"])
 		var v: Vector2 = s["vel"]
 		var d = v.normalized() if v.length() > 1 else Vector2.UP
-		if (bool(s["friendly"]) and bool(g.settings.get("particles", true))) or str(s.get("vfx_style", "")) in ["boss_ember", "boss_void", "boss_frost", "boss_storm"]:
+		if shot_index % trail_stride == 0 and ((bool(s["friendly"]) and bool(g.settings.get("particles", true))) or str(s.get("vfx_style", "")) in ["boss_ember", "boss_void", "boss_frost", "boss_storm"]):
 			paint_projectile_travel(s, p, d)
 		match s["kind"]:
 			"enemy":
@@ -1270,9 +1323,17 @@ func paint_shots() -> void:
 				draw_circle(p + Vector2(36 * flip, -6), 5, Color("fff27a"))
 			_:
 				var tail = p - d * (10.0 + r * 2.5)
-				draw_line(tail, p, Color(c, 0.35), r * 2.2)
-				draw_line(tail.lerp(p, 0.4), p, c, maxf(2.0, r * 1.2))
-				draw_circle(p, r, Color.WHITE if s["flags"].has("big") else c.lightened(0.4))
+				if shot_index % trail_stride == 0:
+					draw_line(tail, p, Color(c, 0.26), r * 1.6)
+				# Batch all common bullets using the existing white-dot atlas,
+				# letting CanvasItem group matching sprites into GPU draws.
+				if atlas != null and atlas_cell.has("#dot"):
+					var dot_rect: Rect2 = atlas_cell["#dot"]
+					dot_rect = Rect2(dot_rect.position + Vector2(60, 60), Vector2(80, 80))
+					var tint = Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3)
+					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
+				else:
+					draw_circle(p, r, Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3))
 
 func zigzag(a: Vector2, b: Vector2, c: Color, w: float) -> void:
 	var pts = PackedVector2Array([a])
@@ -1381,6 +1442,10 @@ func paint_projectile_event(f: Dictionary, p: Vector2, k: float) -> void:
 
 func paint_fx() -> void:
 	for f in g.fx:
+		var pos_screen = P(f["pos"])
+		var margin = maxf(50.0, float(f.get("size", 6.0)) * 1.5)
+		if pos_screen.y < g.view_top - margin or pos_screen.y > g.view_bottom + margin:
+			continue
 		var k = float(f["t"]) / maxf(0.001, float(f["life"]))
 		var p = P(f["pos"])
 		var c: Color = f["color"]

@@ -2200,12 +2200,12 @@
     },
     {
       "id": "ghost_twin",
-      "name": "Ghost Twin",
+      "name": "Ghost Walk",
       "cat": "auto",
       "rarity": 4,
-      "max": 1,
-      "desc": "A ghost of you on the other side of the road copies every volley.",
-      "art": "a ghostly twin hero",
+      "max": 3,
+      "desc": "Summon a translucent ghost companion that follows you and auto-fires at nearby enemies. Up to 3 ghosts.",
+      "art": "friendly spectral slime floating next to the hero firing lavender projectiles",
       "mods": {
         "ghost": 1
       },
@@ -2856,11 +2856,11 @@
     },
     {
       "id": "ghost_walk",
-      "name": "Ghost Walk",
+      "name": "Phase Veil",
       "cat": "move",
       "rarity": 2,
       "max": 1,
-      "desc": "+0.4s invulnerability after hits. Getting hit recharges your dash.",
+      "desc": "+0.4s invulnerability after a hit and dash recharge. This is defensive, separate from Ghost Walker.",
       "art": "a ghostly footprint",
       "mods": {
         "iframe": 0.4
