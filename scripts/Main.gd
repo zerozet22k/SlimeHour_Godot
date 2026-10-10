@@ -1030,6 +1030,12 @@ func try_bash() -> void:
 	hero["bash_t"] = 0.23
 	hero["bash_dir"] = forward
 	var origin: Vector2 = hero["pos"]
+	# Bash shakes off attached Ticks even when they are behind the swing cone.
+	for tick in enemies:
+		if bool(tick.get("latched", false)):
+			tick["latched"] = false
+			tick["kb"] = (tick["pos"] - origin).normalized() * 650.0
+			tick["stun"] = 0.8
 	var impact_count = 0
 	for e in enemies:
 		if bool(e["dead"]) or not Combat.bash_in_arc(origin, forward, e["pos"], float(e["r"])):
@@ -1248,6 +1254,7 @@ func begin_boss_reveal(kind: String) -> void:
 		if not bool(projectile.get("friendly", true)):
 			shots.erase(projectile)
 	delayed.clear()
+	enemy_hazards.clear() # Normal monster hazards cannot leak into a boss cinematic.
 	banner(str(enemy_db[kind]["name"]), "BOSS ENCOUNTER", BOSS_INTRO_DURATION)
 	sfx.play("horn")
 	add_shake(11.0)
