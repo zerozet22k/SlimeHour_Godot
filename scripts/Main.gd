@@ -828,6 +828,14 @@ func move_hero(dt: float) -> void:
 		dir = touch_move_dir
 	dir = dir.limit_length(1.0)
 	var speed = 255.0 * maxf(0.3, 1.0 + S.get("speed", 0.0))
+	# Missing Coil Queen's arena dodge has genuine movement consequences;
+	# player status timers decay even during movement or recharging dashes.
+	if float(h.get("arena_corrosion_t", 0.0)) > 0.0:
+		h["arena_corrosion_t"] = maxf(0.0, float(h["arena_corrosion_t"]) - dt)
+		speed *= 0.68
+	if float(h.get("arena_stagger_t", 0.0)) > 0.0:
+		h["arena_stagger_t"] = maxf(0.0, float(h["arena_stagger_t"]) - dt)
+		speed *= 0.65
 	if latched_ticks > 0:
 		speed *= pow(0.75, float(mini(latched_ticks, 3)))
 	for w in guns:
