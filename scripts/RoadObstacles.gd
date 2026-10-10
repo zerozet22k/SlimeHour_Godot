@@ -44,6 +44,33 @@ static func generate(sector: int, half: float, start_y: float, length: float) ->
 			result.append({"kind": "car", "pos": Vector2(x, y), "radius": 43.0, "hp": 110.0 + sector * 5.0})
 	return result
 
+## Continuous circle-vs-static-circle collision blocks fast dashes too.
+## Last point is moved just before contact instead of tunneling through a car.
+static func resolve_movement(previous: Vector2, target: Vector2, radius: float, obstacles: Array) -> Vector2:
+	var move = target - previous
+	var a = move.length_squared()
+	if a < 0.0001:
+		return push_circle(target, radius, obstacles)
+	var end = target
+	var earliest = 1.0
+	for obstacle in obstacles:
+		var center: Vector2 = obstacle["pos"]
+		var r = radius + float(obstacle["radius"])
+		var f = previous - center
+		if f.length_squared() <= r * r:
+			continue
+		var b = 2.0 * f.dot(move)
+		var c = f.length_squared() - r * r
+		var determinant = b * b - 4.0 * a * c
+		if determinant < 0.0:
+			continue
+		var t = (-b - sqrt(determinant)) / (2.0 * a)
+		if t >= 0.0 and t < earliest:
+			earliest = t
+	if earliest < 1.0:
+		end = previous + move * maxf(0.0, earliest - 0.015)
+	return push_circle(end, radius, obstacles)
+
 static func push_circle(pos: Vector2, radius: float, obstacles: Array) -> Vector2:
 	var result = pos
 	for obstacle in obstacles:

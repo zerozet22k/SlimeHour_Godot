@@ -734,7 +734,8 @@ func move_hero(dt: float) -> void:
 	h["moving"] = dir.length_squared() > 0.01
 	h["push"] = h["push"] * exp(-7.0 * dt)
 	var prev: Vector2 = h["pos"]
-	if float(h["dash_t"]) > 0.0:
+	var dashing = float(h["dash_t"]) > 0.0
+	if dashing:
 		h["dash_t"] = float(h["dash_t"]) - dt
 		var dist = 175.0 * (1.0 + S.get("dashdist", 0.0))
 		h["pos"] += h["dash_dir"] * (dist / 0.16) * dt
@@ -742,7 +743,6 @@ func move_hero(dt: float) -> void:
 		if S.get("dashtrail", 0) > 0 and float(h["trail_acc"]) > 34.0:
 			h["trail_acc"] = 0.0
 			add_zone("fire", h["pos"], 34.0, 2.5)
-		dash_contact_line(prev, h["pos"])
 		if float(h["dash_t"]) <= 0.0:
 			Effects.trigger(self, "dashend", {"pos": h["pos"], "gen": 0})
 	else:
@@ -754,8 +754,10 @@ func move_hero(dt: float) -> void:
 	h["flash"] = maxf(0.0, float(h["flash"]) - dt)
 	clamp_hero()
 	if not obstacles.is_empty():
-		h["pos"] = RoadObstacles.push_circle(h["pos"], RoadObstacles.HERO_RADIUS, obstacles)
+		h["pos"] = RoadObstacles.resolve_movement(prev, h["pos"], RoadObstacles.HERO_RADIUS, obstacles)
 		clamp_hero()
+	if dashing:
+		dash_contact_line(prev, h["pos"])
 	var moved = prev.distance_to(h["pos"])
 	if moved > 0.5:
 		Effects.walked(self, moved)
