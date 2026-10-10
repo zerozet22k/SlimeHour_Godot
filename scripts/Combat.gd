@@ -1770,7 +1770,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var lock: Vector2 = e.get("lock", hero_pos)
 					var aim: Vector2 = (lock - e["pos"]).normalized()
 					if aim.length_squared() < 0.01:
-						 aim = dir
+						aim = dir
 					var stream = enemy_fire(g, e, aim, 1, 0.0, 245.0, 5.5)
 					if stream != null:
 						stream["color"] = Color("a2ff83")
