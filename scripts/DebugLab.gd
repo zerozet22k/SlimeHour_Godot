@@ -194,7 +194,7 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 				result.append({
 					"id": kind, "label": str(monster.get("name", id)),
 					"category": group, "detail": str(notes[0]),
-					"search_extra": " ".join(notes)
+					"search_extra": "%s %s %s" % [notes[0], notes[1], notes[2]]
 				})
 				seen[kind] = true
 			# Include every authored mutation, even if this run has not yet
@@ -208,7 +208,7 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 				result.append({
 					"id": id, "label": str(recipe["name"]), "category": "MUTATIONS",
 					"detail": str(notes[0]),
-					"search_extra": "%s %s %s %s" % [recipe["a"], recipe["b"], recipe["style"], " ".join(notes)]
+					"search_extra": "%s %s %s %s %s %s" % [recipe["a"], recipe["b"], recipe["style"], notes[0], notes[1], notes[2]]
 				})
 	var needle = query.strip_edges().to_lower()
 	var filtered: Array = []
