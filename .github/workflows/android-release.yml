@@ -69,8 +69,19 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release $TAG not found. Publish Windows release first, then rerun this workflow."
+          # Android often exports faster than the Windows build. Wait for the
+          # release rather than failing because the two jobs run in parallel.
+          found=false
+          for attempt in $(seq 1 168); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              found=true
+              break
+            fi
+            echo "Waiting for Windows release $TAG ($attempt/168; next check in 15 seconds)"
+            sleep 15
+          done
+          if [ "$found" != "true" ]; then
+            echo "::error::Release $TAG was not published within 42 minutes."
             exit 1
           fi
           gh release upload "$TAG" build/SlimeHour-Android.apk build/SlimeHour-Android.apk.sha256 --repo "$GITHUB_REPOSITORY" --clobber
