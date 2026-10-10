@@ -9,6 +9,9 @@ const Effects = preload("res://scripts/Effects.gd")
 const Characters = preload("res://scripts/Characters.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 
+## Keep the continuous flame cone performant and limit excessive crowd damage.
+const CINDER_MAX_TARGETS = 20
+
 const EVOLVED_NAMES = {"pistol": "Service Nine Mk II", "revolver": "Deadeye Prime", "shotgun": "Breachmaster",
 	"smg": "Cyclone X", "minigun": "Vulcan Overdrive", "sniper": "Last Word", "rocket": "Payload Zero",
 	"grenade": "Ricochet Storm", "laser": "Prism Core", "tesla": "Arc Reactor", "flame": "Inferno",
@@ -785,7 +788,7 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		if anchor == null and not bool(enemy["dead"]):
 			anchor = enemy
 		hits += 1
-		if hits >= 24:
+		if hits >= CINDER_MAX_TARGETS:
 			break
 	# Restore the original moving-flame silhouette without restoring the
 	# old 30Hz physics projectiles. These are visual-only, bounded sprites in
