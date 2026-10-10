@@ -5,6 +5,7 @@ extends RefCounted
 const Effects = preload("res://scripts/Effects.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
+const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
@@ -73,6 +74,7 @@ static func status_color(s: String) -> Color:
 static func step(g, dt: float) -> void:
 	var t0 = Time.get_ticks_usec()
 	update_delayed(g, dt)
+	EnemyIdentity.update_hazards(g, dt)
 	var t1 = Time.get_ticks_usec()
 	update_enemies(g, dt)
 	var t2 = Time.get_ticks_usec()
@@ -410,6 +412,8 @@ static func update_shots(g, dt: float) -> void:
 				s["dead"] = true
 				continue
 		if s["friendly"]:
+			if EnemyIdentity.hit_hazards(g, s):
+				continue
 			collide_enemies(g, s)
 			if not bool(s["dead"]) and not g.barrels.is_empty():
 				collide_barrels(g, s)
@@ -726,6 +730,13 @@ static func collide_hero(g, s: Dictionary) -> void:
 static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 	if bool(e["dead"]):
 		return false
+	# The Ashwing cocoon is destructible before the resurrection completes.
+	if float(e.get("rebirth_t", 0.0)) > 0.0 and has_role(g, e, "ashwing"):
+		e["cocoon_hp"] = float(e.get("cocoon_hp", float(e["max_hp"]) * 0.35)) - dmg
+		if float(e["cocoon_hp"]) <= 0.0:
+			e["rebirth_t"] = 0.0
+			kill(g, e, ctx, 0.0)
+		return false
 	# An underground Burrower is immune to direct bullets until emergence;
 	# explosives can still catch the marked tunnel entrance.
 	if bool(e.get("burrowing", false)) and not bool(ctx.get("aoe", false)):
@@ -862,6 +873,10 @@ static func boss_identity_damage_factor(g, e: Dictionary) -> float:
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
 	if bool(e["dead"]) or float(e.get("rebirth_t", 0.0)) > 0.0:
 		return
+	if str(e["kind"]) == "chonk" and float(e.get("recover", 0.0)) > 0.0:
+		amount *= 1.5
+	if str(e["kind"]) == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
+		amount *= 1.65
 	# Armored elites shrug off 40%. A nearby Hype Totem halves incoming
 	# damage; the SAME helper protects against DOT, never just direct bullets.
 	if e.has("affix") and e["affix"].has("ARMORED"):
@@ -878,7 +893,10 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 		e["wind"] = 0.70
 		e["cd"] = 2.9
 		e["lock"] = g.hero["pos"] + g.hero["vel"] * 0.25
-		e["mirror_shots"] = mini(4, maxi(2, int(ctx["shot"].get("split", 0)) + 2))
+		e["mirror_kind"] = str(ctx["shot"].get("kind", "bullet"))
+		e["mirror_curve"] = float(ctx["shot"].get("curve", 0.0))
+		e["mirror_wave"] = float(ctx["shot"].get("wave", 0.0))
+		e["mirror_shots"] = mini(3, maxi(1, int(ctx["shot"].get("split", 0)) + 1))
 		if str(e["kind"]).begins_with("mix_"):
 			mirror_state["wind"] = e["wind"]
 			mirror_state["cd"] = e["cd"]
@@ -976,6 +994,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	if has_role(g, e, "ashwing") and not bool(e.get("reborn", false)):
 		e["reborn"] = true
 		e["rebirth_t"] = 1.35
+		e["cocoon_hp"] = maxf(3.0, float(e["max_hp"]) * 0.35)
 		e["hp"] = maxf(1.0, float(e["max_hp"]) * 0.42)
 		e["wind"] = 0.0
 		e["charge"] = 0.0
@@ -1030,8 +1049,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 				g.spawn_pickup("gold", pos, 1)
 			g.say(pos + Vector2(0, -30), "CHA-CHING!", Color("ffd24d"), 26)
 		if kind == "nurse":
-			if randf() < (0.75 if g.hard_mode else 0.90):
-				g.spawn_pickup("heart", pos, 1)
+			g.spawn_pickup("heart", pos, 1) # Guaranteed Normal and Hard.
 		elif randf() < (0.0025 if g.hard_mode else 0.004) + g.st("heartdrop"):
 			g.spawn_pickup("heart", pos, 1)
 	if g.st("lifesteal") > 0.0:
@@ -1043,7 +1061,8 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	# Kind-specific deaths
 	match "mitosis" if has_role(g, e, "mitosis") else kind:
 		"mitosis":
-			for k in range(2):
+			var suppressed = float(e.get("frozen", 0.0)) > 0.0 or float(e.get("shock", 0.0)) > 0.0 or overkill > float(e["max_hp"]) * 0.35
+			for k in range(0 if suppressed else 2):
 				var m = g.spawn_enemy("mini", pos + Vector2(randf_range(-14, 14), randf_range(-14, 14)), false, false)
 				m["kb"] = Vector2.from_angle(randf() * TAU) * 220.0
 		"kaboomba":
@@ -1125,6 +1144,9 @@ static func kaboom(g, pos: Vector2, r: float, dmg: float) -> void:
 	explode(g, pos, r, dmg * 2.0, 1, Color("ff5a4a"))
 	if g.hero["pos"].distance_to(pos) < r + 10.0:
 		g.hurt(dmg, pos, "a Kaboomba")
+	for other in query(g, pos, r + 45.0):
+		if not bool(other["dead"]) and str(other["kind"]) == "kaboomba" and other["pos"].distance_to(pos) <= r + 35.0:
+			kill(g, other, {"gen": 1, "pos": other["pos"]}, 0.0)
 
 # ================================================================= statuses
 static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
@@ -1220,6 +1242,7 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e["dead"]):
 			continue
 		e["t"] = float(e["t"]) + dt
+		e["recover"] = maxf(0.0, float(e.get("recover", 0.0)) - dt)
 		# A rebirthing Ashwing stays in the enemy roster so a room cannot clear
 		# while its resurrection is pending; it is harmless and untargetable.
 		if float(e.get("rebirth_t", 0.0)) > 0.0:
@@ -1289,6 +1312,8 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e.get("siren_haste", 0.0)) > 0.0:
 			e["siren_haste"] = maxf(0.0, float(e["siren_haste"]) - dt)
 			speed_mul *= 1.22
+			if str(e["kind"]) in ["blob", "mini", "zoomer", "skitter"]:
+				speed_mul *= 1.13
 		if float(e["slow"]) > 0.0:
 			speed_mul *= 0.55
 		speed_mul *= 1.0 - minf(0.6, float(e["chill"]) / 100.0 * 0.6)
@@ -1350,8 +1375,11 @@ static func update_enemies(g, dt: float) -> void:
 		# The charge timer is a safety limit for long empty stretches, not a short lunge.
 		if skitter_dashing and (absf(e["pos"].x) >= g.road_half - float(e["r"]) - 0.5 or e["pos"].distance_squared_to(before_obstacle_push) > 0.25):
 			e["charge"] = 0.0
+			e["stun"] = maxf(float(e["stun"]), 0.65)
 			e["vel"] = Vector2.ZERO
 			e["wind"] = 0.0
+		if str(e["kind"]) == "bull" and float(e["charge"]) > 0.0:
+			EnemyIdentity.bull_push(g, e, dt)
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
 		# Crowd separation runs for half the crowd each step (alternating); flung enemies always check.

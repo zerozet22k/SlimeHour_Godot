@@ -11,6 +11,7 @@ const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
+const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
@@ -873,6 +874,8 @@ func move_hero(dt: float) -> void:
 		clamp_hero()
 	if dashing:
 		dash_contact_line(prev, h["pos"])
+	else:
+		h["pos"] = EnemyIdentity.blob_wall_collision(self, prev, h["pos"])
 	var moved = prev.distance_to(h["pos"])
 	if moved > 0.5:
 		Effects.walked(self, moved)
