@@ -358,6 +358,35 @@ static func catch(g, s: Dictionary, caught: bool = true) -> void:
 	var w = s.get("gun")
 	if w != null and bool(s["flags"].get("owner", false)):
 		w["ammo"] = mini(int(w["mag_max"]), int(w["ammo"]) + 1)
+		if caught:
+			Weapons.return_catch_card_cycle(g, w)
+
+## Explosive rounds consume their collider on contact, so ordinary ricochet
+## never executes. Convert a ricochet card into at most two small, visible,
+## non-recursive blast transfers rather than additional full rockets.
+static func explosive_ricochet(g, s: Dictionary, impact: Vector2) -> void:
+	if int(s.get("rico", 0)) <= 0 or int(s["gen"]) >= Effects.max_gen(g):
+		return
+	var seen: Dictionary = s["hit"].duplicate()
+	var current: Vector2 = impact
+	for hop in range(mini(2, int(s["rico"]))):
+		var next_target = null
+		var best = 210.0 * 210.0
+		for candidate in query(g, current, 210.0):
+			if bool(candidate["dead"]) or seen.has(candidate["id"]):
+				continue
+			var dist = current.distance_squared_to(candidate["pos"])
+			if dist < best:
+				best = dist
+				next_target = candidate
+		if next_target == null:
+			break
+		seen[next_target["id"]] = true
+		var endpoint: Vector2 = next_target["pos"]
+		g.beams.append({"a": current, "b": endpoint, "t": 0.15, "w": 3.0, "color": Color("ffbe7a")})
+		var radius = clampf(float(s["blast"]) * 0.48, 30.0, 70.0)
+		explode(g, endpoint, radius, float(s["dmg"]) * 0.30 * pow(0.7, hop), int(s["gen"]) + 1, Color("ffbe7a"))
+		current = endpoint
 
 static func expire(g, s: Dictionary) -> void:
 	s["dead"] = true
@@ -370,6 +399,8 @@ static func expire(g, s: Dictionary) -> void:
 		"grenade", "egg", "rocket", "chicken":
 			var r = float(s["blast"]) if float(s["blast"]) > 0.0 else 60.0
 			explode(g, s["pos"], r, float(s["dmg"]), int(s["gen"]), Color(s["color"]))
+			if kind in ["rocket", "grenade"] and not s["flags"].has("return_aftershock"):
+				explosive_ricochet(g, s, s["pos"])
 			if kind == "rocket" and not s["flags"].has("return_aftershock"):
 				WeaponSignatures.rocket_collapse(g, s, s["pos"])
 			if s["flags"].has("bomblets") and not s["flags"].has("return_aftershock"):
@@ -486,6 +517,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	match kind:
 		"rocket":
 			explode(g, impact, maxf(40.0, float(s["blast"])), float(s["dmg"]), int(s["gen"]), Color("ff8f6b"))
+			explosive_ricochet(g, s, impact)
 			WeaponSignatures.rocket_collapse(g, s, impact)
 			if f.has("fire_puddle"):
 				g.add_zone("fire", impact, 55.0, 3.0)
@@ -508,6 +540,20 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 			e["bubble_r"] = maxf(45.0, float(s["blast"]))
 			e["bubble_mini"] = f.has("minibubbles")
 			e["bubble_chain"] = int(f.get("pressure_chain", 0))
+			# Bubble traps have no ordinary ricochet phase. A ricochet card
+			# creates one weaker linked trap instead of a phantom bubble shot.
+			if int(s["rico"]) > 0 and not f.has("trap_ricochet_done"):
+				for candidate in query(g, impact, 170.0):
+					if bool(candidate["dead"]) or candidate == e or float(candidate.get("bubble", 0.0)) > 0.0:
+						continue
+					candidate["bubble"] = maxf(float(candidate["bubble"]), 0.9)
+					candidate["bubble_dmg"] = float(s["dmg"]) * 0.40
+					candidate["bubble_r"] = maxf(35.0, float(s["blast"]) * 0.6)
+					candidate["bubble_mini"] = false
+					candidate["bubble_chain"] = 0
+					f["trap_ricochet_done"] = true
+					g.beams.append({"a": impact, "b": candidate["pos"], "t": 0.15, "w": 3.0, "color": Color("9fe8ff")})
+					break
 			if trapped >= int(f.get("trap", 1)):
 				s["dead"] = true
 			return

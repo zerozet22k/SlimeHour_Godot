@@ -163,6 +163,13 @@ static func adapted_pierce(g, w: Dictionary) -> int:
 		return clampi(int(g.st("pierce")), 0, 3)
 	return 0
 
+## Arc Caster cannot collide with road walls as a moving projectile.
+## Wall-bounce upgrades instead supply at most two extra lightning jumps.
+static func adapted_wall_bounce(g, w: Dictionary) -> int:
+	if str(g.weapon_db[w["id"]]["kind"]) != "chain":
+		return 0
+	return mini(2, floori(float(maxi(0, int(g.st("bounce")))) * 0.5))
+
 static func card_interaction(g, card_id: String) -> String:
 	if g.guns.is_empty():
 		return ""
@@ -275,6 +282,14 @@ static func card_interaction(g, card_id: String) -> String:
 					note = "Not compatible with nonprojectile weapons"
 				else:
 					note = "Projectile returns once, may hit again"
+			"fan_hammer", "shell_shock", "kazoo":
+				note = "Virtual magazine triggers without reloading" if g.st("infammo") > 0.0 else ("Only activates on real reloads" if kind not in ["beam", "disc", "boomerang"] else "No ordinary reload; works with Infinite Ammo")
+			"rubber_bullets", "pinball_wizard", "bouncy_castle":
+				if kind == "chain":
+					note = "Wall bounces convert into up to 2 additional lightning jumps"
+			"splinter", "cluster_rounds":
+				if kind == "chain":
+					note = "Up to 2 shorter electric forks on each chain"
 			"heat_seekers", "smart_rounds":
 				if kind in ["beam", "rail", "chain", "flame"]:
 					note = "Small aim assist within existing attack geometry"

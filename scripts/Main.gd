@@ -854,6 +854,9 @@ func clamp_hero() -> void:
 
 ## R: reload every gun that is not full (beams and returning discs have nothing to reload).
 func manual_reload() -> void:
+	# Infinite Ammo must never reintroduce a real reload via the R key.
+	if st("infammo") > 0.0:
+		return
 	for w in guns:
 		var k = Weapons.kind_of(self, w)
 		if k in ["beam", "disc", "boomerang"] or float(w["reload"]) > 0.0 or int(w["ammo"]) >= int(w["mag_max"]):
@@ -895,8 +898,13 @@ func try_dash() -> void:
 		h["dash_t"] = 0.16
 		Effects.trigger(self, "dash", {"pos": h["pos"], "gen": 0, "dir": dir})
 	if S.get("dashreload", 0) > 0:
-		for w in guns:
-			Weapons.finish_reload(self, w)
+		if st("infammo") > 0.0:
+			# Tactical Roll cannot reload infinite magazines. Instead, dashing
+			# briefly accelerates attacks while keeping Infinite Ammo intact.
+			add_buff("rate", 0.15, 1.0)
+		else:
+			for w in guns:
+				Weapons.finish_reload(self, w)
 	sfx.play("dash")
 
 func dash_contact() -> void:
