@@ -253,6 +253,9 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		for k in range(8):
 			emit(g, w, origin, Vector2.from_angle(k * TAU / 8.0), dmg * 0.7, eopts)
 	if echo:
+		# Burst echoes have their own sharp double impulse; routine ghost echoes stay quiet.
+		if fire_pattern == "burst":
+			g.sfx.play_projectile("fire", ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {})), "burst", 0.5)
 		return
 	w["flash"] = 0.06
 	var recoil = float(d["recoil"]) * (1.0 + wm(w, "recoil"))
@@ -261,9 +264,12 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		g.add_shake(recoil / 60.0)
 		if wm(w, "recoilblast") > 0:
 			Combat.fragments(g, origin - dir * 20.0, 8, dmg * 0.6, "forward", -dir, 1, null, false, Color("ffc66b"))
-	var snd = str(d.get("sfx", ""))
-	if snd != "":
-		g.sfx.play(snd)
+	# Play ONE distinctive synthesized gun voice per volley, never per pellet.
+	# The old gun's quirky honk is retained as a quiet novelty accent.
+	var sound_style = ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {}))
+	g.sfx.play_projectile("fire", sound_style, fire_pattern)
+	if str(d.get("sfx", "")) == "honk":
+		g.sfx.play("honk", 0.05, 0.28)
 	# Burst/echo on 20-shots-a-second guns would flood the screen; scale by chance instead (same DPS).
 	var copy_chance = minf(1.0, 5.0 / maxf(1.0, fire_rate(g, w)))
 	for b in range(int(g.st("burst"))):
