@@ -1820,12 +1820,12 @@ static func boss_countersequence(g, e: Dictionary, stage: int, cycle: int) -> vo
 			schedule_boss_line(g,
 				center + Vector2(-sign_side * 240.0, -225.0),
 				center + Vector2(sign_side * 240.0, 225.0),
-				20.0, damage * 0.50, 2.42, "65efb2")
+				20.0, damage * 0.50, 2.88, "65efb2")
 			if stage == 2:
 				schedule_boss_line(g,
 					center + Vector2(sign_side * 245.0, -220.0),
 					center + Vector2(-sign_side * 245.0, 220.0),
-					20.0, damage * 0.48, 2.98, "65efb2")
+					20.0, damage * 0.48, 3.44, "65efb2")
 		"glassoracle":
 			# Two breakable mirrors exchange rays across the player's prior
 			# position. Killing either source shuts that ray down.
@@ -1848,7 +1848,7 @@ static func boss_countersequence(g, e: Dictionary, stage: int, cycle: int) -> vo
 			for k in range(2 + stage):
 				var side := -1.0 if (cycle + k) % 2 == 0 else 1.0
 				var origin := Vector2(side * (half - 62.0), center.y + (k - 1) * 115.0)
-				var t: float = 2.40 + k * 0.35
+				var t: float = 2.86 + k * 0.37
 				g.delayed.append({"fn": "rift_emit", "pos": origin,
 					"target": center + Vector2(-side * 95.0, -40.0),
 					"tele": 41.0, "t": t, "life": t, "dmg": damage * 0.42,
