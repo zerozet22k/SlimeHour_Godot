@@ -1986,8 +1986,19 @@ static func update_zones(g, dt: float) -> void:
 		z["tick"] = 0.25
 		var gen = int(z.get("gen", 1))
 		if kind == "lightning":
-			for e in query(g, (z["a"] + z["b"]) * 0.5, z["a"].distance_to(z["b"]) * 0.5):
-				if not bool(e["dead"]) and seg_dist2(z["a"], z["b"], e["pos"]) < pow(float(e["r"]) + 14.0, 2):
+			# Ion Scar is an actual line-segment AREA for its entire lifetime,
+			# not a circle centred at the shot origin. Scan the segment plus
+			# the zone width and each enemy's body radius.
+			var start: Vector2 = z["a"]
+			var stop: Vector2 = z["b"]
+			var field_radius = maxf(8.0, float(z["r"]))
+			var midpoint = (start + stop) * 0.5
+			var search_radius = start.distance_to(stop) * 0.5 + field_radius + 48.0
+			for e in query(g, midpoint, search_radius):
+				if bool(e["dead"]):
+					continue
+				var hit_radius = float(e["r"]) + field_radius
+				if seg_dist2(start, stop, e["pos"]) <= hit_radius * hit_radius:
 					dot(g, e, 8.0 * ss * g.dmg_mult(), Color("9fd0ff"))
 					apply_status(g, e, "shock", 1.0)
 			continue
