@@ -1,3 +1,10 @@
+## v0.1.40 — Restored Cinder fire and recognizable Swarmcaster bees
+
+- Bring back Cinder's original flowing flame-puff look: moving orange/red/yellow overlapping combustion sprites, glowing hot cores and slight curling turbulence, replacing triangular/fanned weapon shapes.
+- Cinder's particles live only in the bounded visual FX array (2-4 per firing tick, shared global cap). The flamethrower still uses one efficient cone for actual damage with no physics bullet objects.
+- Redraw the Swarmcaster's projectile as a clearly readable bee: yellow abdomen with two black bands, translucent fluttering wings, round head, eyes, antennae, and stinger. Existing bee homing and poison damage remain unchanged.
+- Add regression coverage for projectile-free flame damage, moving flame visuals and striped bee rendering.
+
 ## v0.1.39 — 22-weapon resource identities and corrected Cinder flame rendering
 
 - Constrain every weapon to its own magazine, fuel, physical return slot, and per-volley budget. Deadeye always holds six rounds and Gauss Lance three charge cells.
