@@ -217,7 +217,7 @@ def main():
     elif args.command == "full":
         write_full(args.directory, args.version, args.zip)
     else:
-        build_delta(args.old_directory, args.new_directory, args.zip")
+        build_delta(args.old_directory, args.new_directory, args.zip)
 
 
 if __name__ == "__main__":
