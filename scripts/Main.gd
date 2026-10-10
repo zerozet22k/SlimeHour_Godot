@@ -45,7 +45,7 @@ var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "s
 	"aim": "auto" if OS.has_feature("mobile") else "mouse",
 	"autofire": OS.has_feature("mobile"), "hints": true, "touch": "auto", "controls_v2": true}
 var best = {"sector": 0, "kills": 0, "level": 0}
-var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}}
+var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
 var unlocked_cards: Dictionary = {}
 var unlock_level: Dictionary = {}
 var unlocked_guns: Array = []
@@ -431,8 +431,12 @@ func _process(delta: float) -> void:
 			danger = clampf(float(near_count) / 11.0 + (0.22 if hp_ratio < 0.35 else 0.0), 0.0, 1.0)
 			if str(route.get("name", "")) == "HELL LANE":
 				danger = minf(1.0, danger + 0.12)
+		# The route map continues the current biome theme softly instead of
+		# hard-cutting to silence; no combat pressure or warnings between stops.
 		sfx.music_context(biome_index(), boss_now, boss_rage, danger, cornered)
-	sfx.music_on(RouteFlow.should_play_combat_music(state, phase))
+	var is_route_music = RouteFlow.should_play_route_music(state, phase)
+	sfx.set_route_mix(is_route_music)
+	sfx.music_on(RouteFlow.should_play_combat_music(state, phase) or is_route_music)
 	visuals.queue_redraw()
 	hud.queue_redraw()
 
@@ -586,6 +590,16 @@ func enemy_scale() -> float:
 	var early_base = 1.0 + 0.07 * 4.0
 	var m = float(s - 4)
 	var scale = early_base * (1.0 + 0.30 * m + 0.12 * m * m + 0.008 * m * m * m)
+	# A short 7-11 breathing window after the initial card-reward slowdown.
+	# Preserve the later curve; avoid an abrupt difficulty cliff at Sector 11.
+	var relief = 1.0
+	match sector:
+		7: relief = 0.94
+		8: relief = 0.90
+		9: relief = 0.88
+		10: relief = 0.90
+		11: relief = 0.96
+	scale *= relief
 	if sector > WIN_SECTOR:
 		scale *= pow(1.35, float(mini(sector - WIN_SECTOR, 20)))
 	return scale
@@ -593,7 +607,17 @@ func enemy_scale() -> float:
 ## Mid/late crowd size: +4% monsters per sector after sector 5, up to double at sector 30.
 func crowd_ramp(s: int = -1) -> float:
 	var x = sector if s < 0 else s
-	return minf(2.0, 1.0 + 0.04 * float(maxi(0, x - 5)))
+	# A few fewer simultaneous enemies in the 7-10 spike, reaching
+	# the original ramp again by Sector 12.
+	var normal = minf(2.0, 1.0 + 0.04 * float(maxi(0, x - 5)))
+	var relief = 0.0
+	match x:
+		7: relief = 0.025
+		8: relief = 0.045
+		9: relief = 0.06
+		10: relief = 0.06
+		11: relief = 0.03
+	return normal - relief
 
 ## Concurrent monster limit per sector. Kept lower in early game and ramps into high-density hordes.
 func enemy_cap() -> int:
@@ -650,8 +674,14 @@ func begin_sector() -> void:
 		# Wait for the sector banner, then introduce each new monster.
 		var delay = 2.4
 		for k in ENEMY_TIERS[bosses_beaten]:
+			# Tier introduction is informative only once per permanent profile.
+			# Existing saves already record discovered monsters in profile.mobs.
+			if profile.get("mobs", {}).has(k) or profile.get("announced_mobs", {}).has(k):
+				continue
+			profile["announced_mobs"][k] = true
 			unlock_toasts.append({"type": "enemy", "id": k, "t": 2.6 + delay})
 			delay = 0.0
+		save_options()
 
 func is_boss_sector() -> bool:
 	return sector > WIN_SECTOR or sector % 5 == 0
@@ -1207,7 +1237,7 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		# Elite affixes: 1 early, 2 from sector 8, 3 from sector 14.
 		var pool = ["HASTED", "ARMORED", "VOLATILE", "SPLITTER", "REGEN", "TURRET"]
 		pool.shuffle()
-		e["affix"] = pool.slice(0, 1 + int(sector >= 8) + int(sector >= 14))
+		e["affix"] = pool.slice(0, 1 + int(sector >= 10) + int(sector >= 14))
 		if e["affix"].has("HASTED"):
 			e["speed"] = float(e["speed"]) * 1.6
 	enemies.append(e)
@@ -1782,6 +1812,7 @@ func note_mob(kind: String) -> void:
 		mobs[kind] = 0
 		if autotest == "":
 			unlock_toasts.append({"type": "mob", "id": kind, "t": 2.6})
+			profile.get_or_add("announced_mobs", {})[kind] = true
 	mobs[kind] = int(mobs[kind]) + 1
 
 ## Collection order: street tiers, the extras, then bosses.
@@ -1867,11 +1898,11 @@ func refresh_unlocks() -> void:
 	var had_guns = unlocked_guns.duplicate()
 	compute_unlocks()
 	for id in unlocked_cards.keys():
-		if not had_cards.has(id):
+		if not had_cards.has(id) and not run_unlocks.has({"type": "card", "id": id}):
 			run_unlocks.append({"type": "card", "id": id})
 			unlock_toasts.append({"type": "card", "id": id, "t": 2.6})
 	for id in unlocked_guns:
-		if not had_guns.has(id):
+		if not had_guns.has(id) and not run_unlocks.has({"type": "gun", "id": id}):
 			run_unlocks.append({"type": "gun", "id": id})
 			unlock_toasts.append({"type": "gun", "id": id, "t": 2.6})
 	if unlock_toasts.size() > 6:
@@ -1904,7 +1935,8 @@ func award_profile() -> void:
 		profile["xp"] = int(profile["xp"]) - profile_need(int(profile["level"]))
 		profile["level"] = int(profile["level"]) + 1
 		levels += 1
-	compute_unlocks()
+	# refresh_unlocks() must compare against the previous set before recomputing.
+	# Calling compute_unlocks() first used to erase genuine new-unlock events.
 	refresh_unlocks()
 	last_award = {"xp": gain, "levels": levels, "cards": run_unlocks.size(), "goo": goo}
 	save_options()

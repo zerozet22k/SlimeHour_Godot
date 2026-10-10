@@ -12,5 +12,12 @@ static func requires_boss_result(boss_sector: bool, sector: int, win_sector: int
 static func should_play_combat_music(state: String, phase: String) -> bool:
 	return phase == "fight" and state in ["playing", "paused", "levelup", "replace", "arsenal"]
 
+static func should_play_route_music(state: String, phase: String) -> bool:
+	# The same biome track follows the player across the map, boss results,
+	# treasure and shops, but at a significantly reduced mix.
+	if state in ["map", "shop", "rest", "event", "travel", "boss_result", "victory"]:
+		return true
+	return phase in ["treasure", "shop", "rest", "event", "cleared", "map"] and state in ["playing", "levelup", "replace", "arsenal", "paused"]
+
 static func is_hub_reward_context(phase: String) -> bool:
 	return phase in ["treasure", "shop", "rest", "event", "cleared", "map"]

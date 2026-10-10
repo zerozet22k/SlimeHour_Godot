@@ -16,6 +16,8 @@ var pressure = 0.0
 var target_pressure = 0.0
 var last_warning = -100.0
 var music_active = false
+var route_mix_target = 1.0
+var route_mix_level = 1.0
 var sfx_volume = 0.7
 var music_volume = 0.45
 
@@ -94,6 +96,11 @@ func music_context(biome: int, boss: bool, boss_fury: bool, threat: float, corne
 	music_alt.play()
 	fade = 0.0
 
+func set_route_mix(is_route: bool) -> void:
+	route_mix_target = 0.32 if is_route else 1.0
+	if is_route:
+		target_pressure = 0.0
+
 func music_on(on: bool) -> void:
 	music_active = on and music_volume > 0.01
 	if music_active:
@@ -116,6 +123,7 @@ func music_on(on: bool) -> void:
 
 func _process(dt: float) -> void:
 	pressure = move_toward(pressure, target_pressure, dt * (0.9 if target_pressure > pressure else 0.38))
+	route_mix_level = move_toward(route_mix_level, route_mix_target, dt * 0.55)
 	if music_active and pending_song != "":
 		fade = minf(1.0, fade + dt / 1.5)
 		if fade >= 1.0:
@@ -131,7 +139,7 @@ func _process(dt: float) -> void:
 func update_music_volumes() -> void:
 	if music_player == null:
 		return
-	var level = music_volume * 0.43 if music_active else 0.0
+	var level = music_volume * 0.43 * route_mix_level if music_active else 0.0
 	music_player.volume_db = linear_to_db(maxf(0.0001, level * (1.0 - fade if pending_song != "" else 1.0)))
 	music_alt.volume_db = linear_to_db(maxf(0.0001, level * fade if pending_song != "" else 0.0001))
 	pressure_player.volume_db = linear_to_db(maxf(0.0001, level * 0.53 * pressure))
