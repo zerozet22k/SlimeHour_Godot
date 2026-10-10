@@ -28,6 +28,7 @@ on:
       - tools/weapon_signature_test.gd
       - tools/weapon_resource_test.gd
       - tools/weapon_compatibility_test.gd
+      - tools/weapon_description_test.gd
       - tools/enemy_part_mix_test.gd
       - tools/projectile_compatibility_test.gd
       - tools/barrel_weapon_test.gd
@@ -121,6 +122,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_signature_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_resource_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_compatibility_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/weapon_description_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/cinder_balance_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/enemy_part_mix_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_compatibility_test.gd
