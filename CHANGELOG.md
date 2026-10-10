@@ -1,3 +1,12 @@
+## v0.1.53 — Distinct enemy AI and separate Mutation Book
+
+- Separate true monster species from generated mutations in the Bestiary. Historic hybrid kills remain in the Mutation Book; mutation encounter unlocks still reset each run.
+- Give Blinky a destination teleport with a delayed echo beam and secondary shot; give Burrower an actual underground phase with a warned exit quake and collapsing tunnel lane.
+- Make Zoomer strafe-sprint rather than copying Skitter's long committed charge. Spitter launches curving acid hooks, Sapper plants staggered mines, and Leech channels a breakable health-draining tether.
+- Ashwing creates a delayed ember nova when resurrected, and Riot's frontal shield rotates slowly enough to flank.
+- Update in-game enemy descriptions and warnings; add automated enemy-identity, boss, Skitter and rendering regressions.
+- Android release publishing now waits for the Windows GitHub Release to become available rather than racing and failing.
+
 ## v0.1.52 — Hype Totem shield aura actually protects nearby enemies
 
 - Fix Hype Totem's "SHIELDS NEARBY" aura: protected enemies now take **50% less direct damage and 50% less burn/poison/bleed damage-over-time**. Previously status ticks bypassed the shield, making it appear ineffective with several weapon builds.
