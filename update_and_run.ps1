@@ -279,6 +279,7 @@ function Install-VerifiedInPlace([string]$assembled, [string]$originalDirectory,
     New-Item -ItemType Directory -Path $prepared -Force | Out-Null
     New-Item -ItemType Directory -Path $rollback -Force | Out-Null
     $applied = New-Object 'System.Collections.Generic.List[string]'
+    $rollbackErrors = @()
     try {
         # A staged file and the old executable share a volume, which allows
         # File.Replace to atomically swap the names after Godot has exited.
