@@ -25,9 +25,17 @@ static func shot_direction(body_aim: Vector2, muzzle_point: Vector2, target: Vec
 static func is_mirrored(direction: Vector2) -> bool:
 	return direction.x < 0.0
 
-static func art_rotation(direction: Vector2, weapon_id: String) -> float:
+## Gun silhouettes are mirrored per hand, independent of the world-facing
+## direction. The rear off-hand grip is opposite the primary hand.
+static func mirrored_grip(direction: Vector2, slot: int) -> bool:
+	return is_mirrored(direction) != (slot == 1)
+
+static func art_rotation_for_mirror(direction: Vector2, weapon_id: String, mirrored: bool) -> float:
 	var correction = deg_to_rad(float(ART_ANGLE_DEG.get(weapon_id, 0.0)))
-	return direction.angle() + (-correction if is_mirrored(direction) else correction)
+	return direction.angle() + (-correction if mirrored else correction)
+
+static func art_rotation(direction: Vector2, weapon_id: String) -> float:
+	return art_rotation_for_mirror(direction, weapon_id, is_mirrored(direction))
 
 static func barrel_axis(rotation: float, weapon_id: String, mirrored: bool) -> Vector2:
 	# Forward barrel direction in calibrated, optionally Y-flipped sprite space.

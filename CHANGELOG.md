@@ -1,3 +1,10 @@
+## v0.1.28 — Opposite-hand pistol silhouettes
+
+- Mirror the off-hand weapon grip relative to the primary weapon, so two equipped guns read as L and reverse-L shapes around the MC.
+- Update sprite-angle compensation per mirrored hand to keep sniper and other barrels accurately on target; center-slot sprites retain their directional behavior.
+- Test both hand grips and muzzle directions for multiple weapon types and four hero facings.
+- Includes horizontal Collection browsing and corrected full/incremental in-game downloads from v0.1.26–v0.1.27.
+
 ## v0.1.27 — Mirrored gun-holding pose and full-update transfer repair
 
 - Add mirrored L-shaped left and reverse-L-shaped right support arms and hands to the MC, matching the weapons' existing muzzle locations, including a center-slot brace.

@@ -64,5 +64,13 @@ func _run() -> void:
 		verify(absf(arm_l[1].dot(ortho) + arm_r[1].dot(ortho)) < 0.001, "reverse-L elbow symmetry")
 		verify(absf(arm_l[2].dot(ortho) + arm_r[2].dot(ortho)) < 0.001, "gun grips mirrored evenly")
 		verify(arm_l[1].distance_to(arm_l[2]) > 9.0, "arms keep visible elbow bends")
+		for gun in ["pistol", "shotgun", "sniper", "rail"]:
+			var left_flip = WeaponAim.mirrored_grip(direction, 0)
+			var right_flip = WeaponAim.mirrored_grip(direction, 1)
+			verify(left_flip != right_flip, "opposite hand gun grips mirror: " + gun)
+			for slot in [0, 1, 2]:
+				var mirrored = WeaponAim.mirrored_grip(direction, slot)
+				var rot = WeaponAim.art_rotation_for_mirror(direction, gun, mirrored)
+				verify(WeaponAim.barrel_axis(rot, gun, mirrored).dot(direction) > 0.99999, "slot %d %s muzzle alignment" % [slot + 1, gun])
 	print("WEAPON AIM TESTS: " + ("PASS" if failed == 0 else str(failed) + " failed"))
 	quit(1 if failed else 0)
