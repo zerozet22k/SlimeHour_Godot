@@ -164,9 +164,49 @@ func _run() -> void:
 	check(float(engine.get("engine_heat", 0.0)) > 20.0, "Destroying pods increases Engine heat")
 	check(Combat.boss_identity_damage_factor(g, engine) > 0.8, "Destroyed pods reduce Engine armor")
 
+	# Stage-driven countersequences must express the boss identity, not
+	# seven identical circular explosions with different colors.
+	var map_kinds = ["heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
+	var expected_counter = ["boss_line", "boss_soul_link", "boss_blast",
+		"boss_line", "boss_line", "rift_emit", "boss_line"]
+	for i in range(map_kinds.size()):
+		reset(g)
+		var boss_id: String = map_kinds[i]
+		var map_boss = make_boss(g, boss_id, 540 + i)
+		if boss_id == "necro" or boss_id == "glassoracle":
+			var source_kind: String = "leech" if boss_id == "necro" else "mirror"
+			for source_index in range(2):
+				var actor = g.spawn_enemy(source_kind, Vector2(-180.0 + float(source_index) * 360.0, -140.0), false, false)
+				actor["soul_owner" if boss_id == "necro" else "oracle_owner"] = int(map_boss["id"])
+		Combat.boss_map_pattern(g, map_boss, 2)
+		var main_pattern = g.delayed.filter(func(d): return str(d.get("map_pattern", "")) == boss_id)
+		var followups = g.delayed.filter(func(d): return str(d.get("countersequence", "")) == boss_id)
+		check(main_pattern.size() > 0, boss_id + ": existing map-wide main pattern remains")
+		check(followups.size() >= 1 and followups.all(func(d): return str(d["fn"]) == expected_counter[i]),
+			boss_id + ": distinct phase-three countersequence fires")
+		check(g.delayed.all(func(d): return int(d.get("owner", -1)) == int(map_boss["id"])),
+			boss_id + ": ALL arena hazards have ownership for cleanup on death")
+		check(g.delayed.size() < 55, boss_id + ": phase-three warnings are under hazard budget")
+		var newest_warning: float = INF
+		for followup in followups:
+			newest_warning = minf(newest_warning, float(followup["t"]))
+		check(newest_warning >= 2.3, boss_id + ": follow-up comes after primary warnings")
+		if boss_id == "necro" or boss_id == "glassoracle":
+			check(followups.all(func(d): return d.has("source")),
+				boss_id + ": follow-up can be cancelled by killing the source")
+	# The base stage should NOT layer a full secondary attack over its first pattern.
+	reset(g)
+	var opening_boss = make_boss(g, "heli", 599)
+	Combat.boss_map_pattern(g, opening_boss, 0)
+	check(not g.delayed.any(func(d): return d.has("countersequence")),
+		"Phase one keeps a simpler, more readable attack language")
+
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('"boss_gravity"') and visuals.contains('"chonk_fault"') and visuals.contains('"chonk_pillar"'), "Physical setpieces render exact locations")
 	check(not visuals.contains('== "arena_event"'), "Renderer no longer paints unavoidable viewport damage")
+	check(visuals.contains('origin_kind == "heli"') and visuals.contains('origin_kind == "kingblob"')
+		and visuals.contains('str(d["fn"]) == "coil_wall"'),
+		"Boss indicators use distinct warning geometry rather than generic circles")
 	var hud = FileAccess.get_file_as_string("res://scripts/Hud.gd")
 	check(hud.contains("func paint_boss_cinematic"), "Cinematic portrait and desktop remain present")
 	g.free()
