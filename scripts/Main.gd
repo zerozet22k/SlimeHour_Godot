@@ -455,6 +455,7 @@ func start_run() -> void:
 		arr.clear()
 	owned.clear()
 	owned_order.clear()
+	S.clear()  # Never allow stale stat prerequisites from the previous run.
 	proc_state.clear()
 	gate_mods.clear()
 	orbit_hits.clear()
