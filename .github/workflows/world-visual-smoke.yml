@@ -1,0 +1,40 @@
+name: World rendering smoke test
+
+on:
+  pull_request:
+    paths:
+      - scripts/**
+      - scenes/**
+      - project.godot
+      - tools/world_visual_smoke_test.gd
+      - .github/workflows/world-visual-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  graphical-world-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2 and virtual graphical display
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb libgl1 libegl1 libxkbcommon0 libxrandr2 libxcursor1 libxi6
+          url=https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          curl --fail --location --retry 3 "$url" -o /tmp/godot-linux.zip
+          unzip -oq /tmp/godot-linux.zip -d /tmp/godot-bin
+          cp /tmp/godot-bin/Godot_v4.7.2-stable_linux.x86_64 ./godot-ci
+          chmod +x ./godot-ci
+      - name: Import and validate scene
+        run: |
+          set -euo pipefail
+          python3 tools/validate.py
+          timeout 120 ./godot-ci --headless --path . --editor --import --quit
+      - name: Check rendered world is visible, not just HUD
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 150 xvfb-run -a -s "-screen 0 1280x720x24" ./godot-ci --path . --rendering-method gl_compatibility --script tools/world_visual_smoke_test.gd
