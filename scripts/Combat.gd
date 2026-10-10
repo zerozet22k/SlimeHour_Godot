@@ -6,6 +6,7 @@ const Effects = preload("res://scripts/Effects.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
+const ChonkzillaEncounter = preload("res://scripts/ChonkzillaEncounter.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
@@ -119,6 +120,18 @@ static func update_delayed(g, dt: float) -> void:
 				if not bool(item["spent"]) and g.hero["pos"].distance_to(item["pos"]) <= float(item["tele"]) + 11.0:
 					item["spent"] = true
 					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's rolling boulder")
+		elif str(item.get("fn", "")) == "chonk_fault":
+			item["arm"] = maxf(0.0, float(item["arm"]) - dt)
+			item["pulse"] = float(item["pulse"]) - dt
+			if float(item["arm"]) <= 0.0 and float(item["pulse"]) <= 0.0:
+				item["pulse"] = 0.91
+				var start: Vector2 = item["a"]
+				var finish: Vector2 = item["b"]
+				var width: float = float(item["tele"])
+				g.beams.append({"a": start, "b": finish, "t": 0.22, "w": width * 2.0,
+					"color": Color("ff9670"), "zig": true})
+				if seg_dist2(start, finish, g.hero["pos"]) <= pow(width + 11.0, 2.0):
+					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's faultline")
 		elif str(item.get("fn", "")) == "boss_gravity":
 			item["arm"] = maxf(0.0, float(item["arm"]) - dt)
 			if float(item["arm"]) <= 0.0:
@@ -900,7 +913,7 @@ static func boss_identity_damage_factor(g, e: Dictionary) -> float:
 		return 1.0
 	match str(e["kind"]):
 		"chonkzilla":
-			return 1.48 if float(e.get("boss_recover", 0.0)) > 0.0 else 1.0
+			return 1.95 if float(e.get("boss_recover", 0.0)) > 0.0 else 0.90
 		"glassoracle":
 			for node in g.enemies:
 				if not bool(node.get("dead", false)) and int(node.get("oracle_owner", -1)) == int(e["id"]):
@@ -1032,6 +1045,11 @@ static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "
 static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	if bool(e["dead"]):
 		return
+	# Stones are destructible encounter props, never ordinary kills or loot.
+	if bool(e.get("chonk_pillar", false)):
+		e["dead"] = true
+		g.spawn_ring_fx(e["pos"], Color("d7aa79"), 57.0)
+		return
 	# Zombie-phoenix: one clearly telegraphed rebirth, with no first-death loot
 	# or kill-count credit. It cannot resurrect a second time.
 	if has_role(g, e, "ashwing") and not bool(e.get("reborn", false)):
@@ -1056,7 +1074,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 		for subordinate in g.enemies:
 			if subordinate == e:
 				continue
-			for owned_key in ["soul_owner", "royal_owner", "oracle_owner", "coil_owner", "engine_owner"]:
+			for owned_key in ["soul_owner", "royal_owner", "oracle_owner", "coil_owner", "engine_owner", "chonk_owner"]:
 				if int(subordinate.get(owned_key, -1)) == defeated_id:
 					subordinate["dead"] = true
 		for projectile in g.shots:
@@ -1391,7 +1409,7 @@ static func update_enemies(g, dt: float) -> void:
 		var turn_rate = 1.6 if has_role(g, e, "riot") else 6.0
 		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * turn_rate)).normalized()
 		var desired = Vector2.ZERO
-		if not disabled:
+		if not disabled and not bool(e.get("chonk_pillar", false)):
 			if bool(e["boss"]):
 				boss_arena_tick(g, e, dt)
 			desired = ai(g, e, dir, dist, dt, charmed)
@@ -1400,8 +1418,12 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e["dead"]):
 			continue
 		e["vel"] = e["vel"].lerp(desired * float(e["speed"]) * speed_mul, 1.0 - exp(-8.0 * dt))
-		if disabled or bool(e.get("burrowing", false)):
+		if disabled or bool(e.get("burrowing", false)) or bool(e.get("chonk_pillar", false)):
 			e["vel"] = Vector2.ZERO
+		if bool(e.get("chonk_pillar", false)):
+			e["kb"] = Vector2.ZERO
+		if str(e.get("chonk_state", "")) == "rush" and not disabled:
+			e["vel"] = Vector2(e["chonk_dir"]) * float(e["chonk_speed"])
 		if bool(e.get("burrowing", false)):
 			e["kb"] = Vector2.ZERO
 		if float(e["charge"]) > 0.0 and not disabled:
@@ -1439,6 +1461,9 @@ static func update_enemies(g, dt: float) -> void:
 			e["wind"] = 0.0
 		if str(e["kind"]) == "bull" and float(e["charge"]) > 0.0:
 			EnemyIdentity.bull_push(g, e, dt)
+		# Chonkzilla's swept body hits rock pillars; the collision is the stagger puzzle.
+		if str(e.get("chonk_state", "")) == "rush":
+			ChonkzillaEncounter.after_motion(g, e, before_dash_move)
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
 		# Crowd separation runs for half the crowd each step (alternating); flung enemies always check.
@@ -1587,6 +1612,9 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	var kind: String = str(e["kind"])
 	var hero_pos: Vector2 = g.hero["pos"]
 	var stage: int = boss_stage(e)
+	if kind == "chonkzilla":
+		ChonkzillaEncounter.setpiece(g, e, stage, dt)
+		return
 	# Keep an older player position for Oracle's delayed imitation.
 	if kind == "glassoracle":
 		e["echo_sample_t"] = float(e.get("echo_sample_t", 0.0)) - dt
@@ -1615,16 +1643,6 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	var damage: float = float(e["dmg"])
 	var owner_id: int = int(e["id"])
 	match kind:
-		"chonkzilla":
-			# A moving boulder crosses the arena instead of a stationary ring.
-			# Position and timing change as the player moves; its course is committed.
-			for k in range(1 + int(stage >= 1)):
-				var side = -1.0 if k == 0 else 1.0
-				var origin = Vector2(clampf(lead.x + side * 360.0, -g.road_half + 38.0, g.road_half - 38.0), lead.y - 125.0)
-				var velocity: Vector2 = (lead - origin).normalized() * (255.0 + stage * 37.0)
-				g.delayed.append({"fn": "boss_boulder", "pos": origin, "vel": velocity, "arm": 0.85,
-					"t": 3.45, "life": 3.45, "tele": 36.0, "dmg": damage * 0.90,
-					"color": "e3a078", "boss": e, "owner": owner_id, "spent": false})
 		"heli":
 			# Acquire one readable missile lock; the launched projectile homes
 			# for a short duration and CAN be outrun or dodged.
@@ -1758,33 +1776,7 @@ static func boss_identity_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: fl
 		return Vector2.ZERO
 	match kind:
 		"chonkzilla":
-			# A lumbering pressure tank: winds up a committed advancing stomp;
-			# the ground fractures sideways on landing, then its belly stays
-			# exposed to player damage for a short, readable recovery.
-			if float(e.get("boss_recover", 0.0)) > 0.0:
-				e["boss_recover"] = maxf(0.0, float(e["boss_recover"]) - dt)
-				return Vector2.ZERO
-			if float(e["wind"]) > 0.0:
-				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					var landing: Vector2 = e.get("lock", hero_pos)
-					e["pos"] = e["pos"].move_toward(landing, 170.0 + stage * 55.0)
-					e["boss_recover"] = maxf(0.65, 1.55 - stage * 0.26)
-					g.spawn_ring_fx(e["pos"], Color("ffb18b"), 130.0)
-					for side in [-1.0, 1.0]:
-						var fissure: Vector2 = e["pos"] + Vector2(side * 240.0, 0.0)
-						schedule_boss_line(g, e["pos"], fissure, 24.0 + stage * 3.0, float(e["dmg"]) * 0.7, 0.7, "e86a8a")
-					if g.delayed.size() < 136:
-						schedule_boss_blast(g, e["pos"], 102.0 + stage * 12.0, float(e["dmg"]) * 0.88, 0.55, "ff9e7a")
-				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0:
-				e["cd"] = maxf(2.1, 4.15 - stage * 0.4)
-				e["wind"] = maxf(0.75, 1.27 - stage * 0.12)
-				e["lock"] = lead
-				e["tele"] = 110.0 + stage * 12.0
-				g.sfx.play("boss_warn")
-				return Vector2.ZERO
-			return dir * 0.80
+			return ChonkzillaEncounter.think(g, e, dir, dist, dt, stage)
 		"heli":
 			# A moving aircraft. Its bombing is tied to its actual flight path:
 			# watch the horizontal strafing direction, not static target rings.
