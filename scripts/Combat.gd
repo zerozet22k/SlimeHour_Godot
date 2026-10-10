@@ -1207,6 +1207,7 @@ static func update_enemies(g, dt: float) -> void:
 			e["vel"] = Vector2.ZERO
 		if float(e["charge"]) > 0.0 and not disabled:
 			e["vel"] = e["cdir"] * 560.0
+		var skitter_dashing = str(e["kind"]) == "skitter" and float(e["charge"]) > 0.0 and not disabled
 		e["pos"] += (e["vel"] + e["kb"]) * dt
 		var kb_len = e["kb"].length()
 		e["kb"] = e["kb"] * exp(-5.5 * dt)
@@ -1220,8 +1221,15 @@ static func update_enemies(g, dt: float) -> void:
 					damage(g, e, kb_len * 0.04 * ss, false, {"gen": 2, "pos": p})
 			e["pos"] = p
 		# Dense trees, medians and parked traffic block monsters as well.
+		var before_obstacle_push: Vector2 = e["pos"]
 		if not g.obstacles.is_empty():
 			e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
+		# Skitter flies past the player, stopping only on a solid obstacle or road edge.
+		# The charge timer is a safety limit for long empty stretches, not a short lunge.
+		if skitter_dashing and (absf(e["pos"].x) >= g.road_half - float(e["r"]) - 0.5 or e["pos"].distance_squared_to(before_obstacle_push) > 0.25):
+			e["charge"] = 0.0
+			e["vel"] = Vector2.ZERO
+			e["wind"] = 0.0
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
 		# Crowd separation runs for half the crowd each step (alternating); flung enemies always check.
@@ -1474,8 +1482,9 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					e["charge"] = 0.26
-					e["cdir"] = (hero_pos - e["pos"]).normalized()
+					# Lock direction once, then overshoot rather than tracking the player.
+					e["charge"] = 2.5
+					e["cdir"] = (e["lock"] - e["pos"]).normalized()
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and dist > 80.0 and dist < 300.0:
 				e["cd"] = 3.2
