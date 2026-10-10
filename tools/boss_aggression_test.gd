@@ -76,7 +76,7 @@ func _run() -> void:
 	g.delayed.clear()
 	# Mirror: independent predictive counter, not only after player shoots it.
 	var mirror = {"kind": "mirror", "id": 7, "pos": Vector2(0, -250), "cd": 0.0, "wind": 0.0,
-		"charge": 0.0, "t": 0.0, "phase": 0.0}
+		"charge": 0.0, "t": 0.0, "phase": 0.0, "r": 17.0, "dmg": 12.0}
 	Combat.ai(g, mirror, Vector2.DOWN, 250.0, 0.016, false)
 	check(float(mirror["wind"]) > 0.0 and mirror.has("lock"), "Mirror independently predicts and winds up a volley")
 	g.shots.clear()
