@@ -8,7 +8,7 @@ const Effects = preload("res://scripts/Effects.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
-const GAME_VERSION = "v0.1.12"
+const GAME_VERSION = "v0.1.13"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -781,6 +781,11 @@ func dash_contact_line(a: Vector2, b: Vector2) -> void:
 	# Even a vanilla dash activates Kaboomba's fuse; use swept contact, not just
 	# the final frame position, so high-speed dashes cannot pass through unseen.
 	var damaging = S.get("dashdmg", 0) > 0 or S.get("dashpush", 0) > 0
+	# Barreling through an explosive arms it; the player has time to escape.
+	for barrel in barrels:
+		if float(barrel["drop"]) <= 0.0 and not bool(barrel.get("armed", false)):
+			if Combat.seg_dist2(a, b, barrel["pos"]) < pow(20.0 + 22.0, 2):
+				barrel["hp"] = 0.0
 	for e in enemies:
 		if bool(e["dead"]) or hero["dash_hits"].has(e["id"]):
 			continue
@@ -1165,7 +1170,7 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	return e
 
 func spawn_barrel(pos: Vector2, dropped = false) -> void:
-	barrels.append({"pos": pos, "hp": 12.0, "drop": 0.6 if dropped else 0.0, "id": -1})
+	barrels.append({"pos": pos, "hp": 12.0, "drop": 0.6 if dropped else 0.0, "id": -1, "armed": false, "fuse": 0.0})
 
 func gate_options() -> Array:
 	return [

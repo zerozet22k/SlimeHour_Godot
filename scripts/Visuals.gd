@@ -221,10 +221,10 @@ func paint_pickups() -> void:
 			"heart":
 				heart(p + Vector2(0, bob), 9.0, Color("ff4d6a"))
 			"chest":
-				var ct = g.tex("res://assets/ui/chest.png")
+				var ct = g.tex("res://assets/ui/chest.svg")
 				draw_circle(p, 30, Color(1, 0.85, 0.3, 0.2 + 0.1 * sin(g.anim_t * 5.0)))
 				if ct != null:
-					draw_texture_rect(ct, Rect2(p - Vector2(24, 24 - bob), Vector2(48, 48)), false)
+					draw_texture_rect(ct, Rect2(p - Vector2(29, 29 - bob), Vector2(58, 58)), false)
 				else:
 					draw_rect(Rect2(p - Vector2(16, 12), Vector2(32, 24)), Color("ffd24d"))
 
@@ -242,12 +242,19 @@ func paint_barrels() -> void:
 		if drop > 0.0:
 			draw_circle(p, 18.0 * (1.0 - drop), Color(0, 0, 0, 0.4))
 			p.y -= drop * 500.0
-		draw_circle(p + Vector2(3, 8), 18, Color(0, 0, 0, 0.35))
-		draw_rect(Rect2(p - Vector2(15, 18), Vector2(30, 36)), Color("c8301e"))
-		draw_rect(Rect2(p - Vector2(15, 6), Vector2(30, 10)), Color("ffd24d"))
-		for k in range(3):
-			draw_line(p + Vector2(-14 + k * 10, -6), p + Vector2(-8 + k * 10, 4), Color("201010"), 3.0)
-		draw_rect(Rect2(p - Vector2(15, 18), Vector2(30, 36)), Color("601010"), false, 2.0)
+		draw_circle(p + Vector2(3, 8), 19, Color(0, 0, 0, 0.35))
+		var image = g.tex("res://assets/ui/barrel.svg")
+		var armed = bool(b.get("armed", false))
+		if image != null:
+			var flash = 0.35 + 0.65 * absf(sin(g.anim_t * (12.0 + (0.85 - float(b.get("fuse", 0.85))) * 15.0))) if armed else 1.0
+			draw_texture_rect(image, Rect2(p - Vector2(21, 25), Vector2(42, 50)), false, Color(1.0, flash, flash, 1.0))
+		else:
+			draw_rect(Rect2(p - Vector2(15, 18), Vector2(30, 36)), Color("c8301e"))
+		if armed:
+			var progress = 1.0 - clampf(float(b.get("fuse", 0.85)) / 0.85, 0.0, 1.0)
+			draw_circle(p, 115.0, Color(1.0, 0.25, 0.12, 0.08 + progress * 0.15))
+			draw_arc(p, 115.0, -PI * 0.5, -PI * 0.5 + progress * TAU, 40, Color("ffda70"), 4.0)
+			draw_arc(p, 25.0, 0.0, TAU, 24, Color("ff5858"), 3.0)
 	for pet in g.pets:
 		if pet["kind"] == "mine":
 			var mp = P(pet["pos"])

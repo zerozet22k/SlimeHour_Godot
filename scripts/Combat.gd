@@ -133,6 +133,11 @@ static func update_delayed(g, dt: float) -> void:
 					g.hurt(float(item["dmg"]), item["pos"], "a Mortar Mike shell")
 			"kaboomba_boom":
 				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]))
+			"boss_blast":
+				var radius = float(item["tele"])
+				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
+				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
+					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
 			"elite_boom":
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
@@ -334,7 +339,7 @@ static func on_wall(g, s: Dictionary) -> void:
 
 static func collide_barrels(g, s: Dictionary) -> void:
 	for b in g.barrels:
-		if float(b["hp"]) <= 0.0 or float(b["drop"]) > 0.0:
+		if float(b["hp"]) <= 0.0 or bool(b.get("armed", false)) or float(b["drop"]) > 0.0:
 			continue
 		if seg_dist2(s["last"], s["pos"], b["pos"]) < pow(20.0 + float(s["r"]), 2):
 			b["hp"] = float(b["hp"]) - float(s["dmg"])
@@ -1061,6 +1066,25 @@ static func update_enemies(g, dt: float) -> void:
 			if e.has("budget"):
 				g.budget_spawned = maxi(0, g.budget_spawned - 1)
 
+## Threat phases create new patterns, not inflated damage. Phase thresholds at 65% and 32%.
+static func boss_stage(e: Dictionary) -> int:
+	if not bool(e.get("boss", false)):
+		return 0
+	var ratio = float(e.get("hp", 0.0)) / maxf(1.0, float(e.get("max_hp", 1.0)))
+	if ratio <= 0.32:
+		return 2
+	if ratio <= 0.65:
+		return 1
+	return 0
+
+static func schedule_boss_blast(g, pos: Vector2, radius: float, damage: float, timer: float, color: String = "ff9944") -> void:
+	g.delayed.append({"fn": "boss_blast", "pos": pos, "t": timer, "life": timer,
+		"tele": radius, "dmg": damage, "color": color})
+
+static func boss_ring(g, e: Dictionary, count: int, speed: float, offset: float = 0.0) -> void:
+	for i in range(count):
+		enemy_fire(g, e, Vector2.from_angle(offset + TAU * float(i) / count), 1, 0.0, speed)
+
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
 	e["cd"] = float(e["cd"]) - dt
@@ -1219,6 +1243,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 		"kaboomba":
 			return dir
 		"chonkzilla":
+			var stage = boss_stage(e)
 			if float(e["wind"]) > 0.0:
 				e["wind"] = float(e["wind"]) - dt
 				if float(e["wind"]) <= 0.0:
@@ -1226,22 +1251,43 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					g.spawn_ring_fx(e["pos"], Color("ff6b7a"), 160.0)
 					if g.hero["pos"].distance_to(e["pos"]) < 160.0:
 						g.hurt(float(e["dmg"]), e["pos"], "CHONKZILLA's belly flop")
-					for k in range(22):
-						enemy_fire(g, e, Vector2.from_angle(k * TAU / 22.0), 1, 0.0, 230.0)
+					boss_ring(g, e, 18 + stage * 5, 210.0 + stage * 28.0, float(e["t"]) * 0.4)
+					if stage >= 1:
+						boss_ring(g, e, 10 + stage * 3, 295.0, PI / 12.0 + float(e["t"]) * 0.4)
 				return Vector2.ZERO
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.6
-				e["wind"] = 1.0
-				e["tele"] = 160.0
+				e["cd"] = 3.8 - stage * 0.45
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				if int(e["pattern"]) % 3 == 1:
+					# Alternating offset slams force a lateral dodge.
+					for k in range(3 + stage):
+						var point = hero_pos + Vector2((k - 1) * 115.0, -35.0)
+						schedule_boss_blast(g, point, 53.0, float(e["dmg"]) * 0.6, 1.15 + k * 0.16)
+				else:
+					e["wind"] = 1.0 - stage * 0.13
+					e["tele"] = 160.0
+				g.sfx.play("boss_warn")
 			if fmod(float(e["t"]), 8.0) < dt:
 				for k in range(4):
 					g.spawn_enemy("blob", e["pos"] + Vector2.from_angle(k * TAU / 4.0) * 70.0, false, false)["summon"] = true
 			return dir
 		"heli":
+			var stage = boss_stage(e)
 			var anchor = Vector2(sin(float(e["t"]) * 0.7) * 300.0, hero_pos.y - 280.0)
 			if e["cd"] <= 0.0:
-				e["cd"] = 2.6
-				e["burst"] = 12
+				e["cd"] = 2.75 - stage * 0.35
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var pattern = int(e["pattern"]) % 3
+				if pattern == 0:
+					e["burst"] = 10 + stage * 3
+				elif pattern == 1:
+					# A visible carpet of bombs across the escape route.
+					for k in range(4 + stage):
+						var at = hero_pos + Vector2((k - 2) * 96.0, -65.0)
+						schedule_boss_blast(g, at, 46.0, float(e["dmg"]) * 0.55, 0.95 + k * 0.12)
+				else:
+					boss_ring(g, e, 12 + stage * 4, 235.0 + stage * 30.0, float(e["t"]))
+				g.sfx.play("boss_warn")
 			if int(e.get("burst", 0)) > 0 and fmod(float(e["t"]), 0.09) < dt:
 				e["burst"] = int(e["burst"]) - 1
 				enemy_fire(g, e, dir.rotated(randf_range(-0.25, 0.25)), 1, 0.0, 380.0)
@@ -1250,14 +1296,27 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					g.spawn_enemy("kaboomba", e["pos"] + Vector2(-60 + 60 * k, 30), false, false)["summon"] = true
 			return (anchor - e["pos"]).limit_length(80.0) / 80.0
 		"necro":
+			var stage = boss_stage(e)
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.0
-				for k in range(5):
-					var s = enemy_fire(g, e, dir.rotated((k - 2) * 0.35), 1, 0.0, 190.0)
-					if s != null:
-						s["homing"] = 1.4
-						s["life"] = 4.0
-						s["kind"] = "skull"
+				e["cd"] = 3.0 - stage * 0.35
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				var pattern = int(e["pattern"]) % 3
+				if pattern == 0:
+					for k in range(5 + stage * 2):
+						var a = float(k - 2 - stage) * 0.27
+						var s = enemy_fire(g, e, dir.rotated(a), 1, 0.0, 190.0 + stage * 25.0)
+						if s != null:
+							s["homing"] = 1.1 + stage * 0.13
+							s["life"] = 4.0
+							s["kind"] = "skull"
+				elif pattern == 1:
+					# Rotating cursed spiral; outer lanes have gaps to escape.
+					boss_ring(g, e, 13 + stage * 3, 220.0, float(e["t"]) * 0.8)
+				else:
+					for k in range(3 + stage):
+						var at = hero_pos + Vector2.from_angle(float(k) * TAU / (3 + stage)) * 95.0
+						schedule_boss_blast(g, at, 49.0, float(e["dmg"]) * 0.55, 1.2)
+				g.sfx.play("boss_warn")
 			if fmod(float(e["t"]), 6.0) < dt:
 				for k in range(6):
 					var m = g.spawn_enemy("blob", e["pos"] + Vector2.from_angle(k * TAU / 6.0) * 90.0, false, false)
@@ -1268,6 +1327,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return -dir
 			return dir if dist > 380.0 else dir.orthogonal() * 0.6
 		"kingblob":
+			var stage = boss_stage(e)
 			if float(e["wind"]) > 0.0:
 				e["wind"] = float(e["wind"]) - dt
 				if float(e["wind"]) <= 0.0:
@@ -1277,11 +1337,20 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					if g.hero["pos"].distance_to(e["pos"]) < 110.0:
 						g.hurt(float(e["dmg"]), e["pos"], "KING BLOB's butt")
 				return Vector2.ZERO
-			if e["cd"] <= 0.0 and dist < 450.0:
-				e["cd"] = 4.0 + randf()
-				e["wind"] = 0.9
-				e["lock"] = hero_pos
-				e["tele"] = 110.0
+			if e["cd"] <= 0.0 and dist < 480.0:
+				e["cd"] = 4.0 - stage * 0.55
+				e["pattern"] = int(e.get("pattern", -1)) + 1
+				if int(e["pattern"]) % 2 == 0:
+					e["wind"] = 0.95 - stage * 0.13
+					e["lock"] = hero_pos
+					e["tele"] = 110.0
+				else:
+					# Three sequential impacts chase the player's predicted route.
+					var projected = hero_pos + g.hero["vel"] * 0.35
+					for k in range(3 + stage):
+						var at = projected + Vector2((k - 1) * 90.0, 0)
+						schedule_boss_blast(g, at, 61.0, float(e["dmg"]) * 0.65, 1.05 + k * 0.25, "ff6aaf")
+				g.sfx.play("boss_warn")
 			return dir
 	return dir
 
@@ -1829,21 +1898,34 @@ static func update_allies(g, dt: float) -> void:
 							g.pets.remove_at(i)
 							break
 
+## Detonates only after an observable fuse, including blast-chain and dash triggers.
+## Chain blasts arm nearby barrels first rather than triggering same-frame explosions.
 static func update_barrels(g, dt: float) -> void:
 	for i in range(g.barrels.size() - 1, -1, -1):
-		var b = g.barrels[i]
-		if float(b["drop"]) > 0.0:
-			b["drop"] = float(b["drop"]) - dt
-			if float(b["drop"]) <= 0.0:
+		var barrel = g.barrels[i]
+		if float(barrel["drop"]) > 0.0:
+			barrel["drop"] = float(barrel["drop"]) - dt
+			if float(barrel["drop"]) <= 0.0:
 				g.add_shake(3.0)
 				g.sfx.play("thunk")
 			continue
-		if float(b["hp"]) <= 0.0:
-			g.barrels.remove_at(i)
-			explode(g, b["pos"], 115.0, 55.0 * g.sector_scale() * g.dmg_mult(), 1, Color("ff6b3d"))
-			g.add_zone("fire", b["pos"], 60.0, 2.5)
+		if float(barrel["hp"]) <= 0.0 and not bool(barrel.get("armed", false)):
+			barrel["armed"] = true
+			barrel["fuse"] = 0.85
+			g.sfx.play("fuse")
 			continue
-		if b["pos"].y > g.hero["pos"].y + 900.0:
+		if bool(barrel.get("armed", false)):
+			barrel["fuse"] = float(barrel["fuse"]) - dt
+			if float(barrel["fuse"]) <= 0.0:
+				var pos: Vector2 = barrel["pos"]
+				g.barrels.remove_at(i)
+				# Barrels hurt both the player and their nearby monsters.
+				explode(g, pos, 115.0, 55.0 * g.sector_scale() * g.dmg_mult(), 1, Color("ff6b3d"))
+				if g.hero["pos"].distance_to(pos) < 125.0:
+					g.hurt(12.0 + minf(32.0, g.sector * 1.1), pos, "an explosive barrel")
+				g.add_zone("fire", pos, 60.0, 2.5)
+			continue
+		if barrel["pos"].y > g.hero["pos"].y + 900.0:
 			g.barrels.remove_at(i)
 
 static func update_fx(g, dt: float) -> void:
