@@ -326,13 +326,20 @@ func paint_barrels() -> void:
 		var armed = bool(b.get("armed", false))
 		# Untriggered barrels must NOT have a burning fuse. The spark is
 		# present only on the armed asset after an actual weapon/dash hit.
-		var image = g.tex("res://assets/ui/barrel.svg" if armed else "res://assets/ui/barrel_unlit.svg")
+		# One identical physical barrel in both states. Only the fuse
+		# overlay changes; never swap to differently drawn barrel art.
+		var image = g.tex("res://assets/ui/barrel_unlit.svg")
 		if image != null:
 			var flash = 0.35 + 0.65 * absf(sin(g.anim_t * (12.0 + (0.85 - float(b.get("fuse", 0.85))) * 15.0))) if armed else 1.0
 			draw_texture_rect(image, Rect2(p - Vector2(21, 25), Vector2(42, 50)), false, Color(1.0, flash, flash, 1.0))
 		else:
 			draw_rect(Rect2(p - Vector2(15, 18), Vector2(30, 36)), Color("c8301e"))
 		if armed:
+			# The spark is rendered at the same fuse position on the SAME SVG.
+			var spark_pos = p + Vector2(6.5, -23.0)
+			var flicker = 0.70 + 0.30 * absf(sin(g.anim_t * 21.0))
+			draw_circle(spark_pos, 6.5 * flicker, Color("ff9c35", 0.8))
+			draw_circle(spark_pos + Vector2(0, -2.5), 3.6 * flicker, Color("fff6a8"))
 			var progress = 1.0 - clampf(float(b.get("fuse", 0.85)) / 0.85, 0.0, 1.0)
 			draw_circle(p, 115.0, Color(1.0, 0.25, 0.12, 0.08 + progress * 0.15))
 			draw_arc(p, 115.0, -PI * 0.5, -PI * 0.5 + progress * TAU, 40, Color("ffda70"), 4.0)
