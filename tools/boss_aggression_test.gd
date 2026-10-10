@@ -74,14 +74,17 @@ func _run() -> void:
 	check(g.delayed.size() == 1 and g.delayed[0]["fn"] == "boss_line", "Laser lane registers delayed warning")
 	check(is_equal_approx(float(g.delayed[0]["tele"]), 24.0) and is_equal_approx(float(g.delayed[0]["life"]), 1.1), "Beam warning uses true width and delay")
 	g.delayed.clear()
-	# Mirror: independent predictive counter, not only after player shoots it.
+	# Mirror is reactive to projectiles and must not behave like a proactive sniper.
 	var mirror = {"kind": "mirror", "id": 7, "pos": Vector2(0, -250), "cd": 0.0, "wind": 0.0,
 		"charge": 0.0, "t": 0.0, "phase": 0.0, "r": 17.0, "dmg": 12.0}
 	Combat.ai(g, mirror, Vector2.DOWN, 250.0, 0.016, false)
-	check(float(mirror["wind"]) > 0.0 and mirror.has("lock"), "Mirror independently predicts and winds up a volley")
-	g.shots.clear()
+	check(float(mirror["wind"]) == 0.0 and g.shots.is_empty(), "Mirror does not shoot proactively")
+	mirror["wind"] = 0.70
+	mirror["lock"] = g.hero["pos"]
+	mirror["mirror_kind"] = "bullet"
+	mirror["mirror_shots"] = 2
 	Combat.ai(g, mirror, Vector2.DOWN, 250.0, 1.0, false)
-	check(g.shots.size() >= 3, "Mirror launches real multishot counterfire")
+	check(g.shots.size() == 2, "Mirror counterattacks with its copied volley")
 	# Burrower: predicted, telegraphed re-emergence and genuine aftershock.
 	var burrower = {"kind": "burrower", "id": 9, "pos": Vector2(0, -260), "cd": 0.0, "wind": 0.0,
 		"charge": 0.0, "t": 0.0, "phase": 0.0, "r": 18.0, "dmg": 12.0, "kb": Vector2.ZERO,
