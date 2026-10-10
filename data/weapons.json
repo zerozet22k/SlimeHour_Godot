@@ -104,7 +104,7 @@
   "color": "9ff0ff",
   "blast": 0,
   "lv3": "+50% magazine",
-  "lv5": "SUPPRESSION — Every hit briefly slows its victim; lock down a horde through sustained fire.",
+  "lv5": "SUPPRESSION — Hits pulse a slowing shockwave into nearby enemies every 0.55 seconds.",
   "sfx": "tick"
  },
  {
@@ -354,7 +354,7 @@
   "id": "rail",
   "name": "Gauss Lance",
   "kind": "rail",
-  "desc": "Hold to charge a single instant piercing shot. Hold to repeatedly charge and fire. No post-shot cooldown; the three-cell magazine still reloads.",
+  "desc": "Hold to charge and repeatedly fire piercing rail strikes. Three charge cells, then reload.",
   "art": "a sci-fi railgun with blue energy coils",
   "dmg": 150,
   "rate": 0.7,
