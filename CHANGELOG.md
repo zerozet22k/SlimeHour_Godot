@@ -1,3 +1,12 @@
+## v0.1.45 — Persistent Windows in-game updater
+
+- FIX: The in-game installer previously placed updated Slime Hour files only in `%LOCALAPPDATA%\\SlimeHour\\versions\\vX.Y.Z` and launched that temporary copy. Restarting from the original desktop shortcut reopened the outdated executable and appeared to undo the update.
+- After the old game exits, install the verified release into the ORIGINAL game folder (`SlimeHour.exe`, `SlimeHour.pck`, helper scripts, launcher and manifest). The existing shortcut now points to the updated files across restarts.
+- Stage every file on the original installation's volume. Replace files atomically and restore backups on a failed replacement or failed manifest verification, leaving unrelated files intact.
+- Preserve a verified update ZIP on installation failure so a retry does not require another 200–300 MiB download. Remove the archive only after successful installation.
+- Keep chunk-based delta reconstruction and SHA-256 verification. Add PowerShell regression tests that validate full and delta in-place installations, persistent version manifests, unrelated-file preservation and intentional mid-install rollback.
+- ONE-TIME MIGRATION: Copies installed by the old (v0.1.44 or earlier) updater are still launched from AppData. Since that already-shipped helper cannot retrofit itself, close the game and extract the v0.1.45 FULL release ZIP over the ORIGINAL game folder once. From then on future in-game updates replace the original installation automatically. Saves and settings remain in the user's data directory.
+
 ## v0.1.44 — Final hybrid integrity and 22-weapon projectile-card translations
 
 - Stabilize hybrid parent roles across roll order and historical saves; vary the body donor deterministically across pairings to avoid late-sector crowds dominated by one starter silhouette. Each hybrid still inherits a single peripheral anatomical trait instead of another full face.
