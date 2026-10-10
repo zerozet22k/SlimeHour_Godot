@@ -87,6 +87,8 @@ func _run() -> void:
 	for i in range(kinds.size()):
 		reset(g)
 		var boss = make_boss(g, kinds[i], 100 + i)
+		if kinds[i] == "chonkzilla":
+			boss["stone_t"] = 0.0
 		if kinds[i] == "necro":
 			var ward = g.spawn_enemy("leech", Vector2(80.0, -160.0), false, false)
 			ward["soul_owner"] = int(boss["id"])
@@ -101,7 +103,10 @@ func _run() -> void:
 		else:
 			check(g.delayed.any(func(d): return str(d.get("fn", "")) == signatures[i]),
 				kinds[i] + ": unique physical setpiece")
-		check(float(boss["arena_t"]) >= 5.0, kinds[i] + ": special is cooldown bounded")
+		if kinds[i] == "chonkzilla":
+			check(float(boss["stone_t"]) >= 5.0, "Chonkzilla: stone director has a bounded cooldown")
+		else:
+			check(float(boss["arena_t"]) >= 5.0, kinds[i] + ": special is cooldown bounded")
 
 	# Chonkzilla's setpieces are destructible terrain, not a fake moving circle.
 	reset(g)
