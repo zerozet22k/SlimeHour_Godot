@@ -3,6 +3,7 @@ extends RefCounted
 ## Entities are plain dictionaries drawn by Visuals.gd in one canvas pass.
 
 const Effects = preload("res://scripts/Effects.gd")
+const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const CELL = 72.0
 const TOTEM_R = 230.0
@@ -163,7 +164,10 @@ static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Va
 		"src": str(o.get("src", "")), "st": o.get("st", {}), "flags": o.get("flags", {}).duplicate(), "frag": bool(o.get("frag", false)),
 		"gun": o.get("gun"), "phase": randf() * TAU, "base_r": radius, "base_dmg": dmg, "dead": false, "pool": float(o.get("pool", 0.0)),
 		"spin": randf() * TAU}
+	s["vfx_style"] = ProjectileVfx.style_for(str(s["kind"]), str(s["src"]), s["st"])
 	g.shots.append(s)
+	if friendly and int(s["gen"]) <= 1:
+		ProjectileVfx.muzzle(g, pos, dir, str(s["vfx_style"]), radius + 2.0)
 	return s
 
 static func player_shot(g, pos: Vector2, dir: Vector2, dmg: float, kind: String = "bullet", extra: Dictionary = {}) -> Variant:
@@ -303,6 +307,8 @@ static func catch(g, s: Dictionary) -> void:
 static func expire(g, s: Dictionary) -> void:
 	s["dead"] = true
 	var kind = str(s["kind"])
+	if bool(s["friendly"]) and kind not in ["disc", "boomerang"]:
+		ProjectileVfx.expire(g, s["pos"], s["vel"], str(s.get("vfx_style", "kinetic")))
 	if not s["friendly"]:
 		return
 	match kind:
@@ -320,6 +326,7 @@ static func expire(g, s: Dictionary) -> void:
 				g.add_zone("fire", s["pos"], 34.0, 2.0)
 
 static func on_wall(g, s: Dictionary) -> void:
+	ProjectileVfx.ricochet(g, s["pos"], s["vel"], str(s.get("vfx_style", "ricochet")))
 	var f = s["flags"]
 	if f.has("bounce_dmg"):
 		s["dmg"] = float(s["dmg"]) * 1.15
@@ -394,6 +401,10 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	if f.has("fling"):
 		ctx["fling"] = true
 	var crit = hit(g, e, float(s["dmg"]), ctx)
+	if crit:
+		ProjectileVfx.impact(g, impact, dir, "heavy", maxf(9.0, float(s["r"]) * 2.4))
+	else:
+		ProjectileVfx.impact(g, impact, dir, str(s.get("vfx_style", "kinetic")), maxf(5.0, float(s["r"]) * 1.5))
 	match kind:
 		"rocket":
 			explode(g, impact, maxf(40.0, float(s["blast"])), float(s["dmg"]), int(s["gen"]), Color("ff8f6b"))
@@ -471,6 +482,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 			s["rico"] = int(s["rico"]) - 1
 			s["vel"] = (nxt["pos"] - impact).normalized() * maxf(float(s["speed"]), s["vel"].length())
 			s["pos"] = impact
+			ProjectileVfx.ricochet(g, impact, s["vel"], str(s.get("vfx_style", "ricochet")))
 			if kind == "coin":
 				s["dmg"] = float(s["dmg"]) * 1.25
 				g.sfx.play("ping")
@@ -585,6 +597,9 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 		var chance2 = (g.st(st_name) + float(payload.get(st_name, 0.0))) * k
 		if chance2 > 0.0 and randf() < chance2:
 			apply_status(g, e, st_name, 1.0)
+			if st_name in ["burn", "freeze", "shock", "poison"]:
+				var effect_name = {"burn": "fire", "freeze": "frost", "shock": "shock", "poison": "toxic"}[st_name]
+				ProjectileVfx.impact(g, ctx.get("pos", e["pos"]), dir, effect_name, 9.0)
 			if bool(e["dead"]):
 				break
 	if shot_ref != null and shot_ref["flags"].has("instafreeze"):

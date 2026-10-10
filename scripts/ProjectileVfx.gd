@@ -53,7 +53,7 @@ static func flash(g, event: String, pos: Vector2, direction: Vector2, style: Str
 	# Main settings may disable particles; essential impact markers remain visible,
 	# but extra sparks disappear. A hard cap prevents FPS death with multishot builds.
 	var cap = 280 if not bool(g.settings.get("particles", true)) else 600
-	if g.fx.size() >= cap:
+	if not g is Node or g.fx.size() >= cap:
 		return
 	if event == "muzzle" and (not bool(g.settings.get("particles", true)) or g.fx.size() > 300):
 		return

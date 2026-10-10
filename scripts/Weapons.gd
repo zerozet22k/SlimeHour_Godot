@@ -3,6 +3,7 @@ extends RefCounted
 ## pattern (fan, parallel, rear, side, burst, echo, ghost twin) and emit() spawns one unit.
 
 const Combat = preload("res://scripts/Combat.gd")
+const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const Effects = preload("res://scripts/Effects.gd")
 
 const EVOLVED_NAMES = {"pistol": "Pea-ndemic", "revolver": "High Noon", "shotgun": "Boomstick 9000",
@@ -401,6 +402,8 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts: Dictionary) -> void:
 	var d = g.weapon_db[w["id"]]
 	var kind = str(d["kind"])
+	if kind in ["rail", "beam", "chain"]:
+		ProjectileVfx.muzzle(g, pos, dir, ProjectileVfx.style_for(kind, str(w["id"])), 12.0)
 	match kind:
 		"beam":
 			fire_beam(g, w, pos, dir, dmg)

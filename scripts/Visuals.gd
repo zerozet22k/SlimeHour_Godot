@@ -926,6 +926,42 @@ func paint_pets() -> void:
 				text_c("!", p + Vector2(0, -18), 17, Color("ffd24d"), 3)
 
 # ================================================================= shots
+## A lightweight per-projectile travel accent; base projectile silhouettes remain
+## in paint_shots() so visibility does not depend on optional particles.
+func paint_projectile_travel(s: Dictionary, p: Vector2, direction: Vector2) -> void:
+	var style = str(s.get("vfx_style", "kinetic"))
+	var color = Color(s["color"])
+	var tint = Color(s["color"]).lerp(Color("ffffff"), 0.28)
+	var radius = minf(12.0, maxf(2.5, float(s["r"])))
+	var distance = clampf(float(s["vel"].length()) * 0.036, 10.0, 42.0)
+	if style in ["fire", "toxic", "frost", "shock"]:
+		var tone = {"fire": Color("ff923f"), "toxic": Color("91ff65"), "frost": Color("a4ecff"), "shock": Color("89caff")}[style]
+		var width = 4.0 if style in ["fire", "toxic"] else 3.0
+		draw_line(p - direction * distance, p, Color(tone, 0.22), radius * 1.55)
+		draw_line(p - direction * distance * 0.62, p, Color(tone, 0.82), width)
+		if style == "shock":
+			var perp = direction.orthogonal()
+			draw_line(p - direction * 12.0 - perp * 4.0, p - direction * 7.0 + perp * 4.0, Color("e5f6ff"), 1.6)
+		elif style == "frost":
+			draw_line(p + direction.orthogonal() * 4.0, p - direction.orthogonal() * 4.0, Color("efffff"), 1.5)
+		elif style == "toxic":
+			draw_circle(p - direction * 13.0, 2.5, Color(tone, 0.4))
+	elif style == "pierce":
+		draw_line(p - direction * distance * 1.2, p, Color(tint, 0.24), radius * 1.4)
+		draw_line(p - direction * distance, p + direction * 3.0, Color(tint, 0.85), 2.0)
+	elif style == "shard":
+		var perp = direction.orthogonal() * 3.0
+		draw_colored_polygon(PackedVector2Array([p + direction * 7.0, p + perp, p - direction * 9.0, p - perp]), Color("a6ffd2", 0.6))
+	elif style == "blast":
+		draw_line(p - direction * distance * 0.8, p, Color("ff813d", 0.45), radius * 1.3)
+		draw_circle(p - direction * 9.0, 3.0, Color("fff2a1", 0.65))
+	elif style == "ricochet":
+		draw_line(p - direction * distance * 0.7, p, Color("ffe188", 0.48), 2.5)
+	elif style == "heavy":
+		draw_line(p - direction * distance * 0.65, p, Color(color, 0.5), 4.0)
+	else:
+		draw_line(p - direction * distance * 0.65, p, Color(color, 0.35), 2.0)
+
 func paint_shots() -> void:
 	for s in g.shots:
 		var p = P(s["pos"])
@@ -935,6 +971,8 @@ func paint_shots() -> void:
 		var r = float(s["r"])
 		var v: Vector2 = s["vel"]
 		var d = v.normalized() if v.length() > 1 else Vector2.UP
+		if bool(s["friendly"]) and bool(g.settings.get("particles", true)):
+			paint_projectile_travel(s, p, d)
 		match s["kind"]:
 			"enemy":
 				draw_circle(p, r + 4, Color(1, 0.25, 0.4, 0.3))
@@ -1052,6 +1090,29 @@ func paint_fx() -> void:
 		var p = P(f["pos"])
 		var c: Color = f["color"]
 		match f["kind"]:
+			"projectile_vfx":
+				var direction: Vector2 = f.get("dir", Vector2.UP)
+				var effect = str(f.get("event", "impact"))
+				var style = str(f.get("style", "kinetic"))
+				var radius = float(f["size"]) * (0.7 + k * 0.95)
+				var alpha = 1.0 - k
+				var tone = Color(c, alpha)
+				if effect == "muzzle":
+					draw_line(p - direction * 2.0, p + direction * radius * 1.55, Color(c, 0.75 * alpha), maxf(2.0, radius * 0.7))
+					draw_circle(p, radius * 0.42, Color(1.0, 0.98, 0.76, alpha))
+				else:
+					draw_arc(p, radius * 1.6, 0, TAU, 14, Color(c, 0.56 * alpha), 2.3)
+					var rays = 6 if effect == "bounce" else 4
+					for j in range(rays):
+						var a = (float(j) / float(rays)) * TAU + (0.4 if style == "shock" else 0.0)
+						var ray = Vector2.from_angle(a)
+						draw_line(p + ray * radius * 0.7, p + ray * radius * (1.4 + k), tone, 2.0 if style != "heavy" else 3.1)
+					if style in ["frost", "shard"]:
+							draw_line(p + ray * radius, p + ray.rotated(0.5) * radius * 0.5, Color("f1ffff", 0.6 * alpha), 1.5)
+					if style == "shock":
+						draw_line(p + ray * radius * 1.2, p + ray.rotated(0.32) * radius * 1.65, Color("dcf6ff", 0.8 * alpha), 1.6)
+					if style == "toxic":
+						draw_circle(p + ray * radius * 1.4, maxf(1.0, radius * 0.2), Color("b9ff76", 0.4 * alpha))
 			"spark":
 				draw_circle(p, float(f["size"]) * (1.0 - k), Color(c, 1.0 - k))
 			"ring":
