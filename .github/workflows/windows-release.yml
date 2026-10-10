@@ -36,8 +36,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="$(python3 -c 'import pathlib,re; t=pathlib.Path("scripts/Main.gd").read_text(); m=re.search(r"^const GAME_VERSION = \"(v[0-9]+\\.[0-9]+\\.[0-9]+)\"$",t,re.M); print(m.group(1) if m else "")')"
-          if [ -z "$tag" ]; then echo "Missing GAME_VERSION"; exit 1; fi
+          tag="$(awk -F '"' '/^const GAME_VERSION = "/ { print $2; exit }' scripts/Main.gd)"
+          if ! [[ "$tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]]; then echo "Missing or invalid GAME_VERSION: $tag"; exit 1; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
