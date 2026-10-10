@@ -806,6 +806,23 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
 		draw_texture_rect_region(atlas, Rect2(p.x - 100.0 * k * sx, p.y - 108.0 * k * sy, CELL * k * sx, CELL * k * sy), src, tint)
+	# Chonkzilla's body itself changes as armor breaks; this is not merely a HUD label.
+	# Draw cheap lines over the already-baked sprite: no new texture or particles.
+	if kind == "chonkzilla":
+		var stage: int = Combat.boss_stage(e)
+		if stage > 0:
+			var fracture_color = Color("ffcb8d") if stage == 1 else Color("ff7750")
+			var cracks: Array = [
+				[p + Vector2(-r * 0.42, -r * 0.70), p + Vector2(-r * 0.12, -r * 0.12), p + Vector2(-r * 0.36, r * 0.48)],
+				[p + Vector2(r * 0.36, -r * 0.78), p + Vector2(r * 0.08, -r * 0.04), p + Vector2(r * 0.38, r * 0.55)]
+			]
+			for crack in cracks:
+				draw_line(crack[0], crack[1], Color(fracture_color, 0.85), 4.0 if stage == 2 else 2.8)
+				draw_line(crack[1], crack[2], Color(fracture_color, 0.76), 3.6 if stage == 2 else 2.4)
+		if stage == 2:
+			draw_arc(p, r + 6.0, g.anim_t * 0.85, g.anim_t * 0.85 + PI * 1.3, 32,
+				Color("ff7750", 0.73), 4.0)
+			draw_circle(p + Vector2(0, r * 0.12), r * 0.12, Color("ffc381", 0.82))
 	# live parts: rotor, fuse spark, pupils (pupils use the atlas dot, so they stay in the same batch)
 	if kind == "coilqueen":
 		for coil_index in range(3):
