@@ -120,6 +120,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_signature_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_resource_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_compatibility_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/cinder_balance_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/enemy_part_mix_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/projectile_compatibility_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/barrel_weapon_test.gd
@@ -180,3 +181,35 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Slime Hour $RELEASE_TAG" \
             --notes "Slime Hour $RELEASE_TAG Windows. First install: download the full ZIP, extract and launch. New installations use a separate .pck game-data file. On future updates, the launcher automatically downloads changed chunks when a matching delta is available, SHA256 verifies the assembled game, and otherwise falls back to the full download."
+
+      # One-time repository cleanup requested after auditing all four old
+      # branches. Only remove a branch if its HEAD is exactly the audited SHA.
+      # Never delete an updated branch, main, or an unverified release.
+      - name: Prune audited superseded branches after v0.1.47 release
+        if: steps.version.outputs.needed == 'true' && steps.version.outputs.tag == 'v0.1.47'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view v0.1.47 --repo "$GITHUB_REPOSITORY" >/dev/null
+          branches=(
+            "feature/dynamic-enemies-ghost-performance:b46cb311a174a9c3bf3c9021143222ddd28f0cae"
+            "fix/compatibility-infinite-ammo-20261010:6ccab6ee4c484651e3b5168997fc3c287d75b53e"
+            "fix/persistent-updater-inplace-20261010:27097c833a716480c634f7f0fa82b51d3a82ad1b"
+            "fix/weapon-overflow-identities-20261010:59c4cb539916499b397f1d411b0e58e9f4a7a515"
+          )
+          for entry in "${branches[@]}"; do
+            branch="${entry%%:*}"
+            expected="${entry##*:}"
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" -q '.object.sha' 2>/dev/null || true)"
+            if [ -z "$actual" ]; then
+              echo "Already removed: $branch"
+              continue
+            fi
+            if [ "$actual" != "$expected" ]; then
+              echo "::warning::Retaining updated branch $branch; head changed since audit."
+              continue
+            fi
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
+            echo "Removed audited branch: $branch"
+          done
