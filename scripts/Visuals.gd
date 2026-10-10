@@ -359,6 +359,8 @@ func paint_barrels() -> void:
 
 func paint_telegraphs() -> void:
 	for d in g.delayed:
+		if d.has("source") and bool(d["source"].get("dead", false)):
+			continue
 		# The warning matches each moving / persistent boss threat,
 		# never covers the viewport unless the actual hitbox does.
 		if str(d.get("fn", "")) == "boss_boulder":
@@ -389,9 +391,24 @@ func paint_telegraphs() -> void:
 			var center: Vector2 = P(d["pos"])
 			var radius: float = float(d["tele"])
 			var warned: bool = float(d["arm"]) > 0.0
-			draw_circle(center, radius, Color("ff713e", 0.12 if warned else 0.25))
-			draw_arc(center, radius, 0.0, TAU, 36,
-				Color("ffbe83", 0.82 if warned else 1.0), 3.0)
+			var progress: float = 1.0 - clampf(float(d["arm"]) / maxf(0.01, float(d["life"]) - 0.28), 0.0, 1.0)
+			draw_circle(center, radius, Color("ff713e", 0.06 if warned else 0.18))
+			draw_arc(center, radius, 0.0, TAU, 40, Color("ffbe83", 0.78), 2.5)
+			draw_arc(center, radius - 7.0, -PI * 0.5, -PI * 0.5 + TAU * progress,
+				40, Color("fff1d0", 0.95), 3.0)
+			continue
+		if str(d.get("fn", "")) == "boss_soul_link":
+			if bool(d.get("source", {}).get("dead", false)):
+				continue
+			var a: Vector2 = P(d["a"])
+			var b: Vector2 = P(d["b"])
+			var progress: float = 1.0 - clampf(float(d["t"]) / maxf(0.01, float(d["life"])), 0.0, 1.0)
+			var col := Color("c49cff")
+			draw_line(a, b, Color(col, 0.12 + progress * 0.13), float(d["tele"]) * 2.0)
+			draw_line(a, b, Color(col, 0.78), 2.5)
+			for n in range(9):
+				var spot: Vector2 = a.lerp(b, float(n) / 8.0)
+				draw_circle(spot, 2.0 + progress * 2.0, Color("f2e4ff"))
 			continue
 		if str(d.get("fn", "")) == "boss_gravity":
 			var center: Vector2 = P(d["pos"])
@@ -417,12 +434,12 @@ func paint_telegraphs() -> void:
 			var progress = 1.0 - clampf(float(d["t"]) / total, 0.0, 1.0)
 			var col = Color(str(d.get("color", "ff9944")))
 			var normal = (b - a).normalized().orthogonal()
-			draw_line(a, b, Color(col, 0.14 + progress * 0.21), width * 2.0)
-			draw_line(a + normal * width, b + normal * width, Color(col, 0.86), 2.5)
-			draw_line(a - normal * width, b - normal * width, Color(col, 0.86), 2.5)
-			draw_line(a, b, Color.WHITE, 0.14 + 0.54 * progress) # narrow center guide
-			if progress > 0.60:
-				draw_line(a, b, Color(col, 0.35 + progress * 0.5), 3.0)
+			draw_line(a, b, Color(col, 0.06 + progress * 0.12), width * 2.0)
+			draw_line(a + normal * width, b + normal * width, Color(col, 0.80), 2.0)
+			draw_line(a - normal * width, b - normal * width, Color(col, 0.80), 2.0)
+			draw_line(a, b, Color.WHITE, 1.2 + progress * 1.8)
+			var marker: Vector2 = a.lerp(b, progress)
+			draw_line(marker - normal * (width + 8.0), marker + normal * (width + 8.0), Color.WHITE, 2.0)
 			continue
 		var pos: Vector2 = d["pos"]
 		var tgt = d.get("enemy")
@@ -433,26 +450,36 @@ func paint_telegraphs() -> void:
 		var k = 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
 		var r = float(d["tele"])
 		var warning_color = Color(str(d.get("color", "ff744e")))
-		draw_circle(p, r * k, Color(warning_color, 0.12 + 0.12 * k))
-		draw_arc(p, r, 0, TAU, 40, Color(warning_color, 0.85), 2.8)
+		if str(d["fn"]) in ["boss_missile", "boss_echo", "rift_emit"]:
+			draw_circle(p, r * 0.72, Color(warning_color, 0.07))
+			draw_arc(p, r * 0.72, -PI * 0.5, -PI * 0.5 + TAU * k,
+				40, Color(warning_color, 0.9), 2.5)
+		else:
+			draw_circle(p, r, Color(warning_color, 0.045 + 0.09 * k))
+			draw_arc(p, r, 0.0, TAU, 40, Color(warning_color, 0.92), 2.5)
+			draw_arc(p, r - 7.0, -PI * 0.5, -PI * 0.5 + TAU * k,
+				40, Color.WHITE, 2.8)
 		if str(d["fn"]) == "boss_missile":
-			text_c("MISSILE LOCK", p + Vector2(0, -r - 20.0), 14, Color("ffcd74"), 2)
 			var source: Vector2 = P(d.get("origin", d["pos"]))
-			draw_line(source, p, Color("ffbd74", 0.28 + k * 0.38), 2.5)
+			draw_line(source, p, Color("ffbd74", 0.22 + k * 0.32), 1.7)
+			for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+				draw_line(p + direction * 14.0, p + direction * 24.0, Color("ffe2a4"), 2.5)
 		if str(d["fn"]) == "boss_echo":
-			text_c("MOVEMENT ECHO", p + Vector2(0, -r - 18.0), 13, Color("8ceeff"), 2)
 			draw_line(p, P(d["target"]), Color("8ceeff", 0.22 + k * 0.30), 2.0)
+			draw_circle(p, 5.0, Color("c7f8ff", 0.8))
 		if str(d["fn"]) == "boss_serpent_emerge":
-			text_c("SERPENT BELOW", p + Vector2(0, -r - 18.0), 13, Color("65efb2"), 2)
+			for j in range(6):
+				var angle: float = TAU * float(j) / 6.0
+				var direction := Vector2.from_angle(angle)
+				draw_line(p + direction * (r - 14.0), p + direction * r, Color("b8ffda"), 3.0)
 		if str(d["fn"]) == "rift_emit":
 			var exit_target = P(d.get("target", d["pos"]))
-			draw_line(p, exit_target, Color("b397ff", 0.28 + k * 0.4), 2.5)
-			draw_arc(p, r + 6.0, g.anim_t * 2.5, g.anim_t * 2.5 + PI * 1.5, 32, Color("d9baff", 0.82), 4.0)
+			draw_line(p, exit_target, Color("b397ff", 0.20 + k * 0.25), 1.8)
+			draw_arc(p, r * 0.72, g.anim_t * 2.5, g.anim_t * 2.5 + PI * 1.5, 32, Color("d9baff", 0.9), 3.0)
 		if str(d["fn"]) in ["boss_blast", "elite_boom"]:
-			draw_arc(p, r * (0.35 + k * 0.65), -PI * 0.5, -PI * 0.5 + TAU * k, 40, Color("fff1c4", 0.85), 4.0)
-			for j in range(4):
-				var ray = Vector2.from_angle(float(j) * PI * 0.5)
-				draw_line(p + ray * (r - 16.0), p + ray * r, Color(warning_color, 0.85), 3.0)
+			for j in range(8):
+				var ray = Vector2.from_angle(float(j) * TAU / 8.0)
+				draw_line(p + ray * (r - 10.0), p + ray * r, Color(warning_color, 0.85), 2.0)
 		if d["fn"] == "kaboomba_boom":
 			# The dead bomber remains visible as a blinking armed body until detonation.
 			var blink = fmod(g.anim_t * (6.0 + k * 12.0), 1.0) < 0.5

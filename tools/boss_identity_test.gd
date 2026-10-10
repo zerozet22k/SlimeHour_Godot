@@ -56,24 +56,58 @@ func _run() -> void:
 	check(bosses.size() == 8, "Eight bosses remain in original sector rotation")
 	for boss_id in bosses:
 		check(Bestiary.info(str(boss_id))[0] != "UNKNOWN", boss_id + " has a specific counterplay entry")
-	# Every non-Chonkzilla boss also controls space beyond its immediate body.
+	# Arena attacks use their boss's mechanic, not a recolored shared grid.
 	for boss_id in bosses:
 		if boss_id == "chonkzilla":
 			continue
 		reset(g)
 		var map_boss = specimen(g, boss_id, 900 + bosses.find(boss_id))
+		var soul_anchor: Dictionary = {}
+		if boss_id == "necro":
+			soul_anchor = g.spawn_enemy("leech", Vector2(-100.0, -90.0), false, false)
+			soul_anchor["soul_owner"] = int(map_boss["id"])
+		if boss_id == "glassoracle":
+			for mirror_index in range(2):
+				var mirror = g.spawn_enemy("mirror", Vector2(-170.0 + mirror_index * 340.0, -115.0), false, false)
+				mirror["oracle_owner"] = int(map_boss["id"])
 		Combat.boss_map_pattern(g, map_boss, 1)
 		var field = g.delayed.filter(func(d): return str(d.get("map_pattern", "")) == boss_id)
-		check(field.size() >= 5, boss_id + " creates a real multi-circle arena attack")
-		var map_left := false
-		var map_right := false
-		var gap_clear := true
-		for circle in field:
-			map_left = map_left or float(circle["pos"].x) < -g.road_half * 0.5
-			map_right = map_right or float(circle["pos"].x) > g.road_half * 0.5
-			var gap_pos: float = -g.road_half + 65.0 + float(circle["map_gap"]) * (g.road_half * 2.0 - 130.0) / float(maxi(4, floori(g.road_half * 2.0 / 205.0)) - 1)
-			gap_clear = gap_clear and absf(float(circle["pos"].x) - gap_pos) > 1.0
-		check(map_left and map_right and gap_clear, boss_id + " covers the road with a clear escape route")
+		var expected := {"heli": "boss_blast", "necro": "boss_soul_link",
+			"kingblob": "boss_blast", "coilqueen": "coil_wall",
+			"glassoracle": "boss_line", "voidweaver": "rift_emit",
+			"dreadengine": "boss_line"}
+		check(field.size() >= 1 and field.all(func(d): return str(d["fn"]) == expected[boss_id]),
+			boss_id + " uses its own arena attack type")
+		if boss_id == "heli" or boss_id == "kingblob" or boss_id == "voidweaver":
+			var map_left := false
+			var map_right := false
+			for event in field:
+				map_left = map_left or float(event["pos"].x) < -g.road_half * 0.5
+				map_right = map_right or float(event["pos"].x) > g.road_half * 0.5
+			check(map_left and map_right, boss_id + " uses both sides of the arena")
+		if boss_id == "necro":
+			check(field[0]["source"] == soul_anchor, "Necro's arena strike is tied to a killable anchor")
+			var hp_before_link: float = float(g.hero["hp"])
+			soul_anchor["dead"] = true
+			Combat.update_delayed(g, 2.0)
+			check(is_equal_approx(float(g.hero["hp"]), hp_before_link),
+				"Destroying a soul anchor cancels its warned arena strike")
+		if boss_id == "kingblob":
+			check(field.any(func(d): return bool(d.get("royal_spawn", false))),
+				"King Blob's impact leaves a killable royal fragment")
+		if boss_id == "glassoracle":
+			check(field.all(func(d): return d.has("source")),
+				"Oracle rays originate at physical mirrors")
+			field[0]["source"]["dead"] = true
+			g.delayed = [field[0]]
+			g.hero["pos"] = Vector2(field[0]["pos"])
+			var hp_before_ray: float = float(g.hero["hp"])
+			Combat.update_delayed(g, 2.0)
+			check(is_equal_approx(float(g.hero["hp"]), hp_before_ray),
+				"Breaking a mirror cancels its warned ray")
+		if boss_id == "dreadengine":
+			var first_pass = field.filter(func(d): return int(d["map_pass"]) == 0)
+			check(first_pass.size() == 4, "Dread Engine's piston bank leaves one open lane")
 
 	# Chonkzilla is a distinct charge/terrain encounter, not a short teleport stomp.
 	reset(g)

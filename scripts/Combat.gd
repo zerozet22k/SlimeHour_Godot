@@ -242,6 +242,19 @@ static func update_delayed(g, dt: float) -> void:
 				g.sfx.play_projectile("boss_impact")
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
+				if bool(item.get("royal_spawn", false)):
+					var royal: Dictionary = item.get("boss", {})
+					if not royal.is_empty() and not bool(royal.get("dead", false)) and g.enemies.size() < g.enemy_cap():
+						var fragment = g.spawn_enemy("blob", item["pos"], false, false)
+						fragment["summon"] = true
+						fragment["royal_owner"] = int(royal["id"])
+			"boss_soul_link":
+				var anchor: Dictionary = item.get("source", {})
+				if not anchor.is_empty() and not bool(anchor.get("dead", false)):
+					g.beams.append({"a": item["a"], "b": item["b"], "t": 0.22,
+						"w": float(item["tele"]) * 2.0, "color": Color("c49cff"), "zig": true})
+					if seg_dist2(item["a"], item["b"], g.hero["pos"]) <= pow(float(item["tele"]) + 11.0, 2.0):
+						g.hurt(float(item["dmg"]), item["pos"], "Necro-Dad's soul chain")
 			"coil_wall":
 				var width: float = float(item["tele"])
 				g.beams.append({"a": item["a"], "b": item["b"], "t": 0.22, "w": width * 2.0, "color": Color("57e5aa")})
@@ -268,6 +281,8 @@ static func update_delayed(g, dt: float) -> void:
 					g.hurt(float(item["dmg"]), item["pos"], "Blinky's teleport slash")
 			"boss_line":
 				# Telegraph exactly the same segment and collision width as the strike.
+				if item.has("source") and bool(item["source"].get("dead", false)):
+					continue
 				var a: Vector2 = item["a"]
 				var b: Vector2 = item["b"]
 				var w: float = float(item["tele"])
@@ -1632,44 +1647,100 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 ## Boss setpieces are DIFFERENT combat systems, not differently colored
 ## fullscreen damage. Their warnings mark the actual collision area.
 ## Long-range retreat triggers pursuit through the existing boss AI.
-## Boss-specific floor formations cross the entire visible road. A missing cell
-## in every row is deliberate: the player can read the warning and move through.
+## Each arena event extends its boss's actual combat rule. Positions lock when
+## warned; no event follows the player after it has been shown.
 static func boss_map_pattern(g, e: Dictionary, stage: int) -> void:
 	var kind: String = str(e["kind"])
-	var colors := {"heli": "ffc369", "necro": "c49cff", "kingblob": "ff83c0",
-		"coilqueen": "65efb2", "glassoracle": "8ceeff",
-		"voidweaver": "a18aff", "dreadengine": "ffce83"}
-	if not colors.has(kind):
-		return
 	var cycle: int = int(e.get("map_cycle", 0))
 	e["map_cycle"] = cycle + 1
-	var columns: int = maxi(4, floori(g.road_half * 2.0 / 205.0))
-	var rows: int = 3 if stage < 2 else 4
-	var gap_x: float = (g.road_half * 2.0 - 130.0) / float(columns - 1)
-	var center_y: float = float(g.hero["pos"].y)
-	for row in range(rows):
-		var gap: int = (cycle + row) % columns
-		match kind:
-			"heli": gap = (cycle + row) % columns # Bombing run sweeps sideways.
-			"necro": gap = (columns - 1 - cycle - row) % columns # Soul wave reverses.
-			"kingblob": gap = (cycle + row * 2) % columns # Splits alternate flanks.
-			"coilqueen": gap = 0 if (cycle + row) % 2 == 0 else columns - 1 # Serpentine edge route.
-			"glassoracle": gap = (cycle + (columns - 1 - row)) % columns # Reflected sweep.
-			"voidweaver": gap = (cycle + row * 2) % columns # Portal checkerboard.
-			"dreadengine": gap = (cycle + row) % columns # Piston wave.
-		for column in range(columns):
-			if column == gap or g.delayed.size() >= 132:
-				continue
-			if kind == "voidweaver" and (column + row + cycle) % 2 == 0:
-				continue
-			var pos := Vector2(-g.road_half + 65.0 + float(column) * gap_x,
-				center_y - 225.0 + row * 190.0)
-			var radius: float = 66.0 if kind != "kingblob" else 73.0
-			var warning: float = 1.25 + row * (0.27 if kind != "dreadengine" else 0.38)
-			g.delayed.append({"fn": "boss_blast", "pos": pos, "t": warning,
-				"life": warning, "tele": radius, "dmg": float(e["dmg"]) * 0.43,
-				"color": colors[kind], "owner": int(e["id"]), "map_pattern": kind,
-				"map_row": row, "map_gap": gap})
+	var y: float = float(g.hero["pos"].y)
+	# ScreenFit can make the road wider than the camera. Keep warnings visible.
+	var half: float = minf(g.road_half, 530.0)
+	var damage: float = float(e["dmg"])
+	match kind:
+		"heli":
+			# A genuine diagonal bombing run. Read the direction of travel.
+			var direction: float = 1.0 if cycle % 2 == 0 else -1.0
+			for i in range(6 + stage):
+				var x: float = direction * (-half + 75.0 + float(i) * (2.0 * half - 150.0) / float(5 + stage))
+				g.delayed.append({"fn": "boss_blast", "pos": Vector2(x, y - 245.0 + i * 72.0),
+					"t": 1.0 + i * 0.23, "life": 1.0 + i * 0.23, "tele": 62.0,
+					"dmg": damage * 0.46, "color": "ffc369", "map_pattern": kind})
+		"necro":
+			# Soul chains originate at killable anchors. Removing an anchor cancels
+			# its pending strike rather than leaving an invisible unavoidable hit.
+			for mob in g.enemies:
+				if bool(mob.get("dead", false)) or int(mob.get("soul_owner", -1)) != int(e["id"]):
+					continue
+				var lane_y: float = clampf(float(mob["pos"].y), y - 230.0, y + 230.0)
+				g.delayed.append({"fn": "boss_soul_link", "source": mob, "owner": int(e["id"]),
+					"pos": Vector2(0.0, lane_y), "a": Vector2(-half + 15.0, lane_y),
+					"b": Vector2(half - 15.0, lane_y), "tele": 19.0,
+					"t": 1.35, "life": 1.35, "dmg": damage * 0.57,
+					"color": "c49cff", "map_pattern": kind})
+		"kingblob":
+			# Rolling royal mass crosses the arena; the last impact births a
+			# killable fragment, so dodging alone doesn't end the pressure.
+			var sign_side: float = 1.0 if cycle % 2 == 0 else -1.0
+			for i in range(5 + stage):
+				var x: float = sign_side * (-half + 85.0 + i * (2.0 * half - 170.0) / float(4 + stage))
+				g.delayed.append({"fn": "boss_blast", "pos": Vector2(x, y - 175.0 + float(i % 2) * 240.0),
+					"t": 1.05 + i * 0.23, "life": 1.05 + i * 0.23, "tele": 76.0,
+					"dmg": damage * 0.45, "color": "ff83c0", "map_pattern": kind,
+					"royal_spawn": i == 4 + stage, "boss": e})
+		"coilqueen":
+			# Actual moving venom walls zigzag through opposite sides.
+			for i in range(2 + stage):
+				var side: float = -1.0 if (cycle + i) % 2 == 0 else 1.0
+				var x: float = side * (half - 85.0)
+				g.delayed.append({"fn": "coil_wall", "pos": Vector2(x, y), "side": side,
+					"tele": 20.0, "t": 1.55 + i * 0.30, "life": 1.55 + i * 0.30,
+					"dmg": damage * 0.56, "color": "65efb2", "map_pattern": kind,
+					"a": Vector2(x, y - 260.0), "b": Vector2(x, y + 260.0),
+					"move": 240.0 + stage * 20.0, "stop_x": side * 75.0})
+		"glassoracle":
+			# Each ray comes from a physical mirror. Break the mirror and its
+			# pending reflection vanishes, along with its armor contribution.
+			var nodes: Array = []
+			for mob in g.enemies:
+				if not bool(mob.get("dead", false)) and int(mob.get("oracle_owner", -1)) == int(e["id"]):
+					nodes.append(mob)
+			for i in range(mini(nodes.size(), 2 + stage)):
+				var node: Dictionary = nodes[i]
+				var side: float = -1.0 if (cycle + i) % 2 == 0 else 1.0
+				var a: Vector2 = node["pos"]
+				var b := Vector2(side * (half - 20.0), y - 170.0 + i * 170.0)
+				g.delayed.append({"fn": "boss_line", "pos": (a + b) * 0.5, "a": a, "b": b,
+					"tele": 19.0, "t": 1.05 + i * 0.38, "life": 1.05 + i * 0.38,
+					"dmg": damage * 0.59, "color": "8ceeff", "map_pattern": kind,
+					"source": node})
+		"voidweaver":
+			# Edge portals fire crossing volleys; warning rings mark emitters,
+			# not fake floor damage where the bullets might later pass.
+			for i in range(4 + stage):
+				var side: float = -1.0 if (cycle + i) % 2 == 0 else 1.0
+				var portal := Vector2(side * (half - 58.0), y - 210.0 + i * 105.0)
+				g.delayed.append({"fn": "rift_emit", "pos": portal,
+					"target": Vector2(-side * 155.0, y + 45.0), "tele": 43.0,
+					"t": 1.0 + i * 0.28, "life": 1.0 + i * 0.28,
+					"dmg": damage * 0.43, "color": "b397ff", "stage": stage,
+					"map_pattern": kind})
+		"dreadengine":
+			# Piston banks compress alternating vertical lanes. One lane is
+			# deliberately omitted on each pass, then the opening shifts.
+			var columns := 5
+			for pass_index in range(2 + mini(stage, 1)):
+				var gap: int = (cycle + pass_index * 2) % columns
+				for column in range(columns):
+					if column == gap:
+						continue
+					var x: float = -half + 75.0 + column * (2.0 * half - 150.0) / 4.0
+					g.delayed.append({"fn": "boss_line", "pos": Vector2(x, y),
+						"a": Vector2(x, y - 290.0), "b": Vector2(x, y + 290.0),
+						"tele": 22.0, "t": 1.1 + pass_index * 0.48,
+						"life": 1.1 + pass_index * 0.48, "dmg": damage * 0.51,
+						"color": "ffce83", "map_pattern": kind,
+						"map_pass": pass_index, "map_gap": gap})
 
 static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dead", false)):
