@@ -1031,6 +1031,12 @@ func paint_shots() -> void:
 				draw_circle(p, r + 5, Color(enemy_color, 0.25))
 				draw_circle(p, r, enemy_color)
 				draw_circle(p, r * 0.46, Color("fff7ec"))
+				if str(s.get("vfx_style", "")).begins_with("boss_"):
+					var pulse = 0.55 + 0.45 * sin(g.anim_t * 12.0 + float(s["phase"]))
+					draw_arc(p, r + 5.5 + pulse * 2.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI * 1.3, 16, Color(enemy_color, 0.8), 2.1)
+					for j in range(3):
+						var a = g.anim_t * 2.8 + float(j) * TAU / 3.0
+						draw_circle(p + Vector2.from_angle(a) * (r + 5.0), 1.8, Color("fff5e8", 0.85))
 			"skull":
 				draw_circle(p, r + 4, Color(0.7, 0.4, 1.0, 0.3))
 				draw_circle(p, r + 1, Color("e0d8f0"))
@@ -1132,10 +1138,12 @@ func paint_beams() -> void:
 			draw_line(a, e, Color(c, 0.9 * k), w)
 			draw_line(a, e, Color(1, 1, 1, k), w * 0.35)
 		else:
-			draw_line(a, e, Color(c, 0.3), w * 2.2)
-			draw_line(a, e, c, w)
-			draw_line(a, e, Color(1, 1, 1, 0.85), maxf(1.5, w * 0.3))
-			draw_circle(e, w * 1.2, Color(c, 0.6))
+			var shimmer = 0.85 + 0.15 * sin(g.anim_t * 26.0 + a.distance_to(e) * 0.03)
+			draw_line(a, e, Color(c, 0.25 * shimmer), w * 2.9)
+			draw_line(a, e, Color(c, 0.85 * shimmer), w * 1.1)
+			draw_line(a, e, Color(1, 1, 1, 0.92 * shimmer), maxf(1.5, w * 0.36))
+			draw_circle(e, w * (0.95 + 0.28 * sin(g.anim_t * 23.0)), Color(c, 0.57 * shimmer))
+			draw_circle(e, maxf(1.5, w * 0.37), Color("fff8e9", 0.86 * shimmer))
 
 ## Short readable combat glyphs. A different silhouette for every semantic event.
 func paint_projectile_event(f: Dictionary, p: Vector2, k: float) -> void:
