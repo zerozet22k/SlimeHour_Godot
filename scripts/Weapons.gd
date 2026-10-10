@@ -679,7 +679,7 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		var distance_ratio = clampf(origin.distance_to(enemy["pos"]) / maxf(1.0, reach), 0.0, 1.0)
 		var travelling_heat = 1.0 + (0.20 * distance_ratio if g.st("accel") > 0.0 else 0.0)
 		Combat.hit(g, enemy, damage * travelling_heat, {"pos": enemy["pos"], "gen": 0, "dir": direction,
-			"knock": 8.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w)})
+			"knock": 8.0, "src": "flame", "st": {"burn": 1.0 + Compatibility.support_bonus(g, w)}, "pool": dmg_pool(g, w)})
 		if anchor == null and not bool(enemy["dead"]):
 			anchor = enemy
 		hits += 1
