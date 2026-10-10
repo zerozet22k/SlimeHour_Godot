@@ -1,3 +1,9 @@
+## v0.1.8 — Verified partial-download rollout
+
+- First production incremental release using the external Godot content pack introduced in v0.1.7.
+- CI publishes changed chunks as a small separate patch when worthwhile; oversized patch candidates automatically fall back to a full download.
+- Update installation keeps the old version available until the new executable and pack pass SHA256 verification.
+
 ## v0.1.7 — Incremental game downloads
 
 - Export SlimeHour.exe and SlimeHour.pck separately instead of embedding the full game pack into every new executable.

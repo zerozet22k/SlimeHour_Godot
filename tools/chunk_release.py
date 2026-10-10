@@ -128,6 +128,11 @@ def build_delta(old_root, new_root, output):
         finally:
             for stream in handles.values():
                 stream.close()
+    full_zip = output.parent / "SlimeHour-Windows.zip"
+    if full_zip.is_file() and output.stat().st_size >= full_zip.stat().st_size * 0.85:
+        print("Patch is too large; publishing full ZIP only.")
+        output.unlink()
+        return False
     checksum(output)
     (output.parent / "SlimeHour-Delta.json").write_text(
         json.dumps({"base_version": old["version"], "target_version": new["version"]},
