@@ -144,6 +144,17 @@ static func update_delayed(g, dt: float) -> void:
 				g.sfx.play_projectile("boss_impact")
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
+			"boss_line":
+				# Telegraph exactly the same segment and collision width as the strike.
+				var a: Vector2 = item["a"]
+				var b: Vector2 = item["b"]
+				var w: float = float(item["tele"])
+				var col = Color(str(item.get("color", "ff9944")))
+				g.beams.append({"a": a, "b": b, "t": 0.24, "w": w * 2.0, "color": col, "zig": false})
+				g.spawn_ring_fx((a + b) * 0.5, col, w * 2.0)
+				g.sfx.play_projectile("boss_impact")
+				if seg_dist2(a, b, g.hero["pos"]) <= pow(w + 11.0, 2.0):
+					g.hurt(float(item["dmg"]), (a + b) * 0.5, "a boss lane attack")
 			"elite_boom":
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
@@ -1300,6 +1311,51 @@ static func schedule_boss_blast(g, pos: Vector2, radius: float, damage: float, t
 static func boss_ring(g, e: Dictionary, count: int, speed: float, offset: float = 0.0) -> void:
 	for i in range(count):
 		enemy_fire(g, e, Vector2.from_angle(offset + TAU * float(i) / count), 1, 0.0, speed)
+
+## Line strikes are warned, fixed-in-world and dodgeable; never instantly
+## follow a player after the telegraph starts.
+static func schedule_boss_line(g, a: Vector2, b: Vector2, width: float, dmg: float, delay: float, color: String = "ff9944") -> void:
+	if g.delayed.size() >= 145:
+		return
+	var t = maxf(0.48, delay)
+	g.delayed.append({"fn": "boss_line", "pos": (a + b) * 0.5, "a": a, "b": b,
+		"tele": width, "t": t, "life": t, "dmg": dmg, "color": color})
+
+## Predict movement once when the attack is committed. Narrow sequential
+## lines overlap lanes only partially, leaving a skill-based safe route.
+static func boss_lane_sequence(g, e: Dictionary, target: Vector2, stage: int, horizontal: bool, color: String) -> void:
+	var count = 3 + stage
+	var spacing = 105.0 if horizontal else 120.0
+	for k in range(count):
+		var offset = (float(k) - (count - 1) * 0.5) * spacing
+		var a: Vector2
+		var b: Vector2
+		if horizontal:
+			a = Vector2(-g.road_half + 8.0, target.y + offset)
+			b = Vector2(g.road_half - 8.0, target.y + offset)
+		else:
+			var x = clampf(target.x + offset, -g.road_half + 15.0, g.road_half - 15.0)
+			a = Vector2(x, target.y - 330.0)
+			b = Vector2(x, target.y + 330.0)
+		schedule_boss_line(g, a, b, 22.0 + stage * 2.0, float(e["dmg"]) * 0.65, 0.92 + float(k) * 0.22, color)
+
+## Radial attacks have a persistent player-sized opening: heavy bullet curtains
+## should be difficult without becoming unavoidable at close distance.
+static func boss_gapped_ring(g, e: Dictionary, count: int, speed: float, gap: float, offset: float = 0.0) -> void:
+	var avoid = (g.hero["pos"] - e["pos"]).angle() + gap
+	var half_gap = maxf(0.14, TAU / float(maxi(6, count)) * 1.2)
+	for k in range(count):
+		var ang = offset + TAU * float(k) / float(count)
+		if absf(wrapf(ang - avoid, -PI, PI)) < half_gap:
+			continue
+		enemy_fire(g, e, Vector2.from_angle(ang), 1, 0.0, speed)
+
+static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: String) -> void:
+	var span = 200.0 + 25.0 * stage
+	for turn in [-1.0, 1.0]:
+		schedule_boss_line(g, target + Vector2(-span, -span * turn),
+			target + Vector2(span, span * turn), 20.0 + stage * 2.0,
+			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
 
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
