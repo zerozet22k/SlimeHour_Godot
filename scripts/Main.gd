@@ -257,7 +257,8 @@ func _ready() -> void:
 		weapon_db[str(w["id"])] = w
 		weapon_ids.append(str(w["id"]))
 	for e in data["enemies"]:
-		enemy_db[str(e["id"])] = e
+		if EnemyMixes.usable(str(e["id"])):
+			enemy_db[str(e["id"])] = e
 	# Dynamic hybrids are registered only when encountered; no pre-baked pair list.
 	sfx = SfxScript.new()
 	add_child(sfx)
@@ -267,7 +268,15 @@ func _ready() -> void:
 	var args = OS.get_cmdline_user_args()
 	portrait_preview = args.has("--portrait-preview")
 	load_options()
-	# Preserve previously encountered hybrids from existing profile saves.
+	# Retired Nurse/Larry and their historical hybrids are migrated out of
+	# older profiles, not resurrected when rebuilding the Bestiary.
+	for key in ["mobs", "announced_mobs"]:
+		var records: Dictionary = profile.get(key, {})
+		for known in records.keys():
+			if not EnemyMixes.usable(str(known)):
+				records.erase(known)
+		profile[key] = records
+	# Preserve OTHER previously encountered hybrids from existing saves.
 	for known_kind in profile.get("mobs", {}):
 		if str(known_kind).begins_with("mix_") and not enemy_db.has(known_kind):
 			var pair_parts = str(known_kind).trim_prefix("mix_").split("_")
@@ -1273,8 +1282,8 @@ static func available_enemies(s: int) -> Array:
 			out.append(ROUTE_INTRO_ORDER[i])
 	return out
 
-const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "nurse": 0.8, "spitter": 2.2, "kaboomba": 1.5, "chonk": 1.4,
-	"mitosis": 1.7, "riot": 1.2, "bull": 1.2, "larry": 0.8, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35,
+const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "spitter": 2.2, "kaboomba": 1.5, "chonk": 1.4,
+	"mitosis": 1.7, "riot": 1.2, "bull": 1.2, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35,
 	"blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55,
 	"skitter": 2.0, "sapper": 1.1, "lancer": 1.3, "leech": 0.9}
 
@@ -1284,7 +1293,9 @@ func pick_enemy() -> String:
 	# Mix chance is independent of fixed map/sector numbers. Never combine
 	# a species in the sector where it first debuts.
 	var known = available_enemies(sector - 1)
-	var mix_chance = minf(0.30, 0.12 + 0.012 * float(maxi(0, sector - 16)))
+	# Late sectors deserve varied hybrids, not near-identical base slimes.
+	# Chance ramps from 12% at sector 16 to 43% by sector 40.
+	var mix_chance = minf(0.43, 0.12 + 0.013 * float(maxi(0, sector - 16)))
 	if sector >= 16 and randf() < mix_chance:
 		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes)
 		if hybrid != "":
@@ -1340,6 +1351,12 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		"burn": 0.0, "chill": 0.0, "frozen": 0.0, "shock": 0.0, "poison": 0.0, "bleed": 0.0, "slow": 0.0,
 		"stun": 0.0, "charm": 0.0, "wet": 0.0, "mark": 0.0, "pinned": 0.0, "bubble": 0.0, "flung": 0.0,
 		"tick": randf() * 0.5, "sdt": randf() * 0.1, "aim": Vector2.DOWN, "gen": 0, "squash": 0.0, "spawn": 0.0}
+	# Cosmetic phenotype per spawn. One secondary feature only, never a full
+	# second face; all members retain the same bounded combined abilities.
+	if kind.begins_with("mix_"):
+		var inherit_options: Array = d.get("look", {}).get("trait_options", [])
+		if not inherit_options.is_empty():
+			e["hybrid_trait"] = str(inherit_options[randi() % inherit_options.size()])
 	if is_elite:
 		# Elite affixes: 1 early, 2 from sector 13, 3 from sector 20; no sudden sector-10 double-affix spike.
 		var pool = ["HASTED", "ARMORED", "VOLATILE", "SPLITTER", "REGEN", "TURRET"]
@@ -1929,6 +1946,8 @@ func random_start_card() -> String:
 
 ## Bestiary: lifetime kills per monster kind. The first kill of a kind unlocks its entry.
 func note_mob(kind: String) -> void:
+	if not EnemyMixes.usable(kind) or not enemy_db.has(kind):
+		return
 	var mobs: Dictionary = profile["mobs"]
 	if not mobs.has(kind):
 		mobs[kind] = 0
@@ -1943,7 +1962,7 @@ func mob_order() -> Array:
 	out.append_array(ROUTE_INTRO_ORDER)
 	# Encountered hybrids, not an enormous list of theoretical possibilities.
 	for kind in enemy_db:
-		if str(kind).begins_with("mix_") and profile.get("mobs", {}).has(kind):
+		if str(kind).begins_with("mix_") and EnemyMixes.usable(str(kind)) and profile.get("mobs", {}).has(kind):
 			out.append(kind)
 	out.append_array(["mini", "goblin"])
 	for kind in enemy_db:
