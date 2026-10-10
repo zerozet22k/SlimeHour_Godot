@@ -133,10 +133,10 @@ func _run() -> void:
 
 	# Weaver portals emit actual shots from positions away from the boss.
 	reset(g)
-	var void = specimen(g, "voidweaver", 507)
-	Combat.ai(g, void, Vector2.DOWN, 260.0, 0.016, false)
-	check(float(void["wind"]) > 0.0 and g.delayed.filter(func(d): return str(d.get("fn", "")) == "rift_emit").size() == 2, "Void Weaver creates two attack portals and a phase swap")
-	Combat.ai(g, void, Vector2.DOWN, 260.0, 0.95, false)
+	var weaver = specimen(g, "voidweaver", 507)
+	Combat.ai(g, weaver, Vector2.DOWN, 260.0, 0.016, false)
+	check(float(weaver["wind"]) > 0.0 and g.delayed.filter(func(d): return str(d.get("fn", "")) == "rift_emit").size() == 2, "Void Weaver creates two attack portals and a phase swap")
+	Combat.ai(g, weaver, Vector2.DOWN, 260.0, 0.95, false)
 	Combat.update_delayed(g, 1.3)
 	check(g.shots.size() >= 4, "Void Weaver's warned remote portals really launch crossfire")
 
