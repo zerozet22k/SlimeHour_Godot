@@ -1516,7 +1516,9 @@ static func boss_identity_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: fl
 					# Support aircraft fire a short downward rake through the
 					# center of the run, not rings fired from a stationary boss.
 					for k in range(3 + stage):
-						var bullet = enemy_fire(g, e, Vector2(0.25 * float(e["flight_side"]), 1.0).normalized(), 1, 0.0, 360.0, 5.0)
+						var spread: float = (float(k) - float(2 + stage) * 0.5) * 0.14
+						var rake_dir: Vector2 = Vector2(0.25 * float(e["flight_side"]) + spread, 1.0).normalized()
+						var bullet = enemy_fire(g, e, rake_dir, 1, 0.0, 360.0, 5.0)
 						if bullet != null:
 							bullet["wave"] = 0.0
 				return Vector2(float(e["flight_side"]), 0.0)
