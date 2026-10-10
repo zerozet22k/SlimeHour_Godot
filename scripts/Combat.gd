@@ -1678,10 +1678,19 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						boss_ring(g, e, 10 + stage * 3, 295.0, PI / 12.0 + float(e["t"]) * 0.4)
 				return Vector2.ZERO
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.8 - stage * 0.45
+				e["cd"] = 3.0 - stage * 0.38
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var attack = int(e["pattern"]) % 4
-				if attack == 1:
+				var attack = int(e["pattern"]) % 6
+				if attack == 4:
+					# QUAKELINE: marching horizontal crushers force timed movement.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.28, stage, true, "ff5a6e")
+				elif attack == 5:
+					# CRUSHING WALLS: alternating safe corridors with a delayed
+					# cross strike at high phase, not an unavoidable full screen.
+					boss_lane_sequence(g, e, hero_pos, stage, false, "ff8550")
+					if stage >= 1:
+						boss_cross(g, e, hero_pos, stage, "ffb15c")
+				elif attack == 1:
 					# Alternating offset slams force a lateral dodge.
 					for k in range(3 + stage):
 						var point = hero_pos + Vector2((k - 1) * 115.0, -35.0)
@@ -1703,10 +1712,21 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			var stage = boss_stage(e)
 			var anchor = Vector2(sin(float(e["t"]) * 0.7) * 300.0, hero_pos.y - 280.0)
 			if e["cd"] <= 0.0:
-				e["cd"] = 2.75 - stage * 0.35
+				e["cd"] = 2.35 - stage * 0.25
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 4
-				if pattern == 0:
+				var pattern = int(e["pattern"]) % 6
+				if pattern == 4:
+					# STRAFE RUN: vertical attack corridors are laid one after
+					# another, making the player shift and reverse directions.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.35, stage, false, "ffbb5e")
+				elif pattern == 5:
+					# SKY PINS: cross-lane shots followed by a small precision
+					# carpet, with visible warning for each impact.
+					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.3, stage, "fda65a")
+					for k in range(2 + stage):
+						var pin = hero_pos + Vector2((k - stage * 0.5) * 85.0, -80.0)
+						schedule_boss_blast(g, pin, 42.0, float(e["dmg"]) * 0.5, 1.1 + 0.25 * k, "ffd17a")
+				elif pattern == 0:
 					e["burst"] = 10 + stage * 3
 				elif pattern == 3:
 					# New move: staggered bombing lanes cross where the hero stood.
@@ -1732,10 +1752,24 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 		"necro":
 			var stage = boss_stage(e)
 			if e["cd"] <= 0.0:
-				e["cd"] = 3.0 - stage * 0.35
+				e["cd"] = 2.55 - stage * 0.26
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				var pattern = int(e["pattern"]) % 4
-				if pattern == 3:
+				var pattern = int(e["pattern"]) % 6
+				if pattern == 4:
+					# GRAVE LATTICE: cursed paths cross in a warned X.
+					boss_cross(g, e, hero_pos, stage, "c07bff")
+					if stage >= 1:
+						boss_gapped_ring(g, e, 13 + stage * 4, 235.0, 0.0, float(e["t"]) * 0.6)
+				elif pattern == 5:
+					# SPIRIT CORRIDORS: radial homing pursuit paired with a
+					# narrow moving gap in a cursed lane sequence.
+					boss_lane_sequence(g, e, hero_pos + g.hero["vel"] * 0.2, stage, true, "b57bff")
+					for k in range(3 + stage):
+						var ghost = enemy_fire(g, e, dir.rotated((k - 1 - stage * 0.5) * 0.27), 1, 0.0, 220.0, 6.0)
+						if ghost != null:
+							ghost["homing"] = 0.9
+							ghost["life"] = 3.0
+				elif pattern == 3:
 					# New move: summon fast leeches to force displacement.
 					for k in range(2 + stage):
 						if g.enemies.size() >= g.enemy_cap():
@@ -1780,9 +1814,17 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						g.hurt(float(e["dmg"]), e["pos"], "KING BLOB's butt")
 				return Vector2.ZERO
 			if e["cd"] <= 0.0 and dist < 480.0:
-				e["cd"] = 4.0 - stage * 0.55
+				e["cd"] = 3.1 - stage * 0.38
 				e["pattern"] = int(e.get("pattern", -1)) + 1
-				if int(e["pattern"]) % 4 == 3:
+				var king_attack = int(e["pattern"]) % 6
+				if king_attack == 4:
+					# ROYAL PINS: staggered edge-to-edge pressure lanes.
+					boss_lane_sequence(g, e, hero_pos, stage, true, "ff7fa7")
+				elif king_attack == 5:
+					# SPLIT CROWN: cross-lanes and a gapped outward barrage.
+					boss_cross(g, e, hero_pos + g.hero["vel"] * 0.2, stage, "ff6aba")
+					boss_gapped_ring(g, e, 14 + stage * 5, 230.0 + stage * 20.0, 0.2, float(e["t"]) * 0.15)
+				elif king_attack == 3:
 					# New move: spawn flanking skitters and force repositioning.
 					for k in range(2 + stage):
 						if g.enemies.size() >= g.enemy_cap():
@@ -1790,7 +1832,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						var skit = g.spawn_enemy("skitter", e["pos"] + Vector2(-85.0 + k * 65.0, 40.0), false, false)
 						skit["summon"] = true
 					g.spawn_ring_fx(e["pos"], Color("ff7b93"), 110.0)
-				elif int(e["pattern"]) % 2 == 0:
+				elif king_attack % 2 == 0:
 					e["wind"] = 0.95 - stage * 0.13
 					e["lock"] = hero_pos
 					e["tele"] = 110.0
