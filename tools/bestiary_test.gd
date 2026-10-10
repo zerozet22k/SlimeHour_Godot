@@ -13,9 +13,9 @@ func _check() -> void:
 			push_error("BESTIARY MISSING: " + str(id))
 		elif Bestiary.info(id).size() != 3:
 			missing += 1
-	# Dynamic roster: new base species debut every two sectors, with
-	# independently rolled freeform hybrids from sector 11 onward.
-	var introductions = {"nurse": 6, "skitter": 8, "larry": 10, "leech": 12, "sapper": 14, "mortar": 16, "bull": 18}
+	# Base species debut every two sectors; generic hybrids unlock only
+	# after a broader range of main types has been introduced.
+	var introductions = {"skitter": 6, "sapper": 8, "mirror": 10, "burrower": 12, "leech": 14, "ashwing": 16, "siren": 18}
 	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
 	var ids = {}
 	if roster_data is Array:
