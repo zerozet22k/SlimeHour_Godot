@@ -2580,8 +2580,8 @@ func toggle_setting(key: String) -> void:
 				stick_knob = stick_center
 		"vfx_quality":
 			var grades = ["low", "medium", "high"]
-			var at = grades.find(str(settings.get("vfx_quality", "medium")))
-			settings["vfx_quality"] = grades[(at + 1) % grades.size()]
+			var grade_index = grades.find(str(settings.get("vfx_quality", "medium")))
+			settings["vfx_quality"] = grades[(grade_index + 1) % grades.size()]
 		"fullscreen":
 			var win = get_window()
 			win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_EXCLUSIVE_FULLSCREEN else Window.MODE_EXCLUSIVE_FULLSCREEN
