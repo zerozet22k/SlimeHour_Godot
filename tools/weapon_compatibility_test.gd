@@ -75,4 +75,4 @@ func _run() -> void:
 	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")
 	g.free()
 	print("COMPATIBILITY + PROCEDURAL ENEMY TESTS: ", "PASS" if failed == 0 else "%d failures" % failed)
-	quit(1 if failed == 0 else 1)
+	quit(0 if failed == 0 else 1)
