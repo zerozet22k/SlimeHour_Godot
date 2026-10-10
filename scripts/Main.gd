@@ -51,7 +51,9 @@ var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "s
 	"aim": "auto" if OS.has_feature("mobile") else "mouse",
 	"autofire": OS.has_feature("mobile"), "hints": true, "touch": "auto", "controls_v2": true}
 var best = {"sector": 0, "kills": 0, "level": 0}
-var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}, "mutations_unlocked": {}}
+var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
+## Encounter unlocks are PER RUN. Bestiary kills remain persistent, but never grant spawn access.
+var run_mutations_unlocked: Dictionary = {}
 var unlocked_cards: Dictionary = {}
 var unlock_level: Dictionary = {}
 var unlocked_guns: Array = []
@@ -276,14 +278,6 @@ func _ready() -> void:
 			if not EnemyMixes.usable(str(known)):
 				records.erase(known)
 		profile[key] = records
-	# Preserve existing playthrough progress. The book distinguishes merely
-	# unlocked mutation recipes from those actually defeated.
-	var unlocked_mutations: Dictionary = profile.get("mutations_unlocked", {})
-	for recipe_index in range(EnemyMixes.RECIPES.size()):
-		var recipe_id = EnemyMixes.recipe_id(recipe_index)
-		if best["sector"] >= EnemyMixes.unlock_sector(recipe_index, false) or profile.get("mobs", {}).has(recipe_id):
-			unlocked_mutations[recipe_id] = true
-	profile["mutations_unlocked"] = unlocked_mutations
 	# Preserve OTHER previously encountered hybrids from existing saves.
 	for known_kind in profile.get("mobs", {}):
 		if str(known_kind).begins_with("mix_") and not enemy_db.has(known_kind):
@@ -572,6 +566,9 @@ func on_screen(p: Vector2, margin = 60.0) -> bool:
 
 # ================================================================= run setup
 func start_run() -> void:
+	# Reset all mutation introductions even if the player reached sector 40
+	# or discovered every recipe in a previous run.
+	run_mutations_unlocked.clear()
 	state = "playing"
 	phase = "fight"
 	boss_result_t = 0.0
@@ -762,27 +759,20 @@ func begin_sector() -> void:
 ## parent enemies happen to be in the spawn pool. Keep permanent book receipts,
 ## but each fresh run still respects its Normal/Hard sector progression.
 func introduce_mutations() -> void:
-	var unlocked: Dictionary = profile.get("mutations_unlocked", {})
 	var available = EnemyMixes.available_recipes(enemy_db, available_enemies(sector - 1), sector, hard_mode)
-	var modified = false
 	for recipe in available:
 		var id = EnemyMixes.id_for(str(recipe["a"]), str(recipe["b"]))
-		if unlocked.has(id):
+		if run_mutations_unlocked.has(id):
 			continue
-		# Register the preview and the fixed authored identity; do not spawn
-		# or instantly mark it defeated just because the recipe unlocked.
 		var result = EnemyMixes.ensure(enemy_db, str(recipe["a"]), str(recipe["b"]))
 		if result == "":
 			continue
 		enemy_db[id]["name"] = str(recipe["name"])
 		enemy_db[id]["fusion_style"] = str(recipe["style"])
-		unlocked[id] = true
-		modified = true
+		run_mutations_unlocked[id] = true
 		if autotest == "":
 			unlock_toasts.append({"type": "mutation", "id": id, "t": 3.4})
-	profile["mutations_unlocked"] = unlocked
-	if modified:
-		save_options()
+
 
 func is_boss_sector() -> bool:
 	return sector > WIN_SECTOR or sector % 5 == 0
@@ -1350,7 +1340,8 @@ func pick_enemy() -> String:
 	var mix_chance = EnemyMixes.encounter_chance(sector, hard_mode)
 	if randf() < mix_chance:
 		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes, hard_mode)
-		if hybrid != "":
+		# A permanent Bestiary discovery is NOT an encounter unlock.
+		if hybrid != "" and run_mutations_unlocked.has(hybrid):
 			recent_enemy_mixes.append(hybrid)
 			if recent_enemy_mixes.size() > 9:
 				recent_enemy_mixes.pop_front()
@@ -2009,10 +2000,8 @@ func note_mob(kind: String) -> void:
 			profile["announced_mobs"][kind] = true
 	mobs[kind] = int(mobs[kind]) + 1
 	if first_discovery and not EnemyMixes.recipe_for_id(kind).is_empty():
-		var unlocked: Dictionary = profile.get("mutations_unlocked", {})
-		unlocked[kind] = true
-		profile["mutations_unlocked"] = unlocked
-		# Discovery receipts are permanent even if this run ends early.
+		# The Mutation Book keeps permanent records of fights, not permanent
+		# access to spawn this mutation in the next run.
 		save_options()
 
 ## Collection order: street tiers, the extras, then bosses.
@@ -2023,7 +2012,10 @@ func mutation_book_ids() -> Array:
 	return ids
 
 func mutation_is_unlocked(kind: String) -> bool:
-	return profile.get("mutations_unlocked", {}).has(kind) or int(profile.get("mobs", {}).get(kind, 0)) > 0
+	return run_mutations_unlocked.has(kind)
+
+func mutation_is_discovered(kind: String) -> bool:
+	return int(profile.get("mobs", {}).get(kind, 0)) > 0
 
 func mob_order() -> Array:
 	var out = STARTER_ENEMIES.duplicate()
@@ -3000,8 +2992,6 @@ func load_options() -> void:
 			profile["mobs"] = mobs if mobs is Dictionary else {}
 			var announced = pf.get("announced_mobs", {})
 			profile["announced_mobs"] = announced if announced is Dictionary else {}
-			var mutations = pf.get("mutations_unlocked", {})
-			profile["mutations_unlocked"] = mutations if mutations is Dictionary else {}
 			if pf.has("known_cards"):
 				profile["known_cards"] = UnlockHistory.normalized(pf["known_cards"])
 			if pf.has("known_guns"):
