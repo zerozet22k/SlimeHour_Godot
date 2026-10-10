@@ -716,6 +716,7 @@ func paint_portrait_settings() -> void:
 		["SHAKE", "OFF" if float(g.settings["shake"]) == 0.0 else "ON", "shake"],
 		["NUMBERS", "ON" if g.settings["numbers"] else "OFF", "numbers"],
 		["PARTICLES", "ON" if g.settings["particles"] else "OFF", "particles"],
+		["VFX QUALITY", str(g.settings.get("vfx_quality", "medium")).to_upper(), "vfx_quality"],
 		["HINTS", "ON" if g.settings["hints"] else "OFF", "hints"],
 	]
 	var row_step = minf(96.0, (g.ui_height - 300.0) / rows.size())
@@ -1332,6 +1333,7 @@ func paint_settings() -> void:
 		["SCREEN SHAKE", "OFF" if float(s["shake"]) == 0.0 else ("LOW" if float(s["shake"]) < 0.9 else "FULL"), "shake"],
 		["DAMAGE NUMBERS", "ON" if bool(s["numbers"]) else "OFF", "numbers"],
 		["PARTICLES", "ON" if bool(s["particles"]) else "OFF", "particles"],
+		["VFX QUALITY", str(s.get("vfx_quality", "medium")).to_upper(), "vfx_quality"],
 		["HINTS", "ON" if bool(s["hints"]) else "OFF", "hints"],
 		["FULLSCREEN (F11)", "", "fullscreen"],
 	]
