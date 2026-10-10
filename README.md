@@ -14,3 +14,15 @@ Windows Godot action game. Source lives in this repository; playable releases ar
 **Important:** Updating *to* v0.1.7 is a one-time full download because older builds embedded the .pck in the executable and cannot serve as chunk-patch bases. Partial updates become available from subsequent releases. Download size depends on how much data actually changed; unchanged game assets generally do not need downloading again. Existing saves remain in Godot's normal user data location. No admin permissions or Git LFS are required to play.
 
 To edit the game, clone the Git repository with Git LFS installed and open `project.godot` in Godot 4.7.2. The CI system builds and tests Windows releases on version bumps. Android exports are deferred.
+
+## Developer Debug Lab (Windows)
+
+Press **F3** anywhere (including while choosing a card or on the route map), or click **DEBUG LAB** on the title screen. The simulation pauses and the mouse is released while the Lab is open.
+
+- **ROUTE:** jump to Sectors 1/5/8/10/15/20/25/30/40; step +/-1 or +/-5; enter the map, normal/Elite/Hell fights, boss, shop, campfire, treasure, or random event directly
+- **CARDS:** page through the entire card catalog and test even prerequisite-dependent effects; this is debug-only and does not change normal card eligibility
+- **WEAPONS:** choose gun slot 1, 2 or 3, then equip any unlocked or locked weapon
+- **ENEMIES:** spawn specific monsters or bosses in front of the hero
+- **TOOLS:** start a fresh test run, restore health, add 500 gold, toggle invincibility, clear enemies, and open the route map
+
+**Saving safety:** Opening F3 creates a temporary test sandbox. Nothing from that session writes permanent profile progress, unlocks, or leaderboard records. Returning to the main menu restores the original in-memory profile. Restarting the game also loads the existing save. **F4** toggles performance stats independently.

@@ -1,3 +1,12 @@
+## v0.1.25 — Interactive developer Debug Lab
+
+- Open the in-game Debug Lab with F3 from menus, combat, card picks, shops, map, and boss result screens. F4 now independently shows performance counters.
+- Route and sector test controls: jump ahead or backward, enter Elite/Hell roads, boss sectors, shops, campfires, treasures, events, or the full route map without replaying.
+- All-card and all-weapon browsers for quickly testing builds and card combinations, plus spawn-any-enemy testing.
+- Invincibility, full heal, 500 gold, clear enemies and an instant test-run button.
+- The fight pauses while the Lab is open; permanent progress is snapshotted, saves are disabled, and profile/records are restored on returning to the menu.
+- Add regression tests for scene-navigation bounds, persistent-save isolation and catalog selection.
+
 ## v0.1.23 — Precision cursor aiming and correctly oriented weapon art
 
 - Correct all weapon sprite art rotation when aiming left. The old vertical flip reversed the sprite's barrel tilt without reversing its compensating angle (especially visible on the sniper).
