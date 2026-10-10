@@ -35,7 +35,7 @@ static func setpiece(g, boss: Dictionary, stage: int, dt: float) -> void:
 			break
 		var sign_side = 1.0 if (int(boss.get("stone_cycle", 0)) + k) % 2 == 0 else -1.0
 		var center: Vector2 = boss["pos"] + forward * minf(260.0, boss["pos"].distance_to(player) * 0.58)
-		var pos: Vector2 = center + lateral * sign_side * (56.0 if k == 0 else 115.0)
+		var pos: Vector2 = center + lateral * sign_side * (160.0 if player.distance_to(boss["pos"]) < 320.0 else (56.0 if k == 0 else 115.0))
 		pos.x = clampf(pos.x, -g.road_half + 65.0, g.road_half - 65.0)
 		if pos.distance_to(player) < 100.0 or pos.distance_to(boss["pos"]) < float(boss["r"]) + 78.0:
 			continue
@@ -58,7 +58,6 @@ static func setpiece(g, boss: Dictionary, stage: int, dt: float) -> void:
 static func start_rush(boss: Dictionary, player: Vector2, stage: int, speed: float) -> void:
 	var distance = boss["pos"].distance_to(player)
 	var lead: Vector2 = player
-	lead.x = clampf(lead.x, -100000.0, 100000.0)
 	var aim: Vector2 = lead - boss["pos"]
 	if aim.length_squared() < 25.0:
 		aim = Vector2.DOWN * 60.0
