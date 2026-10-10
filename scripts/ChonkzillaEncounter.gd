@@ -127,6 +127,33 @@ static func stones(g, boss: Dictionary) -> Array:
 			result.append(mob)
 	return result
 
+## A moving field of floor bursts spans the road and the visible vertical arena.
+## Each row omits one circle, and the opening changes sides on the next row.
+static func arena_circles(g, boss: Dictionary, stage: int, dt: float) -> void:
+	if str(boss.get("chonk_state", "")) == "stagger":
+		return
+	boss["circle_t"] = float(boss.get("circle_t", 4.2)) - dt
+	if float(boss["circle_t"]) > 0.0:
+		return
+	boss["circle_t"] = 6.8 if stage == 0 else (5.8 if stage == 1 else 5.0)
+	var cycle: int = int(boss.get("circle_cycle", 0))
+	boss["circle_cycle"] = cycle + 1
+	var columns: int = maxi(4, floori(g.road_half * 2.0 / 205.0))
+	var step_x: float = (g.road_half * 2.0 - 130.0) / float(columns - 1)
+	var anchor_y: float = float(g.hero["pos"].y) - 240.0
+	var rows: int = 3 if stage == 0 else 4
+	for row in range(rows):
+		var opening: int = (cycle * 2 + row * 2) % columns
+		for column in range(columns):
+			if column == opening or g.delayed.size() >= 115:
+				continue
+			var center := Vector2(-g.road_half + 65.0 + step_x * column,
+				anchor_y + row * 160.0)
+			var warning: float = 0.86 + row * 0.28
+			g.delayed.append({"fn": "chonk_circle", "owner": int(boss["id"]),
+				"pos": center, "tele": 67.0, "arm": warning,
+				"t": warning + 0.28, "dmg": float(boss["dmg"]) * 0.48})
+
 static func setpiece(g, boss: Dictionary, stage: int, dt: float) -> void:
 	boss["stone_t"] = float(boss.get("stone_t", 1.8)) - dt
 	if float(boss["stone_t"]) > 0.0:

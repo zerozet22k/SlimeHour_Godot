@@ -132,6 +132,13 @@ static func update_delayed(g, dt: float) -> void:
 					"color": Color("ff9670"), "zig": true})
 				if seg_dist2(start, finish, g.hero["pos"]) <= pow(width + 11.0, 2.0):
 					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's faultline")
+		elif str(item.get("fn", "")) == "chonk_circle":
+			var before_arm: float = float(item["arm"])
+			item["arm"] = maxf(0.0, before_arm - dt)
+			if before_arm > 0.0 and float(item["arm"]) <= 0.0:
+				g.spawn_ring_fx(item["pos"], Color("ffad75"), float(item["tele"]))
+				if g.hero["pos"].distance_to(item["pos"]) <= float(item["tele"]) + 10.0:
+					g.hurt(float(item["dmg"]), item["pos"], "Chonkzilla's arena burst")
 		elif str(item.get("fn", "")) == "boss_gravity":
 			item["arm"] = maxf(0.0, float(item["arm"]) - dt)
 			if float(item["arm"]) <= 0.0:
@@ -1633,6 +1640,7 @@ static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
 	var stage: int = boss_stage(e)
 	if kind == "chonkzilla":
 		ChonkzillaEncounter.setpiece(g, e, stage, dt)
+		ChonkzillaEncounter.arena_circles(g, e, stage, dt)
 		for emission in ChonkzillaEncounter.barrage(g, e, stage, dt):
 			if g.shots.size() >= g.shot_cap():
 				break

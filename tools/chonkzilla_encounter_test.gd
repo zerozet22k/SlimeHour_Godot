@@ -140,6 +140,32 @@ func _run() -> void:
 	check(Chonkzilla.barrage(g, ring_boss, 2, 0.1).is_empty(),
 		"Active projectile budget prevents a runaway projectile population")
 	g.shots.clear()
+	var field_boss = make_chonk(g, 0.5)
+	field_boss["circle_t"] = 0.0
+	Chonkzilla.arena_circles(g, field_boss, 1, 0.016)
+	var circles = g.delayed.filter(func(d): return str(d.get("fn", "")) == "chonk_circle" and int(d.get("owner", -1)) == int(field_boss["id"]))
+	check(circles.size() >= 12, "Arena attack creates many actual danger circles")
+	var left := false
+	var right := false
+	for circle in circles:
+		left = left or float(circle["pos"].x) < -g.road_half * 0.55
+		right = right or float(circle["pos"].x) > g.road_half * 0.55
+	check(left and right, "Danger circles cover both sides of the map")
+	var first_row_count := 0
+	for circle in circles:
+		if is_equal_approx(float(circle["pos"].y), float(circles[0]["pos"].y)):
+			first_row_count += 1
+	check(first_row_count < maxi(4, floori(g.road_half * 2.0 / 205.0)),
+		"Each row has a dodge opening")
+	var threatened: Dictionary = circles[0]
+	g.hero["pos"] = threatened["pos"]
+	var hp_at_warning: float = float(g.hero["hp"])
+	Combat.update_delayed(g, 0.5)
+	check(is_equal_approx(float(g.hero["hp"]), hp_at_warning),
+		"Circle warning does not damage before detonation")
+	Combat.update_delayed(g, 0.7)
+	check(float(g.hero["hp"]) < hp_at_warning,
+		"Standing in a warned circle takes real damage")
 	# Verify Combat creates owned shots with real movement, collision and cleanup.
 	var live_boss = make_chonk(g)
 	live_boss["spiral_t"] = 0.0

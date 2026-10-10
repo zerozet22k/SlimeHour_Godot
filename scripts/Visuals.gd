@@ -385,6 +385,14 @@ func paint_telegraphs() -> void:
 				draw_line(spot, spot + (b - a).orthogonal().normalized() * (12.0 + cut * 3.0),
 					Color(shade, 0.68), 2.0)
 			continue
+		if str(d.get("fn", "")) == "chonk_circle":
+			var center: Vector2 = P(d["pos"])
+			var radius: float = float(d["tele"])
+			var warned: bool = float(d["arm"]) > 0.0
+			draw_circle(center, radius, Color("ff713e", 0.12 if warned else 0.25))
+			draw_arc(center, radius, 0.0, TAU, 36,
+				Color("ffbe83", 0.82 if warned else 1.0), 3.0)
+			continue
 		if str(d.get("fn", "")) == "boss_gravity":
 			var center: Vector2 = P(d["pos"])
 			var radius: float = float(d["tele"])
