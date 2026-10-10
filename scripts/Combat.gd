@@ -137,6 +137,8 @@ static func update_delayed(g, dt: float) -> void:
 			"boss_blast":
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
+				ProjectileVfx.boss_impact(g, item["pos"], "boss_ember" if str(item.get("color", "")) == "ff9944" else "boss_void", radius)
+				g.sfx.play_projectile("boss_impact")
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
 			"elite_boom":
@@ -164,7 +166,9 @@ static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Va
 		"src": str(o.get("src", "")), "st": o.get("st", {}), "flags": o.get("flags", {}).duplicate(), "frag": bool(o.get("frag", false)),
 		"gun": o.get("gun"), "phase": randf() * TAU, "base_r": radius, "base_dmg": dmg, "dead": false, "pool": float(o.get("pool", 0.0)),
 		"spin": randf() * TAU}
-	s["vfx_style"] = ProjectileVfx.style_for(str(s["kind"]), str(s["src"]), s["st"])
+	# Carry the source style/pattern from the weapon; spawned fragments may override it.
+	s["vfx_style"] = str(o.get("vfx_style", ProjectileVfx.style_for(str(s["kind"]), str(s["src"]), s["st"])))
+	s["vfx_pattern"] = str(o.get("vfx_pattern", ""))
 	g.shots.append(s)
 	if friendly and int(s["gen"]) <= 1:
 		ProjectileVfx.muzzle(g, pos, dir, str(s["vfx_style"]), radius + 2.0)
@@ -327,6 +331,7 @@ static func expire(g, s: Dictionary) -> void:
 
 static func on_wall(g, s: Dictionary) -> void:
 	ProjectileVfx.ricochet(g, s["pos"], s["vel"], str(s.get("vfx_style", "ricochet")))
+	g.sfx.play_projectile("bounce", str(s.get("vfx_style", "ricochet")))
 	var f = s["flags"]
 	if f.has("bounce_dmg"):
 		s["dmg"] = float(s["dmg"]) * 1.15
@@ -350,6 +355,8 @@ static func collide_barrels(g, s: Dictionary) -> void:
 			continue
 		if seg_dist2(s["last"], s["pos"], b["pos"]) < pow(20.0 + float(s["r"]), 2):
 			b["hp"] = float(b["hp"]) - float(s["dmg"])
+			ProjectileVfx.impact(g, b["pos"], s["vel"], "heavy", 8.0)
+			g.sfx.play_projectile("impact", "heavy", "", 0.58)
 			if str(s["kind"]) not in ["disc", "boomerang", "ball", "flame", "car", "saw"]:
 				if int(s["pierce"]) <= 0:
 					s["dead"] = true
@@ -402,7 +409,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 		ctx["fling"] = true
 	var crit = hit(g, e, float(s["dmg"]), ctx)
 	if crit:
-		ProjectileVfx.impact(g, impact, dir, "heavy", maxf(9.0, float(s["r"]) * 2.4))
+		ProjectileVfx.critical(g, impact, dir, maxf(12.0, float(s["r"]) * 2.6))
 	else:
 		ProjectileVfx.impact(g, impact, dir, str(s.get("vfx_style", "kinetic")), maxf(5.0, float(s["r"]) * 1.5))
 	match kind:
@@ -483,6 +490,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 			s["vel"] = (nxt["pos"] - impact).normalized() * maxf(float(s["speed"]), s["vel"].length())
 			s["pos"] = impact
 			ProjectileVfx.ricochet(g, impact, s["vel"], str(s.get("vfx_style", "ricochet")))
+			g.sfx.play_projectile("bounce", str(s.get("vfx_style", "ricochet")))
 			if kind == "coin":
 				s["dmg"] = float(s["dmg"]) * 1.25
 				g.sfx.play("ping")
@@ -495,6 +503,8 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	if repeat or kind in ["coin"] and int(s["rico"]) > 0:
 		return
 	if int(s["pierce"]) > 0:
+		ProjectileVfx.pierce(g, impact, dir, str(s.get("vfx_style", "pierce")))
+		g.sfx.play_projectile("pierce", str(s.get("vfx_style", "pierce")))
 		s["pierce"] = int(s["pierce"]) - 1
 		return
 	if kind == "chicken":
@@ -518,6 +528,7 @@ static func collide_hero(g, s: Dictionary) -> void:
 		s["vel"] = -s["vel"] * 1.3
 		s["dmg"] = float(s["dmg"]) * 2.0
 		s["color"] = Color("8ff8ff")
+		s["vfx_style"] = "shock"
 		s["hit"] = {}
 		s["homing"] = 0.0
 		s["gen"] = 1
@@ -600,6 +611,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 			if st_name in ["burn", "freeze", "shock", "poison"]:
 				var effect_name = {"burn": "fire", "freeze": "frost", "shock": "shock", "poison": "toxic"}[st_name]
 				ProjectileVfx.impact(g, ctx.get("pos", e["pos"]), dir, effect_name, 9.0)
+				g.sfx.play_projectile("status", effect_name)
 			if bool(e["dead"]):
 				break
 	if shot_ref != null and shot_ref["flags"].has("instafreeze"):
@@ -634,9 +646,16 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 		e["num_t"] = g.run_time + 0.2
 	if crit:
 		g.spawn_burst(e["pos"], Color("ffe14d"), 4, 220.0, 3.0)
-		g.sfx.play("crit")
+		g.sfx.play_projectile("crit")
 	else:
-		g.sfx.play("hit")
+		var context_shot = ctx.get("shot")
+		if context_shot != null:
+			g.sfx.play_projectile("impact", str(context_shot.get("vfx_style", "kinetic")))
+		elif str(ctx.get("src", "")) in ["laser", "tesla", "rail"]:
+			var beam_style = "shock" if str(ctx.get("src", "")) == "tesla" else "pierce"
+			g.sfx.play_projectile("impact", beam_style, "", 0.5)
+		else:
+			g.sfx.play("hit")
 	var ex = g.st("execute")
 	if ex > 0.0 and not bool(e["boss"]) and float(e["hp"]) > 0.0 and float(e["hp"]) < float(e["max_hp"]) * ex:
 		e["hp"] = 0.0
@@ -1095,6 +1114,7 @@ static func boss_stage(e: Dictionary) -> int:
 static func schedule_boss_blast(g, pos: Vector2, radius: float, damage: float, timer: float, color: String = "ff9944") -> void:
 	g.delayed.append({"fn": "boss_blast", "pos": pos, "t": timer, "life": timer,
 		"tele": radius, "dmg": damage, "color": color})
+	g.sfx.play_projectile("boss_warn")
 
 static func boss_ring(g, e: Dictionary, count: int, speed: float, offset: float = 0.0) -> void:
 	for i in range(count):
@@ -1397,9 +1417,14 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 	var last = null
 	for k in range(n):
 		var a = 0.0 if n == 1 else -spread * 0.5 + spread * k / (n - 1)
+		var enemy_kind = str(e["kind"])
+		var boss_style = "boss_ember" if enemy_kind == "chonkzilla" else ("boss_void" if enemy_kind == "kingblob" else ("boss_frost" if enemy_kind == "necro" else ("boss_storm" if enemy_kind == "heli" else "enemy")))
+		var shot_color = ProjectileVfx.tint(boss_style)
 		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8,
-			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": Color("ff5a7a"),
-			"src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
+			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": shot_color,
+			"vfx_style": boss_style, "src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
+		if k == 0 and last != null and boss_style.begins_with("boss_"):
+			g.sfx.play_projectile("boss_fire", boss_style)
 	return last
 
 # ================================================================= area effects
@@ -1456,6 +1481,9 @@ static func shockwave(g, pos: Vector2, r: float, dmg: float, push: float, gen: i
 static func fragments(g, pos: Vector2, n: int, dmg: float, pattern: String, dir: Vector2, gen: int, src = null, colorful = false, color = Color("fff1a8"), kind = "frag") -> void:
 	if n <= 0 or g.shots.size() > g.shot_cap() - 20:
 		return
+	if n > 1 and gen <= 3:
+		ProjectileVfx.split(g, pos, dir, "shard" if src == null else str(src.get("vfx_style", "shard")))
+		g.sfx.play_projectile("split")
 	var colors = [Color("ff5a8a"), Color("ffd24d"), Color("5bead8"), Color("b48cff"), Color("7dff9a")]
 	var base = dir.angle()
 	var fdmg = dmg * (1.0 + g.st("fragdmg") * 0.5) if src == null else dmg
@@ -1937,14 +1965,18 @@ static func update_barrels(g, dt: float) -> void:
 			g.sfx.play("fuse")
 			continue
 		if bool(barrel.get("armed", false)):
+			var previous_fuse = float(barrel["fuse"])
 			if barrel_countdown(barrel, dt):
 				var pos: Vector2 = barrel["pos"]
 				g.barrels.remove_at(i)
 				# Barrels hurt both the player and their nearby monsters.
 				explode(g, pos, 115.0, 55.0 * g.sector_scale() * g.dmg_mult(), 1, Color("ff6b3d"))
+				g.sfx.play_projectile("barrel_boom")
 				if g.hero["pos"].distance_to(pos) < 125.0:
 					g.hurt(12.0 + minf(32.0, g.sector * 1.1), pos, "an explosive barrel")
 				g.add_zone("fire", pos, 60.0, 2.5)
+			elif previous_fuse > 0.34 and float(barrel["fuse"]) <= 0.34:
+				g.sfx.play_projectile("barrel_warn")
 			continue
 		if barrel["pos"].y > g.hero["pos"].y + 900.0:
 			g.barrels.remove_at(i)

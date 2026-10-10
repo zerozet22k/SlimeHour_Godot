@@ -42,7 +42,7 @@ var state = "menu"          # menu settings collection playing paused levelup re
 var settings_back = "menu"
 var phase = "fight"         # fight | cleared | map | shop | rest | treasure
 var arsenal_back = "playing"
-var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "shake": 1.0, "numbers": true, "particles": true,
+var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "shake": 1.0, "numbers": true, "particles": true, "vfx_quality": "medium",
 	"aim": "auto" if OS.has_feature("mobile") else "mouse",
 	"autofire": OS.has_feature("mobile"), "hints": true, "touch": "auto", "controls_v2": true}
 var best = {"sector": 0, "kills": 0, "level": 0}
@@ -2578,6 +2578,10 @@ func toggle_setting(key: String) -> void:
 				dash_pressed = false
 				stick_center = default_stick()
 				stick_knob = stick_center
+		"vfx_quality":
+			var grades = ["low", "medium", "high"]
+			var grade_index = grades.find(str(settings.get("vfx_quality", "medium")))
+			settings["vfx_quality"] = grades[(grade_index + 1) % grades.size()]
 		"fullscreen":
 			var win = get_window()
 			win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_EXCLUSIVE_FULLSCREEN else Window.MODE_EXCLUSIVE_FULLSCREEN

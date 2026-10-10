@@ -255,6 +255,10 @@ func paint_barrels() -> void:
 			draw_circle(p, 115.0, Color(1.0, 0.25, 0.12, 0.08 + progress * 0.15))
 			draw_arc(p, 115.0, -PI * 0.5, -PI * 0.5 + progress * TAU, 40, Color("ffda70"), 4.0)
 			draw_arc(p, 25.0, 0.0, TAU, 24, Color("ff5858"), 3.0)
+			if progress > 0.25:
+				for j in range(8):
+					var ray = Vector2.from_angle(float(j) * TAU / 8.0 + g.anim_t * 0.4)
+					draw_line(p + ray * 31.0, p + ray * (38.0 + progress * 14.0), Color("ffe088", 0.45 + progress * 0.4), 2.0)
 	for pet in g.pets:
 		if pet["kind"] == "mine":
 			var mp = P(pet["pos"])
@@ -274,8 +278,14 @@ func paint_telegraphs() -> void:
 		var life = maxf(0.01, float(d.get("life", 0.6)))
 		var k = 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
 		var r = float(d["tele"])
-		draw_circle(p, r * k, Color(1, 0.3, 0.2, 0.18))
-		draw_arc(p, r, 0, TAU, 32, Color(1, 0.5, 0.3, 0.7), 2.0)
+		var warning_color = Color(str(d.get("color", "ff744e")))
+		draw_circle(p, r * k, Color(warning_color, 0.12 + 0.12 * k))
+		draw_arc(p, r, 0, TAU, 40, Color(warning_color, 0.85), 2.8)
+		if str(d["fn"]) in ["boss_blast", "elite_boom"]:
+			draw_arc(p, r * (0.35 + k * 0.65), -PI * 0.5, -PI * 0.5 + TAU * k, 40, Color("fff1c4", 0.85), 4.0)
+			for j in range(4):
+				var ray = Vector2.from_angle(float(j) * PI * 0.5)
+				draw_line(p + ray * (r - 16.0), p + ray * r, Color(warning_color, 0.85), 3.0)
 		if d["fn"] == "kaboomba_boom":
 			# The dead bomber remains visible as a blinking armed body until detonation.
 			var blink = fmod(g.anim_t * (6.0 + k * 12.0), 1.0) < 0.5
@@ -926,41 +936,83 @@ func paint_pets() -> void:
 				text_c("!", p + Vector2(0, -18), 17, Color("ffd24d"), 3)
 
 # ================================================================= shots
-## A lightweight per-projectile travel accent; base projectile silhouettes remain
-## in paint_shots() so visibility does not depend on optional particles.
+## Fast GPU-free streaks. No extra Nodes or particle emitters per shot.
+## Every projectile remains readable without this optional cosmetic layer.
 func paint_projectile_travel(s: Dictionary, p: Vector2, direction: Vector2) -> void:
 	var style = str(s.get("vfx_style", "kinetic"))
-	var color = Color(s["color"])
-	var tint = Color(s["color"]).lerp(Color("ffffff"), 0.28)
-	var radius = minf(12.0, maxf(2.5, float(s["r"])))
-	var distance = clampf(float(s["vel"].length()) * 0.036, 10.0, 42.0)
-	if style in ["fire", "toxic", "frost", "shock"]:
-		var tone = {"fire": Color("ff923f"), "toxic": Color("91ff65"), "frost": Color("a4ecff"), "shock": Color("89caff")}[style]
-		var width = 4.0 if style in ["fire", "toxic"] else 3.0
-		draw_line(p - direction * distance, p, Color(tone, 0.22), radius * 1.55)
-		draw_line(p - direction * distance * 0.62, p, Color(tone, 0.82), width)
-		if style == "shock":
-			var perp = direction.orthogonal()
-			draw_line(p - direction * 12.0 - perp * 4.0, p - direction * 7.0 + perp * 4.0, Color("e5f6ff"), 1.6)
-		elif style == "frost":
-			draw_line(p + direction.orthogonal() * 4.0, p - direction.orthogonal() * 4.0, Color("efffff"), 1.5)
-		elif style == "toxic":
-			draw_circle(p - direction * 13.0, 2.5, Color(tone, 0.4))
-	elif style == "pierce":
-		draw_line(p - direction * distance * 1.2, p, Color(tint, 0.24), radius * 1.4)
-		draw_line(p - direction * distance, p + direction * 3.0, Color(tint, 0.85), 2.0)
-	elif style == "shard":
-		var perp = direction.orthogonal() * 3.0
-		draw_colored_polygon(PackedVector2Array([p + direction * 7.0, p + perp, p - direction * 9.0, p - perp]), Color("a6ffd2", 0.6))
-	elif style == "blast":
-		draw_line(p - direction * distance * 0.8, p, Color("ff813d", 0.45), radius * 1.3)
-		draw_circle(p - direction * 9.0, 3.0, Color("fff2a1", 0.65))
-	elif style == "ricochet":
-		draw_line(p - direction * distance * 0.7, p, Color("ffe188", 0.48), 2.5)
-	elif style == "heavy":
-		draw_line(p - direction * distance * 0.65, p, Color(color, 0.5), 4.0)
-	else:
-		draw_line(p - direction * distance * 0.65, p, Color(color, 0.35), 2.0)
+	var pattern = str(s.get("vfx_pattern", ""))
+	var color: Color = s["color"]
+	var q = str(g.settings.get("vfx_quality", "medium"))
+	var radius = clampf(float(s["r"]), 2.5, 12.0)
+	var length = clampf(float(s["vel"].length()) * 0.033, 9.0, 39.0)
+	var side = direction.orthogonal()
+	var t = g.anim_t
+	if q == "low":
+		length *= 0.8
+	# Physics-generated parallel shots get TWO ruled lanes, never a wide cone.
+	if pattern == "parallel":
+		for signum in [-1.0, 1.0]:
+			var lane = p + side * signum * 3.3
+			draw_line(lane - direction * length, lane, Color(color, 0.65), 1.6)
+	elif pattern in ["double_tap", "burst"]:
+		draw_line(p - direction * length * 1.1 + side * 3.3, p - direction * 3.0 + side * 3.3, Color("fff1b6", 0.55), 1.6)
+		draw_line(p - direction * length * 0.75 - side * 3.3, p - direction * 2.0 - side * 3.3, Color(color, 0.65), 1.5)
+	match style:
+		"fire":
+			draw_line(p - direction * length, p, Color("ff4e20", 0.25), radius * 2.0)
+			draw_line(p - direction * length * 0.7, p, Color("ffba55", 0.72), radius * 0.75)
+			if q != "low":
+				for i in range(2):
+					var jitter = sin(t * 23.0 + float(i) * 3.3 + float(s["phase"])) * (4.0 + i * 2.0)
+					draw_circle(p - direction * (8.0 + i * 11.0) + side * jitter, 1.7 + i * 0.3, Color("ffb264", 0.65))
+		"toxic":
+			draw_line(p - direction * length, p, Color("5fbb4a", 0.28), radius * 1.5)
+			draw_line(p - direction * length * 0.57, p, Color("b7ff72", 0.8), 2.5)
+			if q != "low":
+				for i in range(2):
+					var wobble = sin(t * 11.0 + float(i) * 1.9 + float(s["phase"])) * 5.0
+					draw_circle(p - direction * (9.0 + i * 12.0) + side * wobble, 2.2, Color("c0ff80", 0.62))
+		"frost", "boss_frost":
+			draw_line(p - direction * length, p, Color("62aeea", 0.3), radius * 1.6)
+			var diamond = PackedVector2Array([p + direction * 5.0, p + side * 4.0, p - direction * 10.0, p - side * 4.0])
+			draw_colored_polygon(diamond, Color("c5faff", 0.84))
+			draw_line(p - direction * 13.0 + side * 3.0, p - direction * 19.0 - side * 2.0, Color.WHITE, 1.5)
+		"shock", "boss_storm":
+			var jitter = sin(t * 38.0 + float(s["phase"])) * 4.0
+			draw_line(p - direction * length, p - direction * length * 0.5 + side * jitter, Color("69bfff", 0.75), 2.0)
+			draw_line(p - direction * length * 0.5 + side * jitter, p, Color("eafcff", 0.9), 2.0)
+			draw_circle(p, 3.5, Color("f4fdff", 0.9))
+		"blast", "boss_ember":
+			draw_line(p - direction * length * 0.9, p, Color("ff6c29", 0.5), radius * 1.5)
+			draw_line(p - direction * length * 0.46, p, Color("ffe09d", 0.85), radius * 0.65)
+			if q != "low":
+				draw_circle(p - direction * 10.0 + side * sin(t * 18.0 + float(s["phase"])) * 3.0, 2.3, Color("ffad53", 0.72))
+		"boss_void", "magic":
+			draw_line(p - direction * length, p, Color("a873ff", 0.36), radius * 1.5)
+			draw_arc(p, radius + 4.0, t * 3.0, t * 3.0 + PI * 1.4, 13, Color("e7b4ff", 0.72), 1.6)
+			draw_circle(p, radius * 0.4, Color("ffe0ff", 0.9))
+		"pierce":
+			draw_line(p - direction * length * 1.3, p + direction * 4.0, Color("8c74e8", 0.22), radius * 1.2)
+			draw_line(p - direction * length * 1.15, p + direction * 4.0, Color("f5eaff", 0.88), 2.2)
+		"shard":
+			var shard = PackedVector2Array([p + direction * 7.0, p + side * 3.0, p - direction * 8.0, p - side * 3.0])
+			draw_colored_polygon(shard, Color("c4ffe4", 0.78))
+			draw_line(p - direction * length, p - direction * 8.0, Color("80eab5", 0.45), 1.7)
+		"ricochet":
+			draw_line(p - direction * length * 0.8, p, Color("ffd879", 0.65), 2.4)
+			draw_circle(p, radius * 0.7, Color("fff3ad", 0.42))
+		"heavy":
+			draw_line(p - direction * length * 0.7, p, Color("ffa34e", 0.27), radius * 1.5)
+			draw_line(p - direction * length * 0.48, p, Color("ffe4a1", 0.82), 3.2)
+		"rapid":
+			draw_line(p - direction * length * 0.6, p, Color("64ccff", 0.52), 2.6)
+			draw_line(p - direction * length * 0.24, p, Color("e8ffff", 0.86), 1.4)
+		"water":
+			draw_line(p - direction * length * 0.5, p, Color("7de8ff", 0.36), 2.2)
+			draw_arc(p, radius + 2.0, t, t + PI * 1.4, 12, Color("c9ffff", 0.45), 1.4)
+		_:
+			draw_line(p - direction * length * 0.67, p, Color(color, 0.52), 2.4)
+
 
 func paint_shots() -> void:
 	for s in g.shots:
@@ -971,13 +1023,20 @@ func paint_shots() -> void:
 		var r = float(s["r"])
 		var v: Vector2 = s["vel"]
 		var d = v.normalized() if v.length() > 1 else Vector2.UP
-		if bool(s["friendly"]) and bool(g.settings.get("particles", true)):
+		if (bool(s["friendly"]) and bool(g.settings.get("particles", true))) or str(s.get("vfx_style", "")) in ["boss_ember", "boss_void", "boss_frost", "boss_storm"]:
 			paint_projectile_travel(s, p, d)
 		match s["kind"]:
 			"enemy":
-				draw_circle(p, r + 4, Color(1, 0.25, 0.4, 0.3))
-				draw_circle(p, r, Color("ff4d6a"))
-				draw_circle(p, r * 0.5, Color("ffe0e8"))
+				var enemy_color: Color = s["color"]
+				draw_circle(p, r + 5, Color(enemy_color, 0.25))
+				draw_circle(p, r, enemy_color)
+				draw_circle(p, r * 0.46, Color("fff7ec"))
+				if str(s.get("vfx_style", "")).begins_with("boss_"):
+					var pulse = 0.55 + 0.45 * sin(g.anim_t * 12.0 + float(s["phase"]))
+					draw_arc(p, r + 5.5 + pulse * 2.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI * 1.3, 16, Color(enemy_color, 0.8), 2.1)
+					for j in range(3):
+						var a = g.anim_t * 2.8 + float(j) * TAU / 3.0
+						draw_circle(p + Vector2.from_angle(a) * (r + 5.0), 1.8, Color("fff5e8", 0.85))
 			"skull":
 				draw_circle(p, r + 4, Color(0.7, 0.4, 1.0, 0.3))
 				draw_circle(p, r + 1, Color("e0d8f0"))
@@ -1079,10 +1138,86 @@ func paint_beams() -> void:
 			draw_line(a, e, Color(c, 0.9 * k), w)
 			draw_line(a, e, Color(1, 1, 1, k), w * 0.35)
 		else:
-			draw_line(a, e, Color(c, 0.3), w * 2.2)
-			draw_line(a, e, c, w)
-			draw_line(a, e, Color(1, 1, 1, 0.85), maxf(1.5, w * 0.3))
-			draw_circle(e, w * 1.2, Color(c, 0.6))
+			var shimmer = 0.85 + 0.15 * sin(g.anim_t * 26.0 + a.distance_to(e) * 0.03)
+			draw_line(a, e, Color(c, 0.25 * shimmer), w * 2.9)
+			draw_line(a, e, Color(c, 0.85 * shimmer), w * 1.1)
+			draw_line(a, e, Color(1, 1, 1, 0.92 * shimmer), maxf(1.5, w * 0.36))
+			draw_circle(e, w * (0.95 + 0.28 * sin(g.anim_t * 23.0)), Color(c, 0.57 * shimmer))
+			draw_circle(e, maxf(1.5, w * 0.37), Color("fff8e9", 0.86 * shimmer))
+
+## Short readable combat glyphs. A different silhouette for every semantic event.
+func paint_projectile_event(f: Dictionary, p: Vector2, k: float) -> void:
+	var dir: Vector2 = f.get("dir", Vector2.UP)
+	var side = dir.orthogonal()
+	var c: Color = f["color"]
+	var style = str(f.get("style", "kinetic"))
+	var event = str(f.get("event", "impact"))
+	var alpha = 1.0 - k
+	var r = float(f["size"]) * (0.7 + 0.7 * k)
+	match event:
+		"muzzle":
+			draw_line(p - dir * 2.0, p + dir * r * 1.6, Color(c, 0.72 * alpha), maxf(2.0, r * 0.6))
+			draw_line(p - side * r * 0.7, p + side * r * 0.7, Color("fff5d0", 0.65 * alpha), 2.0)
+			draw_circle(p, maxf(2.0, r * 0.35), Color("fff8dc", alpha))
+		"double_tap", "burst":
+			# Two staggered mini flashes, visually different from parallel lanes.
+			for i in range(2):
+				var advance = 5.0 * i + k * 9.0 * i
+				var center = p + dir * advance + side * (4.0 if i == 0 else -4.0)
+				draw_line(center - dir * 4.0, center + dir * r * 1.7, Color(c, (0.95 - i * 0.24) * alpha), 3.6 if i == 0 else 2.6)
+				draw_circle(center + dir * r, 2.8, Color("fff7db", 0.8 * alpha))
+		"parallel":
+			for i in [-1.0, 1.0]:
+				var lane = p + side * i * 9.0
+				draw_line(lane - dir * r * 0.6, lane + dir * r * (2.0 + k), Color(c, 0.82 * alpha), 3.4)
+				draw_line(lane + dir * r, lane + dir * r * (2.5 + k), Color("ffffff", 0.72 * alpha), 1.4)
+			draw_line(p - side * 10.0, p + side * 10.0, Color(c, 0.4 * alpha), 1.6)
+		"crit":
+			draw_arc(p, r * 1.5, 0, TAU, 18, Color("ffe8a5", 0.8 * alpha), 2.8)
+			for j in range(8):
+				var angle = float(j) * TAU / 8.0
+				var ray = Vector2.from_angle(angle)
+				var extent = r * (2.15 if j % 2 == 0 else 1.55)
+				draw_line(p + ray * r * 0.44, p + ray * extent, Color("fff2bd", alpha), 2.6 if j % 2 == 0 else 1.5)
+			draw_circle(p, r * 0.38 * alpha, Color.WHITE)
+		"pierce":
+			draw_line(p - dir * r * 1.2, p + dir * r * (2.2 + k), Color(c, 0.7 * alpha), 3.0)
+			draw_line(p + side * r * 0.8, p - side * r * 0.8, Color("ffffff", 0.9 * alpha), 1.8)
+		"bounce":
+			# Corner flash indicates a trajectory change rather than a kill.
+			draw_line(p - dir * r, p, Color("fff3b6", alpha), 3.0)
+			draw_line(p, p + side * r * 1.45, Color(c, 0.95 * alpha), 2.8)
+			draw_line(p, p - side * r * 1.1, Color(c, 0.72 * alpha), 2.0)
+			draw_circle(p, 2.5 * alpha, Color.WHITE)
+		"split":
+			draw_arc(p, r * (0.7 + k * 1.5), 0, TAU, 20, Color(c, 0.57 * alpha), 2.3)
+			for j in range(5):
+				var ray = dir.rotated((float(j) - 2.0) * 0.44)
+				var start = p + ray * r * (0.35 + k)
+				draw_line(start, start + ray * r * (1.1 + k), Color("caffea", alpha), 2.2)
+				draw_circle(start + ray * r * (1.1 + k), 1.8, Color(c, alpha))
+		"expire":
+			draw_arc(p, r * (1.0 + 0.8 * k), 0, TAU, 12, Color(c, 0.37 * alpha), 1.5)
+		"boss_impact":
+			draw_circle(p, r * (0.4 + k * 0.7), Color(c, 0.22 * alpha))
+			for j in range(10):
+				var ray = Vector2.from_angle(float(j) * TAU / 10.0)
+				draw_line(p + ray * r * 0.5, p + ray * r * (1.6 + k), Color(c, 0.78 * alpha), 2.8)
+			draw_arc(p, r * (1.4 + k), 0, TAU, 22, Color("fff3ea", 0.7 * alpha), 3.0)
+		_:
+			draw_arc(p, r * 1.2, 0, TAU, 14, Color(c, 0.5 * alpha), 2.0)
+			var rays = 6 if style in ["frost", "shock", "toxic", "blast", "boss_void"] else 4
+			for j in range(rays):
+				var ray = Vector2.from_angle(float(j) * TAU / rays)
+				draw_line(p + ray * r * 0.4, p + ray * r * (1.5 + k), Color(c, alpha), 2.5 if style == "heavy" else 1.9)
+				if style in ["frost", "shard"]:
+					draw_line(p + ray * r * 1.2, p + ray.rotated(0.35) * r * 0.75, Color("e5ffff", alpha * 0.8), 1.4)
+				elif style in ["shock", "boss_storm"]:
+					draw_line(p + ray * r, p + ray.rotated(-0.32) * r * 1.6, Color("e4f9ff", alpha), 1.5)
+				elif style == "toxic":
+					draw_circle(p + ray * r * (1.3 + k), 2.2 * alpha, Color("baff75", alpha * 0.72))
+				elif style in ["fire", "blast", "boss_ember"]:
+					draw_circle(p + ray * r * (1.4 + k), 1.8 * alpha, Color("ffd48b", alpha * 0.9))
 
 func paint_fx() -> void:
 	for f in g.fx:
@@ -1091,28 +1226,7 @@ func paint_fx() -> void:
 		var c: Color = f["color"]
 		match f["kind"]:
 			"projectile_vfx":
-				var direction: Vector2 = f.get("dir", Vector2.UP)
-				var effect = str(f.get("event", "impact"))
-				var style = str(f.get("style", "kinetic"))
-				var radius = float(f["size"]) * (0.7 + k * 0.95)
-				var alpha = 1.0 - k
-				var tone = Color(c, alpha)
-				if effect == "muzzle":
-					draw_line(p - direction * 2.0, p + direction * radius * 1.55, Color(c, 0.75 * alpha), maxf(2.0, radius * 0.7))
-					draw_circle(p, radius * 0.42, Color(1.0, 0.98, 0.76, alpha))
-				else:
-					draw_arc(p, radius * 1.6, 0, TAU, 14, Color(c, 0.56 * alpha), 2.3)
-					var rays = 6 if effect == "bounce" else 4
-					for j in range(rays):
-						var a = (float(j) / float(rays)) * TAU + (0.4 if style == "shock" else 0.0)
-						var ray = Vector2.from_angle(a)
-						draw_line(p + ray * radius * 0.7, p + ray * radius * (1.4 + k), tone, 2.0 if style != "heavy" else 3.1)
-						if style in ["frost", "shard"]:
-							draw_line(p + ray * radius, p + ray.rotated(0.5) * radius * 0.5, Color("f1ffff", 0.6 * alpha), 1.5)
-						if style == "shock":
-							draw_line(p + ray * radius * 1.2, p + ray.rotated(0.32) * radius * 1.65, Color("dcf6ff", 0.8 * alpha), 1.6)
-						if style == "toxic":
-							draw_circle(p + ray * radius * 1.4, maxf(1.0, radius * 0.2), Color("b9ff76", 0.4 * alpha))
+				paint_projectile_event(f, p, k)
 			"spark":
 				draw_circle(p, float(f["size"]) * (1.0 - k), Color(c, 1.0 - k))
 			"ring":
@@ -1156,6 +1270,7 @@ func paint_fx() -> void:
 					var a = g.anim_t * 3.0 + i * TAU / 8.0
 					var cc = Color.from_hsv(fmod(i / 8.0 + g.anim_t, 1.0), 0.7, 1.0, 0.25 * (1.0 - k))
 					draw_line(ball, ball + Vector2.from_angle(a) * float(f["size"]), cc, 10.0)
+
 
 func paint_texts() -> void:
 	for t in g.texts:
