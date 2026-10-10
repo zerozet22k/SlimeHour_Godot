@@ -88,9 +88,12 @@ func _run() -> void:
 		# Resolve in place (no movement to a safe spot): existing dash iframes
 		# must prevent damage even when warning fills the entire world road.
 		var hp = float(g.hero["hp"])
-		g.hero["iframe"] = 100.0
+		g.hero["iframe"] = 0.0
+		g.hero["dash_window"] = 0.22
+		g.hero["perfect_used"] = true
 		Combat.update_delayed(g, float(events[0]["life"]) + 0.01)
-		check(is_equal_approx(float(g.hero["hp"]), hp), all[i] + ": dodge invulnerability wins against arena impact")
+		check(is_equal_approx(float(g.hero["hp"]), hp), all[i] + ": an actual timed dash avoids the unavoidable-on-foot hit")
+		g.hero["dash_window"] = 0.0
 		g.delayed.clear()
 	var hud = FileAccess.get_file_as_string("res://scripts/Hud.gd")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
