@@ -475,27 +475,30 @@ static func line_ricochets(g, w: Dictionary) -> int:
 ## Instant-hit weapons need their own wall path; they never create Combat.shot projectiles.
 static func line_segments(g, from: Vector2, direction: Vector2, length: float, bounces: int) -> Array:
 	var segments = []
-	var start = from
+	var wall = float(g.ROAD_HALF) - 5.0
+	var start = Vector2(clampf(from.x, -wall, wall), from.y)
 	var dir = direction.normalized()
 	var remaining = length
-	var wall = float(g.ROAD_HALF) - 5.0
-	for i in range(bounces + 1):
-		if remaining <= 0.1:
-			break
+	var turns = 0
+	while remaining > 0.1:
 		var to_wall = INF
 		if absf(dir.x) > 0.0001:
 			to_wall = ((wall if dir.x > 0.0 else -wall) - start.x) / dir.x
+		if to_wall <= 0.001:
+			if turns >= bounces:
+				break
+			dir.x = -dir.x
+			turns += 1
+			continue
 		var distance = minf(remaining, to_wall)
-		if distance <= 0.001:
-			break
 		var finish = start + dir * distance
 		segments.append({"a": start, "b": finish})
 		remaining -= distance
-		if to_wall >= distance and remaining > 0.1:
-			start = finish
-			dir.x = -dir.x
-		else:
+		if remaining <= 0.1 or to_wall > distance or turns >= bounces:
 			break
+		start = finish
+		dir.x = -dir.x
+		turns += 1
 	return segments
 
 static func line_targets(g, segments: Array, width: float, limit: int) -> Array:
