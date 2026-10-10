@@ -12,7 +12,8 @@ param(
     [string]$ExpectedSha256 = '',
     [string]$DownloadKind = 'full',
     [int]$WaitPid = 0,
-    [switch]$TestNoLaunch
+    [switch]$TestNoLaunch,
+    [string]$TestFailAfterFile = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'Continue'
@@ -248,6 +249,106 @@ function Download-Verified([object]$release, [string]$name, [string]$dir) {
     return $file
 }
 
+# Updates must persist when the user reopens their ORIGINAL desktop shortcut.
+# Replacing files in LOCALAPPDATA\\SlimeHour\\versions alone only updates one
+# temporary launch: it never changes the executable the shortcut points to.
+#
+# Prepare all five signed release files and the manifest on the destination
+# volume first, then atomically replace each file. File.Replace creates a
+# same-volume rollback copy for every pre-existing file. Failure restores
+# all changes; unrelated user files in the game directory remain untouched.
+function Install-VerifiedInPlace([string]$assembled, [string]$originalDirectory, [string]$wantedVersion) {
+    $destination = (Resolve-Path -LiteralPath $originalDirectory).Path
+    $manifest = Read-Manifest $assembled
+    if ($null -eq $manifest -or $manifest.version -cne $wantedVersion) {
+        throw 'Cannot install an unverified or mismatched Slime Hour release.'
+    }
+    $names = @($validNames) + @($manifestName)
+    foreach ($name in $names) {
+        if (-not (Test-Path -LiteralPath (Join-Path $assembled $name) -PathType Leaf)) {
+            throw "Update payload is missing $name."
+        }
+    }
+    foreach ($entry in $manifest.files) {
+        Verify-File (Join-Path $assembled ([string]$entry.name)) $entry
+    }
+
+    $transaction = Join-Path $destination ('.slime-hour-updating-' + [guid]::NewGuid().ToString('N'))
+    $prepared = Join-Path $transaction 'prepared'
+    $rollback = Join-Path $transaction 'rollback'
+    New-Item -ItemType Directory -Path $prepared -Force | Out-Null
+    New-Item -ItemType Directory -Path $rollback -Force | Out-Null
+    $applied = New-Object 'System.Collections.Generic.List[string]'
+    $rollbackErrors = @()
+    try {
+        # A staged file and the old executable share a volume, which allows
+        # File.Replace to atomically swap the names after Godot has exited.
+        # Preparing EVERYTHING before replacement prevents partial copies.
+        foreach ($name in $names) {
+            Copy-Item -LiteralPath (Join-Path $assembled $name) -Destination (Join-Path $prepared $name) -Force
+        }
+        foreach ($name in $names) {
+            $newFile = Join-Path $prepared $name
+            $installedFile = Join-Path $destination $name
+            $backupFile = Join-Path $rollback $name
+            if (Test-Path -LiteralPath $installedFile) {
+                if (-not (Test-Path -LiteralPath $installedFile -PathType Leaf)) {
+                    throw "Installed path is not a regular file: $installedFile"
+                }
+                [IO.File]::Replace($newFile, $installedFile, $backupFile, $true)
+            }
+            else {
+                [IO.File]::Move($newFile, $installedFile)
+            }
+            [void]$applied.Add($name)
+            # CI-only deterministic failure injection exercises real rollback
+            # without allowing a production install to trigger this path.
+            if ($TestNoLaunch -and $TestFailAfterFile -ceq $name) {
+                throw "Simulated replacement failure after $name"
+            }
+        }
+        $installedManifest = Read-Manifest $destination
+        if ($null -eq $installedManifest -or $installedManifest.version -cne $wantedVersion) {
+            throw 'Installed version could not be confirmed after replacement.'
+        }
+        foreach ($entry in $installedManifest.files) {
+            Verify-File (Join-Path $destination ([string]$entry.name)) $entry
+        }
+        Write-Host "Persistently installed Slime Hour $wantedVersion into $destination"
+    }
+    catch {
+        $installFailure = $_
+        $rollbackErrors = @()
+        for ($i = $applied.Count - 1; $i -ge 0; $i--) {
+            $name = $applied[$i]
+            $installedFile = Join-Path $destination $name
+            $backupFile = Join-Path $rollback $name
+            try {
+                if (Test-Path -LiteralPath $backupFile -PathType Leaf) {
+                    Copy-Item -LiteralPath $backupFile -Destination $installedFile -Force
+                }
+                elseif (Test-Path -LiteralPath $installedFile) {
+                    Remove-Item -LiteralPath $installedFile -Force
+                }
+            }
+            catch { $rollbackErrors += "$name : $($_.Exception.Message)" }
+        }
+        if ($rollbackErrors.Count -gt 0) {
+            # Keep backups in place for manual recovery instead of silently
+            # deleting the only copy of a file that could not be restored.
+            throw ("Install failed: " + $installFailure.Exception.Message +
+                "; rollback incomplete at $transaction : " + ($rollbackErrors -join '; '))
+        }
+        throw $installFailure
+    }
+    finally {
+        # Failed replacements with incomplete restoration retain their files.
+        if ($rollbackErrors.Count -eq 0 -and (Test-Path -LiteralPath $transaction)) {
+            Remove-Item -LiteralPath $transaction -Recurse -Force
+        }
+    }
+}
+
 function Start-Game([string]$path) {
     Write-Host "Launching Slime Hour: $path"
     Start-Process -FilePath $path -WorkingDirectory (Split-Path -Parent $path)
@@ -307,6 +408,7 @@ if ($InstallDownloaded -ne '') {
     $errorLog = Join-Path $installRoot 'update_error.log'
     $temporary = Join-Path $installRoot ('.ingame-' + [guid]::NewGuid().ToString('N'))
     $previousExe = Join-Path $BaseDirectory $exeName
+    $installedOk = $false
     try {
         if ($InstallVersion -notmatch '^v[0-9]+[.][0-9]+[.][0-9]+$') { throw 'Invalid update version.' }
         if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Invalid expected SHA256.' }
@@ -343,17 +445,14 @@ if ($InstallDownloaded -ne '') {
         if (-not (Test-Path -LiteralPath (Join-Path $built $exeName) -PathType Leaf)) {
             throw 'Game executable missing in update.'
         }
-        $target = Join-Path $versionsRoot $InstallVersion
-        if (Test-Path -LiteralPath $target) {
-            Remove-Item -LiteralPath $target -Recurse -Force
-        }
-        Move-Item -LiteralPath $built -Destination $target
-        $newPointer = Join-Path $installRoot 'last_installed.txt.new'
-        $versionPointer = Join-Path $installRoot 'last_installed.txt'
-        Set-Content -LiteralPath $newPointer -Value $InstallVersion -Encoding ASCII
-        Move-Item -LiteralPath $newPointer -Destination $versionPointer -Force
+        # This is the only path the desktop shortcut already knows. After
+        # the initial process closes, keep SlimeHour.exe, SlimeHour.pck and the
+        # helper/manifest together IN PLACE rather than spawning a versioned
+        # AppData copy and leaving the original ZIP installation untouched.
+        Install-VerifiedInPlace $built $BaseDirectory $InstallVersion
+        $installedOk = $true
         if (Test-Path -LiteralPath $errorLog) { Remove-Item -LiteralPath $errorLog -Force }
-        if (-not $TestNoLaunch) { Start-Game (Join-Path $target $exeName) }
+        if (-not $TestNoLaunch) { Start-Game (Join-Path $BaseDirectory $exeName) }
         exit 0
     }
     catch {
@@ -365,7 +464,10 @@ if ($InstallDownloaded -ne '') {
     }
     finally {
         if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Recurse -Force }
-        if (Test-Path -LiteralPath $InstallDownloaded) { Remove-Item -LiteralPath $InstallDownloaded -Force }
+        # Failed install: keep the SHA-256-verified archive for a cheap retry.
+        if ($installedOk -and (Test-Path -LiteralPath $InstallDownloaded)) {
+            Remove-Item -LiteralPath $InstallDownloaded -Force
+        }
     }
 }
 $baseDir = $scriptRoot

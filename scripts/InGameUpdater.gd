@@ -316,5 +316,5 @@ func install_and_restart() -> bool:
 	if pid <= 0:
 		_fail("Could not launch the update installer. The game has not been changed.")
 		return false
-	_set_status("installing", "Applying verified update, restarting Slime Hour...")
+	_set_status("installing", "Installing in this game's original folder, then restarting...")
 	return true

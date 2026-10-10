@@ -47,12 +47,16 @@ def test():
         assert metadata["version"] == "v1.0.1"
         assert patch.stat().st_size < (d / "new.zip").stat().st_size
         print("PASS: actual PowerShell updater correctly reused chunks and verified files")
-        # Check the hidden, offline install-only route used by the Godot UI.
-        # The helper must not download any files or overwrite the base version.
+        # Test the exact production install path used by the in-game updater:
+        # a user's EXISTING SlimeHour.exe desktop shortcut. Installing into
+        # AppData while leaving that executable alone is a regression.
         local = d / "userprofile"
         local.mkdir()
         env = dict(os.environ, LOCALAPPDATA=str(local))
         for mode, source in [("delta", patch), ("full", d / "new.zip")]:
+            game_folder = d / ("original installed game " + mode)
+            shutil.copytree(older, game_folder)
+            (game_folder / "my-unrelated-save.txt").write_text("keep player files", encoding="utf-8")
             copied = d / ("install_" + mode + ".zip")
             shutil.copyfile(source, copied)
             subprocess.run([pwsh, "-NoProfile", "-File", str(root / "update_and_run.ps1"),
@@ -60,15 +64,49 @@ def test():
                             "-InstallVersion", "v1.0.1",
                             "-ExpectedSha256", sha256(copied),
                             "-DownloadKind", mode,
-                            "-BaseDirectory", str(older),
+                            "-BaseDirectory", str(game_folder),
                             "-TestNoLaunch"], check=True, timeout=120, env=env)
-            final = local / "SlimeHour" / "versions" / "v1.0.1"
             for file in FILES:
-                if sha256(newer / file) != sha256(final / file):
-                    raise RuntimeError(f"In-game {mode} installation mismatch: {file}")
-            assert (local / "SlimeHour" / "last_installed.txt").read_text().strip() == "v1.0.1"
-            assert sha256(older / "SlimeHour.pck") == sha256(d / "old" / "SlimeHour.pck")
-            print("PASS: hidden", mode, "installer validated and kept the base files")
+                if sha256(newer / file) != sha256(game_folder / file):
+                    raise RuntimeError(f"In-game {mode} did not update original shortcut path: {file}")
+            metadata = json.loads((game_folder / "release_manifest.json").read_text(encoding="utf-8-sig"))
+            assert metadata["version"] == "v1.0.1"
+            assert (game_folder / "my-unrelated-save.txt").read_text() == "keep player files"
+            assert not copied.exists(), "Successful install should delete the downloaded ZIP"
+            # The old silent installer wrote an AppData version pointer, leaving
+            # the original shortcut pointed at outdated game bytes.
+            assert not (local / "SlimeHour" / "last_installed.txt").exists()
+            print("PASS:", mode, "update persistently replaced original EXE/PCK/manifest and kept user files")
+
+        # An interrupted/failed replacement must never leave a mixed EXE/PCK
+        # pair in the original installation. Inject a failure after the PCK.
+        broken = d / "rollback game folder"
+        shutil.copytree(older, broken)
+        failed_zip = d / "failed_install.zip"
+        shutil.copyfile(d / "new.zip", failed_zip)
+        failure = subprocess.run([pwsh, "-NoProfile", "-File", str(root / "update_and_run.ps1"),
+                                  "-InstallDownloaded", str(failed_zip),
+                                  "-InstallVersion", "v1.0.1",
+                                  "-ExpectedSha256", sha256(failed_zip),
+                                  "-DownloadKind", "full",
+                                  "-BaseDirectory", str(broken),
+                                  "-TestNoLaunch",
+                                  "-TestFailAfterFile", "SlimeHour.pck"],
+                                 check=False, timeout=120, env=env, capture_output=True, text=True)
+        assert failure.returncode != 0, "Injected replacement failure must exit nonzero"
+        for file in FILES:
+            if sha256(older / file) != sha256(broken / file):
+                raise RuntimeError("Rollback failed to restore original game: " + file)
+        metadata = json.loads((broken / "release_manifest.json").read_text(encoding="utf-8-sig"))
+        assert metadata["version"] == "v1.0.0"
+        assert failed_zip.is_file(), "Failed install must preserve downloaded ZIP for retry"
+        # The next launch through the SAME original shortcut must still be
+        # fully playable with the old manifest, never a mixed-version pair.
+        assert sha256(broken / "SlimeHour.exe") == sha256(older / "SlimeHour.exe")
+        assert sha256(broken / "SlimeHour.pck") == sha256(older / "SlimeHour.pck")
+        assert (local / "SlimeHour" / "update_error.log").is_file()
+        print("PASS: failed in-place update rolls back every file and preserves verified download")
+
 
 
 if __name__ == "__main__":
