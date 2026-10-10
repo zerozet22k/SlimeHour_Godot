@@ -98,7 +98,9 @@ static func update_delayed(g, dt: float) -> void:
 		# Coil walls actually advance: both warning and collision follow this
 		# segment, so the visual never lies about the hitbox.
 		if str(item.get("fn", "")) == "coil_wall":
-			var shift: Vector2 = Vector2(-float(item["side"]) * float(item["move"]) * dt, 0.0)
+			var remaining: float = absf(float(item["a"].x) - float(item["stop_x"]))
+			var amount: float = minf(remaining, float(item["move"]) * dt)
+			var shift: Vector2 = Vector2(-float(item["side"]) * amount, 0.0)
 			item["pos"] += shift
 			item["a"] += shift
 			item["b"] += shift
@@ -1609,7 +1611,7 @@ static func boss_identity_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: fl
 						g.delayed.append({"fn": "coil_wall", "pos": Vector2(cx, hero_pos.y), "side": side,
 							"tele": 21.0, "t": 1.6, "life": 1.6, "dmg": float(e["dmg"]) * 0.76, "color": "57e5aa",
 							"a": Vector2(cx, hero_pos.y - 190.0), "b": Vector2(cx, hero_pos.y + 190.0),
-							"move": 72.0 + stage * 20.0})
+							"move": 120.0 + stage * 18.0, "stop_x": hero_pos.x + side * 14.0})
 				else:
 					for k in range(3 + stage):
 						var fang = enemy_fire(g, e, dir.rotated((k - 1.0 - stage * 0.5) * 0.32), 1, 0.0, 265.0, 6.0)
