@@ -63,8 +63,8 @@ func _run() -> void:
 	check(Compatibility.applies_to(g, "hydra"), "Hydra still offers a meaningful returning-weapon conversion")
 	g.guns = [Weapons.new_gun(g, "grenade")]
 	check(Compatibility.applies_to(g, "return_sender"), "Return to Sender works on ordinary flying grenades")
-	check(Main.ROUTE_INTRO_ORDER.find("nurse") == -1 and Main.ROUTE_INTRO_ORDER.find("larry") == -1, "Nurse and Larry excluded from active introductions")
-	check(not Main.available_enemies(15).has("nurse") and Main.available_enemies(30).has("mirror"), "New main types have varied introductions")
+	check(Main.introduction_for(4) == "nurse" and Main.ROUTE_INTRO_ORDER.has("larry"), "Medic arrives early and Laser Larry retains a late-game introduction")
+	check(Main.available_enemies(15).has("nurse") and Main.available_enemies(40).has("larry") and Main.available_enemies(30).has("mirror"), "Both unique enemies remain active at their intended progression tiers")
 	check(not EnemyMixes.allowed(Main.available_enemies(15), 15), "New base types appear before combinations")
 	var available = Main.available_enemies(16)
 	check(EnemyMixes.allowed(available, 16), "Dynamic combinations unlock after base species")
