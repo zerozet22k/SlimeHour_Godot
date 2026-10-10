@@ -1,0 +1,23 @@
+
+# Godot 4 generated files
+.godot/
+.import/
+
+# Godot editor executable
+Godot_v*.exe
+
+# Exported game builds
+/build/
+/dist/
+/exports/
+
+# Android exports
+*.apk
+*.aab
+
+# Windows exports
+*.exe
+
+# Temporary files
+*.tmp
+*.log
