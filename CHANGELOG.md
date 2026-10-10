@@ -1,3 +1,12 @@
+## v0.1.13 — Explosive barrels, treasure art, evolving music and boss encounters
+
+- Replaced placeholder chest and barrel drawings with original gold-and-neon artwork; treasure selection highlights the chest.
+- Barrels flash and display a visible 0.85-second blast warning after being shot, struck during a dash, or ignited by a chain explosion. Barrel blasts damage both slimes and the player; previously intact barrels are not deleted instantly.
+- Seven distinct original synthesized songs: Neon Outskirts, Frostline, Ashlands, Candy District, Void Lane, boss and low-HP boss climax. Crossfade on scene changes.
+- Adaptive danger percussion grows when the player is surrounded or cornered, with a restrained warning sound; music continues respecting the settings slider.
+- Four boss types gain distinct attack rotations, ground telegraphs and stronger 65% and 32% HP stages; boss attack warnings are audible.
+- Added headless regression tests for fuse timing, attack phases and song composition.
+
 ## v0.1.12 — Clear, safe Windows download progress
 
 - Replace PowerShell's misleading "Writing web request stream" display with accurate file names, MiB transferred and percentage.

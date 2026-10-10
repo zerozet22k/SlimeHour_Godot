@@ -571,6 +571,10 @@ func paint_portrait_offers() -> void:
 	var h = g.ui_height
 	dim(minf(0.86, g.offer_t * 4.0))
 	var chest = g.offer_mode == "chest"
+	if chest:
+		var treasure_icon = g.tex("res://assets/ui/chest.svg")
+		if treasure_icon != null:
+			draw_texture_rect(treasure_icon, Rect2(574, 32, 90, 90), false)
 	var pop = 1.0 + maxf(0.0, 0.3 - g.offer_t) * 2.0
 	txt("TREASURE!" if chest else "LEVEL UP!", Vector2(360, 118), int(66 * pop), Color("ffd24d") if chest else Color("d6a8ff"), 1, bold, 8)
 	txt("A FREE CARD  ·  CHOOSE ONE" if chest else "LEVEL %d  ·  CHOOSE ONE" % g.level, Vector2(360, 160), 22, Color.WHITE, 1, bold, 3)
@@ -1074,6 +1078,10 @@ func paint_levelup() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, minf(0.78, g.offer_t * 3.0)))
 	var chest = g.offer_mode == "chest"
 	var head = "TREASURE!" if chest else "LEVEL UP!"
+	if chest:
+		var treasure_icon = g.tex("res://assets/ui/chest.svg")
+		if treasure_icon != null:
+			draw_texture_rect(treasure_icon, Rect2(492, 42, 82, 82), false)
 	var hc = Color("ffd24d") if chest else Color("d6a8ff")
 	var pop = 1.0 + maxf(0.0, 0.3 - g.offer_t) * 2.0
 	var wob = sin(g.anim_t * 3.0) * 3.0

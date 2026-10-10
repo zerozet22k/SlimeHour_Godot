@@ -621,6 +621,8 @@ func begin_sector() -> void:
 	enemies.clear()
 	gates.clear()
 	barrels.clear()
+	# No stale bomb or boss telegraph may carry into the next sector.
+	delayed.clear()
 	for i in range(6 + mini(sector, 8)):
 		spawn_barrel(Vector2(randf_range(-road_half + 50, road_half - 50), sector_start_y - randf_range(350, SECTOR_LEN - 150)))
 	if route.get("heal", 0) > 0:

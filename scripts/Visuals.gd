@@ -71,7 +71,7 @@ func _draw() -> void:
 	paint_fx()
 	paint_texts()
 	if g.flash_t > 0.0:
-		draw_rect(Rect2(0, g.view_top, 1280, g.view_bottom - g.view_top), Color(g.flash_color, minf(0.35, g.flash_t * 1.6)))
+		draw_rect(Rect2(g.landscape_left, g.view_top, g.landscape_width, g.view_bottom - g.view_top), Color(g.flash_color, minf(0.35, g.flash_t * 1.6)))
 	if g.slowmo_t > 0.0:
 		var a = minf(0.25, g.slowmo_t * 0.5)
 		for i in range(6):
