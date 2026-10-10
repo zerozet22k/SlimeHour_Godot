@@ -1,3 +1,11 @@
+## v0.1.23 — Precision cursor aiming and correctly oriented weapon art
+
+- Correct all weapon sprite art rotation when aiming left. The old vertical flip reversed the sprite's barrel tilt without reversing its compensating angle (especially visible on the sniper).
+- Calculate gun-specific projectile and instant beam trajectories from each actual muzzle toward the cursor rather than sending parallel bullets from an offset hand.
+- Align sprite barrel tips, muzzle flashes and charged rail effects with the shared muzzle position and corrected per-slot direction.
+- Reproject the mouse world coordinate after camera motion and let captured mouse cursors reach both edges of expanded ultrawide viewports.
+- Add headless regression checks for every gun's barrel orientation at eight angles, both left and right aim, three muzzle slots, and auto-aim fallback.
+
 ## v0.1.22 — Visible version and truly permanent unlock receipts
 
 - Show the exact game version on desktop and portrait main menus, settings, and desktop pause overlay.

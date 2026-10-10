@@ -4,6 +4,7 @@ extends RefCounted
 
 const Combat = preload("res://scripts/Combat.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
+const WeaponAim = preload("res://scripts/WeaponAim.gd")
 const Effects = preload("res://scripts/Effects.gd")
 
 const EVOLVED_NAMES = {"pistol": "Pea-ndemic", "revolver": "High Noon", "shotgun": "Boomstick 9000",
@@ -80,6 +81,19 @@ static func hand_pos(g, slot: int) -> Vector2:
 	var back = -6.0 if slot == 2 else 0.0
 	return g.hero["pos"] + aim.orthogonal() * side + aim * back
 
+## All guns share a single origin contract for the sprite and the projectile.
+static func muzzle_pos(g, slot: int) -> Vector2:
+	return WeaponAim.muzzle(hand_pos(g, slot), g.hero["aim"])
+
+## Cursor aim must converge from the actual muzzle, not run parallel to the
+## hero-to-cursor ray. This matters most for precise weapons and close targets.
+static func aim_for_slot(g, slot: int) -> Vector2:
+	var base: Vector2 = g.hero["aim"]
+	if str(g.settings.get("aim", "auto")) == "mouse" and g.autotest == "" and not g.is_touch_active():
+		var target: Vector2 = g.screen_to_world(g.aim_screen)
+		return WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
+	return base
+
 # ================================================================= per frame
 static func update(g, dt: float) -> void:
 	var aim: Vector2 = g.hero["aim"]
@@ -93,7 +107,8 @@ static func update(g, dt: float) -> void:
 		var want = g.fire_wanted(i)
 		w["cd"] = float(w["cd"]) - dt
 		w["flash"] = maxf(0.0, float(w["flash"]) - dt)
-		var muzzle = hand_pos(g, i) + aim * 22.0
+		var gun_aim = aim_for_slot(g, i)
+		var muzzle = muzzle_pos(g, i)
 		if kind == "spin":
 			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3
 			if wm(w, "prespun") > 0:
@@ -103,7 +118,7 @@ static func update(g, dt: float) -> void:
 			else:
 				w["spin"] = maxf(0.0, float(w["spin"]) - dt * 1.5)
 		if kind == "beam":
-			update_beam(g, w, i, dt, want, muzzle, aim)
+			update_beam(g, w, i, dt, want, muzzle, gun_aim)
 			continue
 		if float(w["reload"]) > 0.0:
 			w["reload"] = float(w["reload"]) - dt
@@ -136,7 +151,7 @@ static func update(g, dt: float) -> void:
 		if g.st("goldshot") > 0 and g.gold > 0:
 			g.gold -= 1
 			mul *= 1.0 + 0.6 / dmg_pool(g, w)
-		volley(g, w, i, muzzle, aim, {"mul": mul})
+		volley(g, w, i, muzzle, gun_aim, {"mul": mul})
 		if kind in ["disc", "boomerang"]:
 			w["ammo"] = int(w["ammo"]) - 1
 		elif g.st("infammo") <= 0:
@@ -304,8 +319,8 @@ static func burst(g, slot: int, item_mul: float = 1.0) -> void:
 	if slot >= g.guns.size():
 		return
 	var w = g.guns[slot]
-	var aim: Vector2 = g.hero["aim"]
-	volley(g, w, slot, hand_pos(g, slot) + aim * 22.0, aim, {"echo": true, "free": true, "mul": float(item_mul), "pattern": "burst"})
+	var aim: Vector2 = aim_for_slot(g, slot)
+	volley(g, w, slot, muzzle_pos(g, slot), aim, {"echo": true, "free": true, "mul": float(item_mul), "pattern": "burst"})
 
 static func echo(g, item: Dictionary) -> void:
 	var slot = int(item["slot"])

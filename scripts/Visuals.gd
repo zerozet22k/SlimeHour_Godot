@@ -2,17 +2,7 @@ extends Node2D
 ## World rendering. Everything is drawn in one canvas pass from the dictionaries in Main.
 
 const Weapons = preload("res://scripts/Weapons.gd")
-
-# Source icons face image-right, but their painted barrel axes vary slightly.
-# Compensate when rotating the icon in the hero's hand so it follows aim.
-const GUN_ART_ANGLE_DEG = {
-	"pistol": 16.0, "revolver": 16.0, "shotgun": 27.0, "smg": 0.0,
-	"minigun": 16.0, "sniper": 25.0, "rocket": 17.0, "grenade": 16.0,
-	"laser": 15.0, "tesla": 0.0, "flame": 10.0, "disc": 9.0,
-	"boomerang": 0.0, "rail": 0.0, "bees": 6.0, "bowling": 10.0,
-	"nailgun": 0.0, "chicken": 9.0, "bubble": 11.0, "pinball": 8.0,
-	"splitbow": 0.0, "snow": 8.0,
-}
+const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
 var g
@@ -854,23 +844,25 @@ func paint_hero() -> void:
 	# Guns in hand, using the generated weapon art.
 	for i in range(g.guns.size()):
 		var w = g.guns[i]
-		var hand = P(Weapons.hand_pos(g, i))
+		var gun_aim: Vector2 = Weapons.aim_for_slot(g, i)
+		var muzzle = P(Weapons.muzzle_pos(g, i))
 		var t = g.tex("res://assets/weapons/%s.png" % w["id"])
-		var ang = aim.angle() + deg_to_rad(float(GUN_ART_ANGLE_DEG.get(w["id"], 0.0)))
-		var flip = aim.x < 0.0
-		var kick = -aim * (5.0 if float(w["flash"]) > 0.0 else 0.0)
-		draw_set_transform(hand + aim * 10.0 + kick, ang, Vector2(1.0, -1.0 if flip else 1.0))
+		var ang = WeaponAim.art_rotation(gun_aim, str(w["id"]))
+		var flip = WeaponAim.is_mirrored(gun_aim)
+		var kick = -gun_aim * (5.0 if float(w["flash"]) > 0.0 else 0.0)
+		var anchor = WeaponAim.sprite_anchor(muzzle, gun_aim)
+		draw_set_transform(anchor + kick, ang, Vector2(1.0, -1.0 if flip else 1.0))
 		if t != null:
 			draw_texture_rect(t, Rect2(-16, -18, 40, 40), false, Color("ffe9a0") if bool(w["evolved"]) else Color.WHITE)
 		else:
 			draw_rect(Rect2(-4, -4, 22, 8), Color(str(g.weapon_db[w["id"]]["color"])))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if float(w["flash"]) > 0.0:
-			var tip = hand + aim * 30.0
+			var tip = muzzle
 			draw_circle(tip, 9.0, Color(1, 0.95, 0.6, 0.8))
 			draw_circle(tip, 5.0, Color.WHITE)
 		if g.weapon_db[w["id"]]["kind"] == "rail" and float(w["charge"]) > 0.0:
-			draw_arc(hand + aim * 24.0, 6.0 + float(w["charge"]) * 10.0, 0, TAU, 16, Color(0.6, 0.9, 1.0, float(w["charge"])), 2.0)
+			draw_arc(muzzle, 6.0 + float(w["charge"]) * 10.0, 0, TAU, 16, Color(0.6, 0.9, 1.0, float(w["charge"])), 2.0)
 	# shield charges & reload rings
 	var sh = int(h["shield"])
 	if sh > 0:

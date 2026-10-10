@@ -12,7 +12,7 @@ const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
-const GAME_VERSION = "v0.1.22"
+const GAME_VERSION = "v0.1.23"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -393,7 +393,11 @@ func _process(delta: float) -> void:
 		cam_y = lerpf(cam_y, target, 1.0 - exp(-7.0 * cdt))
 		var target_x = RoadObstacles.camera_x(float(focus.x), road_half, 720.0 if portrait else landscape_width)
 		cam_x = lerpf(cam_x, target_x, 1.0 - exp(-7.0 * cdt))
-	shake = maxf(0.0, shake - delta * 30.0)
+		# Camera follow changes world coordinates beneath a fixed screen cursor.
+		# Reproject after camera motion so the crosshair and weapon targeting agree.
+		if state == "playing" and settings["aim"] == "mouse" and aim_touch_id == -1 and not is_touch_active():
+			mouse_world = screen_to_world(aim_screen)
+	shake = maxf(0.0, shake - delta * 30.0
 	banner_t = maxf(0.0, banner_t - delta)
 	flash_t = maxf(0.0, flash_t - delta)
 	offer_t += delta
@@ -2246,7 +2250,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and aim_mouse_active:
 		var rel = hud.get_global_transform_with_canvas().affine_inverse().basis_xform(event.relative)
 		aim_screen += rel * float(settings["sensitivity"])
-		aim_screen.x = clampf(aim_screen.x, 0.0, 720.0 if portrait else 1280.0)
+		aim_screen.x = clampf(aim_screen.x, 0.0 if portrait else landscape_left, 720.0 if portrait else landscape_left + landscape_width)
 		aim_screen.y = clampf(aim_screen.y, view_top, view_bottom)
 
 func _unhandled_input(event: InputEvent) -> void:
