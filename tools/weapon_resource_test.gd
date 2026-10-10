@@ -29,6 +29,16 @@ func _run() -> void:
 	var returning = Weapons.new_gun(g, "boomerang")
 	check(int(disc["mag_max"]) == 2 and int(returning["mag_max"]) == 1, "Disc and boomerang use 2 and 1 returnable slots")
 	check(Weapons.resource_type(g, disc) == "RETURN" and Weapons.resource_type(g, returning) == "RETURN", "Both returning weapons have no reload")
+	# Card-given extra slots are real capacity, but parallel/echo never bypass it.
+	g.S["mult"] = 2.0
+	check(Weapons.mag_size(g, disc) == 4 and Weapons.mag_size(g, returning) == 3, "Double Tap cards expand returning capacity explicitly")
+	g.S.erase("mult")
+	g.shots.clear()
+	Weapons.volley(g, disc, 0, Vector2.ZERO, Vector2.RIGHT, {"echo": true, "mul": 0.6})
+	check(g.shots.is_empty(), "Echo effects do not mint free returning discs")
+	check(float(disc.get("return_resonance", 0.0)) > 0.0, "Echoes grant stored throw power instead")
+	Weapons.volley(g, returning, 0, Vector2.ZERO, Vector2.RIGHT, {"echo": true, "mul": 0.6})
+	check(g.shots.is_empty() and float(returning.get("return_resonance", 0.0)) > 0.0, "Boomerang echoes also respect return slots")
 	var before_disc_rate = Weapons.fire_rate(g, disc)
 	var before_boomer_rate = Weapons.fire_rate(g, returning)
 	disc["evolved"] = true
@@ -50,6 +60,16 @@ func _run() -> void:
 	g.shots.clear()
 	Weapons.fire_flame(g, flame, Vector2.ZERO, Vector2.RIGHT, 5.0)
 	check(g.shots.is_empty() and g.beams.size() == 1 and bool(g.beams[0].get("flame_stream", false)), "Flamethrower emits drawn cone, zero projectile entities")
+	g.S["homing"] = 2.5
+	g.S["split"] = 2.0
+	g.S["rico"] = 1.0
+	g.S["bounce"] = 2.0
+	Weapons.fire_flame(g, flame, Vector2.ZERO, Vector2.RIGHT, 5.0)
+	check(g.shots.is_empty(), "Homing / split / bounce / ricochet do not create fake flame projectiles")
+	g.S.erase("homing")
+	g.S.erase("split")
+	g.S.erase("rico")
+	g.S.erase("bounce")
 	var rail = Weapons.new_gun(g, "rail")
 	var old_charge = Weapons.rail_charge_seconds(g, rail)
 	rail["evolved"] = true

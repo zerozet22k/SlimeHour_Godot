@@ -265,7 +265,10 @@ static func update_shots(g, dt: float) -> void:
 			if to_h.length() < 20.0:
 				s["dead"] = true
 				continue
-		var homing = float(s["homing"])
+		# Returning weapons must actually get home: homing, curve and wave
+		# can steer an outbound disc, but never override its return steering.
+		var is_returning = bool(s["back"]) and kind in ["disc", "boomerang"]
+		var homing = 0.0 if is_returning else float(s["homing"])
 		if homing > 0.0:
 			var tgt = null
 			if s["friendly"]:
@@ -291,11 +294,11 @@ static func update_shots(g, dt: float) -> void:
 				var want = (tgt["pos"] - s["pos"]).angle()
 				var diff = wrapf(want - vel.angle(), -PI, PI)
 				vel = vel.rotated(clampf(diff, -homing * dt, homing * dt))
-		if float(s["curve"]) != 0.0:
+		if not is_returning and float(s["curve"]) != 0.0:
 			vel = vel.rotated(float(s["curve"]) * dt)
 		s["vel"] = vel
 		var step_v = vel * dt
-		if float(s["wave"]) > 0.0:
+		if not is_returning and float(s["wave"]) > 0.0:
 			var perp = vel.normalized().orthogonal()
 			step_v += perp * cos(float(s["t"]) * 16.0 + float(s["phase"])) * float(s["wave"]) * 16.0 * dt
 		s["pos"] += step_v

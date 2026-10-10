@@ -88,7 +88,7 @@ static func resource_type(g, w: Dictionary) -> String:
 		"rail": return "CHARGE"
 		_: return "AMMO"
 static func flame_range(g, w: Dictionary) -> float:
-	return 195.0 * maxf(0.4, 1.0 + g.st("range")) * (1.4 if int(w["lvl"]) >= 3 else 1.0) * (1.25 if bool(w["evolved"]) else 1.0)
+	return 195.0 * maxf(0.4, 1.0 + g.st("range")) * maxf(0.75, 1.0 + g.st("pspeed") * 0.1) * (1.4 if int(w["lvl"]) >= 3 else 1.0) * (1.25 if bool(w["evolved"]) else 1.0)
 static func flame_cone_contains(a: Vector2, dir: Vector2, point: Vector2, reach: float, half_angle: float, target_radius: float = 0.0) -> bool:
 	var offset = point - a
 	var distance = offset.length()
@@ -153,8 +153,33 @@ static func aim_for_slot(g, slot: int) -> Vector2:
 	var base: Vector2 = g.hero["aim"]
 	if str(g.settings.get("aim", "auto")) == "mouse" and g.autotest == "" and not g.is_touch_active():
 		var target: Vector2 = g.screen_to_world(g.aim_screen)
-		return WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
-	return base
+		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
+	# Homing has no physical bullet to steer on cone/hitscan weapons. Convert
+	# it to a SMALL capped aim correction toward a target already near the reticle.
+	if g.st("homing") <= 0.0 or slot >= g.guns.size():
+		return base
+	var kind = kind_of(g, g.guns[slot])
+	if kind not in ["flame", "beam", "rail", "chain"]:
+		return base
+	var reach = 340.0 if kind == "flame" else (1000.0 if kind == "rail" else 600.0)
+	var max_angle = minf(0.30 if kind == "flame" else 0.17, float(g.st("homing")) * 0.05)
+	var origin = muzzle_pos(g, slot)
+	var best = INF
+	var correction = 0.0
+	for enemy in g.enemies_near(origin, reach):
+		if bool(enemy["dead"]):
+			continue
+		var toward: Vector2 = enemy["pos"] - origin
+		if toward.length_squared() < 1.0:
+			continue
+		var delta = wrapf(toward.angle() - base.angle(), -PI, PI)
+		if absf(delta) > max_angle * 2.0:
+			continue
+		var score = absf(delta) * reach + toward.length() * 0.3
+		if score < best:
+			best = score
+			correction = clampf(delta, -max_angle, max_angle)
+	return base.rotated(correction).normalized()
 
 # ================================================================= per frame
 static func update(g, dt: float) -> void:
@@ -251,6 +276,15 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	var kind = str(d["kind"])
 	var dmg = shot_damage(g, w) * float(opts.get("mul", 1.0))
 	var echo = bool(opts.get("echo", false))
+	if kind in ["disc", "boomerang"]:
+		if echo:
+			# Burst / Echo / Ghost cards grant stored resonance instead of
+			# spawning physical returning weapons without using their slots.
+			w["return_resonance"] = minf(0.9, float(w.get("return_resonance", 0.0)) + minf(0.35, 0.18 * float(opts.get("mul", 0.6))))
+			g.spawn_ring_fx(g.hero["pos"], Color("a4d5ff"), 22.0)
+			return
+		dmg *= 1.0 + float(w.get("return_resonance", 0.0))
+		w["return_resonance"] = 0.0
 	# A perfect returning catch builds momentum for the NEXT throw.
 	if w["id"] == "boomerang" and int(w["lvl"]) >= 5 and not echo:
 		dmg *= 1.0 + 0.15 * float(w.get("catch_streak", 0))
@@ -302,6 +336,22 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 			else:
 				side = maxi(0, side - 1)
 		dmg *= float(before) / float(n * lines + rear + side * 2)
+	if kind in ["disc", "boomerang"]:
+		# A REAL throw always occupies exactly one slot. Parallel/rear/side
+		# cards improve momentum of that throw; they never mint free blades.
+		var return_card_power = maxf(0.0, float(lines - 1)) * 0.12 + float(rear) * 0.08 + float(side) * 0.14
+		dmg *= 1.0 + minf(0.85, return_card_power)
+		lines = 1
+		rear = 0
+		side = 0
+	if kind == "flame":
+		# Multishot is cone saturation, parallel is cone coverage; side and rear
+		# modifiers will be separate low-damage vents, not N extra fire streams.
+		dmg *= 1.0 + minf(0.45, 0.085 * float(maxi(0, n - 1)))
+		n = 1
+		lines = 1
+		rear = mini(rear, 1)
+		side = mini(side, 1)
 	if g.shots.size() > g.shot_cap() - 40 and kind not in ["beam", "chain", "rail", "flame"]:
 		return
 	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
@@ -337,11 +387,11 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 			var off = (float(k) - float(lines - 1) * 0.5) * 13.0
 			emit(g, w, origin + perp * off, dir.rotated(a), dmg, eopts)
 	for j in range(rear):
-		emit(g, w, origin - dir * 30.0, (-dir).rotated((float(j) - float(rear - 1) * 0.5) * 0.2), dmg, eopts)
+		emit(g, w, origin - dir * 30.0, (-dir).rotated((float(j) - float(rear - 1) * 0.5) * 0.2), dmg * (0.30 if kind == "flame" else 1.0), eopts)
 	for j in range(side):
 		var a2 = (float(j) - float(side - 1) * 0.5) * 0.2
-		emit(g, w, origin, perp.rotated(a2), dmg, eopts)
-		emit(g, w, origin, (-perp).rotated(a2), dmg, eopts)
+		emit(g, w, origin, perp.rotated(a2), dmg * (0.30 if kind == "flame" else 1.0), eopts)
+		emit(g, w, origin, (-perp).rotated(a2), dmg * (0.30 if kind == "flame" else 1.0), eopts)
 	# Weapon-specific max level upgrades are applied through projectile signatures.
 	if echo:
 		# Burst echoes have their own sharp double impulse; routine ghost echoes stay quiet.
@@ -559,24 +609,68 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 		o["flags"]["trapped"] = 0
 	Combat.shot(g, pos, dir, dmg, o)
 
-static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, damage: float) -> void:
+static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, damage: float, can_bank: bool = true) -> void:
 	# A true continuous area cone: NO flame bullet entities in Combat.shot().
 	# Each fuel tick tests nearby enemies once, not 30 short-lived colliders.
-	var reach = flame_range(g, w)
-	var half_angle = maxf(0.12, 0.23 * (1.0 + g.st("spreadp") * 0.35))
+	var reach = flame_range(g, w) * (1.0 + minf(0.18, 0.03 * float(maxi(0, int(g.st("pierce"))))))
+	var half_angle = maxf(0.12, 0.23 * (1.0 + g.st("spreadp") * 0.35) + minf(0.28, 0.04 * float(g.st("par")) + 0.018 * float(g.st("mult")) + 0.045 * float(g.st("size"))))
+	# Curving and wavy rounds are a gently oscillating flame sheet, not bullets.
+	if can_bank and (g.st("curve") != 0.0 or g.st("wave") > 0.0):
+		direction = direction.rotated(sin(g.run_time * 7.0) * minf(0.12, absf(g.st("curve")) * 0.025 + g.st("wave") * 0.0005))
 	var hits = 0
+	var anchor = null
 	for enemy in g.enemies_near(origin, reach + 30.0):
 		if bool(enemy["dead"]) or float(enemy.get("charm", 0.0)) > 0.0:
 			continue
 		if not flame_cone_contains(origin, direction, enemy["pos"], reach, half_angle, float(enemy["r"])):
 			continue
-		Combat.hit(g, enemy, damage, {"pos": enemy["pos"], "gen": 0, "dir": direction,
+		var distance_ratio = clampf(origin.distance_to(enemy["pos"]) / maxf(1.0, reach), 0.0, 1.0)
+		var travelling_heat = 1.0 + (0.20 * distance_ratio if g.st("accel") > 0.0 else 0.0)
+		Combat.hit(g, enemy, damage * travelling_heat, {"pos": enemy["pos"], "gen": 0, "dir": direction,
 			"knock": 8.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w)})
+		if anchor == null and not bool(enemy["dead"]):
+			anchor = enemy
 		hits += 1
 		if hits >= 24:
 			break
 	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.065,
 		"w": reach * tan(half_angle), "color": Color("ff9d4d"), "flame_stream": true})
+	# Splinter / Cluster Rounds adapt into heat jumping to fresh targets at a
+	# capped interval; they do not create phantom flame projectiles.
+	if anchor != null and int(g.st("split")) > 0 and g.run_time >= float(w.get("flame_arc_t", -1.0)):
+		w["flame_arc_t"] = g.run_time + 0.3
+		var transferred = 0
+		for other in g.enemies_near(anchor["pos"], 130.0):
+			if bool(other["dead"]) or other == anchor or float(other["burn"]) > 0.0:
+				continue
+			Combat.hit(g, other, damage * 0.4, {"pos": other["pos"], "gen": 1, "dir": Vector2.ZERO,
+				"knock": 0.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w), "noproc": true})
+			g.beams.append({"a": anchor["pos"], "b": other["pos"], "t": 0.13, "w": 2.0, "color": Color("ffb26b")})
+			transferred += 1
+			if transferred >= mini(3, int(g.st("split"))):
+				break
+	# Enemy ricochet becomes a short heat jump to another victim. This is
+	# capped separately from Splinter's burning spread to limit proc chains.
+	if can_bank and anchor != null and g.st("rico") > 0.0 and g.run_time >= float(w.get("flame_rico_t", -1.0)):
+		w["flame_rico_t"] = g.run_time + 0.36
+		for other in g.enemies_near(anchor["pos"], 165.0):
+			if bool(other["dead"]) or other == anchor:
+				continue
+			Combat.hit(g, other, damage * 0.52, {"pos": other["pos"], "gen": 1, "dir": Vector2.ZERO,
+				"knock": 0.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w), "noproc": true})
+			g.beams.append({"a": anchor["pos"], "b": other["pos"], "t": 0.11, "w": 2.4, "color": Color("ffd16b")})
+			break
+	# Wall bounces turn into ONE bounded reflected fire sheet. This is NOT
+	# a wall-spawned fire bullet, and cannot recursively reflect.
+	if can_bank and g.st("bounce") > 0.0 and absf(direction.x) > 0.12 and g.run_time >= float(w.get("flame_bank_t", -1.0)):
+		var wall_x = (g.road_half - 5.0) if direction.x > 0.0 else (-g.road_half + 5.0)
+		var wall_distance = (wall_x - origin.x) / direction.x
+		if wall_distance > 0.0 and wall_distance < reach:
+			w["flame_bank_t"] = g.run_time + 0.30
+			var bank_at = origin + direction * wall_distance
+			var bank_dir = Vector2(-direction.x, direction.y).normalized()
+			g.spawn_ring_fx(bank_at, Color("ffc46a"), 23.0)
+			fire_flame(g, w, bank_at, bank_dir, damage * 0.3, false)
 	# The Dragon mastery still ignites occasional ground fires.
 	if wm(w, "dragon") > 0.0 and randf() < 0.015:
 		g.add_zone("fire", origin + direction * reach * 0.75, 34.0, 2.0)

@@ -1,3 +1,13 @@
+## v0.1.37 — Modifiers adapted to physical and nonprojectile weapon systems
+
+- Returning-disc and boomerang homing, curve, and wave effects apply only on the outward trip. The return trip always steers home; no card may silently break retrieval.
+- Double Tap increases returning-weapon capacity through the existing explicit slot rule, while Twin Barrels, rear-fire, and side-fire cards strengthen a single physical throw instead of secretly creating additional uncounted blades.
+- Burst Mode and Echo Chamber on returning weapons store limited bonus power for the next actual throw; they do not spawn free unlimited blades.
+- Homing applies narrow aim correction to instant rail, sustained lasers, chain arcs, and flamethrower cones; physical projectiles retain their real homing steering.
+- Flamethrowers use one real damage cone rather than many invisible flame projectiles. Double Tap improves stream saturation, parallel fire widens coverage, and rear/side fire creates weak directional vents instead of duplicate full-strength streams.
+- Split and ricochet cards produce capped secondary heat transfers. Bounce can generate one weakened wall-reflected flame sheet, while curved/wavy rounds gently oscillate the cone. Size improves cone width, projectile speed extends reach slightly, piercing extends penetration depth, and acceleration increases heat farther downrange.
+- Add card synergy regressions to guard the 22-weapon resource behavior against further generic projectile changes.
+
 ## v0.1.36 — Weapon resource identities and correct evolution bonuses
 
 - Evolution never adds a generic projectile to every gun: magazine guns gain firing speed, rockets and grenades gain blast radius, laser gains reach, minigun spools faster, and rail charges faster.
