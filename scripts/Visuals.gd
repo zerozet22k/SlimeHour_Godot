@@ -371,6 +371,20 @@ func paint_telegraphs() -> void:
 			draw_circle(rock, float(d["tele"]), Color("a75e3d", 0.85))
 			draw_arc(rock, float(d["tele"]), 0.0, TAU, 28, Color("ffe3ae"), 3.0)
 			continue
+		if str(d.get("fn", "")) == "chonk_fault":
+			var a: Vector2 = P(d["a"])
+			var b: Vector2 = P(d["b"])
+			var armed: bool = float(d.get("arm", 0.0)) <= 0.0
+			var pulse: float = 1.0 - clampf(float(d.get("pulse", 0.0)) / 0.91, 0.0, 1.0)
+			var shade: Color = Color("ff9670")
+			draw_line(a, b, Color(shade, 0.13 if not armed else 0.23), float(d["tele"]) * 2.0)
+			draw_line(a, b, Color(shade, 0.70 if not armed else 0.88), 3.0 + pulse * 3.0)
+			for cut in range(5):
+				var t = float(cut) / 5.0
+				var spot = a.lerp(b, t)
+				draw_line(spot, spot + (b - a).orthogonal().normalized() * (12.0 + cut * 3.0),
+					Color(shade, 0.68), 2.0)
+			continue
 		if str(d.get("fn", "")) == "boss_gravity":
 			var center: Vector2 = P(d["pos"])
 			var radius: float = float(d["tele"])
@@ -460,6 +474,15 @@ func paint_telegraphs() -> void:
 				draw_circle(mp, 16, Color("ff7a3d"))
 				draw_circle(mp, 10, Color("ffd24d"))
 	for e in g.enemies:
+		if str(e.get("chonk_state", "")) == "windup":
+			var origin: Vector2 = P(e["pos"])
+			var landing: Vector2 = P(e.get("lock", g.hero["pos"]))
+			var progress: float = 1.0 - clampf(float(e.get("wind", 0.0)) / maxf(0.1, float(e.get("chonk_wind_initial", 0.9))), 0.0, 1.0)
+			draw_line(origin, landing, Color("ff895e", 0.20 + progress * 0.22), float(e["r"]) * 1.65)
+			draw_line(origin, landing, Color("ffe0a5", 0.68 + progress * 0.22), 4.0)
+			draw_arc(landing, float(e["r"]) + 17.0, 0, TAU, 40, Color("ffe8bb"), 3.0)
+			text_c("CHARGE - MOVE SIDEWAYS", landing + Vector2(0, -float(e["r"]) - 33.0), 13, Color("ffe0a5"), 2)
+			continue
 		if float(e.get("wind", 0.0)) > 0.0:
 			var p = P(e["pos"])
 			if enemy_has_role(e, "larry") or enemy_has_role(e, "lancer"):
@@ -467,7 +490,7 @@ func paint_telegraphs() -> void:
 				var dir = (lock - e["pos"]).normalized()
 				var color = Color("c1c8ff") if enemy_has_role(e, "lancer") else Color("ff5a82")
 				draw_line(p, p + dir * (650.0 if enemy_has_role(e, "lancer") else 900.0), Color(color, 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
-			elif e.has("tele") and (e["kind"] in ["chonkzilla", "kingblob"] or enemy_has_role(e, "chonk")):
+			elif e.has("tele") and (e["kind"] == "kingblob" or enemy_has_role(e, "chonk")):
 				var landing_target: Vector2 = e.get("lock", e["pos"])
 				var landing_at: Vector2 = e["pos"].move_toward(landing_target, 170.0 + Combat.boss_stage(e) * 55.0)
 				var at = P(landing_target) if e["kind"] == "kingblob" else (P(landing_at) if e["kind"] == "chonkzilla" else p)
@@ -605,9 +628,14 @@ func paint_enemies() -> void:
 		if bool(e.get("boss", false)):
 			match str(e["kind"]):
 				"chonkzilla":
-					if float(e.get("boss_recover", 0.0)) > 0.0:
+					if str(e.get("chonk_state", "")) == "rush":
+						draw_arc(p, r + 12.0, 0, TAU, 36, Color("ff835c"), 5.0)
+						text_c("RAMPAGE", p + Vector2(0, -r - 31), 15, Color("ffad7e"), 2)
+					elif float(e.get("boss_recover", 0.0)) > 0.0:
 						draw_arc(p, r + 8.0, 0, TAU, 36, Color("ffe07f"), 4.0)
-						text_c("STAGGERED - HIT NOW", p + Vector2(0, -r - 31), 13, Color("ffe07f"), 2)
+						text_c("ARMOR BROKEN - ATTACK!", p + Vector2(0, -r - 31), 13, Color("ffe07f"), 2)
+					elif int(e.get("chonk_combo", 0)) > 0:
+						text_c("CHAIN x%d" % (int(e["chonk_combo"]) + 1), p + Vector2(0, -r - 31), 12, Color("ffb48b"), 2)
 				"heli":
 					if float(e.get("flight_t", 0.0)) > 0.0:
 						var side = float(e.get("flight_side", 1.0))
@@ -724,6 +752,18 @@ func bake_enemies() -> void:
 	vp.queue_free()
 
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
+	if bool(e.get("chonk_pillar", false)):
+		draw_circle(p + Vector2(5, 9), r + 3.0, Color(0.0, 0.0, 0.0, 0.28))
+		var corners = PackedVector2Array([
+			p + Vector2(-r * 0.85, -r * 0.35), p + Vector2(-r * 0.40, -r * 1.04),
+			p + Vector2(r * 0.48, -r * 0.95), p + Vector2(r * 0.95, -r * 0.25),
+			p + Vector2(r * 0.59, r * 0.84), p + Vector2(-r * 0.53, r * 0.95)])
+		draw_colored_polygon(corners, Color("93704c"))
+		draw_line(p + Vector2(-9, -22), p + Vector2(6, -3), Color("f0d6a6"), 3.0)
+		draw_line(p + Vector2(6, -3), p + Vector2(-4, 19), Color("e6b784"), 2.6)
+		var health = clampf(float(e["hp"]) / maxf(1.0, float(e["max_hp"])), 0.0, 1.0)
+		draw_arc(p, r + 4.0, -PI * 0.5, -PI * 0.5 + TAU * health, 28, Color("ffe6af"), 3.0)
+		return
 	var kind = str(e["kind"])
 	var parts: Dictionary = g.enemy_db[kind].get("look", {})
 	# Dynamic hybrids reuse an already-baked parent quad; no N^2 atlas explosion.
