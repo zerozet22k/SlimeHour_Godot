@@ -1329,7 +1329,7 @@ func paint_collection() -> void:
 	button(Rect2(330, 668, 60, 42), "<", "page-1", false, 26, collection_page > 0)
 	txt("%d / %d" % [collection_page + 1, pages], Vector2(450, 698), 20, Color.WHITE, 1, bold, 3)
 	button(Rect2(510, 668, 60, 42), ">", "page1", false, 26, collection_page < pages - 1)
-	txt("%d cards  ·  %d guns  //  For monsters, open BESTIARY" % [g.db_cards.size(), g.weapon_ids.size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
+	txt("%d cards  ·  %d guns" % [g.db_cards.size(), g.weapon_ids.size()], Vector2(30, 698), 16, Color("9fb8d0"), 0, bold, 3)
 	button(Rect2(1040, 660, 200, 48), "BACK", "back", true, 24)
 
 func mini_card(r: Rect2, info: Dictionary) -> void:

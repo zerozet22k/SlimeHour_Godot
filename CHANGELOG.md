@@ -1,3 +1,7 @@
+## v0.1.9 — Collection text cleanup
+
+- Removed the unnecessary Bestiary instruction from the Collection footer. Bestiary remains available directly from the main menu.
+
 ## v0.1.8 — Verified partial-download rollout
 
 - First production incremental release using the external Godot content pack introduced in v0.1.7.
