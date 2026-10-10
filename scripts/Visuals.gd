@@ -551,7 +551,11 @@ func paint_enemies() -> void:
 			draw_circle(p, r + 4.0, Color("312920", 0.8))
 			draw_arc(p, r + 8.0, 0, TAU, 24, Color("e4b873", 0.8), 2.5)
 			continue
-		draw_enemy(e, p, r)
+		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
+			draw_circle(p, r + 3.0, Color("652e28"))
+			draw_circle(p, r * 0.72, Color("ffbc69"))
+		else:
+			draw_enemy(e, p, r)
 		# Real slime-wall links, only around visible threatening packs.
 		if e["kind"] == "blob" and e["pos"].distance_squared_to(g.hero["pos"]) < 210.0 * 210.0:
 			var linked = 0
