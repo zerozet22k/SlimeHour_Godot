@@ -480,6 +480,7 @@ func bake_enemies() -> void:
 
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	var kind = str(e["kind"])
+	var parts: Dictionary = g.enemy_db[kind].get("look", {})
 	var src = atlas_cell.get(kind + ("*" if bool(e["elite"]) else ""))
 	if atlas == null or src == null:
 		draw_enemy_live(e, p, r)
@@ -526,7 +527,7 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
 	var ey = -r * 0.18 * sy
-	if kind == "larry":
+	if str(parts.get("face", "")) == "visor":
 		draw_rect(Rect2(p.x - r * 0.7 + (look.x + 1.0) * r * 0.5, p.y + ey - 2, r * 0.4, 4), Color("ff3a5a"))
 	elif not spinning:
 		var dot: Rect2 = atlas_cell["#dot"]
@@ -555,23 +556,54 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 ## Fallback before the atlas is baked: draw the vector art directly.
 func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 	var kind = str(e["kind"])
+	var parts: Dictionary = g.enemy_db[kind].get("look", {})
 	draw_set_transform(p + Vector2(0, r * 0.75), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * 0.95, Color(0, 0, 0, 0.35))
 	draw_set_transform(p, 0.0, Vector2.ONE)
 	draw_enemy_body(self, kind, bool(e["elite"]), r, e["color"], float(e["flash"]) > 0.0)
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
-	if kind != "larry":
+	if str(parts.get("face", "")) != "visor":
 		for ex in ([0.0] if kind == "necro" else [-0.36, 0.36]):
 			draw_circle(Vector2(ex * r, -r * 0.18) + look * eye_r * 0.45, eye_r * 0.5, Color("120810"))
+	else:
+		draw_rect(Rect2(-r * 0.2, -r * 0.18 - 2, r * 0.4, 4), Color("ff3a5a"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_status(e, p, r)
+
+## Parts are data-driven, so one body can wear any combination of role gear.
+func draw_modular_body(ci: CanvasItem, parts: Dictionary, r: float, body: Color, dark: Color) -> void:
+	ci.draw_circle(Vector2.ZERO, r, dark)
+	ci.draw_circle(Vector2(0, -1), r - 2.0, body)
+	if str(parts.get("face", "")) == "white":
+		ci.draw_circle(Vector2(0, r * 0.08), r * 0.75, Color("d5e3ec"))
+		ci.draw_circle(Vector2(0, r * 0.03), r * 0.69, Color("f8fcff"))
+	elif str(parts.get("face", "")) == "visor":
+		ci.draw_rect(Rect2(-r * 0.84, -r * 0.4, r * 1.68, r * 0.58), Color("2a1831"))
+
+func draw_modular_gear(ci: CanvasItem, parts: Dictionary, r: float) -> void:
+	for gear in parts.get("gear", []):
+		match str(gear):
+			"medic_cap":
+				ci.draw_circle(Vector2(0, -r * 0.82), r * 0.57, Color("dce9f2"))
+				ci.draw_rect(Rect2(-r * 0.62, -r * 1.05, r * 1.24, r * 0.43), Color("f8fcff"))
+				ci.draw_rect(Rect2(-r * 0.09, -r * 1.01, r * 0.18, r * 0.34), Color("e84960"))
+				ci.draw_rect(Rect2(-r * 0.21, -r * 0.89, r * 0.42, r * 0.12), Color("e84960"))
+			"laser_lens":
+				ci.draw_rect(Rect2(-r * 0.73, -r * 0.28, r * 1.46, r * 0.24), Color("591d40"))
+				ci.draw_circle(Vector2(0, -r * 0.16), r * 0.2, Color("ff547e"))
+				ci.draw_circle(Vector2(0, -r * 0.16), r * 0.1, Color("ffe0eb"))
+			"helmet":
+				ci.draw_circle(Vector2(0, -r * 0.74), r * 0.75, Color("47553d"))
+				ci.draw_rect(Rect2(-r * 0.88, -r * 0.88, r * 1.76, r * 0.24), Color("75855e"))
+				ci.draw_rect(Rect2(-r * 0.24, -r * 1.22, r * 0.48, r * 0.18), Color("b9c69b"))
 
 ## Everything about an enemy that does not move: body, props, eye whites, mouth, crown.
 ## Drawn on any canvas (ci) so it can be baked; centre is the current transform origin.
 func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: Color, flash: bool) -> void:
 	var body = Color.WHITE if flash else col
 	var dark = col.darkened(0.45)
+	var parts: Dictionary = g.enemy_db[kind].get("look", {})
 	var slime = kind in ["blob", "zoomer", "chonk", "spitter", "mitosis", "mini", "mama", "chonkzilla", "kingblob", "ashwing"]
 	if slime:
 		for k in range(5):
@@ -685,18 +717,6 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_circle(Vector2.ZERO, r, dark)
 			ci.draw_circle(Vector2(0, 1), r - 2, body)
 			ci.draw_circle(Vector2(0, r * 0.42), r * 0.4, body.lightened(0.16))
-		"nurse":
-			ci.draw_circle(Vector2.ZERO, r, Color("344257"))
-			ci.draw_circle(Vector2.ZERO, r - 2, body)
-			ci.draw_arc(Vector2.ZERO, r * 0.82, 0.15, PI - 0.15, 12, Color("a9d8dc"), 3.0)
-		"larry":
-			ci.draw_circle(Vector2.ZERO, r, Color("302035"))
-			ci.draw_circle(Vector2.ZERO, r - 2, body)
-			ci.draw_rect(Rect2(-r * 0.8, -r * 0.3, r * 1.6, r * 0.5), Color("361c37"))
-		"mortar":
-			ci.draw_circle(Vector2.ZERO, r, dark)
-			ci.draw_circle(Vector2(0, -1), r - 2, body)
-			ci.draw_rect(Rect2(-r * 0.9, -r * 0.95, r * 1.8, r * 0.45), Color("4d5a3a"))
 		"totem":
 			ci.draw_rect(Rect2(-r * 0.8, -r * 1.35, r * 1.6, r * 2.4), Color("1d3550"))
 			ci.draw_rect(Rect2(-r * 0.68, -r * 1.23, r * 1.36, r * 2.16), body)
@@ -714,8 +734,11 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_circle(Vector2.ZERO, r - 3, body)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.6, r * 0.8), Vector2(0, r * 1.3), Vector2(r * 0.6, r * 0.8)]), Color("44265b"))
 		_:
-			ci.draw_circle(Vector2.ZERO, r, dark)
-			ci.draw_circle(Vector2(0, -1), r - 2, body)
+			if str(parts.get("body", "")) == "round":
+				draw_modular_body(ci, parts, r, body, dark)
+			else:
+				ci.draw_circle(Vector2.ZERO, r, dark)
+				ci.draw_circle(Vector2(0, -1), r - 2, body)
 	if slime:
 		ci.draw_arc(Vector2(0, -1), r - 3, PI * 1.08, PI * 1.9, 18, Color(1, 1, 1, 0.28), maxf(2.0, r * 0.12))
 		ci.draw_circle(Vector2(-r * 0.43, -r * 0.48), maxf(2.0, r * 0.13), Color(1, 1, 1, 0.38))
@@ -726,7 +749,7 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 	# eye whites (pupils are drawn live so they can look around)
 	var eye_r = maxf(3.5, r * 0.3)
 	var ey = -r * 0.18
-	if kind == "larry":
+	if str(parts.get("face", "")) == "visor":
 		ci.draw_rect(Rect2(-r * 0.8, ey - eye_r * 0.7, r * 1.6, eye_r * 1.4), Color("200810"))
 	else:
 		for ep in ([Vector2(0, ey)] if kind == "necro" else [Vector2(-r * 0.36, ey), Vector2(r * 0.36, ey)]):
@@ -754,8 +777,6 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 		"riot":
 			ci.draw_rect(Rect2(-r * 0.68, -r * 0.96, r * 1.36, r * 0.3), Color("344765"))
 			ci.draw_rect(Rect2(-r * 0.6, -r * 0.85, r * 1.2, r * 0.15), Color("b7d8f9"))
-		"larry":
-			ci.draw_circle(Vector2(0, -r * 0.9), r * 0.19, Color("ff517e"))
 		"heli":
 			ci.draw_rect(Rect2(-r * 0.45, r * 0.45, r * 0.9, r * 0.23), Color("4c5363"))
 		"goblin":
@@ -768,10 +789,6 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.7, -r * 0.7), Vector2(-r * 1.2, -r * 1.3), Vector2(-r * 0.4, -r * 0.9)]), Color("f0e8d8"))
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(r * 0.7, -r * 0.7), Vector2(r * 1.2, -r * 1.3), Vector2(r * 0.4, -r * 0.9)]), Color("f0e8d8"))
 			ci.draw_circle(Vector2(0, r * 0.45), r * 0.22, Color("402020"))
-		"nurse":
-			ci.draw_rect(Rect2(-r * 0.6, -r * 1.05, r * 1.2, r * 0.45), Color.WHITE)
-			ci.draw_rect(Rect2(-r * 0.08, -r * 1.0, r * 0.16, r * 0.35), Color("ff3a4a"))
-			ci.draw_rect(Rect2(-r * 0.2, -r * 0.88, r * 0.4, r * 0.12), Color("ff3a4a"))
 		"spitter":
 			ci.draw_circle(Vector2(0, r * 0.45), r * 0.3, Color("204010"))
 			ci.draw_circle(Vector2(0, r * 0.45), r * 0.17, Color("89db52"))
@@ -784,6 +801,8 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_rect(Rect2(-r * 0.4, r * 0.3, r * 0.8, r * 0.25), Color("e8e0f0"))
 		"kaboomba":
 			ci.draw_arc(Vector2(0, r * 0.35), r * 0.28, 0.25, PI - 0.25, 10, Color("201018"), 2.5)
+	if not parts.is_empty():
+		draw_modular_gear(ci, parts, r)
 	if elite or kind in ["kingblob", "chonkzilla"]:
 		var cy = -r - 4.0
 		ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.5, cy + 4), Vector2(-r * 0.55, cy - 10), Vector2(-r * 0.25, cy - 3),

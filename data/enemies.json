@@ -109,7 +109,12 @@
   "xp": 3,
   "mass": 1,
   "color": "ffffff",
-  "range": 200
+  "range": 200,
+  "look": {
+   "body": "round",
+   "face": "white",
+   "gear": ["medic_cap"]
+  }
  },
  {
   "id": "larry",
@@ -121,7 +126,12 @@
   "xp": 3,
   "mass": 1,
   "color": "ff5a8a",
-  "range": 430
+  "range": 430,
+  "look": {
+   "body": "round",
+   "face": "visor",
+   "gear": ["laser_lens"]
+  }
  },
  {
   "id": "mama",
@@ -144,7 +154,12 @@
   "xp": 4,
   "mass": 1.5,
   "color": "c9b27a",
-  "range": 520
+  "range": 520,
+  "look": {
+   "body": "round",
+   "face": "normal",
+   "gear": ["helmet"]
+  }
  },
  {
   "id": "totem",
