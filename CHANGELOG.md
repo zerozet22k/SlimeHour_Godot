@@ -1,3 +1,12 @@
+## v0.1.44 — Final hybrid integrity and 22-weapon projectile-card translations
+
+- Stabilize hybrid parent roles across roll order and historical saves; vary the body donor deterministically across pairings to avoid late-sector crowds dominated by one starter silhouette. Each hybrid still inherits a single peripheral anatomical trait instead of another full face.
+- Snake Shot, Wobbly Bullets, and Spin to Win use bounded physical trajectory changes on conventional bullets, reduced wobble on grenades, bowling balls, swarms and other heavy/summon actors, and outward-only movement on returning discs and boomerangs.
+- Hitscan Prism Beam, Gauss Lance and Arc Caster convert Snake-style wobbles into synchronized sweeping aim geometry, never invisible bullet entities; Arc Caster converts piercing modifiers into capped extra chain jumps.
+- Speed cards enhance beam/rail/electric reach; Road Rage accelerates downrange beam/rail damage and slightly strengthens later Tesla chain hops. Beam visual length and actual hit line use the same adjusted reach.
+- Explain Snake, trajectories, bounce, split, pierce, velocity and acceleration for each equipped weapon in card tooltips; continue excluding Return to Sender when all equipped weapons have no valid return physics.
+- Add a 22-gun by 30-projectile-card regression suite and enforce it, the anatomical hybrid tests and barrel ignition tests in the Windows release workflow.
+
 ## v0.1.43 — Anatomical enemy hybrids and one consistent unlit barrel
 
 - Remove Nurse and Laser Larry from the actual 27-enemy database, not just the default spawn table. Retire all existing Nurse/Larry combinations during old-profile migration; preserve unrelated Bestiary history.
