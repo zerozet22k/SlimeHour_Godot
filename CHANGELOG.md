@@ -1,3 +1,14 @@
+## v0.1.51 — Mutation Book and controlled per-run enemy fusions
+
+- Introduce **18 named mutations** as designed enemy fusions rather than randomly combining every pair of previously encountered monsters. Each inherits only a single anatomical feature, preserving the original face and readable silhouette.
+- **Normal:** One new mutation introduced every four sectors, starting at sector 16. Mutation encounters ramp gently from 5% at sector 16 to 14% at sector 40, with seven recipes eligible by sector 40.
+- **Hard:** One new mutation every two sectors from sector 16, with encounter chance rising from 19% toward ~45% by sector 40, where thirteen recipes are eligible.
+- **Spawn unlocks last for that run only.** New runs always start with the entire mutation pool locked regardless of previous victories, kills, Bestiary discoveries or sector records. A future recipe cannot spawn before its introduction.
+- Add a dedicated **Mutation Book** entry to desktop and mobile menus: locked entries, run-specific availability, introduction-sector requirements (Normal/Hard), and permanent discovered enemies with kill counts, stats and actionable combat advice.
+- Mutations adopt one bounded, telegraphed attack identity (predicted flank, mines, echo volley, or brood generation) instead of stacking both parents' complete AI. Previously discovered historical hybrids remain readable in old saves but do not join the new random encounter pool.
+- Add regression tests for per-run lock resets, difficulty-specific unlock cadence, old-save discovery migration and gameplay compatibility; validated with a graphical world smoke test.
+- Weapons, cards, bosses, updater and existing save-file formats remain compatible.
+
 ## v0.1.50 — Boss combat overhaul: eight unique bosses
 
 - Add four individually designed bosses to the active rotation: **Coil Queen** (constricting lane patterns and coiling volleys), **Glass Oracle** (crossing laser lattices and mirrored barrages), **Void Weaver** (portal repositioning, void traps and Burrower summons), and **Dread Engine** (heavy piston lanes, shock bursts and Sappers).
