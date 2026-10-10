@@ -137,6 +137,7 @@ static func update_delayed(g, dt: float) -> void:
 			"boss_blast":
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
+				ProjectileVfx.boss_impact(g, item["pos"], "boss_ember" if str(item.get("color", "")) == "ff9944" else "boss_void", radius)
 				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a boss attack")
 			"elite_boom":
@@ -164,7 +165,9 @@ static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Va
 		"src": str(o.get("src", "")), "st": o.get("st", {}), "flags": o.get("flags", {}).duplicate(), "frag": bool(o.get("frag", false)),
 		"gun": o.get("gun"), "phase": randf() * TAU, "base_r": radius, "base_dmg": dmg, "dead": false, "pool": float(o.get("pool", 0.0)),
 		"spin": randf() * TAU}
-	s["vfx_style"] = ProjectileVfx.style_for(str(s["kind"]), str(s["src"]), s["st"])
+	# Carry the source style/pattern from the weapon; spawned fragments may override it.
+	s["vfx_style"] = str(o.get("vfx_style", ProjectileVfx.style_for(str(s["kind"]), str(s["src"]), s["st"])))
+	s["vfx_pattern"] = str(o.get("vfx_pattern", ""))
 	g.shots.append(s)
 	if friendly and int(s["gen"]) <= 1:
 		ProjectileVfx.muzzle(g, pos, dir, str(s["vfx_style"]), radius + 2.0)
@@ -350,6 +353,7 @@ static func collide_barrels(g, s: Dictionary) -> void:
 			continue
 		if seg_dist2(s["last"], s["pos"], b["pos"]) < pow(20.0 + float(s["r"]), 2):
 			b["hp"] = float(b["hp"]) - float(s["dmg"])
+			ProjectileVfx.impact(g, b["pos"], s["vel"], "heavy", 8.0)
 			if str(s["kind"]) not in ["disc", "boomerang", "ball", "flame", "car", "saw"]:
 				if int(s["pierce"]) <= 0:
 					s["dead"] = true
@@ -402,7 +406,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 		ctx["fling"] = true
 	var crit = hit(g, e, float(s["dmg"]), ctx)
 	if crit:
-		ProjectileVfx.impact(g, impact, dir, "heavy", maxf(9.0, float(s["r"]) * 2.4))
+		ProjectileVfx.critical(g, impact, dir, maxf(12.0, float(s["r"]) * 2.6))
 	else:
 		ProjectileVfx.impact(g, impact, dir, str(s.get("vfx_style", "kinetic")), maxf(5.0, float(s["r"]) * 1.5))
 	match kind:
@@ -495,6 +499,7 @@ static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	if repeat or kind in ["coin"] and int(s["rico"]) > 0:
 		return
 	if int(s["pierce"]) > 0:
+		ProjectileVfx.pierce(g, impact, dir, str(s.get("vfx_style", "pierce")))
 		s["pierce"] = int(s["pierce"]) - 1
 		return
 	if kind == "chicken":
@@ -518,6 +523,7 @@ static func collide_hero(g, s: Dictionary) -> void:
 		s["vel"] = -s["vel"] * 1.3
 		s["dmg"] = float(s["dmg"]) * 2.0
 		s["color"] = Color("8ff8ff")
+		s["vfx_style"] = "shock"
 		s["hit"] = {}
 		s["homing"] = 0.0
 		s["gen"] = 1
@@ -1397,9 +1403,12 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 	var last = null
 	for k in range(n):
 		var a = 0.0 if n == 1 else -spread * 0.5 + spread * k / (n - 1)
+		var enemy_kind = str(e["kind"])
+		var boss_style = "boss_ember" if enemy_kind == "chonkzilla" else ("boss_void" if enemy_kind == "kingblob" else ("boss_frost" if enemy_kind == "necro" else ("boss_storm" if enemy_kind == "heli" else "enemy")))
+		var shot_color = ProjectileVfx.tint(boss_style)
 		last = shot(g, e["pos"] + dir * float(e["r"]), dir.rotated(a), float(e["dmg"]) * 0.8,
-			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": Color("ff5a7a"),
-			"src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
+			{"friendly": false, "speed": speed, "life": 3.0, "r": r, "kind": "enemy", "color": shot_color,
+			"vfx_style": boss_style, "src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
 	return last
 
 # ================================================================= area effects
@@ -1456,6 +1465,8 @@ static func shockwave(g, pos: Vector2, r: float, dmg: float, push: float, gen: i
 static func fragments(g, pos: Vector2, n: int, dmg: float, pattern: String, dir: Vector2, gen: int, src = null, colorful = false, color = Color("fff1a8"), kind = "frag") -> void:
 	if n <= 0 or g.shots.size() > g.shot_cap() - 20:
 		return
+	if n > 1 and gen <= 3:
+		ProjectileVfx.split(g, pos, dir, "shard" if src == null else str(src.get("vfx_style", "shard")))
 	var colors = [Color("ff5a8a"), Color("ffd24d"), Color("5bead8"), Color("b48cff"), Color("7dff9a")]
 	var base = dir.angle()
 	var fdmg = dmg * (1.0 + g.st("fragdmg") * 0.5) if src == null else dmg
