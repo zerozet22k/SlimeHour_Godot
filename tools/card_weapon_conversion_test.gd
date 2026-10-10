@@ -53,6 +53,23 @@ func _run() -> void:
 	var slots = int(disc["ammo"])
 	Weapons.advance_infinite_ammo_cycle(g, disc)
 	check(int(disc["ammo"]) == slots, "Virtual reload does not mint extra physical returning blades")
+	g.S = {}
+	g.run_time = 6.0
+	g.buffs.clear()
+	Weapons.return_catch_card_cycle(g, disc)
+	check(g.buffs.size() == 1, "Successful return activates reload cards without Infinite Ammo")
+	Weapons.return_catch_card_cycle(g, disc)
+	check(g.buffs.size() == 1, "Catch card procs are rate-limited")
+	g.S = {"infammo": 1.0}
+	g.run_time = 9.0
+	Weapons.return_catch_card_cycle(g, disc)
+	check(g.buffs.size() == 1, "Infinite Ammo keeps catch and virtual reload triggers separate")
+	g.S = {}
+	g.run_time = 12.0
+	var laser = Weapons.new_gun(g, "laser")
+	laser["lvl"] = 5
+	Weapons.advance_infinite_ammo_cycle(g, laser)
+	check(g.buffs.size() == 2, "Heatless max-level Prism Beam still activates reload cards periodically")
 	var chain = Weapons.new_gun(g, "tesla")
 	g.S = {"bounce": 4.0, "split": 3.0, "pierce": 5.0}
 	check(Compatibility.adapted_wall_bounce(g, chain) == 2, "Tesla converts wall bounces to two bounded jumps")
