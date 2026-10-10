@@ -756,17 +756,44 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 			Effects.trigger(g, "crit", pctx)
 	return crit
 
+## Return the live shielding totem (or {} when none). Cached totems are
+## rebuilt per simulation step and updated on spawn/death/sector transitions.
+## Charmed totems no longer protect hostile enemies.
+static func protecting_totem(g, e: Dictionary) -> Dictionary:
+	if bool(e.get("dead", false)) or has_role(g, e, "totem"):
+		return {}
+	if g.totems.is_empty():
+		return {}
+	var at: Vector2 = e["pos"]
+	for source in g.totems:
+		if bool(source.get("dead", false)) or float(source.get("charm", 0.0)) > 0.0:
+			continue
+		if source["pos"].distance_squared_to(at) <= TOTEM_R * TOTEM_R:
+			return source
+	return {}
+
+## Hype Totem support must apply to bullets, explosion transfers and all
+## burn/poison/bleed ticks. Shield visuals are rate-limited for dense waves.
+static func totem_protected_damage(g, e: Dictionary, amount: float) -> float:
+	if amount <= 0.0:
+		return amount
+	if protecting_totem(g, e).is_empty():
+		return amount
+	if g.run_time >= float(e.get("shield_fx_next", 0.0)):
+		e["shield_fx_next"] = g.run_time + 0.8
+		e["shield_flash_t"] = 0.22
+		# A restrained local feedback spark; never one per projectile/tick.
+		g.spawn_burst(e["pos"], Color("79d7ff"), 2, 90.0, 2.2)
+	return amount * 0.5
+
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
 	if bool(e["dead"]) or float(e.get("rebirth_t", 0.0)) > 0.0:
 		return
-	# Armored elites shrug off 40%; a Hype Totem nearby halves damage to everything around it.
+	# Armored elites shrug off 40%. A nearby Hype Totem halves incoming
+	# damage; the SAME helper protects against DOT, never just direct bullets.
 	if e.has("affix") and e["affix"].has("ARMORED"):
 		amount *= 0.6
-	if not g.totems.is_empty() and not has_role(g, e, "totem"):
-		for t in g.totems:
-			if not bool(t["dead"]) and t["pos"].distance_squared_to(e["pos"]) < TOTEM_R * TOTEM_R:
-				amount *= 0.5
-				break
+	amount = totem_protected_damage(g, e, amount)
 	e["hp"] = float(e["hp"]) - amount
 	# Mirror Mimic copies one incoming weapon shot as a delayed, dodgeable countershot.
 	# It still takes the full hit; there is no instant damage reflection.
@@ -849,6 +876,9 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 static func dot(g, e: Dictionary, amount: float, color: Color, label: String = "") -> void:
 	if bool(e["dead"]):
 		return
+	# DOT formerly bypassed Hype Totem's shield entirely. Use the exact
+	# mitigation path shared with direct damage and report actual HP loss.
+	amount = totem_protected_damage(g, e, amount)
 	e["hp"] = float(e["hp"]) - amount
 	g.damage_dealt += amount
 	if label != "" and bool(g.settings.get("numbers", true)):
