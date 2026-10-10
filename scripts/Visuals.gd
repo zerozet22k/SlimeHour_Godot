@@ -635,9 +635,9 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 ## Second-parent inheritance draws one appendage/outer-body detail only.
 ## The first parent's complete face remains intact. 19 choices are enough to
 ## give sector-40 combinations recognizable silhouettes without N*N sprites.
-func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, trait: String, accent: Color, variant: int = 0) -> void:
+func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, feature_name: String, accent: Color, feature_variant: int = 0) -> void:
 	var shade = accent.darkened(0.43)
-	match trait:
+	match feature_name:
 		"ears":
 			for signum in [-1.0, 1.0]:
 				ci.draw_colored_polygon(PackedVector2Array([c + Vector2(signum * r * 0.43, -r * 0.69),
@@ -679,7 +679,7 @@ func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, trait: String, acce
 		"spikes", "crystal":
 			for k in range(3):
 				var x = (float(k) - 1.0) * r * 0.74
-				var length = r * (0.55 if trait == "spikes" else 0.84)
+				var length = r * (0.55 if feature_name == "spikes" else 0.84)
 				var root = c + Vector2(x, -r * (0.77 if k == 1 else 0.66))
 				ci.draw_colored_polygon(PackedVector2Array([root + Vector2(-r * 0.21, 0),
 					root + Vector2(0, -length), root + Vector2(r * 0.21, 0)]), shade)
@@ -697,7 +697,7 @@ func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, trait: String, acce
 				ci.draw_line(c + Vector2(signum * r * 1.11, -r * 0.32),
 					c + Vector2(signum * r * 1.02, r * 0.30), accent, maxf(2.0, r * 0.14))
 		"crest", "crown", "helmet":
-			var top = -r * (1.58 if trait == "crown" else 1.34)
+			var top = -r * (1.58 if feature_name == "crown" else 1.34)
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.70, -r * 0.74),
 				c + Vector2(-r * 0.48, top * 0.92), c + Vector2(0, top),
 				c + Vector2(r * 0.47, top * 0.89), c + Vector2(r * 0.70, -r * 0.74)]), shade)
@@ -729,7 +729,7 @@ func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, trait: String, acce
 				ci.draw_circle(finish, r * 0.18, accent)
 	# A tiny accent along the jaw signals the secondary genealogy, not
 	# another complete muzzle, visor, pair of eyes or face.
-	var mark_side = -1.0 if variant % 2 == 0 else 1.0
+	var mark_side = -1.0 if feature_variant % 2 == 0 else 1.0
 	ci.draw_circle(c + Vector2(mark_side * r * 0.72, r * 0.62),
 		maxf(2.0, r * 0.115), Color(accent, 0.82))
 
