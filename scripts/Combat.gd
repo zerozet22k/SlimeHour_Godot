@@ -639,7 +639,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 	return crit
 
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
-	if bool(e["dead"]):
+	if bool(e["dead"]) or float(e.get("rebirth_t", 0.0)) > 0.0:
 		return
 	# Armored elites shrug off 40%; a Hype Totem nearby halves damage to everything around it.
 	if e.has("affix") and e["affix"].has("ARMORED"):
@@ -650,6 +650,13 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 				amount *= 0.5
 				break
 	e["hp"] = float(e["hp"]) - amount
+	# Mirror Mimic copies one incoming weapon shot as a delayed, dodgeable countershot.
+	# It still takes the full hit; there is no instant damage reflection.
+	if e["kind"] == "mirror" and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(e["cd"]) <= 0.0 and float(e["wind"]) <= 0.0 and float(e["charm"]) <= 0.0:
+		e["wind"] = 0.95
+		e["cd"] = 5.0
+		e["lock"] = g.hero["pos"]
+		g.spawn_ring_fx(e["pos"], Color("82e9ef"), 30.0)
 	e["flash"] = 0.09
 	e["squash"] = maxf(float(e["squash"]), 0.25 if crit else 0.14)
 	g.damage_dealt += amount
@@ -722,6 +729,20 @@ static func dot(g, e: Dictionary, amount: float, color: Color) -> void:
 
 static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	if bool(e["dead"]):
+		return
+	# Zombie-phoenix: one clearly telegraphed rebirth, with no first-death loot
+	# or kill-count credit. It cannot resurrect a second time.
+	if e["kind"] == "ashwing" and not bool(e.get("reborn", false)):
+		e["reborn"] = true
+		e["rebirth_t"] = 1.35
+		e["hp"] = maxf(1.0, float(e["max_hp"]) * 0.42)
+		e["wind"] = 0.0
+		e["charge"] = 0.0
+		e["kb"] = Vector2.ZERO
+		e["vel"] = Vector2.ZERO
+		g.say(e["pos"] + Vector2(0, -float(e["r"]) - 15.0), "REBIRTH!", Color("ffae61"), 20)
+		g.spawn_ring_fx(e["pos"], Color("ffae61"), 48.0)
+		g.sfx.play("whoosh")
 		return
 	e["dead"] = true
 	var pos: Vector2 = e["pos"]
@@ -959,6 +980,16 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e["dead"]):
 			continue
 		e["t"] = float(e["t"]) + dt
+		# A rebirthing Ashwing stays in the enemy roster so a room cannot clear
+		# while its resurrection is pending; it is harmless and untargetable.
+		if float(e.get("rebirth_t", 0.0)) > 0.0:
+			e["rebirth_t"] = maxf(0.0, float(e["rebirth_t"]) - dt)
+			e["vel"] = Vector2.ZERO
+			e["kb"] = Vector2.ZERO
+			if float(e["rebirth_t"]) <= 0.0:
+				g.spawn_ring_fx(e["pos"], Color("ff9d59"), 52.0)
+				g.sfx.play("whoosh")
+			continue
 		e["flash"] = maxf(0.0, float(e["flash"]) - dt)
 		e["squash"] = maxf(0.0, float(e["squash"]) - dt * 1.5)
 		e["spawn"] = minf(1.0, float(e["spawn"]) + dt * 3.0)
@@ -1009,6 +1040,10 @@ static func update_enemies(g, dt: float) -> void:
 				pop_bubble(g, e["pos"], float(e.get("bubble_dmg", 20.0)), float(e.get("bubble_r", 50.0)), 1, bool(e.get("bubble_mini", false)))
 		var disabled = float(e["frozen"]) > 0.0 or float(e["stun"]) > 0.0 or float(e["bubble"]) > 0.0 or float(e["pinned"]) > 0.0
 		var speed_mul = 1.0
+		# Siren pulse speeds up nearby ordinary mobs briefly, not bosses.
+		if float(e.get("siren_haste", 0.0)) > 0.0:
+			e["siren_haste"] = maxf(0.0, float(e["siren_haste"]) - dt)
+			speed_mul *= 1.22
 		if float(e["slow"]) > 0.0:
 			speed_mul *= 0.55
 		speed_mul *= 1.0 - minf(0.6, float(e["chill"]) / 100.0 * 0.6)
@@ -1146,6 +1181,59 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 	var hero_pos: Vector2 = g.hero["pos"]
 	var ss = g.sector_scale()
 	match kind:
+		"ashwing":
+			# A twitchy chaser that must be killed twice, with a long visible pause.
+			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
+		"mirror":
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					var locked: Vector2 = e.get("lock", hero_pos)
+					var aim = (locked - e["pos"]).normalized()
+					if aim.length_squared() < 0.1:
+						aim = dir
+					enemy_fire(g, e, aim, 1, 0.0, 300.0, 6.0)
+					g.sfx.play("whoosh")
+				return Vector2.ZERO
+			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 2.5 + float(e["phase"])) * 0.7).normalized()
+		"burrower":
+			# Marks its landing spot, then emerges with a half-second recovery.
+			if float(e.get("emerge_t", 0.0)) > 0.0:
+				e["emerge_t"] = maxf(0.0, float(e["emerge_t"]) - dt)
+				return Vector2.ZERO
+			if float(e["wind"]) > 0.0:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) <= 0.0:
+					g.spawn_ring_fx(e["pos"], Color("c8a66e"), 24.0)
+					e["pos"] = e.get("lock", e["pos"])
+					e["kb"] = Vector2.ZERO
+					e["vel"] = Vector2.ZERO
+					e["emerge_t"] = 0.55
+					g.spawn_ring_fx(e["pos"], Color("ffe2a3"), 43.0)
+					g.sfx.play("thunk")
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist > 175.0 and dist < 510.0:
+				e["cd"] = 5.2
+				e["wind"] = 1.15
+				var target = hero_pos - dir * 105.0 + Vector2(randf_range(-40.0, 40.0), randf_range(-25.0, 25.0))
+				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 8.0, g.road_half - float(e["r"]) - 8.0)
+				e["lock"] = target
+				return Vector2.ZERO
+			return dir
+		"siren":
+			# Rally nearby ordinary mobs only. The pulse does not stack or buff bosses.
+			if float(e["cd"]) <= 0.0:
+				e["cd"] = 5.5
+				var boosted = false
+				for o in query(g, e["pos"], 180.0):
+					if o != e and not bool(o["dead"]) and not bool(o["boss"]) and o["pos"].distance_to(e["pos"]) <= 180.0:
+						o["siren_haste"] = maxf(float(o.get("siren_haste", 0.0)), 2.3)
+						boosted = true
+				if boosted:
+					g.spawn_ring_fx(e["pos"], Color("f194da"), 180.0)
+					e["squash"] = 0.55
+					g.sfx.play("gate")
+			return dir if dist > 280.0 else -dir * 0.45
 		"zoomer", "mini":
 			# From sector 7 zoomers wind up and lunge (telegraphed line).
 			if kind == "zoomer" and g.sector >= 7:

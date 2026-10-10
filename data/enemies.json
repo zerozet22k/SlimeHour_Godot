@@ -7,7 +7,7 @@
   "dmg": 10,
   "r": 15,
   "xp": 1,
-  "mass": 1.0,
+  "mass": 1,
   "color": "ff7b93"
  },
  {
@@ -29,7 +29,7 @@
   "dmg": 22,
   "r": 30,
   "xp": 5,
-  "mass": 4.0,
+  "mass": 4,
   "color": "e86a8a"
  },
  {
@@ -40,7 +40,7 @@
   "dmg": 12,
   "r": 15,
   "xp": 2,
-  "mass": 1.0,
+  "mass": 1,
   "color": "b6ff6b",
   "range": 270
  },
@@ -96,7 +96,7 @@
   "dmg": 20,
   "r": 24,
   "xp": 4,
-  "mass": 3.0,
+  "mass": 3,
   "color": "ff9157"
  },
  {
@@ -107,7 +107,7 @@
   "dmg": 8,
   "r": 16,
   "xp": 3,
-  "mass": 1.0,
+  "mass": 1,
   "color": "ffffff",
   "range": 200
  },
@@ -119,7 +119,7 @@
   "dmg": 22,
   "r": 15,
   "xp": 3,
-  "mass": 1.0,
+  "mass": 1,
   "color": "ff5a8a",
   "range": 430
  },
@@ -189,6 +189,50 @@
   "xp": 3,
   "mass": 0.8,
   "color": "ffd24d"
+ },
+ {
+  "id": "ashwing",
+  "name": "Ashwing",
+  "hp": 42,
+  "speed": 105,
+  "dmg": 10,
+  "r": 17,
+  "xp": 2,
+  "mass": 1,
+  "color": "ff9d59"
+ },
+ {
+  "id": "mirror",
+  "name": "Mirror Mimic",
+  "hp": 65,
+  "speed": 92,
+  "dmg": 12,
+  "r": 17,
+  "xp": 3,
+  "mass": 1.15,
+  "color": "82e9ef"
+ },
+ {
+  "id": "burrower",
+  "name": "Burrower",
+  "hp": 85,
+  "speed": 75,
+  "dmg": 14,
+  "r": 18,
+  "xp": 4,
+  "mass": 1.5,
+  "color": "c8a66e"
+ },
+ {
+  "id": "siren",
+  "name": "Siren",
+  "hp": 70,
+  "speed": 65,
+  "dmg": 8,
+  "r": 18,
+  "xp": 4,
+  "mass": 1.3,
+  "color": "f194da"
  },
  {
   "id": "chonkzilla",

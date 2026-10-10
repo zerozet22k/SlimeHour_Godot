@@ -381,6 +381,15 @@ func paint_telegraphs() -> void:
 				var dest = P(e.get("lock", g.hero["pos"]))
 				draw_arc(dest, 22.0, 0, TAU, 24, Color(0.8, 0.55, 1.0, 0.5 + 0.5 * fmod(g.anim_t * 6.0, 1.0)), 3.0)
 				draw_line(p, dest, Color(0.8, 0.55, 1.0, 0.25), 2.0)
+			elif e["kind"] == "mirror":
+				var dest = P(e.get("lock", g.hero["pos"]))
+				draw_line(p, dest, Color(0.35, 0.95, 1.0, 0.5 + 0.3 * sin(g.anim_t * 16.0)), 3.0)
+				draw_arc(p, 27.0, 0, TAU, 28, Color("aafaff"), 2.0)
+			elif e["kind"] == "burrower":
+				var dest = P(e.get("lock", g.hero["pos"]))
+				draw_circle(dest, 37.0, Color(0.8, 0.6, 0.3, 0.12))
+				draw_arc(dest, 37.0, 0, TAU, 36, Color("ffe2a3"), 3.5)
+				draw_line(p, dest, Color(0.8, 0.6, 0.3, 0.3), 2.0)
 
 # ================================================================= enemies
 func paint_enemies() -> void:
@@ -392,6 +401,15 @@ func paint_enemies() -> void:
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
 			continue
 		draw_enemy(e, p, r)
+		if e["kind"] == "ashwing" and float(e.get("rebirth_t", 0.0)) > 0.0:
+			var progress = 1.0 - float(e["rebirth_t"]) / 1.35
+			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
+			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80"), 4.0)
+			text_c("REBIRTHING", p + Vector2(0, -r - 32.0), 11, Color("ffdf80"), 2)
+		elif e["kind"] == "siren":
+			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
+		elif e["kind"] == "mirror" and float(e.get("wind", 0.0)) > 0.0:
+			draw_arc(p, r + 9.0, 0, TAU, 24, Color("aafaff"), 3.0)
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif e["kind"] == "totem":
@@ -554,7 +572,7 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: Color, flash: bool) -> void:
 	var body = Color.WHITE if flash else col
 	var dark = col.darkened(0.45)
-	var slime = kind in ["blob", "zoomer", "chonk", "spitter", "mitosis", "mini", "mama", "chonkzilla", "kingblob"]
+	var slime = kind in ["blob", "zoomer", "chonk", "spitter", "mitosis", "mini", "mama", "chonkzilla", "kingblob", "ashwing"]
 	if slime:
 		for k in range(5):
 			var a = TAU * float(k) / 5.0
@@ -562,6 +580,23 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 			ci.draw_circle(lobe, r * (0.43 if k % 2 == 0 else 0.36), dark)
 			ci.draw_circle(lobe + Vector2(0, -2), r * (0.39 if k % 2 == 0 else 0.32), body)
 	match kind:
+		"ashwing":
+			# Jagged flaming wings and a burnt phoenix crown.
+			for side in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([Vector2(side * r * 0.5, 0), Vector2(side * r * 1.7, -r * 0.8), Vector2(side * r * 1.2, r * 0.25), Vector2(side * r * 1.35, r * 0.7)]), Color("ff632f"))
+				ci.draw_line(Vector2(side * r * 0.5, 0), Vector2(side * r * 1.35, -r * 0.55), Color("ffe19c"), maxf(2.0, r * 0.12))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.4, -r * 0.75), Vector2(0, -r * 1.85), Vector2(r * 0.4, -r * 0.75)]), Color("ffe19c"))
+		"mirror":
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 1.15, 0), Vector2(0, -r * 1.32), Vector2(r * 1.15, 0), Vector2(0, r * 1.25)]), Color("24899c"))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.76, 0), Vector2(0, -r * 0.96), Vector2(r * 0.76, 0), Vector2(0, r * 0.93)]), Color("c0faff"))
+		"burrower":
+			for side in [-1.0, 1.0]:
+				ci.draw_circle(Vector2(side * r * 0.85, r * 0.48), r * 0.4, Color("72502d"))
+				ci.draw_line(Vector2(side * r * 0.7, r * 0.35), Vector2(side * r * 1.45, r * 0.78), Color("ffe2a3"), 4.0)
+		"siren":
+			for side in [-1.0, 1.0]:
+				ci.draw_colored_polygon(PackedVector2Array([Vector2(side * r * 0.7, -r * 0.25), Vector2(side * r * 1.4, -r * 0.92), Vector2(side * r * 1.35, r * 0.5)]), Color("ad4f9b"))
+			ci.draw_arc(Vector2.ZERO, r * 1.08, -PI * 0.8, PI * 0.8, 18, Color("ffd6f5"), 3.0)
 		"spitter":
 			for s in [-1.0, 1.0]:
 				ci.draw_circle(Vector2(s * r * 0.7, -r * 0.65), r * 0.36, dark)
@@ -599,6 +634,19 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 				var ly = (k % 3 - 1) * r * 0.55
 				ci.draw_line(Vector2(lx * r * 0.5, ly), Vector2(lx * r * 1.45, ly + r * 0.35), Color("24331c"), 2.5)
 	match kind:
+		"mirror":
+			ci.draw_circle(Vector2.ZERO, r * 0.7, Color("1c6680"))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.65, 0), Vector2(0, -r * 0.88), Vector2(r * 0.65, 0), Vector2(0, r * 0.85)]), body)
+			ci.draw_line(Vector2(-r * 0.48, r * 0.2), Vector2(r * 0.45, -r * 0.43), Color.WHITE, 2.2)
+		"burrower":
+			ci.draw_circle(Vector2.ZERO, r, Color("72502d"))
+			ci.draw_circle(Vector2(0, -r * 0.13), r * 0.87, body)
+			ci.draw_arc(Vector2.ZERO, r * 0.72, PI, TAU, 14, Color("ffe2a3"), 3.0)
+		"siren":
+			ci.draw_circle(Vector2.ZERO, r, Color("7d3d76"))
+			ci.draw_circle(Vector2.ZERO, r - 2.0, body)
+			ci.draw_circle(Vector2(0, r * 0.44), r * 0.35, Color("743568"))
+			ci.draw_circle(Vector2(0, r * 0.44), r * 0.19, Color("ffe6f6"))
 		"chonk", "chonkzilla", "mama":
 			ci.draw_circle(Vector2.ZERO, r, dark)
 			ci.draw_circle(Vector2(0, -2), r - 3, body)
@@ -684,6 +732,15 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 		for ep in ([Vector2(0, ey)] if kind == "necro" else [Vector2(-r * 0.36, ey), Vector2(r * 0.36, ey)]):
 			ci.draw_circle(ep, eye_r, Color.WHITE)
 	match kind:
+		"ashwing":
+			ci.draw_circle(Vector2(0, r * 0.42), r * 0.2, Color("6d291c"))
+			ci.draw_line(Vector2(-r * 0.43, r * 0.34), Vector2(r * 0.38, r * 0.34), Color("ffe19c"), 2.3)
+		"mirror":
+			ci.draw_line(Vector2(-r * 0.4, r * 0.4), Vector2(r * 0.4, r * 0.4), Color("14687a"), 2.3)
+		"burrower":
+			ci.draw_circle(Vector2(0, r * 0.5), r * 0.22, Color("503b2b"))
+		"siren":
+			ci.draw_circle(Vector2(0, r * 0.52), r * 0.16, Color("ffddfa"))
 		"blob":
 			ci.draw_arc(Vector2(0, r * 0.35), r * 0.28, 0.25, PI - 0.25, 10, Color("6c2946"), 2.5)
 		"zoomer", "mini":

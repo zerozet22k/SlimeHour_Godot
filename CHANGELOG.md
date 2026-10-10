@@ -1,3 +1,11 @@
+## v0.1.29 — Midgame pressure rebalance and four new mob families
+
+- Smooth the rapid HP scaling at Sectors 9–11, reduce their attack damage, soften elite frequency, and delay double-affix elites until Sector 13.
+- Limit simultaneous enemies through the midgame bottleneck and stream Slime Hour rush enemies over time rather than spawning six every frame.
+- Introduce an additional enemy at each existing five-sector roster milestone: Ashwing (6), Mirror Mimic (11), Burrower (16), Siren (21).
+- Ashwing resurrects once with a 1.35-second visible cocoon and never duplicates loot. Mirror Mimic counters weapon fire with a delayed aim-line shot. Burrower marks a landing spot then ambushes after a warning. Siren buffs nearby ordinary mobs for a short period, never bosses.
+- Draw distinctive enemy silhouettes and ability telegraphs, add bestiary strategies, and guard their progression with new automated checks.
+
 ## v0.1.28 — Opposite-hand pistol silhouettes
 
 - Mirror the off-hand weapon grip relative to the primary weapon, so two equipped guns read as L and reverse-L shapes around the MC.

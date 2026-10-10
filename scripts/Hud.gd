@@ -2203,6 +2203,7 @@ const KILL_LINES = {"blob": "blob.", "zoomer": "too slow.", "nurse": "no refunds
 	"kaboomba": "worth it.", "chonk": "oops. sat on you.", "mitosis": "we won.", "mini": "small but mighty.",
 	"riot": "denied.", "bull": "moo.", "larry": "pew.", "tick": "tick tock.", "mama": "go to your room.",
 	"mortar": "incoming.", "totem": "hype!", "blinky": "boo.", "goblin": "mine now.",
+	"ashwing": "I always come back.", "mirror": "right back at you.", "burrower": "surprise!", "siren": "follow my lead.",
 	"chonkzilla": "BELLY FLOP.", "heli": "air support.", "necro": "rise. oh wait.", "kingblob": "kneel."}
 
 ## Death beat: the camera swings to the killer, locks on with brackets, and it says something in a chat bubble.

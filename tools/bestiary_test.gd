@@ -13,6 +13,40 @@ func _check() -> void:
 			push_error("BESTIARY MISSING: " + str(id))
 		elif Bestiary.info(id).size() != 3:
 			missing += 1
+	# New monsters are rolled into existing five-sector unlock boundaries.
+	var introductions = {"ashwing": 1, "mirror": 2, "burrower": 3, "siren": 4}
+	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
+	var ids = {}
+	if roster_data is Array:
+		for spec in roster_data:
+			ids[str(spec["id"])] = spec
+	for id in introductions:
+		if not ids.has(id) or main.mob_tier(id) != int(introductions[id]):
+			missing += 1
+			push_error("BAD UNLOCK TIER OR DATA: " + str(id))
+		elif not Main.ENEMY_TIERS[int(introductions[id])].has(id):
+			missing += 1
+			push_error("MISSING FROM SECTOR TIER: " + str(id))
+	# Regression: the old Sectors 9-11 HP and enemy flood spike stays softened.
+	main.sector = 8
+	var hp8 = main.enemy_scale()
+	main.sector = 9
+	var hp9 = main.enemy_scale()
+	var cap9 = main.enemy_cap()
+	main.sector = 10
+	var hp10 = main.enemy_scale()
+	var cap10 = main.enemy_cap()
+	main.sector = 11
+	var hp11 = main.enemy_scale()
+	if not (hp8 < hp9 and hp9 < hp10 and hp10 < hp11 and hp11 < 5.0):
+		missing += 1
+		push_error("SECTOR 9-11 HEALTH CURVE REGRESSION")
+	if not (cap9 <= 110 and cap10 <= 115 and main.enemy_cap() <= 120):
+		missing += 1
+		push_error("SECTOR 9-11 CROWD CAP REGRESSION")
+	if not (main.midgame_relief(10) < main.midgame_relief(8) and main.midgame_relief(13) > main.midgame_relief(11)):
+		missing += 1
+		push_error("MIDGAME RECOVERY CURVE REGRESSION")
 	print("BESTIARY CHECK: ", main.mob_order().size(), " monsters - ", missing, " missing")
 	main.free()
 	quit(1 if missing else 0)

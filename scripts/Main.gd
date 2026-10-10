@@ -13,7 +13,7 @@ const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
-const GAME_VERSION = "v0.1.28"
+const GAME_VERSION = "v0.1.29"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -162,6 +162,7 @@ var last_hit_by = "the road"
 var sector_start_y = 0.0
 var finish_y = -SECTOR_LEN
 var spawn_acc = 0.0
+var rush_acc = 0.0
 var sector_budget = 0
 var budget_spawned = 0
 var sector_kills = 0
@@ -608,49 +609,45 @@ func xp_for(l: int) -> int:
 func sector_scale() -> float:
 	return 1.0 + 0.06 * (sector - 1)
 
-## A smoother health curve for a deliberately low-card economy.
-## Normal Sector 8 is ~4x base HP, not ~26x; density and elites still create pressure.
-## Keep later sectors progressively tougher without early enemies becoming HP walls.
+## Low-card progression needs a gradual enemy curve, not a 9-11 HP cliff.
+## The pressure band also controls density, damage and spawn speed.
+func midgame_relief(s: int = -1) -> float:
+	var x = sector if s < 0 else s
+	match x:
+		8: return 0.94
+		9: return 0.78
+		10: return 0.74
+		11: return 0.78
+		12: return 0.86
+		13: return 0.94
+	return 1.0
+
 func enemy_scale() -> float:
-	var s = sector - 1
-	if s <= 4:
-		return 1.0 + 0.07 * float(s)
-	var early_base = 1.0 + 0.07 * 4.0
-	var m = float(s - 4)
-	var scale = early_base * (1.0 + 0.30 * m + 0.12 * m * m + 0.008 * m * m * m)
-	# A short 7-11 breathing window after the initial card-reward slowdown.
-	# Preserve the later curve; avoid an abrupt difficulty cliff at Sector 11.
-	var relief = 1.0
-	match sector:
-		7: relief = 0.94
-		8: relief = 0.90
-		9: relief = 0.88
-		10: relief = 0.90
-		11: relief = 0.96
-	scale *= relief
+	var m = float(maxi(0, sector - 5))
+	if sector <= 5:
+		return 1.0 + 0.07 * float(maxi(0, sector - 1))
+	var scale = 1.28 * (1.0 + 0.19 * m + 0.05 * m * m + 0.0025 * m * m * m)
 	if sector > WIN_SECTOR:
 		scale *= pow(1.35, float(mini(sector - WIN_SECTOR, 20)))
-	return scale
+	return scale * midgame_relief()
 
-## Mid/late crowd size: +4% monsters per sector after sector 5, up to double at sector 30.
+## Hordes still grow, but the 9-11 wall gets a gentle valley with smooth recovery.
 func crowd_ramp(s: int = -1) -> float:
 	var x = sector if s < 0 else s
-	# A few fewer simultaneous enemies in the 7-10 spike, reaching
-	# the original ramp again by Sector 12.
-	var normal = minf(2.0, 1.0 + 0.04 * float(maxi(0, x - 5)))
-	var relief = 0.0
-	match x:
-		7: relief = 0.025
-		8: relief = 0.045
-		9: relief = 0.06
-		10: relief = 0.06
-		11: relief = 0.03
-	return normal - relief
+	return minf(2.0, 1.0 + 0.04 * float(maxi(0, x - 5))) * midgame_relief(x)
 
-## Concurrent monster limit per sector. Kept lower in early game and ramps into high-density hordes.
+## Cap simultaneous monsters while players are recovering from the first boss.
 func enemy_cap() -> int:
 	if sector <= 5:
 		return 22 + (sector - 1) * 14
+	match sector:
+		7: return 100
+		8: return 105
+		9: return 108
+		10: return 110
+		11: return 115
+		12: return 135
+		13: return 155
 	return mini(MAX_ENEMIES, 80 + (sector - 5) * 20)
 
 func shot_cap() -> int:
@@ -671,6 +668,7 @@ func begin_sector() -> void:
 	sector_start_y = hero["pos"].y
 	finish_y = sector_start_y - SECTOR_LEN
 	spawn_acc = 0.0
+	rush_acc = 0.0
 	rush_queue = 0
 	rush_done = false
 	sector_budget = budget_for(sector)
@@ -1138,7 +1136,7 @@ func update_director(dt: float) -> void:
 	var hero_y = float(hero["pos"].y)
 	var alive = enemies.size()
 	var cap = enemy_cap()
-	var rate = (1.6 + (sector - 1) * 0.75 + p * 2.2) * pow(1.035, float(maxi(0, sector - 5))) * float(route.get("spawns", 1.0))
+	var rate = (1.6 + (sector - 1) * 0.75 + p * 2.2) * pow(1.035, float(maxi(0, sector - 5))) * float(route.get("spawns", 1.0)) * midgame_relief()
 	if is_boss_sector() and boss_spawned:
 		rate *= 0.3
 	# Each sector has a fixed crowd. It unlocks as you push forward, so standing still
@@ -1161,15 +1159,25 @@ func update_director(dt: float) -> void:
 	if not rush_done and (p > 0.45 or sector_time > 30.0):
 		rush_done = true
 		rush_queue = rush_size()
+		rush_acc = 0.0
 		banner("SLIME HOUR!!", "RUN.", 2.2)
 		sfx.play("horn")
 		add_shake(6.0)
+	# Previously six enemies spawned EVERY FRAME: the full horde arrived almost at once.
+	# Keep the dramatic rush, but stream it predictably (12/s during the relief band).
 	var rush_cap = mini(MAX_ENEMIES, cap + (10 if sector <= 5 else 25))
+	if rush_queue > 0:
+		var rush_rate = 12.0 if sector >= 8 and sector <= 11 else 20.0
+		rush_acc = minf(3.0, rush_acc + dt * rush_rate)
 	if rush_queue > 0 and enemies.size() < rush_cap:
-		for i in range(mini(rush_queue, 6)):
+		var released = mini(rush_queue, mini(3, int(rush_acc)))
+		for i in range(released):
+			if enemies.size() >= rush_cap:
+				break
 			var kind = "zoomer" if randf() < 0.3 else ("blob" if randf() < 0.8 else "kaboomba")
 			spawn_enemy(kind, Vector2(randf_range(-road_half + 25, road_half - 25), cam_y - maxf(400.0, ui_height * 0.5 + 80.0) - randf_range(0, 120)))["budget"] = true
 			rush_queue -= 1
+			rush_acc -= 1.0
 	# Buff gates: classic pick-a-door, applies for the rest of the sector.
 	goblin_t -= dt * (1.0 + st("goblins") * 1.5)
 	if goblin_t <= 0.0:
@@ -1217,10 +1225,10 @@ func rush_size() -> int:
 	return int((30 + 9 * mini(sector, 25) + 3 * maxi(0, sector - 25)) * float(route.get("spawns", 1.0)) * early_ease(0.55) * crowd_ramp() * hard_mul)
 
 ## The street roster grows only when you kill a boss: tier N opens after N bosses.
-const ENEMY_TIERS = [["blob", "zoomer", "nurse", "spitter"], ["kaboomba", "chonk", "mitosis"],
-	["riot", "bull", "larry"], ["tick", "mama", "mortar"], ["totem", "blinky"]]
+const ENEMY_TIERS = [["blob", "zoomer", "nurse", "spitter"], ["kaboomba", "chonk", "mitosis", "ashwing"],
+	["riot", "bull", "larry", "mirror"], ["tick", "mama", "mortar", "burrower"], ["totem", "blinky", "siren"]]
 const ENEMY_WEIGHT = {"blob": 10.0, "zoomer": 4.0, "nurse": 0.8, "spitter": 2.0, "kaboomba": 1.5, "chonk": 1.5,
-	"mitosis": 2.0, "riot": 1.2, "bull": 1.2, "larry": 1.0, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35, "blinky": 1.0}
+	"mitosis": 2.0, "riot": 1.2, "bull": 1.2, "larry": 1.0, "tick": 1.2, "mama": 0.7, "mortar": 1.0, "totem": 0.35, "blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55}
 
 func pick_enemy() -> String:
 	var pool = {}
@@ -1250,7 +1258,7 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	var is_elite = false
 	if elite == null:
 		var base_elite = (0.02 + mini(sector, 20) * 0.005 + maxi(0, sector - 20) * 0.003) * (1.4 if hard_mode else 1.0)
-		is_elite = not is_boss and kind != "goblin" and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0))
+		is_elite = not is_boss and kind != "goblin" and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0)) * midgame_relief()
 	else:
 		is_elite = bool(elite)
 	# Enemy HP follows enemy_scale(); it grows a little toward the end of each sector.
@@ -1263,8 +1271,8 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	serial += 1
 	var e = {"id": serial, "kind": kind, "pos": pos, "vel": Vector2.ZERO, "kb": Vector2.ZERO,
 		"hp": hp, "max_hp": hp, "r": float(d["r"]) * (1.3 if is_elite else 1.0),
-		"speed": float(d["speed"]) * randf_range(0.9, 1.1) * (1.0 + 0.02 * float(late)) * (1.15 if hard_mode else 1.0) * (1.0 + st("enemyspeed")),
-		"dmg": float(d["dmg"]) * early_ease(0.65) * (1.0 + (sector - 1) * 0.07) * (1.0 + 0.024 * float(late * late)) * (1.4 if is_elite else 1.0) * (1.4 if hard_mode else 1.0),
+		"speed": float(d["speed"]) * randf_range(0.9, 1.1) * (1.0 + 0.02 * float(late)) * (1.0 - (1.0 - midgame_relief()) * 0.35) * (1.15 if hard_mode else 1.0) * (1.0 + st("enemyspeed")),
+		"dmg": float(d["dmg"]) * early_ease(0.65) * (1.0 + (sector - 1) * 0.07) * (1.0 + 0.014 * float(late * late)) * midgame_relief() * (1.4 if is_elite else 1.0) * (1.4 if hard_mode else 1.0),
 		"mass": float(d["mass"]) * (2.0 if is_elite else 1.0) * (1.0 + 0.03 * float(late)), "color": Color(str(d["color"])),
 		"elite": is_elite, "boss": is_boss, "dead": false, "flash": 0.0, "t": 0.0, "cd": randf_range(0.5, 2.0),
 		"wind": 0.0, "charge": 0.0, "cdir": Vector2.ZERO, "phase": randf() * TAU, "xp": int(d["xp"]),
@@ -1272,10 +1280,10 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		"stun": 0.0, "charm": 0.0, "wet": 0.0, "mark": 0.0, "pinned": 0.0, "bubble": 0.0, "flung": 0.0,
 		"tick": randf() * 0.5, "sdt": randf() * 0.1, "aim": Vector2.DOWN, "gen": 0, "squash": 0.0, "spawn": 0.0}
 	if is_elite:
-		# Elite affixes: 1 early, 2 from sector 8, 3 from sector 14.
+		# Elite affixes: 1 early, 2 from sector 13, 3 from sector 20; no sudden sector-10 double-affix spike.
 		var pool = ["HASTED", "ARMORED", "VOLATILE", "SPLITTER", "REGEN", "TURRET"]
 		pool.shuffle()
-		e["affix"] = pool.slice(0, 1 + int(sector >= 10) + int(sector >= 14))
+		e["affix"] = pool.slice(0, 1 + int(sector >= 13) + int(sector >= 20))
 		if e["affix"].has("HASTED"):
 			e["speed"] = float(e["speed"]) * 1.6
 	enemies.append(e)
