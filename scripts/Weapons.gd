@@ -379,7 +379,8 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		elif int(g.st("mult")) > 0:
 			fire_pattern = "double_tap"
 	eopts["pattern"] = fire_pattern
-	if fire_pattern != "":
+	if fire_pattern != "" and kind != "flame":
+		# Cinder has a continuous cone; no fake Double Tap bullet flashes.
 		ProjectileVfx.pattern(g, origin, dir, ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {})), fire_pattern)
 	for j in range(n):
 		var a = 0.0
@@ -684,7 +685,7 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		hits += 1
 		if hits >= 24:
 			break
-	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.065,
+	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.095,
 		"w": reach * tan(half_angle), "color": Color("ff9d4d"), "flame_stream": true})
 	# Splinter / Cluster Rounds adapt into heat jumping to fresh targets at a
 	# capped interval; they do not create phantom flame projectiles.
