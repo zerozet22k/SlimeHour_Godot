@@ -46,6 +46,17 @@ func _run() -> void:
 	check(bounded.is_equal_approx(Vector2(514.0, -880.0)), "Skitter stops at side and forward bounds")
 	var rear = Combat.skitter_dash_bound(Vector2(0, 1400), 0.0, 380.0, 530.0, 16.0)
 	check(is_equal_approx(rear.y, 364.0), "Skitter cannot charge past the rear sector barrier")
+	# Zoomer has a bounded, recoverable orbit rather than Skitter's straight dash.
+	var zoomer_wide = Combat.zoomer_play_area(Vector2(1800, -2500), 0.0, 380.0, 530.0, 11.0)
+	check(zoomer_wide.is_equal_approx(Vector2(519.0, -760.0)), "Zoomer remains inside the road and forward pursuit range")
+	var zoomer_rear = Combat.zoomer_play_area(Vector2(-1800, 1000), 0.0, 380.0, 530.0, 11.0)
+	check(zoomer_rear.is_equal_approx(Vector2(-519.0, 369.0)), "Zoomer cannot run behind sector barrier")
+	check(is_equal_approx(Combat.zoomer_speed_limit(Vector2(600, 0), false).length(), 310.0), "Normal Zoomer boosted sprint is capped")
+	check(is_equal_approx(Combat.zoomer_speed_limit(Vector2(600, 0), true).length(), 350.0), "Hard Zoomer boosted sprint is capped")
+	check(Combat.leech_link_can_reach(330.0, false), "Leechling can begin tether inside reduced range")
+	check(not Combat.leech_link_can_reach(350.0, false), "Leechling cannot begin tether at former long range")
+	check(Combat.leech_link_can_reach(365.0, true), "Existing tether has small break-distance allowance")
+	check(not Combat.leech_link_can_reach(400.0, true), "Leechling tether breaks when player escapes reduced range")
 	var world = FakeWorld.new()
 	var broken = {"pos": Vector2(0, 3000), "dead": false, "boss": false, "budget": true}
 	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Out-of-range enemy gets a recovery grace period")

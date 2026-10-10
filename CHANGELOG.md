@@ -1,3 +1,11 @@
+## v0.1.64 — Zoomer recovery and shorter Leechling blood link
+
+- Cap Zoomer's boosted sprint speed at 310 units/s (Normal) or 350 units/s (Hard) even during Siren/HASTED/late-sector scaling.
+- Return far-away Zoomers toward the hero and constrain them inside the road and reachable forward/rear sector boundaries, rather than letting lateral orbiting strands leave combat.
+- Preserve Zoomer's distinctive orbit-and-sprint movement, separately from Skitter's committed dash.
+- Reduce Leechling blood conduit acquisition range from 525 to 340 world units and active-link breaking distance from 565 to 370; adjust its preferred positioning accordingly. Taking cover still breaks the tether.
+- Extend Godot regression tests for Zoomer bounds, speed caps and Leechling tether range.
+
 ## v0.1.63 — Skitter bounds, last-enemy arrows, and boss HP
 
 - Keep Skitter's committed through-player dash, but stop it at the road edge, forward pursuit limit, and rear sector barrier, including after crowd separation.

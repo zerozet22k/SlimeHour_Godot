@@ -1226,6 +1226,27 @@ static func skitter_dash_bound(pos: Vector2, hero_y: float, rear_limit: float, r
 		clampf(pos.y, hero_y - 880.0, rear_limit - radius))
 
 
+## Zoomer orbits rapidly but cannot disappear outside a reachable pursuit area.
+## It is deliberately distinct from Skitter's committed through-player dash.
+static func zoomer_play_area(pos: Vector2, hero_y: float, rear_limit: float, road_half: float, radius: float) -> Vector2:
+	var side: float = maxf(0.0, road_half - radius)
+	var forward: float = hero_y - 760.0
+	var rear: float = maxf(forward, rear_limit - radius)
+	return Vector2(clampf(pos.x, -side, side), clampf(pos.y, forward, rear))
+
+
+static func zoomer_speed_limit(velocity: Vector2, hard_mode: bool) -> Vector2:
+	return velocity.limit_length(350.0 if hard_mode else 310.0)
+
+
+## Shortened Leechling blood-link range, with a small break-distance margin
+## to prevent flickering while the player crosses the exact activation line.
+const LEECH_TETHER_START_RANGE: float = 340.0
+const LEECH_TETHER_BREAK_RANGE: float = 370.0
+static func leech_link_can_reach(distance: float, active: bool) -> bool:
+	return distance <= LEECH_TETHER_BREAK_RANGE if active else distance < LEECH_TETHER_START_RANGE
+
+
 ## Recover broken/off-road mobs without rewarding an invisible kill. A budget
 ## monster must still count toward clearing the sector or the director stalls.
 ## Healthy off-screen enemies that are closing in on the player are retained.
@@ -1412,6 +1433,10 @@ static func update_enemies(g, dt: float) -> void:
 			e["vel"] = e["cdir"] * 560.0
 		if float(e.get("sprint_t", 0.0)) > 0.0 and not disabled:
 			e["vel"] *= 1.85
+		# Late-run scaling, HASTED elites, and Siren auras can multiply sprint
+		# velocity. Zoomer stays quick without suddenly crossing a whole screen.
+		if str(e["kind"]) == "zoomer":
+			e["vel"] = zoomer_speed_limit(e["vel"], g.hard_mode)
 		var skitter_dashing = str(e["kind"]) == "skitter" and float(e["charge"]) > 0.0 and not disabled
 		var before_dash_move: Vector2 = e["pos"]
 		e["pos"] += (e["vel"] + e["kb"]) * dt
@@ -1487,6 +1512,20 @@ static func update_enemies(g, dt: float) -> void:
 		corrected.x = clampf(corrected.x, -side, side)
 		if str(e["kind"]) == "skitter":
 			corrected = skitter_dash_bound(corrected, hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
+		elif str(e["kind"]) == "zoomer":
+			var in_area: Vector2 = zoomer_play_area(corrected, hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
+			var edge: bool = in_area.distance_squared_to(corrected) > 0.25 or absf(in_area.x) >= side - 0.5 or in_area.y <= hero_pos.y - 759.5 or in_area.y >= g.back_limit() - float(e["r"]) - 0.5
+			corrected = in_area
+			if edge and not disabled:
+				# Cancel runaway orbit velocity at road/sector limits and steer
+				# back toward the player instead of getting stranded out of view.
+				e["sprint_t"] = 0.0
+				e["orbit_momentum"] = 0.0
+				var inward: Vector2 = (hero_pos - corrected).normalized()
+				if absf(corrected.x) >= side - 0.5:
+					inward = (inward + Vector2(-signf(corrected.x), 0.0) * 0.6).normalized()
+				e["vel"] = inward * minf(float(e["speed"]), 175.0)
+				e["kb"] = Vector2.ZERO
 		e["pos"] = corrected
 		# Contact damage
 		if charmed:
@@ -1716,11 +1755,11 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return dir if dist > 170.0 else -dir * 0.25
 		"leech":
-			# Long-range blood conduit: siphon player HP and empower/heal a nearby ally.
+			# Medium-range blood conduit: siphon player HP and empower/heal a nearby ally.
 			# The linked ally gains armor, speed and damage only while the tether holds.
 			if float(e.get("tether_t", 0.0)) > 0.0:
 				e["tether_t"] = maxf(0.0, float(e["tether_t"]) - dt)
-				if dist > 565.0 or EnemyIdentity.covered(g, e["pos"], hero_pos):
+				if not leech_link_can_reach(dist, true) or EnemyIdentity.covered(g, e["pos"], hero_pos):
 					e["tether_t"] = 0.0
 					e.erase("siphon_target")
 					return -dir * 0.25
@@ -1750,16 +1789,16 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0 and dist < 525.0 and not EnemyIdentity.covered(g, e["pos"], hero_pos):
+				if float(e["wind"]) <= 0.0 and leech_link_can_reach(dist, false) and not EnemyIdentity.covered(g, e["pos"], hero_pos):
 					e["tether_t"] = 3.4 if not g.hard_mode else 4.2
 					e["tether_tick"] = 0.1
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 525.0 and dist > 95.0:
+			if float(e["cd"]) <= 0.0 and leech_link_can_reach(dist, false) and dist > 95.0:
 				e["cd"] = 5.0 if not g.hard_mode else 4.0
 				e["wind"] = 0.90
 				e["lock"] = hero_pos
 				return Vector2.ZERO
-			return dir if dist > 370.0 else (-dir * 0.45 if dist < 240.0 else dir.orthogonal() * 0.25)
+			return dir if dist > 260.0 else (-dir * 0.45 if dist < 150.0 else dir.orthogonal() * 0.25)
 		"ashwing":
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
@@ -1834,6 +1873,11 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 		"zoomer":
 			# Zoomers are reactive circle-strafers with short, visible acceleration
 			# bursts. They NEVER copy Skitter's long committed through-player dash.
+			# Far-away Zoomers must return to combat rather than orbiting off-screen.
+			if dist > 420.0 or absf(e["pos"].x) >= g.road_half - float(e["r"]) - 75.0 or e["pos"].y < hero_pos.y - 650.0 or e["pos"].y >= g.back_limit() - float(e["r"]) - 65.0:
+				e["sprint_t"] = 0.0
+				e["orbit_momentum"] = 0.0
+				return dir
 			if float(e.get("sprint_t", 0.0)) > 0.0:
 				e["sprint_t"] = maxf(0.0, float(e["sprint_t"]) - dt)
 				var turn: float = -1.0 if int(e.get("id", 0)) % 2 == 0 else 1.0
