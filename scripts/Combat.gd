@@ -146,6 +146,28 @@ static func update_delayed(g, dt: float) -> void:
 					g.hurt(float(item["dmg"]), item["pos"], "a Mortar Mike shell")
 			"kaboomba_boom":
 				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]))
+			"arena_event":
+				# A full-screen event checks the player's dodge state ONLY at
+				# resolution. Hiding in a corner does not dodge the attack.
+				# The normal hurt() path still handles shields, invulnerability,
+				# Perfect Dodge, difficulty scaling and actual damage.
+				var owner: Dictionary = item.get("boss", {})
+				if not owner.is_empty() and not bool(owner.get("dead", true)):
+					var player_pos: Vector2 = g.hero["pos"]
+					var style: String = str(item.get("style", ""))
+					var color = Color(str(item.get("color", "ff9944")))
+					g.spawn_ring_fx(player_pos, color, g.road_half * 1.4)
+					g.add_shake(14.0 if bool(item.get("second", false)) else 10.0)
+					g.sfx.play_projectile("boss_impact")
+					var connected = g.hurt(float(item["dmg"]), owner["pos"], str(item.get("label", "BOSS ULTIMATE")))
+					if connected and style == "soul_eclipse":
+						owner["hp"] = minf(float(owner["max_hp"]), float(owner["hp"]) + float(owner["max_hp"]) * 0.07)
+					elif connected and style == "tidal_surge":
+						owner["r"] = minf(90.0, float(owner["r"]) + 3.5)
+					elif connected and style == "venom_collapse":
+						# Corrosive aftermath punishes a missed dash by following
+						# with a real status effect, not just extra HP damage.
+						g.add_zone("poison", player_pos, 64.0, 1.9)
 			"boss_blast":
 				var radius = float(item["tele"])
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
@@ -1282,6 +1304,8 @@ static func update_enemies(g, dt: float) -> void:
 		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * turn_rate)).normalized()
 		var desired = Vector2.ZERO
 		if not disabled:
+			if bool(e["boss"]):
+				boss_arena_tick(g, e, dt)
 			desired = ai(g, e, dir, dist, dt, charmed)
 		if bool(e["dead"]):
 			continue
@@ -1460,6 +1484,67 @@ static func boss_cross(g, e: Dictionary, target: Vector2, stage: int, color: Str
 			target + Vector2(span, span * turn), 20.0 + stage * 2.0,
 			float(e["dmg"]) * 0.68, 1.05 if turn < 0 else 1.28, color)
 
+
+## A boss-wide ultimate is no longer avoidable by standing at the
+## opposite road edge. The warning fills the VISIBLE battlefield and players
+## must time their dodge/iframe. Follow-ups are spaced beyond dash recharge.
+## Count active attacks PER owner, not globally, so other minion warnings
+## cannot prevent a boss from using its own ultimate.
+static func boss_arena_tick(g, e: Dictionary, dt: float) -> void:
+	if bool(e.get("dead", false)):
+		return
+	e["arena_t"] = float(e.get("arena_t", 8.0)) - dt
+	if float(e["arena_t"]) > 0.0:
+		return
+	var stage = boss_stage(e)
+	e["arena_t"] = maxf(8.0, 10.7 - float(stage) * 0.7)
+	if g.delayed.size() >= 120:
+		return
+	var kind = str(e["kind"])
+	var style = {
+		"chonkzilla": "earthquake",
+		"heli": "bombardment",
+		"necro": "soul_eclipse",
+		"kingblob": "tidal_surge",
+		"coilqueen": "venom_collapse",
+		"glassoracle": "prism_flash",
+		"voidweaver": "rift_implosion",
+		"dreadengine": "piston_lockdown"
+	}.get(kind, "")
+	if style == "":
+		return
+	var delay = 1.75 if g.hard_mode else 2.15
+	var label = {
+		"chonkzilla": "EARTHQUAKE",
+		"heli": "CARPET BOMBING",
+		"necro": "SOUL ECLIPSE",
+		"kingblob": "ROYAL TSUNAMI",
+		"coilqueen": "VENOM COLLAPSE",
+		"glassoracle": "PRISM FLASH",
+		"voidweaver": "VOID IMPLOSION",
+		"dreadengine": "PISTON LOCKDOWN"
+	}.get(kind, "WORLD ATTACK")
+	var color = {
+		"chonkzilla": "ff7d62", "heli": "ffbb5c",
+		"necro": "bd8cff", "kingblob": "ff6ba3",
+		"coilqueen": "60e7b3", "glassoracle": "89edff",
+		"voidweaver": "b397ff", "dreadengine": "ffc368"
+	}.get(kind, "ff9944")
+	g.delayed.append({"fn": "arena_event", "pos": g.hero["pos"],
+		"style": style, "label": label, "color": color, "owner": int(e["id"]),
+		"boss": e, "t": delay, "life": delay, "dmg": float(e["dmg"]) * (1.15 + stage * 0.15),
+		"stage": stage})
+	g.sfx.play("boss_warn")
+	g.add_shake(3.0)
+	# These double impacts intentionally demand a SECOND correctly timed
+	# dodge rather than an impossible 0.2-second double-hit. Default recharge
+	# is 1.5 seconds, follow-up lands 1.85 seconds after the first.
+	if kind in ["chonkzilla", "heli", "glassoracle", "dreadengine"] and g.delayed.size() < 120:
+		g.delayed.append({"fn": "arena_event", "pos": g.hero["pos"],
+			"style": style, "label": "SECOND IMPACT", "color": color,
+			"owner": int(e["id"]), "boss": e, "t": delay + 1.85,
+			"life": delay + 1.85, "dmg": float(e["dmg"]) * (1.30 + stage * 0.15),
+			"stage": stage, "second": true})
 
 ## Bosses have separate gameplay loops, not different colors for the same
 ## lane/ring/blast rotation. All hazards are limited, warned, and phase-aware.
