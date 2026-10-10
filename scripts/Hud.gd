@@ -208,10 +208,16 @@ func _draw() -> void:
 	RCOL[5] = Color.from_hsv(fmod(g.anim_t * 0.3, 1.0), 0.6, 1.0)
 	buttons.clear()
 	hover_card = null
-	if g.state in ["map", "shop", "rest", "event"] or g.state == "arsenal" and g.arsenal_back != "playing" and not g.portrait:
+	if g.state in ["map", "shop", "rest", "event", "travel", "boss_result"] or g.state == "arsenal" and g.arsenal_back != "playing" and not g.portrait:
 		match g.state:
 			"event":
 				paint_event()
+			"boss_result":
+				paint_boss_result()
+			"travel":
+				paint_map()
+				buttons.clear()
+				paint_travel_overlay()
 			"map":
 				paint_map()
 			"shop":
@@ -219,11 +225,27 @@ func _draw() -> void:
 			"rest":
 				paint_rest()
 			"arsenal":
-				screen_bg()
+				paint_hub_backdrop()
 				paint_arsenal()
 		return
 	if g.portrait:
+		if g.state in ["levelup", "replace", "arsenal"] and g.phase in ["shop", "rest", "event", "treasure", "cleared", "map"]:
+			paint_hub_backdrop()
 		paint_portrait()
+		return
+	# Shop rewards and weapon replacement belong to the route interface, not the battlefield.
+	if g.state in ["levelup", "replace", "arsenal"] and g.phase in ["shop", "rest", "event", "treasure", "cleared", "map"]:
+		paint_hub_backdrop()
+		match g.state:
+			"levelup":
+				if peek:
+					paint_arsenal()
+				else:
+					paint_levelup()
+			"replace":
+				paint_replace()
+			"arsenal":
+				paint_arsenal()
 		return
 	match g.state:
 		"menu":
@@ -1622,6 +1644,62 @@ func sw() -> float:
 func sh() -> float:
 	return g.ui_height if g.portrait else 720.0
 
+## All between-sector decisions remain visually anchored to the route map.
+## Remove map hitboxes before overlay controls are added.
+func paint_hub_backdrop() -> void:
+	if g.map_cols.size() >= g.sector and g.sector > 0:
+		paint_map()
+		buttons.clear()
+	else:
+		screen_bg()
+	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, 720, g.ui_height),
+		Color(0.016, 0.025, 0.063, 0.87))
+	var w = sw()
+	var y = 42.0 if not g.portrait else 38.0
+	txt("ROUTE STOP  //  SECTOR %d" % g.sector, Vector2(w * 0.5, y), 15, Color("7b9abd"), 1, bold)
+
+## A deliberate pause after every normal boss. The win screen still owns Sector 20.
+func paint_boss_result() -> void:
+	paint_hub_backdrop()
+	var w = sw()
+	var h = sh()
+	var bw = 544.0 if not g.portrait else 622.0
+	var bh = 482.0 if not g.portrait else 500.0
+	var r = Rect2(w * 0.5 - bw * 0.5, h * 0.5 - bh * 0.5, bw, bh)
+	panel(r, Color("111629"), Color("ffca50"), 3)
+	var center = Vector2(r.get_center().x, r.position.y + 124.0)
+	draw_circle(center, 75.0, Color("52283c"))
+	draw_arc(center, 75.0, 0, TAU, 56, Color("ff6886"), 5.0)
+	CardArt.node_icon(self, "boss", center, 43.0, Color("ff8198"))
+	txt("BOSS DEFEATED", Vector2(r.get_center().x, r.position.y + 253.0),
+		fit("BOSS DEFEATED", bw - 38, 44, bold, 27), Color("ffcf69"), 1, bold, 6)
+	txt("SECTOR %d  //  ROAD SECURED" % g.sector, Vector2(r.get_center().x, r.position.y + 294.0),
+		21, Color("b8cbe2"), 1, bold, 3)
+	txt("THE ROAD OPENS WHEN YOU'RE READY", Vector2(r.get_center().x, r.position.y + 350.0),
+		fit("THE ROAD OPENS WHEN YOU'RE READY", bw - 45, 18), Color("8db4c6"), 1, body)
+	var ready = g.boss_result_t >= 0.8
+	button(Rect2(r.position.x + 58.0, r.end.y - 92.0, bw - 116.0, 63.0),
+		"CONTINUE TO ROUTE MAP", "boss_continue", ready, 25, ready)
+
+## Route remains visible while departure animation completes.
+func paint_travel_overlay() -> void:
+	var w = sw()
+	var h = sh()
+	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, 720, g.ui_height),
+		Color(0.015, 0.02, 0.05, 0.77))
+	var bw = 540.0 if not g.portrait else 625.0
+	var r = Rect2(w * 0.5 - bw * 0.5, h * 0.5 - 128.0, bw, 246.0)
+	panel(r, Color("121a2b"), Color("66e5f0"), 3)
+	txt("TAKING THE ROAD", Vector2(w * 0.5, r.position.y + 71.0), 39, Color.WHITE, 1, bold, 5)
+	txt("NEXT STOP  //  " + g.travel_title.to_upper(), Vector2(w * 0.5, r.position.y + 110.0),
+		fit("NEXT STOP  //  " + g.travel_title.to_upper(), bw - 40.0, 22), Color("ffd24d"), 1, bold)
+	var progress = 1.0 - clampf(g.travel_t / 1.40, 0.0, 1.0)
+	var bar = Rect2(r.position.x + 43.0, r.position.y + 146.0, bw - 86.0, 18.0)
+	rbox(bar, Color("293b4f"), 8)
+	var filled = Rect2(bar.position, Vector2(maxf(7.0, bar.size.x * progress), bar.size.y))
+	rbox(filled, Color("5de5e8"), 8)
+	txt("DEPARTING...", Vector2(w * 0.5, r.end.y - 35.0), 18, Color("9dbbd2"), 1, body)
+
 func screen_bg() -> void:
 	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, sw(), sh()), Color(0.03, 0.04, 0.1, 0.94))
 	var start_x = floori(g.landscape_left / 60.0) * 60 if not g.portrait else 0
@@ -1754,7 +1832,7 @@ func shop_item_info(item: Dictionary) -> Dictionary:
 func paint_shop() -> void:
 	var W = sw()
 	var H = sh()
-	screen_bg()
+	paint_hub_backdrop()
 	txt("SHOP", Vector2(W * 0.5, 74 if g.portrait else 58), 60 if g.portrait else 48, Color("ffd24d"), 1, bold, 6)
 	status_chips(96 if g.portrait else 74)
 	if g.shop_luck() > 0.0:
@@ -1804,7 +1882,7 @@ func shop_row(r: Rect2, item: Dictionary, i: int) -> void:
 func paint_rest() -> void:
 	var W = sw()
 	var H = sh()
-	screen_bg()
+	paint_hub_backdrop()
 	var c = Vector2(W * 0.5, 250 if g.portrait else 200)
 	# a little campfire
 	for k in range(3):
@@ -1831,7 +1909,7 @@ func paint_rest() -> void:
 func paint_event() -> void:
 	var W = sw()
 	var H = sh()
-	screen_bg()
+	paint_hub_backdrop()
 	var ev: Dictionary = g.event
 	if ev.is_empty():
 		return
@@ -2079,7 +2157,7 @@ func paint_map_node(node: Dictionary, p: Vector2, c: int, i: int, cur: int, nxt:
 	var past = c <= cur and not here
 	var size = 96.0 if t == "boss" else 64.0
 	var hovered = reach and Rect2(p - Vector2(size, size) * 0.6, Vector2(size, size) * 1.2).has_point(g.mouse_screen)
-	if hovered and not g.is_touch_active():
+	if g.state == "map" and hovered and not g.is_touch_active():
 		g.map_pick = i
 	var picked = reach and g.map_pick == i
 	var lift = -6.0 if picked else 0.0

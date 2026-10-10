@@ -1,3 +1,11 @@
+## v0.1.15 — Confirmed boss results and deliberate route transitions
+
+- After a boss dies, collect pending rewards, then present a dedicated BOSS DEFEATED result screen. Continue to the route map only when the player presses Continue; the final Sector 20 victory screen remains its own confirmation.
+- Selecting a map node only highlights it: double-clicking can no longer accidentally skip past the map. GO shows a 1.4-second route departure sequence before entering the new sector or stop.
+- Shops, campfires, events, intermission card rewards and weapon replacements now share the route-map visual context instead of displaying the battlefield behind them.
+- Combat music stops when leaving the fight, including between-sector shops, map navigation, treasure selections, and route-related arsenal screens.
+- Added regression tests for clear/reward ordering, boss confirmations, transition timing and context-sensitive combat music.
+
 ## v0.1.13 — Explosive barrels, treasure art, evolving music and boss encounters
 
 - Replaced placeholder chest and barrel drawings with original gold-and-neon artwork; treasure selection highlights the chest.
