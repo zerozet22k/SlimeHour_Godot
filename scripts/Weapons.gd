@@ -235,7 +235,7 @@ static func update(g, dt: float) -> void:
 				w["charge"] = minf(1.0, float(w["charge"]) + dt / rail_charge_seconds(g, w))
 			if float(w["charge"]) < 1.0:
 				continue
-		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or (int(w["ammo"]) <= 0 and g.st("infammo") <= 0.0):
+		if not want or (kind != "rail" and float(w["cd"]) > 0.0) or (int(w["ammo"]) <= 0 and (g.st("infammo") <= 0.0 or kind in ["disc", "boomerang"])):
 			continue
 		var rate = fire_rate(g, w)
 		if kind == "spin":
