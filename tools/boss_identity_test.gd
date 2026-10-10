@@ -57,15 +57,29 @@ func _run() -> void:
 	for boss_id in bosses:
 		check(Bestiary.info(str(boss_id))[0] != "UNKNOWN", boss_id + " has a specific counterplay entry")
 
-	# Chonkzilla: moving committed slam, fissures, punishable stagger.
+	# Chonkzilla is a distinct charge/terrain encounter, not a short teleport stomp.
 	reset(g)
 	var chonk = specimen(g, "chonkzilla", 501)
 	Combat.ai(g, chonk, Vector2.DOWN, 260.0, 0.016, false)
-	check(float(chonk["wind"]) > 0.5 and chonk.has("lock"), "Chonkzilla warns a committed landing")
+	check(float(chonk["wind"]) > 0.5 and chonk.has("lock"), "Chonkzilla commits to a long, readable rush")
 	Combat.ai(g, chonk, Vector2.DOWN, 260.0, 1.3, false)
-	check(float(chonk.get("boss_recover", 0.0)) > 0.5, "Chonkzilla enters a genuine stagger recovery")
-	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "boss_line"), "Chonkzilla leaves distinct lateral ground fissures")
-	check(Combat.boss_identity_damage_factor(g, chonk) > 1.4, "Players deal bonus damage during the stagger")
+	check(str(chonk.get("chonk_state", "")) == "rush" and float(chonk.get("chonk_speed", 0.0)) > 450.0,
+		"Chonkzilla must actually enter a high-velocity body charge")
+	var rock = g.spawn_enemy("blob", Vector2(0.0, -135.0), false, false)
+	rock["chonk_pillar"] = true
+	rock["chonk_owner"] = 501
+	rock["summon"] = true
+	rock["r"] = 37.0
+	rock["hp"] = 40.0
+	rock["max_hp"] = 40.0
+	chonk["pos"] = Vector2(0, -140.0)
+	Combat.ChonkzillaEncounter.after_motion(g, chonk, Vector2(0.0, -200.0))
+	check(float(chonk.get("boss_recover", 0.0)) >= 2.0 and bool(rock.get("dead", false)),
+		"Baiting Chonkzilla into a real, killable stone breaks its armor")
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "chonk_fault"),
+		"Impact creates actual persistent seismic fissures")
+	check(Combat.boss_identity_damage_factor(g, chonk) > 1.9,
+		"Skill-based collision exposes a significant player damage window")
 
 	# Heli's flight path, not fixed circular bullet hell.
 	reset(g)
