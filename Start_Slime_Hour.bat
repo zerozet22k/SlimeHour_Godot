@@ -1,9 +1,11 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0update_and_run.ps1"
-if errorlevel 1 (
-  echo.
-  echo Slime Hour could not start. See the message above.
-  pause
+rem Compatibility shortcut only. All version checking and downloading is
+rem handled by SlimeHour.exe itself, with an in-game update screen.
+if exist "%~dp0SlimeHour.exe" (
+  start "" "%~dp0SlimeHour.exe"
+  exit /b 0
 )
+echo SlimeHour.exe is missing. Extract the full Windows release first.
+pause

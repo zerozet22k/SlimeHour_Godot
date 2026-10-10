@@ -6,9 +6,10 @@ Windows Godot action game. Source lives in this repository; playable releases ar
 
 1. Download **SlimeHour-Windows.zip** from the latest release.
 2. Extract **all** files together: `SlimeHour.exe`, `SlimeHour.pck`, `Start_Slime_Hour.bat`, `update_and_run.ps1`, `updater_config.json`, and `release_manifest.json`.
-3. Launch `SlimeHour.exe`. When a new version is available, the **UPDATE** option appears on the main menu. Alternatively, run `Start_Slime_Hour.bat` to check and launch.
+3. Launch **`SlimeHour.exe` directly**. New updates appear on the main menu; click **UPDATE**, watch the progress inside the game, then choose **INSTALL & RESTART** after checksum verification. No visible command window is used.
+4. The optional `Start_Slime_Hour.bat` shortcut now only starts the EXE; it no longer runs the old command-window updater.
 
-**Incremental updates (v0.1.7+):** Starting in v0.1.7 the Windows export splits the engine executable and Godot content pack. The updater compares the local version with the newest GitHub Release. If it has a matching `SlimeHour-Delta.zip`, it downloads only changed chunks, reconstructs the new executable and .pck from the old files, and verifies every file's SHA-256 checksum. Unchanged chunks stay local. If players skipped versions, downloaded corrupted data, or use an older v0.1.6-or-earlier install, the updater transparently uses the full ZIP.
+**Incremental updates (v0.1.19+):** The in-game updater checks GitHub Releases on startup, selects a matching `SlimeHour-Delta.zip` when possible, downloads it directly to disk with progress, verifies SHA-256, and offers **INSTALL & RESTART**. When you exit the game, a hidden Windows helper reconstructs the new version into a separate folder, verifies its manifest and contents, and restarts Slime Hour. Otherwise it uses the full release ZIP. It never overwrites the running game, and existing saves remain intact.
 
 **Important:** Updating *to* v0.1.7 is a one-time full download because older builds embedded the .pck in the executable and cannot serve as chunk-patch bases. Partial updates become available from subsequent releases. Download size depends on how much data actually changed; unchanged game assets generally do not need downloading again. Existing saves remain in Godot's normal user data location. No admin permissions or Git LFS are required to play.
 

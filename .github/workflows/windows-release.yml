@@ -85,6 +85,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/validate.py
+          ! grep -qi 'powershell.exe' Start_Slime_Hour.bat
           timeout 300 ./godot-ci --headless --path . --editor --import --quit
           timeout 120 ./godot-ci --headless --path . --script tools/line_weapon_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/status_card_test.gd

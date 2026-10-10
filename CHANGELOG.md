@@ -1,3 +1,9 @@
+## v0.1.19 — Direct-launch Windows game
+
+- Change the legacy `Start_Slime_Hour.bat` helper to launch the game directly without invoking the old PowerShell command-window downloader.
+- Prefer `SlimeHour.exe` as the desktop entry point; GitHub release checks, download progress, verification, and installation prompts now take place inside Godot.
+- Keep the standalone repair/install script solely as a hidden installer after an in-game download or for manual recovery.
+
 ## v0.1.18 — Final in-game updater validation
 
 - Add regression checks for in-game release discovery and integrity verification.
