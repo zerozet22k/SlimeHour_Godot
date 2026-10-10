@@ -81,7 +81,7 @@ const PROJECTILE_EVENT_GAP = {
 	"fire": 0.045, "impact": 0.062, "status": 0.12, "crit": 0.11,
 	"bounce": 0.12, "pierce": 0.12, "split": 0.18,
 	"boss_fire": 0.20, "boss_warn": 0.50, "boss_impact": 0.19,
-	"barrel_warn": 0.2, "barrel_boom": 0.19
+	"barrel_warn": 0.2, "barrel_boom": 0.19, "rail_charge": 0.30
 }
 
 static func projectile_clip(event: String, style: String = "kinetic", pattern: String = "") -> String:
@@ -94,6 +94,9 @@ static func projectile_clip(event: String, style: String = "kinetic", pattern: S
 			return "vfx_burst"
 		match style:
 			"rapid": return "vfx_rapid"
+			"laser": return "vfx_laser"
+			"rail": return "vfx_rail_fire"
+			"shotgun": return "vfx_shotgun"
 			"heavy": return "vfx_heavy_fire"
 			"pierce": return "vfx_sniper"
 			"fire": return "vfx_flame"
@@ -136,6 +139,7 @@ static func projectile_clip(event: String, style: String = "kinetic", pattern: S
 				_: return "vfx_rocket"
 		"boss_warn": return "vfx_boss_warn"
 		"boss_impact": return "vfx_boss_impact"
+		"rail_charge": return "vfx_rail_charge"
 		"barrel_warn": return "vfx_barrel_warn"
 		"barrel_boom": return "vfx_barrel_boom"
 	return ""
@@ -148,6 +152,8 @@ func play_projectile(event: String, style: String = "kinetic", pattern: String =
 		return
 	# Cross-style throttle protects against hundreds of hits in one physics tick.
 	var gap = float(PROJECTILE_EVENT_GAP.get(event, 0.09))
+	if event == "fire" and style == "laser":
+		gap = 0.17
 	var now = Time.get_ticks_msec() * 0.001
 	if now - float(last_projectile_event.get(event, -100.0)) < gap:
 		return
@@ -166,6 +172,7 @@ func play_projectile(event: String, style: String = "kinetic", pattern: String =
 		"boss_impact": gain *= 0.98
 		"barrel_warn": gain *= 0.67
 		"barrel_boom": gain *= 0.74
+		"rail_charge": gain *= 0.62
 	play(clip, 0.035 if event in ["crit", "boss_warn"] else 0.075, gain)
 
 ## World-driven music selection, called at low frequency by Main.
@@ -355,6 +362,14 @@ func build_all() -> void:
 	streams["vfx_double"] = to_stream(mix(pea, pea, int(0.072 * RATE)))
 	streams["vfx_parallel"] = to_stream(mix(pea, synth(0.083, 1070, 350, "square", 0.20, 30.0, 0.30, 0.60)))
 	streams["vfx_burst"] = to_stream(mix(pea, pea, int(0.045 * RATE)))
+	streams["vfx_laser"] = to_stream(mix(synth(0.19, 290, 350, "saw", 0.14, 7.5, 0.25, 0.25),
+		synth(0.19, 940, 1000, "sine", 0.03, 7.0, 0.23, 0.82)))
+	streams["vfx_rail_charge"] = to_stream(mix(synth(0.42, 240, 2400, "saw", 0.12, 2.2, 0.32, 0.27),
+		synth(0.38, 450, 1650, "sine", 0.05, 2.0, 0.21, 0.72)))
+	streams["vfx_rail_fire"] = to_stream(mix(synth(0.24, 3100, 190, "saw", 0.30, 11.0, 0.50, 0.40),
+		synth(0.39, 230, 45, "sine", 0.58, 9.0, 0.85, 0.31), int(0.035 * RATE)))
+	streams["vfx_shotgun"] = to_stream(mix(synth(0.18, 260, 70, "sine", 0.78, 21.0, 0.73, 0.29),
+		synth(0.08, 1480, 250, "square", 0.75, 36.0, 0.41, 0.45)))
 	streams["vfx_rapid"] = to_stream(mix(synth(0.05, 1560, 700, "square", 0.3, 60.0, 0.28, 0.55),
 		synth(0.03, 2450, 1150, "tri", 0.15, 85.0, 0.10)))
 	streams["vfx_heavy_fire"] = to_stream(mix(synth(0.16, 430, 82, "sine", 0.54, 22.0, 0.70, 0.3),
