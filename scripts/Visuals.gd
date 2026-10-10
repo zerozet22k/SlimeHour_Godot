@@ -358,6 +358,40 @@ func paint_barrels() -> void:
 
 func paint_telegraphs() -> void:
 	for d in g.delayed:
+		if str(d.get("fn", "")) == "arena_event":
+			# WARNING / COLLISION CONTRACT: the entire visible road is
+			# lethal at the indicated instant. The countdown is global
+			# regardless of camera offset, even in portrait mode.
+			var remaining: float = maxf(0.0, float(d["t"]))
+			var full: float = maxf(0.1, float(d["life"]))
+			var charge = 1.0 - remaining / full
+			var color = Color(str(d.get("color", "ff6677")))
+			var left = 640.0 - g.road_half - g.cam_x + shake_off.x
+			var right = 640.0 + g.road_half - g.cam_x + shake_off.x
+			var top = g.view_top
+			var height = g.view_bottom - g.view_top
+			var opacity = 0.07 + charge * 0.26
+			draw_rect(Rect2(left, top, right - left, height), Color(color, opacity))
+			var flash_rate = 4.0 + charge * 13.0
+			var pulse = 0.65 + 0.35 * absf(sin(g.anim_t * flash_rate))
+			for edge in [left + 7.0, right - 15.0]:
+				draw_rect(Rect2(edge, top, 8, height), Color(color, (0.45 + charge * 0.5) * pulse))
+			var style = str(d.get("style", ""))
+			if style in ["earthquake", "piston_lockdown", "tidal_surge"]:
+				# Floor slabs ripple across the entire arena.
+				for i in range(6):
+					var fy = top + height * (float(i) + charge) / 6.0
+					draw_line(Vector2(left, fy), Vector2(right, fy), Color(color, 0.2 + charge * 0.6), 5.0)
+			elif style in ["bombardment", "prism_flash"]:
+				for i in range(5):
+					var x = lerpf(left + 24.0, right - 24.0, float(i) / 4.0)
+					draw_line(Vector2(x, top), Vector2(x, top + height), Color(color, 0.22 + charge * 0.55), 3.0)
+			elif style in ["venom_collapse", "rift_implosion", "soul_eclipse"]:
+				var cx = (left + right) * 0.5
+				var cy = (top + g.view_bottom) * 0.5
+				var radius = (1.0 - charge) * maxf(g.road_half, height * 0.6)
+				draw_arc(Vector2(cx, cy), maxf(12.0, radius), 0, TAU, 64, Color(color, 0.4 + 0.5 * charge), 5.0)
+			continue
 		if not d.has("tele"):
 			continue
 		# Laser/piston warnings are full collision-width rectangles,
