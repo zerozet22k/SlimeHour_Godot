@@ -7,6 +7,7 @@ on:
       - tools/boss_identity_test.gd
       - tools/boss_encounter_test.gd
       - tools/boss_aggression_test.gd
+      - tools/chonkzilla_encounter_test.gd
       - .github/workflows/boss-identity-test.yml
   pull_request:
     paths:
@@ -37,6 +38,8 @@ jobs:
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_identity_test.gd
       - name: Verify boss-clear cinematic and unique spatial setpieces
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_encounter_test.gd
+      - name: Validate Chonkzilla's phases, terrain, and player-earned stagger
+        run: timeout 150 ./godot-ci --headless --path . --script tools/chonkzilla_encounter_test.gd
       - name: Preserve previous boss aggression regression
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
       - name: Preserve enemy mutation identity
