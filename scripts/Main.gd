@@ -51,7 +51,7 @@ var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "s
 	"aim": "auto" if OS.has_feature("mobile") else "mouse",
 	"autofire": OS.has_feature("mobile"), "hints": true, "touch": "auto", "controls_v2": true}
 var best = {"sector": 0, "kills": 0, "level": 0}
-var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
+var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}, "mutations_unlocked": {}}
 var unlocked_cards: Dictionary = {}
 var unlock_level: Dictionary = {}
 var unlocked_guns: Array = []
@@ -276,6 +276,14 @@ func _ready() -> void:
 			if not EnemyMixes.usable(str(known)):
 				records.erase(known)
 		profile[key] = records
+	# Preserve existing playthrough progress. The book distinguishes merely
+	# unlocked mutation recipes from those actually defeated.
+	var unlocked_mutations: Dictionary = profile.get("mutations_unlocked", {})
+	for recipe_index in range(EnemyMixes.RECIPES.size()):
+		var recipe_id = EnemyMixes.recipe_id(recipe_index)
+		if best["sector"] >= EnemyMixes.unlock_sector(recipe_index, false) or profile.get("mobs", {}).has(recipe_id):
+			unlocked_mutations[recipe_id] = true
+	profile["mutations_unlocked"] = unlocked_mutations
 	# Preserve OTHER previously encountered hybrids from existing saves.
 	for known_kind in profile.get("mobs", {}):
 		if str(known_kind).begins_with("mix_") and not enemy_db.has(known_kind):
@@ -727,6 +735,7 @@ func begin_sector() -> void:
 		sub = "BOSS SECTOR  //  " + sub
 	banner(title, sub, 2.6)
 	Effects.trigger(self, "sector", {"pos": hero["pos"], "gen": 0})
+	introduce_mutations()
 	if introduction_for(sector) != "":
 		# Wait for the sector banner, then introduce each new monster.
 		var delay = 2.4
@@ -738,6 +747,32 @@ func begin_sector() -> void:
 			profile["announced_mobs"][k] = true
 			unlock_toasts.append({"type": "enemy", "id": k, "t": 2.6 + delay})
 			delay = 0.0
+		save_options()
+
+## New entries unlock on their configured sector, not simply whenever two
+## parent enemies happen to be in the spawn pool. Keep permanent book receipts,
+## but each fresh run still respects its Normal/Hard sector progression.
+func introduce_mutations() -> void:
+	var unlocked: Dictionary = profile.get("mutations_unlocked", {})
+	var available = EnemyMixes.available_recipes(enemy_db, available_enemies(sector - 1), sector, hard_mode)
+	var modified = false
+	for recipe in available:
+		var id = EnemyMixes.id_for(str(recipe["a"]), str(recipe["b"]))
+		if unlocked.has(id):
+			continue
+		# Register the preview and the fixed authored identity; do not spawn
+		# or instantly mark it defeated just because the recipe unlocked.
+		var result = EnemyMixes.ensure(enemy_db, str(recipe["a"]), str(recipe["b"]))
+		if result == "":
+			continue
+		enemy_db[id]["name"] = str(recipe["name"])
+		enemy_db[id]["fusion_style"] = str(recipe["style"])
+		unlocked[id] = true
+		modified = true
+		if autotest == "":
+			unlock_toasts.append({"type": "mutation", "id": id, "t": 3.4})
+	profile["mutations_unlocked"] = unlocked
+	if modified:
 		save_options()
 
 func is_boss_sector() -> bool:
@@ -1301,11 +1336,11 @@ func pick_enemy() -> String:
 	# Mix chance is independent of fixed map/sector numbers. Never combine
 	# a species in the sector where it first debuts.
 	var known = available_enemies(sector - 1)
-	# Late sectors deserve varied hybrids, not near-identical base slimes.
-	# Chance ramps from 12% at sector 16 to 43% by sector 40.
-	var mix_chance = minf(0.43, 0.12 + 0.013 * float(maxi(0, sector - 16)))
-	if sector >= 16 and randf() < mix_chance:
-		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes)
+	# Spawn only staged and authored fusion recipes. Normal stays sparse,
+	# Hard increases pressure, but neither exposes every possible pair.
+	var mix_chance = EnemyMixes.encounter_chance(sector, hard_mode)
+	if randf() < mix_chance:
+		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes, hard_mode)
 		if hybrid != "":
 			recent_enemy_mixes.append(hybrid)
 			if recent_enemy_mixes.size() > 9:
@@ -1965,6 +2000,15 @@ func note_mob(kind: String) -> void:
 	mobs[kind] = int(mobs[kind]) + 1
 
 ## Collection order: street tiers, the extras, then bosses.
+func mutation_book_ids() -> Array:
+	var ids: Array = []
+	for i in range(EnemyMixes.RECIPES.size()):
+		ids.append(EnemyMixes.recipe_id(i))
+	return ids
+
+func mutation_is_unlocked(kind: String) -> bool:
+	return profile.get("mutations_unlocked", {}).has(kind) or int(profile.get("mobs", {}).get(kind, 0)) > 0
+
 func mob_order() -> Array:
 	var out = STARTER_ENEMIES.duplicate()
 	out.append_array(ROUTE_INTRO_ORDER)
@@ -2728,11 +2772,11 @@ func do_action(action: String) -> void:
 			state = "collection"
 			hud.collection_page = 0
 			hud.selected_collection_item = null
-		"bestiary":
+		"bestiary", "mutation_book":
 			settings_back = state
 			state = "bestiary"
 			hud.bestiary_page = 0
-			hud.bestiary_filter = "ALL"
+			hud.bestiary_filter = "MUTATIONS" if action == "mutation_book" else "ALL"
 			hud.bestiary_selected = ""
 		"bestiary_close":
 			hud.bestiary_selected = ""
@@ -2940,6 +2984,8 @@ func load_options() -> void:
 			profile["mobs"] = mobs if mobs is Dictionary else {}
 			var announced = pf.get("announced_mobs", {})
 			profile["announced_mobs"] = announced if announced is Dictionary else {}
+			var mutations = pf.get("mutations_unlocked", {})
+			profile["mutations_unlocked"] = mutations if mutations is Dictionary else {}
 			if pf.has("known_cards"):
 				profile["known_cards"] = UnlockHistory.normalized(pf["known_cards"])
 			if pf.has("known_guns"):
