@@ -971,7 +971,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var foot = "NEW" if have == 0 else ("OWNED x%d / %d" % [have, int(c["max"])] if owned_view else "x%d » x%d" % [have, have + 1])
 			return {"title": c["name"], "desc": c["desc"], "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
 				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": g.tex("res://assets/cards/%s.png" % o["id"]), "foot": foot,
-				"stack": "" if owned_view else Effects.stack_preview(g, str(o["id"])),
+				"stack": Effects.stack_preview(g, str(o["id"]), owned_view),
 				"max": "MAX %d" % int(c["max"]), "cursed": c.get("cursed", false), "icon": false}
 		"gun_new":
 			var d = g.weapon_db[o["gun"]]

@@ -1,3 +1,11 @@
+## v0.1.4 — Status scaling and readable card benefits
+
+- Burn, poison, bleed and shock gain main damage-build scaling plus controlled target-health scaling; bosses receive only one-quarter of the target-health bonus.
+- Stacked poison and bleed continue to matter against tougher crowds and in Endless without making damage-over-time an unlimited percent-health execute.
+- Card offers now display quantified gains on the first copy, diminishing stack totals on later copies, and proc damage/chance/radius for proc-only cards.
+- Collection cards show actual owned effects; percent-valued stats no longer appear as raw integer counts.
+- Godot CI runs regression checks for status balance and card preview formatting before publishing a Windows release.
+
 ## v0.1.3 — Beam edge correction and updater safeguards
 
 - Railgun and Beam Me now handle shots originating at or beyond a road edge when wall reflection is active (fix already on main).

@@ -104,37 +104,101 @@ static func stack_total(v: float, n: int) -> float:
 		return v * n
 	return v * (1.0 - pow(STACK_FALLOFF, n)) / (1.0 - STACK_FALLOFF)
 
-const STAT_NAMES = {"dmg": "DAMAGE", "rate": "FIRE RATE", "crit": "CRIT", "critdmg": "CRIT DMG", "speed": "SPEED",
-	"pspeed": "SHOT SPEED", "size": "SIZE", "range": "RANGE", "knock": "KNOCKBACK", "reload": "RELOAD", "magnet": "PICKUP",
-	"goldp": "GOLD", "xp": "EXP", "burn": "BURN", "freeze": "CHILL", "shock": "SHOCK", "poison": "POISON", "bleed": "BLEED",
-	"slow": "SLOW", "dodge": "DODGE", "maxhp": "MAX HP", "armor": "ARMOR", "regen": "REGEN", "mult": "PROJECTILES",
-	"par": "PARALLEL", "pierce": "PIERCE", "rico": "RICOCHET", "bounce": "BOUNCE", "orbit": "BLADES", "drone": "DRONES",
-	"luck": "LUCK", "fardmg": "FAR DMG", "closedmg": "CLOSE DMG", "fragdmg": "FRAG DMG", "orbitdmg": "BLADE DMG",
-	"discount": "DISCOUNT", "mag": "MAGAZINE", "split": "FRAGMENTS", "dashcd": "DASH CD", "heartdrop": "HEARTS",
-	"chilldmg": "CHILLED DMG", "spreadp": "SPREAD", "tdmg": "TOTAL DMG", "pellets": "PELLETS", "blast": "BLAST"}
+## Names and units here match actual mod math. Proc-only cards expose their trigger numbers too.
+const STAT_NAMES = {"dmg": "DMG", "rate": "FIRE RATE", "crit": "CRIT CHANCE", "critdmg": "CRIT DMG",
+	"speed": "MOVE SPEED", "pspeed": "SHOT SPEED", "size": "SHOT SIZE", "range": "RANGE",
+	"knock": "KNOCKBACK", "reload": "RELOAD", "magnet": "PICKUP RANGE", "goldp": "GOLD",
+	"xp": "EXP", "burn": "BURN CHANCE", "freeze": "CHILL CHANCE", "shock": "SHOCK CHANCE",
+	"poison": "POISON CHANCE", "bleed": "BLEED CHANCE", "slow": "SLOW CHANCE",
+	"wet": "WET CHANCE", "charm": "CHARM CHANCE", "mark": "MARK CHANCE",
+	"burnpow": "BURN DMG", "poisonpow": "POISON DMG", "bleedpow": "BLEED DMG",
+	"shockpow": "SHOCK DMG", "freezepow": "CHILL BUILDUP", "dur": "STATUS DURATION",
+	"dodge": "DODGE", "maxhp": "MAX HP", "armor": "ARMOR", "regen": "REGEN",
+	"mult": "PROJECTILES", "par": "PARALLEL", "rear": "BACK SHOTS", "side": "SIDE SHOTS",
+	"pierce": "PIERCE", "rico": "RICOCHET", "bounce": "WALL BOUNCE",
+	"orbit": "BLADES", "drone": "DRONES", "luck": "LUCK", "fardmg": "FAR DMG",
+	"closedmg": "CLOSE DMG", "fragdmg": "FRAG DMG", "orbitdmg": "BLADE DMG",
+	"discount": "DISCOUNT", "mag": "MAGAZINE", "split": "FRAGMENTS", "dashcd": "DASH CD",
+	"heartdrop": "HEARTS", "chilldmg": "CHILLED DMG", "spreadp": "SPREAD",
+	"tdmg": "TOTAL DMG", "pellets": "PELLETS", "blast": "BLAST",
+	"dronerate": "DRONE RATE", "orbitr": "ORBIT RADIUS", "orbspeed": "ORBIT SPEED",
+	"dashdist": "DASH DISTANCE", "perfect": "PERFECT WINDOW", "dmgtaken": "DAMAGE TAKEN",
+	"life": "PROJECTILE LIFE", "pin": "PIN CHANCE", "homing": "HOMING STRENGTH",
+	"dashes": "DASH CHARGES", "slots": "GUN SLOTS", "shield": "SHIELDS",
+	"rerolls": "REROLLS", "choices": "CHOICES", "critdmg": "CRIT DMG"}
+const PERCENT_STATS = ["dmg", "rate", "crit", "critdmg", "speed", "pspeed", "size", "range",
+	"knock", "reload", "goldp", "xp", "burn", "freeze", "shock", "poison", "bleed", "slow",
+	"wet", "charm", "mark", "burnpow", "poisonpow", "bleedpow", "shockpow", "freezepow",
+	"dur", "dodge", "fardmg", "closedmg", "fragdmg", "orbitdmg", "discount", "mag",
+	"heartdrop", "chilldmg", "spreadp", "tdmg", "blast", "dronerate", "orbitr",
+	"orbspeed", "dashcd", "dmgtaken", "life", "pin", "perfect"]
+const PASSIVE_FLAGS = ["boomer", "overkill", "accel", "fractal", "fragbounce", "fraghome",
+	"fragboom", "fling", "steam", "overload", "conduct", "shatter", "wildfire", "plague",
+	"hemorrhage", "brainwash", "dronerocket", "orbitguns", "orbitbleed", "dashtrail",
+	"dashreload", "dashpush", "speeddmg", "goblins", "mad", "infammo", "ghost", "instafreeze"]
 
-static func fmt_stat(v: float) -> String:
-	if absf(v) >= 1.0 and is_equal_approx(v, roundf(v)):
-		return "%+d" % roundi(v)
-	return "%+d%%" % roundi(v * 100.0)
+static func format_mod(key: String, value: float) -> String:
+	if PERCENT_STATS.has(key):
+		return "%+d%%" % roundi(value * 100.0)
+	if is_equal_approx(value, roundf(value)):
+		return "%+d" % roundi(value)
+	return "%+.2f" % value
 
-## "DAMAGE +10% → +17%" for the next copy of a card you already own (up to two stats).
-static func stack_preview(g, id: String) -> String:
+static func proc_preview(c: Dictionary) -> String:
+	for proc in c.get("procs", []):
+		var parts: Array[String] = []
+		if proc.has("chance"):
+			parts.append("%d%% CHANCE" % roundi(float(proc["chance"]) * 100.0))
+		if proc.has("dmg"):
+			parts.append("%d BASE DMG" % roundi(float(proc["dmg"])))
+		if proc.has("r"):
+			parts.append("%d RADIUS" % roundi(float(proc["r"])))
+		if proc.has("every"):
+			parts.append("%s PER TRIGGER" % str(proc["every"]))
+		if proc.has("n"):
+			parts.append("%d SHOTS/HITS" % int(proc["n"]))
+		if proc.has("t") and parts.size() < 2:
+			parts.append("%.1f SECONDS" % float(proc["t"]))
+		if not parts.is_empty():
+			return "  |  ".join(parts.slice(0, 2))
+	return ""
+
+## Show quantified improvements on first picks, upgrades, and collection cards.
+## Stack increases follow STACK_FALLOFF; TOTAL damage uses its multiplicative rule.
+static func stack_preview(g, id: String, owned_view: bool = false) -> String:
 	var c = g.card_by_id.get(id)
-	var have = int(g.owned.get(id, 0))
-	if c == null or have <= 0:
+	if c == null:
 		return ""
+	var have = int(g.owned.get(id, 0))
 	var mods: Dictionary = c.get("mods", {}).duplicate()
 	mods.merge(c.get("wmods", {}))
-	var parts = []
-	for k in mods:
-		if not STAT_NAMES.has(k) or parts.size() >= 2:
+	var parts: Array[String] = []
+	for key in mods:
+		if not STAT_NAMES.has(key) or PASSIVE_FLAGS.has(key):
 			continue
-		var v = float(mods[k])
-		parts.append("%s %s » %s" % [STAT_NAMES[k], fmt_stat(stack_total(v, have)), fmt_stat(stack_total(v, have + 1))])
-	if parts.is_empty() and not c.get("procs", []).is_empty():
-		return "STACKS %d » %d" % [have, have + 1]
-	return "   ".join(parts)
+		var v = float(mods[key])
+		var old_value = stack_total(v, have)
+		var new_value = stack_total(v, have + 1)
+		if key == "tdmg":
+			old_value = pow(1.0 + v, have) - 1.0
+			new_value = pow(1.0 + v, have + 1) - 1.0
+		if owned_view and have > 0:
+			parts.append("%s %s" % [STAT_NAMES[key], format_mod(key, old_value)])
+		elif have > 0:
+			parts.append("%s %s > %s" % [STAT_NAMES[key], format_mod(key, old_value), format_mod(key, new_value)])
+		else:
+			parts.append("%s %s" % [STAT_NAMES[key], format_mod(key, new_value)])
+		if parts.size() >= 2:
+			break
+	if not parts.is_empty():
+		return "  |  ".join(parts)
+	var proc_text = proc_preview(c)
+	if proc_text != "":
+		return proc_text
+	if have > 0 and not owned_view:
+		return "STACKS %d > %d" % [have, have + 1]
+	return ""
+
 
 static func add_card(g, id: String) -> void:
 	var c = g.card_by_id.get(id)

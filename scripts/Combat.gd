@@ -623,6 +623,39 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	if float(e["hp"]) <= 0.0:
 		kill(g, e, ctx, -float(e["hp"]))
 
+## Damage-over-time scales with the player's damage build and the target's durability.
+## Percent-of-HP contribution keeps statuses relevant in Endless; bosses receive 25%.
+## This is damage per 0.25-second status tick, not damage per second.
+static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1.0, moving: bool = false) -> float:
+	var base = 0.0
+	var hp_ratio = 0.0
+	var power = ""
+	match kind:
+		"burn":
+			base = 1.6
+			hp_ratio = 0.0008
+			power = "burnpow"
+		"poison":
+			base = 0.45 * stacks
+			hp_ratio = 0.00022 * stacks
+			power = "poisonpow"
+		"bleed":
+			var movement = 2.0 if moving else 1.0
+			base = 0.55 * stacks * movement
+			hp_ratio = 0.00025 * stacks * movement
+			power = "bleedpow"
+		"shock":
+			base = 4.0
+			hp_ratio = 0.0005
+			power = "shockpow"
+		_:
+			return 0.0
+	var flat = base * g.sector_scale() * g.dmg_mult()
+	var durability = maxf(0.0, float(e.get("max_hp", 0.0))) * hp_ratio
+	if bool(e.get("boss", false)):
+		durability *= 0.25
+	return maxf(0.0, (flat + durability) * maxf(0.0, 1.0 + g.st(power)))
+
 static func dot(g, e: Dictionary, amount: float, color: Color) -> void:
 	if bool(e["dead"]):
 		return
@@ -801,7 +834,7 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 				for o in query(g, e["pos"], 260.0):
 					if o != e and not bool(o["dead"]) and float(o["wet"]) > 0.0 and o["pos"].distance_to(e["pos"]) < 260.0:
 						g.beams.append({"a": e["pos"], "b": o["pos"], "t": 0.12, "w": 3.0, "color": Color("9fd0ff"), "zig": true})
-						damage(g, o, 12.0 * ss * (1.0 + g.st("shockpow")) * 2.0, false, {"gen": 2, "pos": o["pos"]})
+						damage(g, o, status_tick_damage(g, o, "shock") * 6.0, false, {"gen": 2, "pos": o["pos"]})
 				e.erase("conducting")
 			if float(e["burn"]) > 0.0 and g.st("overload") > 0.0:
 				apply_status(g, e, "burn", 1.0)
@@ -862,12 +895,12 @@ static func update_enemies(g, dt: float) -> void:
 			if e.has("affix"):
 				elite_tick(g, e)
 			if float(e["burn"]) > 0.0:
-				dot(g, e, 1.6 * ss * (1.0 + g.st("burnpow")) * (1.0 + g.st("dmg") * 0.5), Color("ff8a3d"))
+				dot(g, e, status_tick_damage(g, e, "burn"), Color("ff8a3d"))
 			if float(e["poison"]) > 0.0:
-				dot(g, e, float(e["poison"]) * 0.45 * ss * (1.0 + g.st("poisonpow")), Color("8dff6b"))
+				dot(g, e, status_tick_damage(g, e, "poison", float(e["poison"])), Color("8dff6b"))
 			if float(e["bleed"]) > 0.0:
 				var moving = e["vel"].length() > 10.0
-				dot(g, e, float(e["bleed"]) * 0.55 * ss * (1.0 + g.st("bleedpow")) * (2.0 if moving else 1.0), Color("ff4d6a"))
+				dot(g, e, status_tick_damage(g, e, "bleed", float(e["bleed"]), moving), Color("ff4d6a"))
 			if float(e["shock"]) > 0.0 and randf() < 0.5:
 				var o = null
 				for c in query(g, e["pos"], 120.0):
@@ -876,7 +909,7 @@ static func update_enemies(g, dt: float) -> void:
 						break
 				if o != null:
 					g.beams.append({"a": e["pos"], "b": o["pos"], "t": 0.08, "w": 2.0, "color": Color("9fd0ff"), "zig": true})
-					dot(g, o, 4.0 * ss * (1.0 + g.st("shockpow")), Color("9fd0ff"))
+					dot(g, o, status_tick_damage(g, o, "shock"), Color("9fd0ff"))
 			if bool(e["dead"]):
 				continue
 		# Status timers count down 10x a second (not every physics step): same durations, far less work.
