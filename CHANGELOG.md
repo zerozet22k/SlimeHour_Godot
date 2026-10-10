@@ -1,3 +1,13 @@
+## v0.1.50 — Boss combat overhaul: eight unique bosses
+
+- Add four individually designed bosses to the active rotation: **Coil Queen** (constricting lane patterns and coiling volleys), **Glass Oracle** (crossing laser lattices and mirrored barrages), **Void Weaver** (portal repositioning, void traps and Burrower summons), and **Dread Engine** (heavy piston lanes, shock bursts and Sappers).
+- Chonkzilla, Heli-Copter, Necro-Dad and King Blob each gain two new special attacks, bringing their cycles to six distinct patterns, with faster cadence and harder 65%/32% HP phases.
+- Introduce collision-accurate, fully telegraphed beam lanes, staggered dodge corridors, fixed cross-hair attacks and projectile circles that retain genuine escape gaps. Large warnings resolve where they appeared; they never secretly track the player after locking.
+- Mirror Mimics predict player motion and fire independent multi-shot attacks and faster reactive counter-volley patterns. Burrowers tunnel faster, land at a visibly marked predicted destination and trigger a dodgeable delayed collapse; late-game Burrowers also fire flanking shots.
+- Give the new bosses distinct procedurally rendered appearances and animated accents. Projectiles use existing boss audio palettes to avoid asset bloat.
+- Add `tools/boss_aggression_test.gd`, validating all eight boss patterns and elite attacks, with projectile/telegraph caps in pull-request and Windows release CI. Graphical Godot rendering checks passed.
+- No gun stats, card mechanics, save data or in-place updater changes.
+
 ## v0.1.49 — Clearer weapon descriptions and upgrade previews
 
 - Rewrite all 22 guns' base descriptions to explain their unique firing patterns and effects in plain, specific language.
