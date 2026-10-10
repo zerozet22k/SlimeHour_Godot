@@ -10,11 +10,11 @@ static func place(g, kind: String, pos: Vector2, radius: float, damage: float, l
 		"life": life, "max_life": life, "arm": arm,
 		"hp": 18.0 if kind == "mine" else (28.0 if kind == "egg" else 0.0), "hurt_t": 0.0})
 
-static func place_line(g, a: Vector2, b: Vector2, width: float, damage: float, duration: float) -> void:
+static func place_line(g, a: Vector2, b: Vector2, width: float, damage: float, duration: float, kind: String = "fissure", arm_time: float = 0.5) -> void:
 	if g.enemy_hazards.size() < CAP:
-		g.enemy_hazards.append({"kind": "fissure", "pos": (a + b) * 0.5, "a": a, "b": b,
+		g.enemy_hazards.append({"kind": kind, "pos": (a + b) * 0.5, "a": a, "b": b,
 			"r": width, "dmg": damage, "life": duration, "max_life": duration,
-			"arm": 0.5, "hp": 0.0, "hurt_t": 0.0})
+			"arm": arm_time, "hp": 0.0, "hurt_t": 0.0})
 
 static func update_hazards(g, dt: float) -> void:
 	for i in range(g.enemy_hazards.size() - 1, -1, -1):
@@ -32,7 +32,7 @@ static func update_hazards(g, dt: float) -> void:
 			continue
 		var hero: Vector2 = g.hero["pos"]
 		var inside = false
-		if str(h["kind"]) == "fissure":
+		if str(h["kind"]) in ["fissure", "acid_trail"]:
 			var nearest = Geometry2D.get_closest_point_to_segment(hero, h["a"], h["b"])
 			inside = hero.distance_squared_to(nearest) <= pow(float(h["r"]) + 11.0, 2.0)
 		else:
@@ -44,8 +44,8 @@ static func update_hazards(g, dt: float) -> void:
 				g.hurt(float(h["dmg"]), h["pos"], "a Sapper proximity mine")
 				g.spawn_ring_fx(h["pos"], Color("ffbc68"), 52.0)
 				g.enemy_hazards.remove_at(i)
-			"acid":
-				g.hurt(float(h["dmg"]), h["pos"], "Spitter acid")
+			"acid", "acid_trail":
+				g.hurt(float(h["dmg"]), h["pos"], "Spitter poison trail")
 				h["hurt_t"] = 0.62
 			"fissure":
 				g.hurt(float(h["dmg"]), h["pos"], "a Burrower fissure")
