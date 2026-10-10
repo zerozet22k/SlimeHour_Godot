@@ -1452,10 +1452,17 @@ static func update_enemies(g, dt: float) -> void:
 		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * turn_rate)).normalized()
 		var desired = Vector2.ZERO
 		if not disabled and not bool(e.get("chonk_pillar", false)):
+			# The boss AI may schedule warnings outside boss_map_pattern.
+			# Capture every warning produced by this boss's turn so they
+			# all disappear immediately when the owner dies.
+			var boss_warning_start: int = g.delayed.size()
 			if bool(e["boss"]):
 				boss_arena_tick(g, e, dt)
 			desired = ai(g, e, dir, dist, dt, charmed)
 			if bool(e["boss"]):
+				for warning_index in range(boss_warning_start, g.delayed.size()):
+					if not g.delayed[warning_index].has("owner"):
+						g.delayed[warning_index]["owner"] = int(e["id"])
 				desired = boss_engagement(g, e, desired, dir, dist)
 		if bool(e["dead"]):
 			continue
