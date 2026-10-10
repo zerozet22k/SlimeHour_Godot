@@ -1900,6 +1900,14 @@ static func update_allies(g, dt: float) -> void:
 
 ## Detonates only after an observable fuse, including blast-chain and dash triggers.
 ## Chain blasts arm nearby barrels first rather than triggering same-frame explosions.
+static func barrel_arm(barrel: Dictionary) -> void:
+	barrel["armed"] = true
+	barrel["fuse"] = 0.85
+
+static func barrel_countdown(barrel: Dictionary, dt: float) -> bool:
+	barrel["fuse"] = maxf(0.0, float(barrel["fuse"]) - dt)
+	return float(barrel["fuse"]) <= 0.0
+
 static func update_barrels(g, dt: float) -> void:
 	for i in range(g.barrels.size() - 1, -1, -1):
 		var barrel = g.barrels[i]
@@ -1910,13 +1918,11 @@ static func update_barrels(g, dt: float) -> void:
 				g.sfx.play("thunk")
 			continue
 		if float(barrel["hp"]) <= 0.0 and not bool(barrel.get("armed", false)):
-			barrel["armed"] = true
-			barrel["fuse"] = 0.85
+			barrel_arm(barrel)
 			g.sfx.play("fuse")
 			continue
 		if bool(barrel.get("armed", false)):
-			barrel["fuse"] = float(barrel["fuse"]) - dt
-			if float(barrel["fuse"]) <= 0.0:
+			if barrel_countdown(barrel, dt):
 				var pos: Vector2 = barrel["pos"]
 				g.barrels.remove_at(i)
 				# Barrels hurt both the player and their nearby monsters.

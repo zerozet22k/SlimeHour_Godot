@@ -65,6 +65,7 @@ var killer_ref: Dictionary = {}     # the monster the death camera focuses on
 const DYING_TIME = 2.6
 var debug_mode = false
 var sfx = null
+var music_refresh_t = 0.0
 var autotest = ""
 var no_save = false            # tool scripts set this so checks never touch the real save
 var update_available = false
@@ -397,6 +398,30 @@ func _process(delta: float) -> void:
 			unlock_toasts.pop_front()
 	if state == "event":
 		update_event(delta)
+	# Adaptive combat mix is sampled rather than recomputed every draw frame.
+	music_refresh_t -= delta
+	if music_refresh_t <= 0.0:
+		music_refresh_t = 0.45
+		var near_count = 0
+		var cornered = false
+		var danger = 0.0
+		var boss_now = false
+		var boss_rage = false
+		if state == "playing" and not hero.is_empty():
+			var hp_ratio = float(hero["hp"]) / maxf(1.0, float(hero["maxhp"]))
+			for enemy in enemies:
+				if bool(enemy["dead"]):
+					continue
+				if enemy["pos"].distance_squared_to(hero["pos"]) < 205.0 * 205.0:
+					near_count += 1
+				if bool(enemy["boss"]):
+					boss_now = true
+					boss_rage = boss_rage or Combat.boss_stage(enemy) >= 2
+			cornered = (absf(float(hero["pos"].x)) > road_half - 110.0 and near_count >= 3) or near_count >= 10
+			danger = clampf(float(near_count) / 11.0 + (0.22 if hp_ratio < 0.35 else 0.0), 0.0, 1.0)
+			if str(route.get("name", "")) == "HELL LANE":
+				danger = minf(1.0, danger + 0.12)
+		sfx.music_context(biome_index(), boss_now, boss_rage, danger, cornered)
 	sfx.music_on(state in ["playing", "levelup", "replace", "arsenal", "paused"])
 	visuals.queue_redraw()
 	hud.queue_redraw()
