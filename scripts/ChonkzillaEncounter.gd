@@ -79,6 +79,14 @@ static func start_windup(g, boss: Dictionary, player: Vector2, stage: int) -> vo
 	g.sfx.play("boss_warn")
 
 static func think(g, boss: Dictionary, direction: Vector2, distance: float, dt: float, stage: int) -> Vector2:
+	var previous_stage: int = int(boss.get("chonk_last_stage", 0))
+	if stage > previous_stage:
+		boss["chonk_last_stage"] = stage
+		g.spawn_ring_fx(boss["pos"], Color("ff8355") if stage == 2 else STONE_COLOR, 165.0)
+		g.add_shake(10.0 if stage == 2 else 6.0)
+		g.say(boss["pos"] + Vector2(0, -110),
+			"EARTHBREAKER UNBOUND!" if stage == 2 else "THE ARMOR CRACKS!",
+			Color("ff8355") if stage == 2 else Color("ffe0a5"), 23)
 	var state = str(boss.get("chonk_state", "approach"))
 	if state == "stagger":
 		boss["boss_recover"] = maxf(0.0, float(boss.get("boss_recover", 0.0)) - dt)
