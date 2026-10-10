@@ -9,7 +9,7 @@ const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const RouteFlow = preload("res://scripts/RouteFlow.gd")
-const GAME_VERSION = "v0.1.15"
+const GAME_VERSION = "v0.1.16"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1812,7 +1812,7 @@ func note_mob(kind: String) -> void:
 		mobs[kind] = 0
 		if autotest == "":
 			unlock_toasts.append({"type": "mob", "id": kind, "t": 2.6})
-			profile.get_or_add("announced_mobs", {})[kind] = true
+			profile["announced_mobs"][kind] = true
 	mobs[kind] = int(mobs[kind]) + 1
 
 ## Collection order: street tiers, the extras, then bosses.
@@ -2616,6 +2616,8 @@ func load_options() -> void:
 			profile["ups"] = ups if ups is Dictionary else {}
 			var mobs = pf.get("mobs", null)
 			profile["mobs"] = mobs if mobs is Dictionary else {}
+			var announced = pf.get("announced_mobs", {})
+			profile["announced_mobs"] = announced if announced is Dictionary else {}
 			if mobs == null and int(profile["level"]) >= 20:
 				# Veterans from before the bestiary have met everything already.
 				for k in enemy_db:

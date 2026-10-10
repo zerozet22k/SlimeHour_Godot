@@ -1,3 +1,11 @@
+## v0.1.16 — Expressive weapon effects and gentler early-mid sectors
+
+- Separate kinetic, rapid, heavy, piercing, fragment, fire, ice, poison, shock, explosive, ricochet and enemy-projectile travel/impact styles; add muzzle flashes, bounce flashes, critical hit flashes and element-specific procs.
+- VFX reuse the bounded existing CanvasItem/Fx renderer, with a hard budget and the Particles setting respected.
+- A modest easing around Sectors 7-11 reduces HP and crowd spikes while retaining late-game scaling. Two elite affixes now begin in Sector 10, not Sector 8.
+- Route map, boss-result, shops and rewards softly carry the current biome's music across transitions, without combat percussion.
+- Fix repeat monster-unlock alerts across runs using persistent announcement history, and correctly compare old and new card/gun unlocks at run completion.
+
 ## v0.1.15 — Confirmed boss results and deliberate route transitions
 
 - After a boss dies, collect pending rewards, then present a dedicated BOSS DEFEATED result screen. Continue to the route map only when the player presses Continue; the final Sector 20 victory screen remains its own confirmation.
