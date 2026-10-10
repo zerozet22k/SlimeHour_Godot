@@ -353,6 +353,7 @@ func paint_portrait() -> void:
 			var best = "BEST  SECTOR %d   ·   %d KILLS" % [int(g.best["sector"]), int(g.best["kills"])]
 			rbox(Rect2(110, h - 168, 500, 52), Color(0, 0, 0, 0.45), 26)
 			txt(best, Vector2(360, h - 133), 21, Color("ffd24d"), 1, bold)
+			txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(360, h - 34), 18, Color("9db2ce"), 1, bold)
 		"playing":
 			paint_portrait_hud()
 		"paused":
@@ -737,6 +738,7 @@ func paint_portrait_settings() -> void:
 			txt(rows[i][1], pill.get_center() + Vector2(0, 9), 22, Color.WHITE, 1, bold, 2)
 			buttons.append({"rect": r, "action": "set_" + rows[i][2]})
 	button(Rect2(190, g.ui_height - 130, 340, 84), "BACK", "back", true, 32)
+	txt("VERSION  " + g.GAME_VERSION, Vector2(360, g.ui_height - 20), 18, Color("9db2ce"), 1, bold)
 
 func portrait_collection_cat(delta: int) -> void:
 	var cats = g.categories.keys()
@@ -1255,6 +1257,7 @@ func paint_menu() -> void:
 		button(Rect2(510, 577, 260, 42), "UPDATE " + g.update_version, "update", true, 19)
 	goo_chip(Vector2(640, 635))
 	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
+	txt(g.GAME_VERSION, Vector2(1244, 699), 16, Color("adc0d7"), 2, bold)
 
 ## Fully in-game update panel: accurate bytes, source, download stage,
 ## recovery and explicit verified install. No console or external browser.
@@ -1313,6 +1316,7 @@ func paint_pause() -> void:
 	button(Rect2(500, 260, 280, 62), "RESUME", "resume", true, 30)
 	button(Rect2(500, 336, 280, 54), "SETTINGS", "settings", false, 24)
 	button(Rect2(500, 402, 280, 54), "MAIN MENU", "menu", false, 24)
+	txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(1244, 696), 16, Color("adc0d7"), 2, bold)
 
 func cursor_label() -> String:
 	var c = float(g.settings["cursor"])
@@ -1351,6 +1355,7 @@ func paint_settings() -> void:
 		else:
 			buttons.append({"rect": r, "action": "set_" + rows[i][2]})
 	button(Rect2(520, 626, 240, 54), "BACK", "back", true, 26)
+	txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(1244, 695), 16, Color("adc0d7"), 2, bold)
 
 ## Locked cards show their rarity but not what they do.
 func collection_info(item: Dictionary) -> Dictionary:

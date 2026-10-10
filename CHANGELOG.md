@@ -1,3 +1,10 @@
+## v0.1.22 — Visible version and truly permanent unlock receipts
+
+- Show the exact game version on desktop and portrait main menus, settings, and desktop pause overlay.
+- Fix repeating NEW CARD and NEW GUN alerts: persist a receipt for each unlock immediately when earned, not only at the end of a run.
+- Retain cards and guns earned in a run even if the player quits before the run ends. Existing save files are silently migrated by registering everything already unlocked, without repeated popups.
+- Add an automated regression test covering migration, repeated recomputation, mid-run restart persistence, and one-time unlock announcements.
+
 ## v0.1.21 — Full route overview, readable campfires, expanding playable road
 
 - Fix fullscreen between-sector screens: campfires now use an opaque menu backdrop, the title no longer overlays ROUTE MAP, and gun training fits within 720p/16:9 without clipping.

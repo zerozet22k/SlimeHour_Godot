@@ -11,7 +11,8 @@ const ScreenFit = preload("res://scripts/ScreenFit.gd")
 const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
-const GAME_VERSION = "v0.1.21"
+const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
+const GAME_VERSION = "v0.1.22"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -261,6 +262,10 @@ func _ready() -> void:
 			if autotest == "":
 				autotest = "soak"
 	compute_unlocks()
+	# Save the receipts for content already earned on old profiles. This
+	# migration is silent: nothing old should be displayed as NEW.
+	if autotest == "" and UnlockHistory.backfill(profile, unlocked_cards, unlocked_guns):
+		save_options()
 	if autotest != "":
 		get_node("/root").add_child.call_deferred(AutoTest.new())
 	elif OS.has_feature("windows"):
@@ -1899,11 +1904,19 @@ func compute_unlocks() -> void:
 		unlock_index[id] = i
 		if i < n:
 			unlocked_cards[id] = true
+	# Receipts protect permanently earned content if someone quits mid-run,
+	# before XP and lifetime kills are banked by award_profile().
+	for earned_id in profile.get("known_cards", {}).keys():
+		if card_by_id.has(str(earned_id)):
+			unlocked_cards[str(earned_id)] = true
 	var kg = 0
 	while gun_kill_need(kg + 1) <= lk:
 		kg += 1
 	var ng = mini(weapon_ids.size(), START_GUNS + maxi(lv, kg))
 	unlocked_guns = weapon_ids.slice(0, ng)
+	for earned_gun in weapon_ids:
+		if profile.get("known_guns", {}).has(earned_gun) and not unlocked_guns.has(earned_gun):
+			unlocked_guns.append(earned_gun)
 	next_unlock_kills = 0
 	if n < order.size():
 		next_unlock_kills = (int(lk / KILLS_PER_CARD) + 1) * KILLS_PER_CARD
@@ -1925,17 +1938,18 @@ func refresh_unlocks() -> void:
 	var had_cards = unlocked_cards.duplicate()
 	var had_guns = unlocked_guns.duplicate()
 	compute_unlocks()
-	for id in unlocked_cards.keys():
-		if not had_cards.has(id) and not run_unlocks.has({"type": "card", "id": id}):
-			run_unlocks.append({"type": "card", "id": id})
-			unlock_toasts.append({"type": "card", "id": id, "t": 2.6})
-	for id in unlocked_guns:
-		if not had_guns.has(id) and not run_unlocks.has({"type": "gun", "id": id}):
-			run_unlocks.append({"type": "gun", "id": id})
-			unlock_toasts.append({"type": "gun", "id": id, "t": 2.6})
+	var changes: Array = UnlockHistory.collect_new(profile, had_cards, unlocked_cards, had_guns, unlocked_guns)
+	for item in changes:
+		if not run_unlocks.has(item):
+			run_unlocks.append(item)
+			unlock_toasts.append({"type": item["type"], "id": item["id"], "t": 2.6})
 	if unlock_toasts.size() > 6:
 		# A big batch (like a profile level-up) would take forever one by one; keep the newest few.
 		unlock_toasts = unlock_toasts.slice(unlock_toasts.size() - 6)
+	if not changes.is_empty():
+		# Persist milestone awards IMMEDIATELY. Quitting before dying or winning
+		# must not reset the receipt and show the same card again next run.
+		save_options()
 
 func seal_cards() -> void:
 	sealed.clear()
@@ -2669,6 +2683,10 @@ func load_options() -> void:
 			profile["mobs"] = mobs if mobs is Dictionary else {}
 			var announced = pf.get("announced_mobs", {})
 			profile["announced_mobs"] = announced if announced is Dictionary else {}
+			if pf.has("known_cards"):
+				profile["known_cards"] = UnlockHistory.normalized(pf["known_cards"])
+			if pf.has("known_guns"):
+				profile["known_guns"] = UnlockHistory.normalized(pf["known_guns"])
 			if mobs == null and int(profile["level"]) >= 20:
 				# Veterans from before the bestiary have met everything already.
 				for k in enemy_db:
