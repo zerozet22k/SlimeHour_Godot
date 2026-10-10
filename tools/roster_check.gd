@@ -73,8 +73,14 @@ func _test() -> void:
 	var normal_mob = game.spawn_enemy("blob", game.hero["pos"] + Vector2(0, -280), false, false)
 	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
 	var boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
-	var boss_expected: float = 2400.0 * game.enemy_scale() * 2.0 * pow(1.8, float(mini(game.sector - game.WIN_SECTOR, 20)))
+	# The endgame multiplier only activates AFTER WIN_SECTOR, not before.
+	var boss_expected: float = 2400.0 * game.enemy_scale() * 2.0
 	check(is_equal_approx(float(boss["max_hp"]), boss_expected), "Crowd HP adjustment does not affect boss scaling")
+	game.sector = game.WIN_SECTOR + 1
+	var endgame_boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
+	var endgame_expected: float = 2400.0 * game.enemy_scale() * 2.0 * 1.8
+	check(is_equal_approx(float(endgame_boss["max_hp"]), endgame_expected), "Post-victory boss scaling remains unchanged")
+	game.sector = 40
 	game.hard_mode = true
 	check(game.budget_for(40) > capped_budget and game.rush_size() > capped_rush, "Hard keeps a larger but finite population")
 	check(game.enemy_cap() <= 175 and game.sector_spawn_rate(1.0) <= 17.251 and game.rush_spawn_rate() == 13.0, "Hard has separate bounded simultaneous and spawn caps")
