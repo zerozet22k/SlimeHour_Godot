@@ -2071,15 +2071,20 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if float(e.get("sprint_t", 0.0)) > 0.0:
 				e["sprint_t"] = maxf(0.0, float(e["sprint_t"]) - dt)
 				var turn: float = -1.0 if int(e.get("id", 0)) % 2 == 0 else 1.0
-				return (dir * 0.32 + dir.orthogonal() * turn * 1.3).normalized()
+				e["orbit_momentum"] = minf(1.0, float(e.get("orbit_momentum", 0.0)) + dt * 0.7)
+				return (dir * 0.20 + dir.orthogonal() * turn * (1.2 + float(e["orbit_momentum"]) * 0.4)).normalized()
 			if g.sector >= 6 and float(e["cd"]) <= 0.0 and dist < 290.0 and dist > 65.0:
 				e["cd"] = 3.6 if not g.hard_mode else 2.8
 				e["sprint_t"] = 0.85
 				g.spawn_ring_fx(e["pos"], Color("f9bb63"), 25.0)
 				return dir.orthogonal() * (1.0 if int(e.get("id", 0)) % 2 == 0 else -1.0)
+			e["orbit_momentum"] = maxf(0.0, float(e.get("orbit_momentum", 0.0)) - dt * 0.35)
 			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 6.0 + float(e["phase"])) * 0.85).normalized()
 		"mini":
-			# Minis scatter from projectiles rather than using a full-size dash.
+			var watched: bool = dist < 245.0 and g.hero["aim"].normalized().dot(-dir) > 0.78
+			if watched:
+				var sideways = dir.orthogonal() * (1.0 if int(e["id"]) % 2 == 0 else -1.0)
+				return (sideways * 1.25 - dir * 0.42).normalized()
 			return (dir * 0.9 + dir.orthogonal() * sin(float(e["t"]) * 8.0 + float(e["phase"])) * 0.33).normalized()
 		"chonk":
 			# From sector 4 chonks belly-slam when you get close.
@@ -2092,6 +2097,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						g.spawn_ring_fx(e["pos"], Color("ff6b7a"), 115.0)
 						if g.hero["pos"].distance_to(e["pos"]) < 115.0:
 							g.hurt(float(e["dmg"]), e["pos"], "a Chonk belly flop")
+					e["recover"] = 1.35
 					return Vector2.ZERO
 				if e["cd"] <= 0.0 and dist < 130.0:
 					e["cd"] = 3.2
@@ -2100,17 +2106,18 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					return Vector2.ZERO
 			return dir
 		"mortar":
-			# Lobs shells where you are heading; the landing spot is marked first.
-			if e["cd"] <= 0.0 and dist < 640.0:
-				e["cd"] = maxf(1.6, 3.0 - 0.08 * float(maxi(0, g.sector - 5)))
-				var at = hero_pos + g.hero["vel"] * 0.5
-				var m_t = maxf(0.8, 1.15 - 0.02 * float(maxi(0, g.sector - 5)))
-				g.delayed.append({"t": m_t, "life": m_t, "fn": "mortar", "pos": at, "tele": 72.0, "dmg": float(e["dmg"])})
-				e["squash"] = 0.5
+			if float(e["cd"]) <= 0.0 and dist < 640.0:
+				e["cd"] = maxf(2.4, 4.1 - 0.045 * float(maxi(0, g.sector - 5)))
+				var lead: Vector2 = hero_pos + g.hero["vel"] * 0.48
+				var side: Vector2 = g.hero["vel"].normalized().orthogonal() if g.hero["vel"].length() > 10.0 else Vector2.RIGHT
+				for salvo_i in range(2 + int(g.hard_mode)):
+					if g.delayed.size() >= 125:
+						break
+					var impact: Vector2 = lead + side * (float(salvo_i) - 0.5) * 94.0
+					var delay: float = 1.0 + float(salvo_i) * 0.32
+					g.delayed.append({"t": delay, "life": delay, "fn": "mortar", "pos": impact, "tele": 72.0, "dmg": float(e["dmg"]) * 0.72})
 				g.sfx.play("thunk")
-			if dist < 360.0:
-				return -dir * 0.8
-			return dir if dist > 470.0 else dir.orthogonal() * 0.4
+			return -dir * 0.8 if dist < 360.0 else (dir if dist > 470.0 else dir.orthogonal() * 0.4)
 		"totem":
 			return Vector2.ZERO
 		"blinky":
@@ -2173,6 +2180,9 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var stream = enemy_fire(g, e, aim, 1, 0.0, 245.0, 5.5)
 					if stream != null:
 						stream["color"] = Color("a2ff83")
+					for step_i in range(3):
+						var blot: Vector2 = e["pos"].lerp(lock, 0.42 + float(step_i) * 0.20)
+						EnemyIdentity.place(g, "acid", blot, 22.0, float(e["dmg"]) * 0.23, 2.7, 0.10)
 					if g.sector >= 6:
 						for side in [-1.0, 1.0]:
 							var hook = enemy_fire(g, e, aim.rotated(side * 0.31), 1, 0.0, 225.0, 5.5)
@@ -2189,20 +2199,38 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return -dir * 0.75
 			return dir if dist > 340.0 else dir.orthogonal() * 0.65
 		"larry":
+			# A charged, sweeping beam followed by a vulnerable overheat.
+			if float(e.get("overheat_t", 0.0)) > 0.0:
+				e["overheat_t"] = maxf(0.0, float(e["overheat_t"]) - dt)
+				return Vector2.ZERO
+			if float(e.get("laser_t", 0.0)) > 0.0:
+				e["laser_t"] = maxf(0.0, float(e["laser_t"]) - dt)
+				var sweep: float = float(e.get("laser_side", 1.0))
+				e["laser_dir"] = Vector2(e.get("laser_dir", dir)).rotated(sweep * dt * (0.52 if g.hard_mode else 0.37))
+				if float(e.get("laser_tick", 0.0)) <= 0.0:
+					larry_beam(g, e, Vector2(e["laser_dir"]))
+					e["laser_tick"] = 0.13
+				e["laser_tick"] = float(e["laser_tick"]) - dt
+				if float(e["laser_t"]) <= 0.0:
+					e["overheat_t"] = 2.0
+				return Vector2.ZERO
 			if float(e["wind"]) > 0.0:
-				e["wind"] = float(e["wind"]) - dt
-				if float(e["wind"]) > 0.3:
+				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
+				if float(e["wind"]) > 0.40:
 					e["lock"] = hero_pos
 				if float(e["wind"]) <= 0.0:
-					larry_beam(g, e, (e.get("lock", hero_pos) - e["pos"]).normalized())
+					e["laser_dir"] = (Vector2(e.get("lock", hero_pos)) - e["pos"]).normalized()
+					e["laser_side"] = 1.0 if int(e["id"]) % 2 == 0 else -1.0
+					e["laser_t"] = 2.2 if not g.hard_mode else 2.8
+					e["laser_tick"] = 0.0
 				return Vector2.ZERO
-			if e["cd"] <= 0.0 and dist < 520.0:
-				e["cd"] = 3.2
-				e["wind"] = 1.0
+			if float(e["cd"]) <= 0.0 and dist < 870.0:
+				e["cd"] = 4.4
+				e["wind"] = 1.25
 				e["lock"] = hero_pos
-			if dist < 330.0:
-				return -dir * 0.7
-			return dir if dist > 430.0 else Vector2.ZERO
+			if dist < 350.0:
+				return -dir * 0.48
+			return dir if dist > 580.0 else Vector2.ZERO
 		"bull":
 			if float(e["charge"]) > 0.0:
 				e["charge"] = float(e["charge"]) - dt
@@ -2210,7 +2238,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if float(e["wind"]) > 0.0:
 				e["wind"] = float(e["wind"]) - dt
 				if float(e["wind"]) <= 0.0:
-					e["charge"] = 0.75
+					e["charge"] = 0.98
 					e["cdir"] = (hero_pos - e["pos"]).normalized()
 					g.sfx.play("whoosh")
 				return Vector2.ZERO
@@ -2292,16 +2320,18 @@ static func elite_tick(g, e: Dictionary) -> void:
 			for k in range(8):
 				enemy_fire(g, e, Vector2.from_angle(base + k * TAU / 8.0), 1, 0.0, 220.0)
 
-## Laser Larry: after the aim line locks, an instant beam along it. Dash through it for a PERFECT.
+## Laser Larry's lethal sweeping laser clips to solid cover.
 static func larry_beam(g, e: Dictionary, dir: Vector2) -> void:
 	var a: Vector2 = e["pos"] + dir * float(e["r"])
-	var b: Vector2 = a + dir * 950.0
-	g.beams.append({"a": a, "b": b, "t": 0.22, "w": 12.0, "color": Color("ff3a5a")})
-	g.beams.append({"a": a, "b": b, "t": 0.22, "w": 4.0, "color": Color("ffe0e8")})
-	g.sfx.play("rail")
-	g.add_shake(3.0)
+	var b: Vector2 = EnemyIdentity.clip_beam(g, a, a + dir * 950.0)
+	g.beams.append({"a": a, "b": b, "t": 0.16, "w": 12.0, "color": Color("ff3a5a")})
+	g.beams.append({"a": a, "b": b, "t": 0.16, "w": 4.0, "color": Color("ffe0e8")})
+	if float(e.get("laser_sound_cd", 0.0)) <= 0.0:
+		g.sfx.play("rail")
+		e["laser_sound_cd"] = 0.58
+	e["laser_sound_cd"] = float(e.get("laser_sound_cd", 0.0)) - 0.13
 	if seg_dist2(a, b, g.hero["pos"]) < pow(12.0 + 11.0, 2):
-		g.hurt(float(e["dmg"]) * 1.2, e["pos"], "Laser Larry")
+		g.hurt(float(e["dmg"]) * 0.52, e["pos"], "Laser Larry")
 
 static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, speed: float, r: float = 6.0) -> Variant:
 	var last = null
