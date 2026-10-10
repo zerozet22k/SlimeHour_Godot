@@ -1195,7 +1195,10 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 		cbox(Rect2(r.position + Vector2(r.size.x - 39, 7), Vector2(30, 30)), Color("06080d"), 7, rc, 2)
 		txt(str(index + 1), r.position + Vector2(r.size.x - 24, 30), 20, Color.WHITE, 1, bold)
 	# art (or the category icon painted on the card)
-	var art_r = Rect2(r.position + Vector2(12, 46), Vector2(r.size.x - 24, minf(r.size.x - 24, r.size.y * 0.53)))
+	# Weapon descriptions need more readable lines than decorative artwork.
+	var weapon_offer = str(info.get("cat", "")) in ["NEW GUN", "GUN UPGRADE", "EVOLUTION"]
+	var art_height = minf(r.size.x - 24, r.size.y * (0.36 if weapon_offer else 0.53))
+	var art_r = Rect2(r.position + Vector2(12, 46), Vector2(r.size.x - 24, art_height))
 	card_art(art_r, info, rc)
 	# title + desc
 	var ty = art_r.end.y + 34
@@ -1284,14 +1287,15 @@ func paint_arsenal() -> void:
 		for s in range(5):
 			draw_colored_polygon(star(r.position + Vector2(108 + s * 18, 46), 7.0), Color("ffd24d") if s < int(w["lvl"]) else Color(0.3, 0.3, 0.4))
 		txt("%d dmg  ·  %.1f/s" % [roundi(Weapons.shot_damage(g, w)), Weapons.fire_rate(g, w)], r.position + Vector2(100, 76), 15, Color("c8d0e0"), 0, body)
-		var dy = wrap_text(str(d["desc"]), r.position.x + 12, r.position.y + 102, 336, 13, Color("9fb0c8"), 16, body, false, 2)
-		var perks = ""
+		wrap_text(str(d["desc"]), r.position.x + 12, r.position.y + 102, 336, 12, Color("9fb0c8"), 15, body, false, 2)
+		# Avoid clipping the full level-five paragraph in a 172px Arsenal tile.
+		# Full details (including Evolution) live in the Collection inspector.
 		if int(w["lvl"]) >= 3:
-			perks += "LV3: " + str(d["lv3"]) + "   "
+			var bonus3 = "LV3: " + str(d["lv3"])
+			txt(bonus3, r.position + Vector2(12, 142), fit(bonus3, 336, 12, body, 10), Color("94dfff"), 0, body)
 		if int(w["lvl"]) >= 5:
-			perks += "LV5: " + str(d["lv5"])
-		if perks != "":
-			wrap_text(perks, r.position.x + 12, dy + 2, 336, 12, Color("ffd24d"), 14, body, false, 2)
+			var bonus5 = "LV5: " + str(d.get("lv5_brief", d["lv5"]))
+			txt(bonus5, r.position + Vector2(12, 158), fit(bonus5, 336, 12, body, 10), Color("ffd24d"), 0, body)
 	# cards grid
 	var gx = 410.0
 	var gy = 100.0
@@ -1709,29 +1713,36 @@ func paint_collection() -> void:
 
 ## Collection-only gun inspector: art, description and BOTH upgrade tiers in
 ## one bounded panel. No tooltip text is drawn behind the navigation buttons.
+## Collection inspector: base identity plus ALL three upgrade tiers.
+## Labels and text stay inside the 505px panel above the Back button.
 func draw_collection_gun_details(r: Rect2, info: Dictionary, gun: Dictionary) -> void:
 	panel(r, PANEL, Color("9fb5c7"), 3)
 	rbox(Rect2(r.position + Vector2(6, 6), Vector2(r.size.x - 12, 33)),
 		Color("354153"), 10)
-	txt("WEAPON DETAILS", Vector2(r.position.x + 18, r.position.y + 27),
+	txt("WEAPON DETAILS", r.position + Vector2(18, 27),
 		17, Color("e4edf5"), 0, bold)
-	var art_rect = Rect2(r.position + Vector2(12, 49), Vector2(r.size.x - 24, 172))
+	var art_rect = Rect2(r.position + Vector2(12, 49), Vector2(r.size.x - 24, 120))
 	card_art(art_rect, info, Color("d7e9fc"))
 	var name = str(info["title"]).to_upper()
-	txt(name, Vector2(r.get_center().x, r.position.y + 250),
+	txt(name, Vector2(r.get_center().x, r.position.y + 199),
 		fit(name, r.size.x - 25, 23, bold, 13), Color.WHITE, 1, bold)
-	wrap_text(str(info["desc"]), r.position.x + 14, r.position.y + 279,
-		r.size.x - 28, 15, Color("e4e9f2"), 18, body, true, 3)
-	var div = r.position.y + 344
+	wrap_text(str(info["desc"]), r.position.x + 14, r.position.y + 222,
+		r.size.x - 28, 13, Color("e4e9f2"), 17, body, true, 3)
+	var div = r.position.y + 286
 	draw_line(Vector2(r.position.x + 13, div), Vector2(r.end.x - 13, div), Color("637588"), 1.2)
-	txt("LEVEL 3", Vector2(r.position.x + 15, div + 20),
+	txt("LEVEL 3", r.position + Vector2(15, 307),
 		14, Color("94dfff"), 0, bold)
-	wrap_text(str(gun["lv3"]), r.position.x + 15, div + 39,
-		r.size.x - 30, 14, Color("e4f3ff"), 17, body, false, 2)
-	txt("LEVEL 5", Vector2(r.position.x + 15, div + 78),
+	wrap_text(str(gun["lv3"]), r.position.x + 15, r.position.y + 325,
+		r.size.x - 30, 13, Color("e4f3ff"), 16, body, false, 2)
+	txt("LEVEL 5", r.position + Vector2(15, 377),
 		14, Color("ffd24d"), 0, bold)
-	wrap_text(str(gun["lv5"]), r.position.x + 15, div + 97,
-		r.size.x - 30, 13, Color("fff1b9"), 16, body, false, 4)
+	wrap_text(str(gun["lv5"]), r.position.x + 15, r.position.y + 395,
+		r.size.x - 30, 12, Color("fff1b9"), 16, body, false, 3)
+	txt("EVOLUTION", r.position + Vector2(15, 446),
+		14, Color("7dff9a"), 0, bold)
+	var evo = Weapons.evolution_description({"id": gun["id"]})
+	wrap_text(evo, r.position.x + 15, r.position.y + 467,
+		r.size.x - 30, 12, Color("d5fce3"), 15, body, false, 3)
 
 
 func mini_card(r: Rect2, info: Dictionary, selected: bool = false) -> void:
