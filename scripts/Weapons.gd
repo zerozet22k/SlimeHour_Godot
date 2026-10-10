@@ -112,7 +112,7 @@ static func shot_damage(g, w: Dictionary) -> float:
 static func rail_charge_seconds(g, w: Dictionary) -> float:
 	# One wind-up is the only rate limit between individual Railgun shots.
 	var bonus = Characters.affinity(character_id(g), "rail", "rail_charge")
-	var speed = (1.0 / 0.7) * (1.0 + wm(w, "charge")) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5) * bonus * (1.2 if bool(w["evolved"]) else 1.0)
+	var speed = (1.0 / 0.7) * (1.0 + wm(w, "charge") + Compatibility.support_bonus(g, w)) * (2.0 if int(w["lvl"]) >= 3 else 1.0) * maxf(0.4, 1.0 + g.st("rate") * 0.5) * bonus * (1.2 if bool(w["evolved"]) else 1.0)
 	return 1.0 / maxf(0.2, speed)
 
 static func fire_rate(g, w: Dictionary) -> float:
@@ -190,13 +190,13 @@ static func update(g, dt: float) -> void:
 		var gun_aim = aim_for_slot(g, i)
 		var muzzle = muzzle_pos(g, i)
 		if kind == "spin":
-			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3 * (1.3 if bool(w["evolved"]) else 1.0)
+			var spin_speed = (2.0 if int(w["lvl"]) >= 3 else 1.0) / 1.3 * (1.3 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.support_bonus(g, w))
 			if wm(w, "prespun") > 0:
 				w["spin"] = 1.0 if want else maxf(0.0, float(w["spin"]) - dt)
 			elif want and float(w["reload"]) <= 0.0:
 				w["spin"] = minf(1.0, float(w["spin"]) + dt * spin_speed)
 			else:
-				w["spin"] = maxf(0.0, float(w["spin"]) - dt * 1.5)
+				w["spin"] = maxf(0.0, float(w["spin"]) - dt * 1.5 / (1.0 + Compatibility.support_bonus(g, w)))
 		if kind == "beam":
 			update_beam(g, w, i, dt, want, muzzle, gun_aim)
 			continue
@@ -231,7 +231,8 @@ static func update(g, dt: float) -> void:
 			if float(w["cd"]) < -0.2:
 				w["cd"] = 0.0
 		var mul = 1.0
-		if w["id"] == "pistol" and int(w["ammo"]) == 1:
+		if w["id"] == "pistol" and (int(w.get("count", 0)) + 1) % 12 == 0:
+			# Signature last-round payoff survives magazine growth and Infinite Ammo.
 			mul = 3.0
 		if g.st("goldshot") > 0 and g.gold > 0:
 			g.gold -= 1
@@ -276,8 +277,8 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	# A perfect returning catch builds momentum for the NEXT throw.
 	if w["id"] == "boomerang" and int(w["lvl"]) >= 5 and not echo:
 		dmg *= 1.0 + 0.15 * float(w.get("catch_streak", 0))
-	w["count"] = int(w["count"]) + 1
 	if not echo:
+		w["count"] = int(w["count"]) + 1
 		g.volley_count += 1
 	var big = false
 	if g.st("bigshot") > 0 and g.volley_count % 5 == 0 and not echo:
@@ -311,7 +312,20 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	var side = mini(int(g.st("side")), 4)
 	# The volley budget rises with sectors; excess multishot becomes damage.
 	var units = n * lines + rear + side * 2
-	var max_units = Compatibility.budget(g, w)
+	# Calculate recall conversion before the one-disc limit trims the geometry.
+	var recall_power = maxf(0.0, float(lines - 1)) * 0.12 + float(rear) * 0.08 + float(side) * 0.14
+	var natural_units = maxi(1, pellets)
+	if kind == "pellet":
+		natural_units += (3 if int(w["lvl"]) >= 3 else 0)
+	elif kind == "bees":
+		natural_units += (2 if int(w["lvl"]) >= 3 else 0)
+	elif kind in ["rocket", "ball"]:
+		natural_units += (1 if int(w["lvl"]) >= 3 else 0)
+	elif kind == "grenade":
+		natural_units += (2 if int(w["lvl"]) >= 5 else 0)
+	elif kind == "beam":
+		natural_units += (1 if int(w["lvl"]) >= 3 else 0)
+	var max_units = maxi(natural_units, Compatibility.budget(g, w))
 	if units > max_units:
 		var before = units
 		while n * lines + rear + side * 2 > max_units:
@@ -330,8 +344,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 	if kind in ["disc", "boomerang"]:
 		# A REAL throw always occupies exactly one slot. Parallel/rear/side
 		# cards improve momentum of that throw; they never mint free blades.
-		var return_card_power = maxf(0.0, float(lines - 1)) * 0.12 + float(rear) * 0.08 + float(side) * 0.14
-		dmg *= 1.0 + minf(0.85, return_card_power)
+		dmg *= 1.0 + minf(0.85, recall_power)
 		lines = 1
 		rear = 0
 		side = 0
@@ -347,7 +360,7 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		return
 	var spread = float(d["spread"]) * maxf(0.0, 1.0 + g.st("spreadp"))
 	if w["id"] == "smg":
-		spread *= lerpf(1.0, 0.55, float(w.get("focus", 0.0)))
+		spread *= lerpf(1.0, 0.55, float(w.get("focus", 0.0))) * (1.0 - Compatibility.support_bonus(g, w) * 0.65)
 	var random_spread = kind in ["pellet", "flame"] or w["id"] == "smg" and n == 1
 	if n > 1 and not random_spread:
 		spread = clampf(maxf(spread, 0.1 * (n - 1)), 0.0, 1.5)
@@ -366,7 +379,8 @@ static func volley(g, w: Dictionary, slot: int, origin: Vector2, dir: Vector2, o
 		elif int(g.st("mult")) > 0:
 			fire_pattern = "double_tap"
 	eopts["pattern"] = fire_pattern
-	if fire_pattern != "":
+	if fire_pattern != "" and kind != "flame":
+		# Cinder has a continuous cone; no fake Double Tap bullet flashes.
 		ProjectileVfx.pattern(g, origin, dir, ProjectileVfx.style_for(kind, str(w["id"]), eopts["o"].get("st", {})), fire_pattern)
 	for j in range(n):
 		var a = 0.0
@@ -453,6 +467,7 @@ static func echo(g, item: Dictionary) -> void:
 static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 	var lvl = int(w["lvl"])
 	var evolved = bool(w["evolved"])
+	var specialty = Compatibility.support_bonus(g, w)
 	var size = float(d["size"]) * (1.0 + g.st("size") * 0.6 + wm(w, "size")) * (1.3 if evolved and str(d["kind"]) not in ["beam", "flame", "rail"] else 1.0)
 	var o = {
 		"kind": str(d["kind"]), "speed": float(d["speed"]) * maxf(0.3, 1.0 + g.st("pspeed") + wm(w, "speed")),
@@ -562,6 +577,30 @@ static func base_opts(g, w: Dictionary, d: Dictionary) -> Dictionary:
 		"boomerang":
 			if lvl >= 5:
 				flags["momentum_catch"] = true
+	# A capped magazine doesn't mean a dead card: each gun interprets
+	# the virtual overflow through its existing signature behavior.
+	match str(w["id"]):
+		"pistol":
+			o["crit"] += specialty * 0.32
+		"revolver":
+			o["crit"] += specialty * 0.20
+		"shotgun", "bowling":
+			o["knock"] *= 1.0 + specialty
+		"rocket", "grenade", "chicken":
+			o["blast"] *= 1.0 + specialty * 0.8
+		"bees":
+			o["st"]["poison"] = float(o["st"].get("poison", 0.7)) + specialty
+		"nailgun":
+			o["flags"]["pin"] = minf(0.95, float(o["flags"].get("pin", 0.35)) + specialty * 0.6)
+		"bubble":
+			o["flags"]["trap_bonus"] = specialty
+		"pinball":
+			o["flags"]["bank_bonus"] = specialty
+		"splitbow":
+			if specialty > 0.0:
+				o["flags"]["frag_home"] = true
+		"snow":
+			o["st"]["freeze"] = float(o["st"].get("freeze", 1.0)) + specialty
 	if evolved and w["id"] in ["rocket", "grenade"]:
 		o["blast"] *= 1.2
 	if wm(w, "critpierce") > 0:
@@ -603,12 +642,29 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 		o["flags"]["owner"] = not bool(eopts.get("free", false))
 	if kind == "bubble":
 		o["flags"]["trapped"] = 0
+	# A cap for *live* actors is independent of the magazine and volley caps.
+	# Overflow reinforces an existing actor instead of silently spawning 100 bees.
+	var live_limit = Compatibility.active_cap(str(w["id"]))
+	if live_limit > 0:
+		var live_count = 0
+		var reinforced = null
+		for active in g.shots:
+			if bool(active.get("dead", false)) or str(active.get("src", "")) != str(w["id"]):
+				continue
+			live_count += 1
+			if reinforced == null:
+				reinforced = active
+		if live_count >= live_limit:
+			if reinforced != null:
+				reinforced["dmg"] = minf(float(reinforced["base_dmg"]) * 1.3, float(reinforced["dmg"]) * 1.025)
+			return
 	Combat.shot(g, pos, dir, dmg, o)
 
 static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, damage: float, can_bank: bool = true) -> void:
 	# A true continuous area cone: NO flame bullet entities in Combat.shot().
 	# Each fuel tick tests nearby enemies once, not 30 short-lived colliders.
 	var reach = flame_range(g, w) * (1.0 + minf(0.18, 0.03 * float(maxi(0, int(g.st("pierce"))))))
+	damage *= 1.0 + 0.6 * Compatibility.support_bonus(g, w)
 	var half_angle = maxf(0.12, 0.23 * (1.0 + g.st("spreadp") * 0.35) + minf(0.28, 0.04 * float(g.st("par")) + 0.018 * float(g.st("mult")) + 0.045 * float(g.st("size"))))
 	# Curving and wavy rounds are a gently oscillating flame sheet, not bullets.
 	if can_bank and (g.st("curve") != 0.0 or g.st("wave") > 0.0):
@@ -623,13 +679,13 @@ static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, da
 		var distance_ratio = clampf(origin.distance_to(enemy["pos"]) / maxf(1.0, reach), 0.0, 1.0)
 		var travelling_heat = 1.0 + (0.20 * distance_ratio if g.st("accel") > 0.0 else 0.0)
 		Combat.hit(g, enemy, damage * travelling_heat, {"pos": enemy["pos"], "gen": 0, "dir": direction,
-			"knock": 8.0, "src": "flame", "st": {"burn": 1.0}, "pool": dmg_pool(g, w)})
+			"knock": 8.0, "src": "flame", "st": {"burn": 1.0 + Compatibility.support_bonus(g, w)}, "pool": dmg_pool(g, w)})
 		if anchor == null and not bool(enemy["dead"]):
 			anchor = enemy
 		hits += 1
 		if hits >= 24:
 			break
-	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.065,
+	g.beams.append({"a": origin, "b": origin + direction * reach, "t": 0.095,
 		"w": reach * tan(half_angle), "color": Color("ff9d4d"), "flame_stream": true})
 	# Splinter / Cluster Rounds adapt into heat jumping to fresh targets at a
 	# capped interval; they do not create phantom flame projectiles.
@@ -675,17 +731,17 @@ static func update_beam(g, w: Dictionary, slot: int, dt: float, want: bool, muzz
 	var lvl = int(w["lvl"])
 	var no_heat = lvl >= 5 or g.st("infammo") > 0
 	if bool(w["over"]):
-		w["heat"] = float(w["heat"]) - dt * 1.4
+		w["heat"] = float(w["heat"]) - dt * 1.4 * Compatibility.cooling_speed(g)
 		if float(w["heat"]) <= 0.0:
 			w["heat"] = 0.0
 			w["over"] = false
 		return
 	if not want:
-		w["heat"] = maxf(0.0, float(w["heat"]) - dt * 1.6)
+		w["heat"] = maxf(0.0, float(w["heat"]) - dt * 1.6 * Compatibility.cooling_speed(g))
 		return
 	if not no_heat:
 		w["heat"] = float(w["heat"]) + dt
-		if float(w["heat"]) >= 3.0:
+		if float(w["heat"]) >= Compatibility.heat_limit(g):
 			w["over"] = true
 			w["heat"] = 1.2
 			g.sfx.play("deny")
@@ -832,7 +888,7 @@ static func fire_beam(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) ->
 
 static func fire_chain(g, w: Dictionary, a: Vector2, dir: Vector2, dmg: float) -> void:
 	var lvl = int(w["lvl"])
-	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0)
+	var reach = 330.0 * (1.0 + g.st("range")) * (1.25 if bool(w["evolved"]) else 1.0) * (1.0 + Compatibility.support_bonus(g, w) * 0.8)
 	var first = null
 	var best = INF
 	for e in g.enemies_near(a, reach):
