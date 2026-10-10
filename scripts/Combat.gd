@@ -772,9 +772,12 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	# It still takes the full hit; there is no instant damage reflection.
 	var mirror_state: Dictionary = e.get("mix_state_mirror", e)
 	if has_role(g, e, "mirror") and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(mirror_state.get("cd", 0.0)) <= 0.0 and float(mirror_state.get("wind", 0.0)) <= 0.0 and float(e["charm"]) <= 0.0:
-		e["wind"] = 0.95
-		e["cd"] = 5.0
-		e["lock"] = g.hero["pos"]
+		# The mimic reacts to pressure quickly, but its counterfire is fully
+		# warned and cannot deflect the incoming damage itself.
+		e["wind"] = 0.70
+		e["cd"] = 2.9
+		e["lock"] = g.hero["pos"] + g.hero["vel"] * 0.25
+		e["mirror_shots"] = mini(4, maxi(2, int(ctx["shot"].get("split", 0)) + 2))
 		if str(e["kind"]).begins_with("mix_"):
 			mirror_state["wind"] = e["wind"]
 			mirror_state["cd"] = e["cd"]
@@ -1450,12 +1453,24 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var aim = (locked - e["pos"]).normalized()
 					if aim.length_squared() < 0.1:
 						aim = dir
-					enemy_fire(g, e, aim, 1, 0.0, 300.0, 6.0)
+					var volley = mini(4, int(e.get("mirror_shots", 3)))
+					enemy_fire(g, e, aim, volley, 0.46, 385.0, 5.0)
+					# A second diagonal salvo closes the obvious sideways dodge
+					# but is slower, so players can weave between both.
+					if g.sector >= 12:
+						enemy_fire(g, e, aim.rotated(0.42 if int(e["id"]) % 2 == 0 else -0.42), 2, 0.2, 300.0, 4.5)
 					g.sfx.play("whoosh")
 				return Vector2.ZERO
-			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 2.5 + float(e["phase"])) * 0.7).normalized()
+			if float(e["cd"]) <= 0.0 and dist < 500.0:
+				e["cd"] = 3.5
+				e["wind"] = 0.8
+				e["mirror_shots"] = 3
+				e["lock"] = hero_pos + g.hero["vel"] * 0.33
+				return Vector2.ZERO
+			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 3.8 + float(e["phase"])) * 0.95).normalized()
 		"burrower":
-			# Marks its landing spot, then emerges with a half-second recovery.
+			# Disappear into the ground and ambush predicted position with a
+			# visible collapse warning. The aftershock has a safe dodge window.
 			if float(e.get("emerge_t", 0.0)) > 0.0:
 				e["emerge_t"] = maxf(0.0, float(e["emerge_t"]) - dt)
 				return Vector2.ZERO
@@ -1466,18 +1481,26 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["pos"] = e.get("lock", e["pos"])
 					e["kb"] = Vector2.ZERO
 					e["vel"] = Vector2.ZERO
-					e["emerge_t"] = 0.55
-					g.spawn_ring_fx(e["pos"], Color("ffe2a3"), 43.0)
+					e["emerge_t"] = 0.42
+					g.spawn_ring_fx(e["pos"], Color("ffe2a3"), 56.0)
+					# The collapse detonates after a visible ring: a teleport
+					# itself is not an unannounced hit.
+					schedule_boss_blast(g, e["pos"], 66.0, float(e["dmg"]) * 0.86, 0.53, "e7a75b")
+					if g.sector >= 12:
+						for side in [-1.0, 1.0]:
+							var d = Vector2(side, -0.28).normalized()
+							enemy_fire(g, e, d, 2, 0.18, 265.0, 4.0)
 					g.sfx.play("thunk")
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist > 175.0 and dist < 510.0:
-				e["cd"] = 5.2
-				e["wind"] = 1.15
-				var target = hero_pos - dir * 105.0 + Vector2(randf_range(-40.0, 40.0), randf_range(-25.0, 25.0))
-				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 8.0, g.road_half - float(e["r"]) - 8.0)
+			if float(e["cd"]) <= 0.0 and dist > 115.0 and dist < 610.0:
+				e["cd"] = 3.6
+				e["wind"] = 0.87
+				var target = hero_pos + g.hero["vel"] * 0.32
+				target += Vector2(randf_range(-36.0, 36.0), randf_range(-15.0, 15.0))
+				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 14.0, g.road_half - float(e["r"]) - 14.0)
 				e["lock"] = target
 				return Vector2.ZERO
-			return dir
+			return dir * 1.15
 		"siren":
 			# Rally nearby ordinary mobs only. The pulse does not stack or buff bosses.
 			if float(e["cd"]) <= 0.0:
