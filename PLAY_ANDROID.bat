@@ -2,7 +2,7 @@
 setlocal EnableExtensions DisableDelayedExpansion
 rem Usage: PLAY_ANDROID.bat [device-serial]
 rem Installs the existing APK on a connected phone or running emulator.
-set "APK=%~dp0build\CrowdRush-debug.apk"
+set "APK=%~dp0build\SlimeHour-debug.apk"
 set "ADB_EXE="
 if defined ANDROID_SDK_ROOT if exist "%ANDROID_SDK_ROOT%\platform-tools\adb.exe" set "ADB_EXE=%ANDROID_SDK_ROOT%\platform-tools\adb.exe"
 if not defined ADB_EXE if defined ANDROID_HOME if exist "%ANDROID_HOME%\platform-tools\adb.exe" set "ADB_EXE=%ANDROID_HOME%\platform-tools\adb.exe"

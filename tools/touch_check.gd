@@ -4,7 +4,7 @@ func _initialize() -> void:
 	call_deferred("check")
 
 func check() -> void:
-	var options_path = "user://crowd_rush_options.json"
+	var options_path = "user://slime_hour_options.json"
 	var had_options = FileAccess.file_exists(options_path)
 	var options_before = FileAccess.get_file_as_string(options_path) if had_options else ""
 	var game = load("res://scenes/Main.tscn").instantiate()

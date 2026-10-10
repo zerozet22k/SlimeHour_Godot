@@ -21,7 +21,7 @@
 - **UI**: bundled fonts (Lilita One, Nunito, OFL), rounded chunky buttons, new cards (no "card inside a card" placeholders; category icons instead), Ascendant shimmers, portrait HUD with floating joystick.
 - **Performance**: enemies are baked into one atlas and batch-drawn (about 10 fps -> 65 fps with 200 enemies at 1080p); status timers tick at 10 Hz; physics catch-up capped at 3 steps. Sound: max 3 copies per sound, ducking, master limiter.
 - Funnier names for ~60 cards; CHAOS is back to BAD IDEAS.
-- Locally generated art is listed in `assets/LOCAL_ART.json` (`python tools/gen_assets.py --list-local`).
+- Game art is included in `assets/`.
 
 # Mobile & Touch Controls (2026-10-09)
 
@@ -52,7 +52,7 @@
 - **Rarity colours only**: card borders use the rarity colour. Category colours are gone so Epic and above stand out.
 - **Bigger, longer fights**: buff gates only appear every 10th sector and give less. Sectors are longer (4800), the road is wider, and up to 320 enemies can be on screen.
 - **Growing limits**: max HP, the visible projectile cap and the friendly-shot cap all rise with sector progress. Projectile size is capped so big builds stay readable.
-- Art tools: `tools/art_gallery.html` lists every card and gun with its prompt; `tools/replace_card_art.py` installs a replacement image.
+- Card and gun artwork is bundled with the project.
 
 # Balance pass (2026-10-09)
 
@@ -63,7 +63,7 @@ Runs were snowballing on free power. Measured with the new `pace` autotest over 
 - **Rarer high tiers**: base rarity weights are now 66 / 26 / 6 / 1 (was 60 / 28 / 10 / 2.2). Luck still scales them up.
 - New `--autotest=pace` mode: the bot plays without free cards and logs level and offer rarities per sector.
 
-# Crowd Rush: Rebuild (2026-10-08)
+# Slime Hour: Rebuild (2026-10-08)
 
 Rewrote the squad shooter as a single-hero, weapon-driven action roguelite.
 
@@ -74,8 +74,8 @@ Rewrote the squad shooter as a single-hero, weapon-driven action roguelite.
 - **Elements and reactions**: burn, chill/freeze, shock, poison, bleed, slow, charm, wet and mark, plus steam, overload, conductor, shatter, wildfire, plague, hemorrhage and brainwash.
 - **Physical chaos**: knockback with mass, enemies flung into each other (bowling), explosive barrels, oil that ignites, banana peels, anvils, pianos, a clown car.
 - **13 enemy types** with their own behaviour (riot shields block from the front, bulls charge, nurses heal, mamas spawn minis, kaboombas blow up their friends, gold goblins run away) plus elites with treasure chests and 4 bosses.
-- **Sector flow**: buff gates, a Crowd Rush horde event, boss every 5th sector, a walk-in pit stop shop and route choice.
+- **Sector flow**: buff gates, a Slime Hour horde event, boss every 5th sector, a walk-in pit stop shop and route choice.
 - **New UI**: chunky HUD, animated level-up cards with art, treasure picks, gun replace prompt, Arsenal (Tab), a Collection browser for all 300 cards and guns, settings with sound and music volume.
 - **Procedural audio**: every sound and a looping beat are synthesized at startup. There are no audio files.
-- **Art pipeline** through the local AI Studio, with editable prompts in `tools/art_prompts.txt`.
+- **Art** is bundled with the project.
 - Removed: the old 70-card catalog, squad soldiers and active powers.

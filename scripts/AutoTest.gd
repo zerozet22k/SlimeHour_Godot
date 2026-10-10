@@ -28,7 +28,7 @@ var rar_level = [0, 0, 0, 0, 0, 0]
 var rar_chest = [0, 0, 0, 0, 0, 0]
 
 func _ready() -> void:
-	g = get_tree().root.get_node("CrowdRush")
+	g = get_tree().root.get_node("SlimeHour")
 	mode = g.autotest
 	Engine.max_fps = 0
 	if mode != "shots":

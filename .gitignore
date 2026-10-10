@@ -2,6 +2,7 @@
 # Godot 4 generated files
 .godot/
 .import/
+*.import
 
 # Godot editor executable
 Godot_v*.exe
@@ -21,3 +22,20 @@ Godot_v*.exe
 # Temporary files
 *.tmp
 *.log
+
+# Local art generation and review workspace
+/tools/art_prompts.txt
+/tools/art_subjects.py
+/tools/art_review/
+/tools/art_gallery.html
+/tools/ART_REPLACEMENT_GUIDE.md
+/tools/CARD_ART_GUIDE.md
+/tools/gen_*.py
+/tools/local_*.py
+/tools/install_local_*.py
+/tools/replace_card_art.py
+/tools/make_art_gallery.py
+/tools/make_contact_sheets.py
+/tools/__pycache__/
+/tools/flux_*
+/tools/gemini_*

@@ -1,5 +1,5 @@
 {
-  "repository": "YOUR_PUBLIC_GITHUB_OWNER/YOUR_PUBLIC_RELEASE_REPO",
-  "release_asset": "CrowdRush-Windows.zip",
-  "executable": "CrowdRush.exe"
+  "repository": "zerozet22k/SlimeHour_Godot",
+  "release_asset": "SlimeHour-Windows.zip",
+  "executable": "SlimeHour.exe"
 }

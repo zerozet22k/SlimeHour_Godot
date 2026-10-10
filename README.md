@@ -1,11 +1,13 @@
 # SLIME HOUR
 
 One hero, two guns, 300 cards, and a road full of idiots running at you.
-Godot 4 (standard build, not .NET). The Godot exe in this folder runs it: double-click `PLAY_WINDOWS.bat`, or open `project.godot` in the editor and press F5.
+Godot 4 (standard build, not .NET). Install Git LFS before cloning to receive the included Godot executable and APK. Double-click `PLAY_WINDOWS.bat`, or open `project.godot` in the editor and press F5.
+
+`Start_Slime_Hour.bat` checks GitHub Releases and starts the local Godot project if no Windows release is available. Automatic Windows updates require a release with `SlimeHour-Windows.zip` and `SlimeHour-Windows.zip.sha256`; the ZIP must contain `SlimeHour.exe`.
 
 ## Controls
 
-On Windows, double-click `PLAY_ANDROID.bat` to install and launch `build/CrowdRush-debug.apk` on a connected Android phone or running emulator. Enable USB debugging and accept the phone's authorization prompt first. The script finds Android Platform Tools through your SDK environment variables, Android Studio's default SDK location, a local `platform-tools` folder, or PATH. With multiple devices, use `PLAY_ANDROID.bat device-serial` (list serials with `adb devices`). It installs the existing APK; export Android from Godot again to include newer source changes.
+On Windows, double-click `PLAY_ANDROID.bat` to install and launch `build/SlimeHour-debug.apk` on a connected Android phone or running emulator. Enable USB debugging and accept the phone's authorization prompt first. The script finds Android Platform Tools through your SDK environment variables, Android Studio's default SDK location, a local `platform-tools` folder, or PATH. With multiple devices, use `PLAY_ANDROID.bat device-serial` (list serials with `adb devices`). It installs the existing APK; export Android from Godot again to include newer source changes.
 
 | Input | Action |
 | --- | --- |
@@ -50,12 +52,7 @@ Projectiles carry their payload, so effects combine. A frozen-burning enemy erup
 
 ## Art
 
-Art comes from the local AI Studio (`http://127.0.0.1:7860`). Any image that's missing gets a drawn placeholder, so the game is fully playable without art. AI Studio offers Z-Image Turbo and FLUX.2 Klein as alternate local styles.
-
-- All prompts are in **`tools/art_prompts.txt`**, one per line: `output path | mode | prompt`. Each prompt is sent exactly as written. Edit freely.
-- `python tools/gen_assets.py` generates missing images. `--redo name1,name2` regenerates specific ones; `--redo` alone regenerates everything.
-- `python tools/gen_assets.py --model flux-klein --stage --cards --direct` stages local card images without replacing game assets or filling AI Studio's conversation list. Review results before using them in the game.
-- After new art, open the project in the Godot editor once (or run `Godot... --headless --path . --import`) so the images get imported.
+The game includes its art in `assets/`. If an image is missing, the game draws a placeholder. Open the project in Godot after changing art so it imports the files.
 
 ## For developers
 

@@ -138,7 +138,7 @@ static func stack_preview(g, id: String) -> String:
 
 static func add_card(g, id: String) -> void:
 	var c = g.card_by_id.get(id)
-	if c == null:
+	if c == null or not eligible(g, c):
 		return
 	if not g.owned.has(id):
 		g.owned_order.append(id)
@@ -436,9 +436,13 @@ static func ROAD() -> float:
 # ================================================================= offers
 static func eligible(g, c: Dictionary) -> bool:
 	var id = str(c["id"])
+	if card_count(g) >= 32:
+		return false
 	if not g.card_available(id):
 		return false
-	if int(g.owned.get(id, 0)) >= int(c.get("max", 1)):
+	var stack_limits = [4, 3, 2, 1, 1, 1]
+	var max_stacks = mini(int(c.get("max", 1)), stack_limits[clampi(int(c["rarity"]), 0, 5)])
+	if int(g.owned.get(id, 0)) >= max_stacks:
 		return false
 	var req: Dictionary = c.get("req", {})
 	if req.has("weapon"):
@@ -453,6 +457,13 @@ static func eligible(g, c: Dictionary) -> bool:
 	if id == "arsenal" and g.guns.size() < 2:
 		return false
 	return true
+
+static func card_count(g) -> int:
+	var total = 0
+	for id in g.owned:
+		if g.card_by_id.has(id):
+			total += int(g.owned[id])
+	return total
 
 ## Fixed odds per roll, like a gacha summon table (percent). Common / Rare / Epic / Legendary / Mythic / Ascendant.
 const ODDS = [72.0, 24.5, 3.0, 0.45, 0.045, 0.005]

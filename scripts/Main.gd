@@ -1783,7 +1783,8 @@ func gain_xp(amount: float) -> void:
 		xp -= xp_need
 		level += 1
 		xp_need = xp_for(level)
-		pending_levels += 1
+		if level <= 4 or level % 2 == 0:
+			pending_levels += 1
 		levelup_delay = 0.35
 		say(hero["pos"] + Vector2(0, -60), "LEVEL UP!", Color("d6a8ff"), 34)
 		spawn_ring_fx(hero["pos"], Color("d6a8ff"), 90.0)
@@ -2330,18 +2331,20 @@ func toggle_setting(key: String) -> void:
 func save_options() -> void:
 	if autotest != "" or no_save:
 		return
-	var f = FileAccess.open("user://crowd_rush_options.json", FileAccess.WRITE)
+	var f = FileAccess.open("user://slime_hour_options.json", FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify({"settings": settings, "best": best, "profile": profile}))
 
 func load_options() -> void:
-	if not FileAccess.file_exists("user://crowd_rush_options.json"):
-		var old = OS.get_user_data_dir().get_base_dir().path_join("CROWD RUSH -- NEON FRONT/crowd_rush_options.json")
+	if not FileAccess.file_exists("user://slime_hour_options.json"):
+		var old = ProjectSettings.globalize_path("user://crowd_rush_options.json")
+		if not FileAccess.file_exists(old):
+			old = OS.get_user_data_dir().get_base_dir().path_join("CROWD RUSH -- NEON FRONT/crowd_rush_options.json")
 		if FileAccess.file_exists(old):
-			DirAccess.copy_absolute(old, ProjectSettings.globalize_path("user://crowd_rush_options.json"))
-	if not FileAccess.file_exists("user://crowd_rush_options.json"):
+			DirAccess.copy_absolute(old, ProjectSettings.globalize_path("user://slime_hour_options.json"))
+	if not FileAccess.file_exists("user://slime_hour_options.json"):
 		return
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string("user://crowd_rush_options.json"))
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string("user://slime_hour_options.json"))
 	if parsed is Dictionary:
 		var s = parsed.get("settings", {})
 		if s is Dictionary:

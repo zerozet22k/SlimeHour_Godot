@@ -1,4 +1,4 @@
-# Crowd Rush friend-friendly Windows updater. Standard PowerShell 5.1+, no admin rights.
+# Slime Hour Windows updater. Standard PowerShell 5.1+, no admin rights.
 # Downloads signed-by-release SHA256 protected ZIPs into LOCALAPPDATA and keeps
 # earlier installs as offline fallback. Only public GitHub releases are supported.
 $ErrorActionPreference = 'Stop'
@@ -16,7 +16,7 @@ if ($repo -notmatch '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$' -or $repo -match 'YOUR_P
 if ($assetName -notmatch '^[a-zA-Z0-9_.-]+\.zip$' -or $exeName -notmatch '^[a-zA-Z0-9_.-]+\.exe$') {
     throw 'Invalid release asset or executable name in updater_config.json.'
 }
-$installRoot = Join-Path $env:LOCALAPPDATA 'CrowdRush'
+$installRoot = Join-Path $env:LOCALAPPDATA 'SlimeHour'
 $versionsRoot = Join-Path $installRoot 'versions'
 New-Item -ItemType Directory -Force -Path $versionsRoot | Out-Null
 $lastPath = Join-Path $installRoot 'last_installed.txt'
@@ -38,14 +38,14 @@ function Get-InstalledExe {
 }
 
 function Start-Game([string]$path) {
-    Write-Host "Launching Crowd Rush: $path"
+    Write-Host "Launching Slime Hour: $path"
     Start-Process -FilePath $path -WorkingDirectory (Split-Path -Parent $path)
 }
 
 $cachedExe = Get-InstalledExe
 try {
-    Write-Host "Checking $repo for Crowd Rush updates..."
-    $headers = @{ 'User-Agent' = 'CrowdRush-Launcher'; 'Accept' = 'application/vnd.github+json' }
+    Write-Host "Checking $repo for Slime Hour updates..."
+    $headers = @{ 'User-Agent' = 'SlimeHour-Launcher'; 'Accept' = 'application/vnd.github+json' }
     $releaseUrl = "https://api.github.com/repos/$repo/releases/latest"
     $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -TimeoutSec 12
     $tag = [string]$release.tag_name
@@ -71,7 +71,8 @@ try {
             Invoke-WebRequest -Uri $zipAsset.browser_download_url -OutFile $zipPath -TimeoutSec 120 -UseBasicParsing
             Invoke-WebRequest -Uri $hashAsset.browser_download_url -OutFile $checksumPath -TimeoutSec 20 -UseBasicParsing
             $checksumText = (Get-Content -LiteralPath $checksumPath -Raw).Trim()
-            if ($checksumText -notmatch '^([A-Fa-f0-9]{64})(?:\s+\*?CrowdRush-Windows\.zip)?\s*$') {
+            $checksumPattern = '^([A-Fa-f0-9]{64})(?:\s+\*?' + [regex]::Escape($assetName) + ')?\s*$'
+            if ($checksumText -notmatch $checksumPattern) {
                 throw 'Invalid SHA256 checksum file.'
             }
             $expected = $matches[1].ToUpperInvariant()
@@ -87,7 +88,7 @@ try {
                 Remove-Item -LiteralPath $targetDir -Recurse -Force
             }
             Move-Item -LiteralPath $unpackDir -Destination $targetDir
-            Write-Host "Updated Crowd Rush to $tag."
+            Write-Host "Updated Slime Hour to $tag."
         } finally {
             if (Test-Path -LiteralPath $tempDir) { Remove-Item -LiteralPath $tempDir -Recurse -Force }
         }
@@ -101,6 +102,12 @@ try {
         Write-Host 'Starting the previously installed version (offline fallback).'
         Start-Game $cachedExe
         exit 0
+    }
+    $sourceLauncher = Join-Path $scriptRoot 'PLAY_WINDOWS.bat'
+    if (Test-Path -LiteralPath $sourceLauncher) {
+        Write-Host 'Starting the local Slime Hour project.'
+        & $sourceLauncher
+        exit $LASTEXITCODE
     }
     Write-Error 'No playable version is installed yet. Connect to the internet and make sure the public release is published.'
     exit 1
