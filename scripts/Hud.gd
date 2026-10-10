@@ -346,7 +346,6 @@ func _draw() -> void:
 			paint_settings()
 		"playing":
 			paint_hud()
-			paint_arena_warning()
 			paint_boss_cinematic()
 		"paused":
 			paint_hud()
@@ -444,7 +443,6 @@ func paint_portrait() -> void:
 			paint_portrait_characters()
 		"playing":
 			paint_portrait_hud()
-			paint_arena_warning()
 			paint_boss_cinematic()
 		"paused":
 			paint_portrait_hud()
@@ -500,32 +498,6 @@ func paint_boss_cinematic() -> void:
 	txt(hint, Vector2(center, y + 54.0), fit(hint, width - 45.0, 19), Color("ffd278", reveal), 1, bold, 3)
 	var fill = clampf(progress, 0.0, 1.0)
 	draw_rect(Rect2(0, height - 14.0, width * fill, 14.0), Color("ff4d6a"))
-
-func paint_arena_warning() -> void:
-	var nearest: Dictionary = {}
-	for hazard in g.delayed:
-		if str(hazard.get("fn", "")) != "arena_event":
-			continue
-		if nearest.is_empty() or float(hazard["t"]) < float(nearest["t"]):
-			nearest = hazard
-	if nearest.is_empty():
-		return
-	var width = 720.0 if g.portrait else 1280.0
-	var y = (g.ui_height * 0.35) if g.portrait else 230.0
-	var remaining = maxf(0.0, float(nearest["t"]))
-	var elapsed = 1.0 - remaining / maxf(0.01, float(nearest["life"]))
-	var center = width * 0.5
-	var barwidth = 520.0 if g.portrait else 720.0
-	var glow = 0.72 + 0.28 * absf(sin(g.anim_t * (6.0 + elapsed * 16.0)))
-	draw_rect(Rect2(center - barwidth * 0.5 - 22.0, y - 82.0, barwidth + 44.0, 131.0), Color(0.07, 0.01, 0.05, 0.82))
-	draw_rect(Rect2(center - barwidth * 0.5 - 22.0, y - 82.0, barwidth + 44.0, 4), Color("ff5d67", glow))
-	var title = str(nearest.get("label", "ARENA ULTIMATE"))
-	txt(title, Vector2(center, y - 46.0), fit(title, barwidth, 31 if g.portrait else 37), Color("ffb9c6"), 1, bold, 5)
-	txt("DODGE ON IMPACT   %.1f s" % remaining, Vector2(center, y - 7.0), 25 if g.portrait else 30, Color.WHITE, 1, bold, 5)
-	draw_rect(Rect2(center - barwidth * 0.5, y + 13.0, barwidth, 14.0), Color(0.18, 0.09, 0.12, 0.95))
-	draw_rect(Rect2(center - barwidth * 0.5, y + 13.0, barwidth * clampf(elapsed, 0.0, 1.0), 14.0), Color("ff5d67"))
-	if bool(nearest.get("second", false)):
-		txt("SECOND SHOCKWAVE", Vector2(center, y + 44), 16, Color("ffd278"), 1, bold, 3)
 
 # ---------------------------------------------------------------- in-game HUD
 func paint_portrait_hud() -> void:

@@ -359,39 +359,29 @@ func paint_barrels() -> void:
 
 func paint_telegraphs() -> void:
 	for d in g.delayed:
-		if str(d.get("fn", "")) == "arena_event":
-			# WARNING / COLLISION CONTRACT: the entire visible road is
-			# lethal at the indicated instant. The countdown is global
-			# regardless of camera offset, even in portrait mode.
-			var remaining: float = maxf(0.0, float(d["t"]))
-			var full: float = maxf(0.1, float(d["life"]))
-			var charge = 1.0 - remaining / full
-			var color = Color(str(d.get("color", "ff6677")))
-			var left = 640.0 - g.road_half - g.cam_x + shake_off.x
-			var right = 640.0 + g.road_half - g.cam_x + shake_off.x
-			var top = g.view_top
-			var height = g.view_bottom - g.view_top
-			var opacity = 0.07 + charge * 0.26
-			draw_rect(Rect2(left, top, right - left, height), Color(color, opacity))
-			var flash_rate = 4.0 + charge * 13.0
-			var pulse = 0.65 + 0.35 * absf(sin(g.anim_t * flash_rate))
-			for edge in [left + 7.0, right - 15.0]:
-				draw_rect(Rect2(edge, top, 8, height), Color(color, (0.45 + charge * 0.5) * pulse))
-			var style = str(d.get("style", ""))
-			if style in ["earthquake", "piston_lockdown", "tidal_surge"]:
-				# Floor slabs ripple across the entire arena.
-				for i in range(6):
-					var fy = top + height * (float(i) + charge) / 6.0
-					draw_line(Vector2(left, fy), Vector2(right, fy), Color(color, 0.2 + charge * 0.6), 5.0)
-			elif style in ["bombardment", "prism_flash"]:
-				for i in range(5):
-					var x = lerpf(left + 24.0, right - 24.0, float(i) / 4.0)
-					draw_line(Vector2(x, top), Vector2(x, top + height), Color(color, 0.22 + charge * 0.55), 3.0)
-			elif style in ["venom_collapse", "rift_implosion", "soul_eclipse"]:
-				var cx = (left + right) * 0.5
-				var cy = (top + g.view_bottom) * 0.5
-				var radius = (1.0 - charge) * maxf(g.road_half, height * 0.6)
-				draw_arc(Vector2(cx, cy), maxf(12.0, radius), 0, TAU, 64, Color(color, 0.4 + 0.5 * charge), 5.0)
+		# The warning matches each moving / persistent boss threat,
+		# never covers the viewport unless the actual hitbox does.
+		if str(d.get("fn", "")) == "boss_boulder":
+			var rock: Vector2 = P(d["pos"])
+			var direction: Vector2 = Vector2(d["vel"]).normalized()
+			var approach = maxf(0.0, float(d["t"]) - float(d.get("arm", 0.0)))
+			var end_point: Vector2 = P(Vector2(d["pos"]) + direction * minf(470.0, Vector2(d["vel"]).length() * approach))
+			draw_line(rock, end_point, Color("e3a078", 0.27), float(d["tele"]) * 1.5)
+			draw_line(rock, end_point, Color("ffdfaf", 0.88), 2.0)
+			draw_circle(rock, float(d["tele"]), Color("a75e3d", 0.85))
+			draw_arc(rock, float(d["tele"]), 0.0, TAU, 28, Color("ffe3ae"), 3.0)
+			continue
+		if str(d.get("fn", "")) == "boss_gravity":
+			var center: Vector2 = P(d["pos"])
+			var radius: float = float(d["tele"])
+			var armed = float(d.get("arm", 0.0)) <= 0.0
+			draw_circle(center, radius, Color("a18aff", 0.15 if armed else 0.05))
+			draw_arc(center, radius, g.anim_t * 0.8, g.anim_t * 0.8 + TAU * 0.92,
+				56, Color("d4b0ff", 0.95 if armed else 0.45), 4.0)
+			for ring in range(3):
+				draw_arc(center, maxf(14.0, radius * (0.26 + float(ring) * 0.24)),
+				-g.anim_t * (0.9 + float(ring) * 0.15), -g.anim_t * (0.9 + float(ring) * 0.15) + PI,
+				34, Color("cab0ff", 0.52), 2.0)
 			continue
 		if not d.has("tele"):
 			continue
@@ -423,6 +413,15 @@ func paint_telegraphs() -> void:
 		var warning_color = Color(str(d.get("color", "ff744e")))
 		draw_circle(p, r * k, Color(warning_color, 0.12 + 0.12 * k))
 		draw_arc(p, r, 0, TAU, 40, Color(warning_color, 0.85), 2.8)
+		if str(d["fn"]) == "boss_missile":
+			text_c("MISSILE LOCK", p + Vector2(0, -r - 20.0), 14, Color("ffcd74"), 2)
+			var source: Vector2 = P(d.get("origin", d["pos"]))
+			draw_line(source, p, Color("ffbd74", 0.28 + k * 0.38), 2.5)
+		if str(d["fn"]) == "boss_echo":
+			text_c("MOVEMENT ECHO", p + Vector2(0, -r - 18.0), 13, Color("8ceeff"), 2)
+			draw_line(p, P(d["target"]), Color("8ceeff", 0.22 + k * 0.30), 2.0)
+		if str(d["fn"]) == "boss_serpent_emerge":
+			text_c("SERPENT BELOW", p + Vector2(0, -r - 18.0), 13, Color("65efb2"), 2)
 		if str(d["fn"]) == "rift_emit":
 			var exit_target = P(d.get("target", d["pos"]))
 			draw_line(p, exit_target, Color("b397ff", 0.28 + k * 0.4), 2.5)

@@ -1,4 +1,4 @@
-name: Eight Unique Boss Mechanics
+name: Boss Encounter Systems Regression
 on:
   push:
     branches: [feat/eight-distinct-boss-systems-20261010]
@@ -35,7 +35,7 @@ jobs:
         run: timeout 180 ./godot-ci --headless --path . --editor --import --quit
       - name: Assert eight unique mechanical identities
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_identity_test.gd
-      - name: Verify boss-clear cinematic and dodge-required arena attacks
+      - name: Verify boss-clear cinematic and unique spatial setpieces
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_encounter_test.gd
       - name: Preserve previous boss aggression regression
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_aggression_test.gd
