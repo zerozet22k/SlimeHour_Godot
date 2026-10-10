@@ -200,9 +200,9 @@ static func stack_preview(g, id: String, owned_view: bool = false) -> String:
 	return ""
 
 
-static func add_card(g, id: String) -> void:
+static func add_card(g, id: String, debug_force: bool = false) -> void:
 	var c = g.card_by_id.get(id)
-	if c == null or not eligible(g, c):
+	if c == null or (not debug_force and not eligible(g, c)):
 		return
 	if not g.owned.has(id):
 		g.owned_order.append(id)

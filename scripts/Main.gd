@@ -12,7 +12,8 @@ const RouteFlow = preload("res://scripts/RouteFlow.gd")
 const InGameUpdater = preload("res://scripts/InGameUpdater.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
-const GAME_VERSION = "v0.1.23"
+const DebugLab = preload("res://scripts/DebugLab.gd")
+const GAME_VERSION = "v0.1.24"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -67,7 +68,15 @@ var lost_t = 0.0                     # real seconds the result screen has been u
 var killer_kind = ""
 var killer_ref: Dictionary = {}     # the monster the death camera focuses on
 const DYING_TIME = 2.6
-var debug_mode = false
+var debug_mode = false              # F4 metrics
+var debug_panel_open = false          # F3 developer lab
+var debug_session = false
+var debug_snapshot: Dictionary = {}
+var debug_tab = "ROUTE"
+var debug_page = 0
+var debug_slot = 0
+var debug_godmode = false
+var debug_notice = ""
 var sfx = null
 var music_refresh_t = 0.0
 var autotest = ""
@@ -355,7 +364,7 @@ func _process(delta: float) -> void:
 	bash_btn_pos = Vector2(450, ui_height - 221.0) if portrait else Vector2(1000, 560)
 	bash_btn_r = 51.0
 	var m = hud.get_local_mouse_position()
-	var captured = state == "playing" and settings["aim"] == "mouse" and not is_touch_active() and autotest == ""
+	var captured = state == "playing" and not debug_panel_open and settings["aim"] == "mouse" and not is_touch_active() and autotest == ""
 	var mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
 	if Input.mouse_mode != mouse_mode:
 		if not captured and aim_mouse_active:
@@ -412,11 +421,14 @@ func _process(delta: float) -> void:
 		unlock_toasts[0]["t"] = float(unlock_toasts[0]["t"]) - delta
 		if float(unlock_toasts[0]["t"]) <= 0.0:
 			unlock_toasts.pop_front()
-	if state == "event":
+	# A paused test lab must not advance event rolls or route departures.
+	if state == "menu" and debug_session and not debug_panel_open:
+		DebugLab.restore(self)
+	if state == "event" and not debug_panel_open:
 		update_event(delta)
-	if state == "boss_result":
+	if state == "boss_result" and not debug_panel_open:
 		boss_result_t += real_dt
-	if state == "travel":
+	if state == "travel" and not debug_panel_open:
 		travel_t -= real_dt
 		if travel_t <= 0.0:
 			finish_travel()
@@ -453,6 +465,8 @@ func _process(delta: float) -> void:
 	hud.queue_redraw()
 
 func _physics_process(delta: float) -> void:
+	if debug_panel_open:
+		return
 	if state != "playing":
 		return
 	frame_procs = 0
@@ -945,6 +959,8 @@ func perfect_dodge() -> void:
 	Effects.trigger(self, "perfect", {"pos": hero["pos"], "gen": 0})
 
 func hurt(amount: float, src: Vector2, who: String = "something") -> bool:
+	if debug_session and debug_godmode:
+		return false
 	var h = hero
 	if dying_t > 0.0:
 		return false
@@ -2261,7 +2277,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_EXCLUSIVE_FULLSCREEN else Window.MODE_EXCLUSIVE_FULLSCREEN
 			return
 		if code == KEY_F3:
+			debug_panel_open = not debug_panel_open
+			if debug_panel_open:
+				DebugLab.enter(self)
+			return
+		if code == KEY_F4:
 			debug_mode = not debug_mode
+			return
+		if debug_panel_open:
+			if code == KEY_ESCAPE:
+				debug_panel_open = false
 			return
 		match state:
 			"menu":
@@ -2468,11 +2493,18 @@ func _touch_up(id: int, _p: Vector2) -> void:
 		dash_pressed = false
 
 func do_action(action: String) -> void:
+	if action.begins_with("debug_"):
+		DebugLab.run_action(self, action)
+		return
 	match action:
 		"play":
+			if debug_session:
+				DebugLab.restore(self)
 			hard_mode = false
 			start_run()
 		"play_hard":
+			if debug_session:
+				DebugLab.restore(self)
 			hard_mode = true
 			start_run()
 		"settings":
@@ -2511,6 +2543,8 @@ func do_action(action: String) -> void:
 		"resume":
 			state = "playing"
 		"menu":
+			if debug_session:
+				DebugLab.restore(self)
 			state = "menu"
 		"continue_run":
 			open_map()
