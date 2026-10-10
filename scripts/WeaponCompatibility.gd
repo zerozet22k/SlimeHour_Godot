@@ -141,6 +141,21 @@ static func instant_sway(g, w: Dictionary) -> float:
 		return 0.0
 	return sin(g.run_time * 11.0) * amplitude
 
+static func instant_reach_bonus(g, w: Dictionary) -> float:
+	var kind = str(g.weapon_db[w["id"]]["kind"])
+	if kind in ["beam", "rail", "chain"]:
+		# Zoom Zoom Bullets / Scope translate speed into a bounded extension,
+		# without a non-existent projectile velocity.
+		return minf(0.22, maxf(0.0, g.st("pspeed")) * 0.17)
+	return 0.0
+
+static func instant_acceleration(g, w: Dictionary, fraction: float) -> float:
+	var kind = str(g.weapon_db[w["id"]]["kind"])
+	if kind in ["beam", "rail"]:
+		# Road Rage's travel acceleration becomes downrange cutting power.
+		return 1.0 + minf(0.22, maxf(0.0, g.st("accel")) * 0.16) * clampf(fraction, 0.0, 1.0)
+	return 1.0
+
 static func adapted_pierce(g, w: Dictionary) -> int:
 	# Snake Shot's +pierce means another chain hop on lightning, not a
 	# non-existent projectile piercing a nonexistent bullet collider.
@@ -208,6 +223,49 @@ static func card_interaction(g, card_id: String) -> String:
 					note = "Electricity redirects through available chain targets"
 				else:
 					note = "Physical wall bounce with limited collision budget"
+			"muzzle_velocity", "scope":
+				if kind in ["beam", "rail", "chain"]:
+					note = "Projectile speed becomes up to +22% instant-attack reach"
+				elif kind == "flame":
+					note = "Speed moderately extends continuous flame reach"
+				else:
+					note = "Faster physical projectile travel"
+			"accelerator":
+				if kind in ["beam", "rail"]:
+					note = "Downrange beam damage ramps, instead of accelerating a bullet"
+				elif kind == "chain":
+					note = "Later chain hops retain more power"
+				elif kind == "flame":
+					note = "Downrange fire gains extra heat"
+				else:
+					note = "Physical projectile accelerates in flight"
+			"piercing", "drill_bits", "armor_piercing", "ghost_rounds":
+				if kind == "chain":
+					note = "Extra pierce converts into up to +3 chain targets"
+				elif kind == "flame":
+					note = "Extra pierce increases cone reach (up to +18%)"
+				elif kind in ["beam", "rail"]:
+					note = "Beam passes through additional enemies / surfaces"
+				else:
+					note = "Projectile pierces additional targets"
+			"ricochet":
+				if kind == "flame":
+					note = "Ricochet card reflects capped heat onto nearby enemies"
+				elif kind in ["beam", "rail"]:
+					note = "Chains to other enemies after impact"
+				elif kind == "chain":
+					note = "Additional true electrical chain jumps"
+				else:
+					note = "Projectile retargets after hit"
+			"splinter", "cluster_rounds":
+				if kind == "flame":
+					note = "Transfers embers without spawning phantom bullets"
+				elif kind in ["beam", "rail"]:
+					note = "Limited weaker impact fragments, not recursive rails"
+				elif kind == "chain":
+					note = "Converts to extra bounded chain branches"
+				else:
+					note = "Physical fragments limited by shared budgets"
 			"return_sender":
 				if kind in ["disc", "boomerang"]:
 					note = "Return is inherent; redundant return card is unavailable"
