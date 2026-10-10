@@ -2,6 +2,7 @@ extends SceneTree
 ## Verify that each weapon's evolution respects its actual resource mechanic.
 const Main = preload("res://scripts/Main.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
+const Combat = preload("res://scripts/Combat.gd")
 var failed := 0
 
 func check(ok: bool, label: String) -> void:
@@ -58,8 +59,18 @@ func _run() -> void:
 	check(not Weapons.flame_cone_contains(Vector2.ZERO, Vector2.RIGHT, Vector2(-120, 0), 195.0, 0.23), "Cone does not hit enemies behind player")
 	g.beams.clear()
 	g.shots.clear()
+	g.fx.clear()
 	Weapons.fire_flame(g, flame, Vector2.ZERO, Vector2.RIGHT, 5.0)
-	check(g.shots.is_empty() and g.beams.size() == 1 and bool(g.beams[0].get("flame_stream", false)), "Flamethrower emits drawn cone, zero projectile entities")
+	check(g.shots.is_empty() and g.beams.is_empty(), "Cinder's cone damages directly without shots or fan-shaped beams")
+	check(g.fx.size() >= 2 and g.fx.size() <= 4, "Cinder emits a bounded number of visible fire puffs per tick")
+	check(str(g.fx[0]["kind"]) == "cinder_flame" and float(g.fx[0]["life"]) > 0.0, "Cinder fire is animated VFX rather than gameplay projectiles")
+	var first_puff = g.fx[0]
+	var previous = first_puff["pos"]
+	Combat.update_fx(g, 0.04)
+	check(first_puff["pos"].distance_to(previous) > 0.0, "Flame puffs travel visibly from the nozzle")
+	var visual_code = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
+	check(visual_code.contains('"bee":') and visual_code.contains("two distinct thick black stripes"), "Swarmcaster bee sprite has black/yellow striped anatomy")
+	check(not visual_code.contains("flame_stream"), "Removed Cinder's fan-cone geometry from the renderer")
 	g.S["homing"] = 2.5
 	g.S["split"] = 2.0
 	g.S["rico"] = 1.0
