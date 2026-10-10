@@ -48,7 +48,38 @@ func _test() -> void:
 		Combat.ai(game, hybrid, Vector2.DOWN, 300.0, 0.1, false)
 		check(str(hybrid["kind"]) == id, id + " spawns as a valid enemy")
 		check(hybrid.has("mix_state_" + first) and hybrid.has("mix_state_" + second), id + " initializes both parent mechanics")
+	# After sector 12, cap population and rates instead of stacking
+	# unbounded monsters on top of the existing mutation schedule.
+	game.route = {"spawns": 1.0}
+	game.hard_mode = false
+	game.sector = 12
+	var budget_at_12: int = game.budget_for(12)
+	var rush_at_12: int = game.rush_size()
+	check(game.late_enemy_hp_multiplier(12) == 1.0, "Sector 12 regular HP remains unchanged")
+	game.sector = 13
+	check(game.budget_for(13) >= budget_at_12 and game.budget_for(13) <= budget_at_12 + 8, "Sector 13 crowd budget transitions smoothly")
+	check(game.rush_size() >= rush_at_12 and game.rush_size() <= rush_at_12 + 5, "Sector 13 rush transitions smoothly")
+	check(game.enemy_cap() <= 140 and game.sector_spawn_rate(1.0) <= 12.251, "Sector 13 starts bounded simultaneous and per-second spawns")
+	check(game.late_enemy_hp_multiplier(13) > 1.0, "Sector 13 begins modest regular HP gain")
+	game.sector = 25
+	var capped_budget: int = game.budget_for(25)
+	var capped_rush: int = game.rush_size()
+	check(capped_budget + capped_rush < 500, "Late Normal crowd stops below 500 total enemies per sector")
+	check(game.enemy_cap() == 150 and game.sector_spawn_rate(1.0) <= 15.001, "Late Normal live enemies and spawn throughput are capped")
+	check(is_equal_approx(game.late_enemy_hp_multiplier(25), 1.25), "Late Normal substitutes up to 25 percent regular HP")
+	game.sector = 40
+	check(game.budget_for(40) == capped_budget and game.rush_size() == capped_rush, "Crowd budget and rush remain flat after sector 25")
+	check(game.enemy_cap() == 150 and game.sector_spawn_rate(1.0) <= 15.001, "Sector 40 cannot restore unlimited spawn density")
+	var normal_mob = game.spawn_enemy("blob", game.hero["pos"] + Vector2(0, -280), false, false)
+	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
+	var boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
+	var boss_expected: float = 2400.0 * game.enemy_scale() * 2.0 * pow(1.8, float(mini(game.sector - game.WIN_SECTOR, 20)))
+	check(is_equal_approx(float(boss["max_hp"]), boss_expected), "Crowd HP adjustment does not affect boss scaling")
+	game.hard_mode = true
+	check(game.budget_for(40) > capped_budget and game.rush_size() > capped_rush, "Hard keeps a larger but finite population")
+	check(game.enemy_cap() <= 175 and game.sector_spawn_rate(1.0) <= 17.251 and game.rush_spawn_rate() == 13.0, "Hard has separate bounded simultaneous and spawn caps")
 	# Introduction is a basic species, not an obligatory hybrid.
+	game.hard_mode = false
 	game.sector = 12
 	game.begin_sector()
 	game.spawn_acc = 1.0

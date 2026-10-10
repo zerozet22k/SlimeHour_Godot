@@ -189,7 +189,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Slime Hour $RELEASE_TAG" \
-            --notes "Slime Hour $RELEASE_TAG. Zoomer sprint speed is capped and its orbit now turns back toward the hero at road and sector boundaries instead of disappearing off-screen. Leechling blood conduit activation range is reduced from 525 to 340 world units, and its active tether now breaks beyond 370 instead of 565. Previous v0.1.63 fixes remain: Skitter bounds, unreachable-enemy cleanup, directional arrows for the final five enemies, and doubled boss HP. Windows: extract SlimeHour-Windows.zip and run Start_Slime_Hour.bat. Android APK is attached after its separate build. Future Windows updates use verified delta downloads with a full fallback."
+            --notes "Slime Hour $RELEASE_TAG. After sector 12, monster counts and spawn rates are capped while regular mob HP gradually increases up to 25%. Simultaneous late-game Normal enemies cap at 150; Hard retains a larger capped crowd. Mutation unlocks remain staged. Includes Zoomer sprint containment, shorter Leechling tether range, Skitter boundary cleanup, final-five enemy arrows, and doubled boss-only HP from previous releases. Windows: extract SlimeHour-Windows.zip and run Start_Slime_Hour.bat. Android APK will follow from its build. Windows updates use verified delta downloads with full fallback."
 
       # One-time repository cleanup requested after auditing all four old
       # branches. Only remove a branch if its HEAD is exactly the audited SHA.

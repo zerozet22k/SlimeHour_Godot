@@ -1,3 +1,12 @@
+## v0.1.65 — Bounded late-game crowds, tougher monsters
+
+- Keep sectors 1-12 population and spawn pacing intact, including the sector 9-11 relief band.
+- From sector 13, replace exponential crowd growth with a gently increasing, fixed sector budget. Normal reaches fewer than 500 scheduled monsters per sector by sector 25 and stays capped thereafter. Hard and route modifiers still alter the bounded baseline.
+- Cap late normal spawn throughput at 12.25-15 enemies per second (Hard: up to 17.25) and slow late Crowd Rush deployment to 10 per second (Hard: 13).
+- Cap simultaneous normal enemies at 150 by sector 20 (Hard: no more than 173); reduce the late Rush overflow allowance from 25 to 15.
+- Shift late difficulty from raw mob quantity into ordinary-enemy HP, ramping by 2% per sector after 12 to a maximum +25%. Bosses, which already have separate 2x HP, and noncombat Gold Goblins receive no extra HP.
+- Leave mutation encounter chances, unlock schedules, enemy mechanics, and XP/loot per actual enemy kill unchanged. Extend the roster test to cover progression, hard-mode caps, and boss HP isolation.
+
 ## v0.1.64 — Zoomer recovery and shorter Leechling blood link
 
 - Cap Zoomer's boosted sprint speed at 310 units/s (Normal) or 350 units/s (Hard) even during Siren/HASTED/late-sector scaling.
