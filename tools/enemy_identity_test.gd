@@ -57,7 +57,7 @@ func _run() -> void:
 	Combat.ai(g, spitter, Vector2.DOWN, 260.0, 0.016, false)
 	check(float(spitter["wind"]) > 0.0 and spitter.has("lock"), "Spitter warns and locks a predicted acid attack")
 	Combat.ai(g, spitter, Vector2.DOWN, 260.0, 0.75, false)
-	check(g.shots.size() == 3 and g.shots.any(func(s): return absf(float(s["curve"])) > 0.2), "Spitter retains curving acid projectiles")
+	check(g.shots.size() == 1 and bool(g.shots[0].get("acid_trail", false)), "Spitter lobs one acid glob")
 	check(g.enemy_hazards.is_empty() and g.shots.any(func(s): return bool(s.get("acid_trail", false))),
 		"Spitter marks real acid projectiles without prepainting a fake path")
 	for travel_step in range(5):

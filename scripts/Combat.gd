@@ -2183,17 +2183,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						stream["trail_anchor"] = stream["pos"]
 						stream["trail_dmg"] = float(e["dmg"])
 						stream["life"] = clampf(Vector2(lock).distance_to(e["pos"]) / 245.0, 0.45, 2.4)
-					if g.sector >= 6:
-						for side in [-1.0, 1.0]:
-							var hook = enemy_fire(g, e, aim.rotated(side * 0.31), 1, 0.0, 225.0, 5.5)
-							if hook != null:
-								hook["curve"] = -side * 0.60
-								hook["color"] = Color("a2ff83")
-								hook["acid_trail"] = true
-								# Only the main glob draws the acid line; hooks just splash.
-								hook["no_trail"] = true
-								hook["trail_anchor"] = hook["pos"]
-								hook["trail_dmg"] = float(e["dmg"])
+					# One glob, always: Spitter gets more dangerous by firing more
+					# often (its cooldown shrinks with the sector), not by tripling.
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and dist < 420.0:
 				e["cd"] = maxf(1.75, 3.1 - 0.04 * float(maxi(0, g.sector - 6)))

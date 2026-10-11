@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.89"
+const GAME_VERSION = "v0.1.90"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1451,12 +1451,12 @@ func rush_size() -> int:
 ## Establish fresh base types first. Legacy Nurse/Larry live in old save
 ## records but are no longer hard-coded as standard roster introductions.
 ## New combinations use ANY TWO distinct previously encountered main types.
-const ENEMY_TIERS = [["blob", "zoomer", "spitter", "kaboomba", "nurse"], ["skitter", "sapper", "mirror", "burrower"],
-	["leech", "ashwing", "siren", "riot"], ["bull", "mortar", "lancer", "tick"],
+const ENEMY_TIERS = [["blob", "zoomer", "lancer", "kaboomba", "nurse"], ["skitter", "sapper", "mirror", "burrower"],
+	["leech", "ashwing", "siren", "riot"], ["bull", "mortar", "spitter", "tick"],
 	["mama", "totem", "blinky", "chonk", "mitosis", "larry"]]
-const STARTER_ENEMIES = ["blob", "zoomer", "spitter", "kaboomba"]
+const STARTER_ENEMIES = ["blob", "zoomer", "lancer", "kaboomba"]
 const ROUTE_INTRO_ORDER = ["skitter", "sapper", "mirror", "burrower", "leech", "ashwing", "siren", "riot",
-	"bull", "mortar", "lancer", "tick", "mama", "totem", "blinky", "chonk", "mitosis", "larry"]
+	"bull", "mortar", "spitter", "tick", "mama", "totem", "blinky", "chonk", "mitosis", "larry"]
 
 static func mix_id(pair: Array) -> String:
 	return EnemyMixes.id_for(str(pair[0]), str(pair[1]))

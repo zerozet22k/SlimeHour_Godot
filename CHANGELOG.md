@@ -1,3 +1,9 @@
+## v0.1.90 — Lancer early, Spitter later
+
+- **Lancer and Spitter swapped places:** Lancer is now a starting monster and Spitter arrives later, around sector 26.
+- **Spitter always lobs one acid glob.** It used to jump from one glob to three at sector 6. Now it gets more dangerous by firing more often in later sectors.
+- **Second mutation is Needle Hunter** (Lancer + Skitter) instead of Toxic Artillery, since Spitter now arrives later. Toxic Artillery moved later in the order.
+
 ## v0.1.89 — HP grows with your level
 
 - Max HP now grows with your level (+22 per level-up, and the new HP comes filled) instead of with the sector. Levelling up is what makes you sturdier.

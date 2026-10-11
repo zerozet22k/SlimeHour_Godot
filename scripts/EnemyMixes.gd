@@ -107,7 +107,7 @@ const NORMAL_FUSION_SPACING = 4
 const HARD_FUSION_SPACING = 2
 const RECIPES = [
 	{"a": "zoomer", "b": "skitter", "name": "Volt Runner", "style": "flank"},
-	{"a": "spitter", "b": "sapper", "name": "Toxic Artillery", "style": "mine"},
+	{"a": "lancer", "b": "skitter", "name": "Needle Hunter", "style": "flank"},
 	{"a": "mirror", "b": "blob", "name": "Glass Slime", "style": "echo"},
 	{"a": "burrower", "b": "kaboomba", "name": "Fuse Mole", "style": "mine"},
 	{"a": "leech", "b": "zoomer", "name": "Blood Chaser", "style": "flank"},
@@ -115,7 +115,7 @@ const RECIPES = [
 	{"a": "siren", "b": "mirror", "name": "Siren Echo", "style": "echo"},
 	{"a": "riot", "b": "bull", "name": "Bulwark Ram", "style": "mine"},
 	{"a": "mortar", "b": "sapper", "name": "Siege Architect", "style": "mine"},
-	{"a": "lancer", "b": "skitter", "name": "Needle Hunter", "style": "flank"},
+	{"a": "spitter", "b": "sapper", "name": "Toxic Artillery", "style": "mine"},
 	{"a": "tick", "b": "leech", "name": "Parasite Brood", "style": "brood"},
 	{"a": "mama", "b": "chonk", "name": "Brood Bastion", "style": "brood"},
 	{"a": "blinky", "b": "mirror", "name": "Parallax Shade", "style": "echo"},
