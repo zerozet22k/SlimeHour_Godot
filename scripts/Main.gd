@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.88"
+const GAME_VERSION = "v0.1.89"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -2602,6 +2602,8 @@ func gain_xp(amount: float) -> void:
 		xp -= xp_need
 		level += 1
 		xp_need = xp_for(level)
+		# Each level raises max HP (see Effects.recalc); the new HP comes filled.
+		stats_dirty = true
 		if level <= 4 or level % 2 == 0:
 			pending_levels += 1
 		levelup_delay = 0.35

@@ -49,8 +49,9 @@ static func recalc(g) -> void:
 	g.S = S
 	# Max HP changes keep the current missing HP the same.
 	if not g.hero.is_empty():
-		# Sturdier runner: 130 base and +18 per sector (was 100 and +12).
-		var maxhp = maxf(20.0, 130.0 + 18.0 * maxi(0, g.sector - 1) + float(S.get("maxhp", 0.0)))
+		# Max HP grows with YOUR level (+22 per level), not with the sector:
+		# levelling up is what makes you sturdier.
+		var maxhp = maxf(20.0, 130.0 + 22.0 * maxi(0, int(g.level) - 1) + float(S.get("maxhp", 0.0)))
 		var diff = maxhp - float(g.hero["maxhp"])
 		g.hero["maxhp"] = maxhp
 		if diff > 0:

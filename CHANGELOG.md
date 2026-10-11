@@ -1,3 +1,7 @@
+## v0.1.89 — HP grows with your level
+
+- Max HP now grows with your level (+22 per level-up, and the new HP comes filled) instead of with the sector. Levelling up is what makes you sturdier.
+
 ## v0.1.88 — Clearer screens
 
 - **Collection:** opens on ALL CARDS together, sorted by rarity. The other tabs are Common, Rare, Epic, Legendary+, Gun Cards (cards for one gun) and Guns.
