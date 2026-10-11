@@ -43,7 +43,34 @@ func _run() -> void:
 		if hazard["kind"] == "car":
 			advanced_cars += 1
 	check(early_trees >= 4, "beginner sectors contain roadside trees")
-	check(middle_medians > 0, "middle sectors gain short median dividers")
+	var middle_layout: String = Obst.layout_for(8, 810.0)
+	var centre_props = middle.filter(func(h): return absf(float(h["pos"].x)) < 150.0)
+	check(middle_layout != "open" or middle_medians > 0, "middle sectors separate the two directions")
+	check(middle_layout == "open" or centre_props.size() >= 4, "street layouts line the centre with props")
+	var layouts := {}
+	for n in range(2, 30):
+		layouts[Obst.layout_for(n, 1100.0)] = true
+	check(layouts.size() >= 4, "sectors vary between open, two-way, boulevard and split streets")
+	check(Obst.layout_for(10, 1100.0, true) == "open", "boss arenas are open roads")
+	var boss_props = Obst.generate(10, 1100.0, 0.0, 4800.0, true).filter(func(h): return str(h["kind"]) != "tree")
+	check(boss_props.is_empty(), "boss arenas have no roadblocks, cars or dividers")
+	# Construction zones never close a whole carriageway.
+	for n in [4, 9, 15, 24]:
+		var half: float = Obst.road_half_for_sector(n, 530.0)
+		var props = Obst.generate(n, half, 0.0, 4800.0)
+		var rows := {}
+		for h in props:
+			if str(h["kind"]) == "barrier":
+				var key := int(round(float(h["pos"].y)))
+				rows[key] = rows.get(key, []) + [h]
+		var open_lane := true
+		for key in rows:
+			var reach := 0.0
+			for h in rows[key]:
+				reach = maxf(reach, half - absf(float(h["pos"].x)) + float(h["radius"]))
+			open_lane = open_lane and (half - float(Obst.ISLAND_HALF[Obst.layout_for(n, half)]) - reach) >= 150.0
+		check(open_lane, "sector %d roadblocks leave a lane open" % n)
+		check(props.filter(func(h): return str(h["kind"]) == "tree").size() >= 12, "sector %d has plenty of trees" % n)
 	check(advanced_cars >= 2, "later sectors introduce vehicle obstructions")
 	check(advanced == Obst.generate(19, 1250.0, 0.0, 4800.0), "map objects are deterministically generated")
 	var wall: Array = [{"pos": Vector2.ZERO, "radius": 30.0, "hp": -1.0}]

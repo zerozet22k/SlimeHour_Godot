@@ -6,6 +6,7 @@ const Combat = preload("res://scripts/Combat.gd")
 const BossFight = preload("res://scripts/BossFight.gd")
 const BossModels = preload("res://scripts/BossModels.gd")
 const Trails = preload("res://scripts/Trails.gd")
+const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -95,7 +96,10 @@ func paint_road() -> void:
 	for i in range(int(floor(g.view_top / 90.0)) - 1, int(ceil(g.view_bottom / 90.0)) + 2):
 		var y = y0 + i * 90.0 + shake_off.y
 		var lane_count = floori((g.road_half - 45.0) / 195.0)
+		var island_half: float = float(RoadObstacles.ISLAND_HALF.get(str(g.road_layout), 0.0))
 		for x in range(-lane_count, lane_count + 1):
+			if absf(x * 195.0) < island_half + 60.0:
+				continue
 			draw_rect(Rect2(640 + x * 195.0 - g.cam_x - 3 + shake_off.x, y, 6, 44), Color(b["lane"], 0.55))
 	for k in range(6):
 		var a = 0.5 * (1.0 - k / 6.0)
@@ -103,6 +107,7 @@ func paint_road() -> void:
 		draw_rect(Rect2(right - k * 2, g.view_top, 2, g.view_bottom - g.view_top), Color(b["edge"], a * 0.6))
 	draw_rect(Rect2(left - 10, g.view_top, 8, g.view_bottom - g.view_top), Color(b["edge"], 0.25))
 	draw_rect(Rect2(right + 2, g.view_top, 8, g.view_bottom - g.view_top), Color(b["edge"], 0.25))
+	paint_street_layout(b, scroll)
 	# Road walls: solid kerbs with hazard stripes so the edge of the arena is obvious.
 	for side in [left - 22.0, right]:
 		draw_rect(Rect2(side, g.view_top, 22, g.view_bottom - g.view_top), Color("1a1f2e"))
@@ -123,6 +128,49 @@ func paint_road() -> void:
 		draw_rect(Rect2(left, by - 2, right - left, 4), Color("ffd24d"))
 		draw_rect(Rect2(left, by + 18, right - left, 4), Color("ffd24d"))
 		text_c("NO WAY BACK", Vector2(640 - g.cam_x, by + 52), 22, Color(1, 0.82, 0.3, 0.9), 4)
+
+## Centre of the street: double yellow line, or a grassy island with kerbs
+## and crosswalk gaps. Islands are walkable; their trees are the obstacles.
+func paint_street_layout(b: Dictionary, scroll: float) -> void:
+	var layout := str(g.road_layout)
+	var cx: float = 640.0 - g.cam_x + shake_off.x
+	if layout == "open":
+		return
+	var top: float = g.view_top
+	var bottom: float = g.view_bottom
+	if layout == "two_way":
+		for off in [-5.0, 3.0]:
+			draw_rect(Rect2(cx + off - 1.0, top, 3.0, bottom - top), Color("f2c230", 0.8))
+		return
+	var island: float = float(RoadObstacles.ISLAND_HALF[layout])
+	var grass := Color(b["bg"]).lerp(Color("2f6b3a"), 0.55)
+	var kerb := Color("a7adb8")
+	var step := 8.0
+	var y := top
+	while y < bottom:
+		var world_y: float = y - 360.0 + g.cam_y - shake_off.y
+		var seg_end: float = minf(bottom, y + step)
+		if not RoadObstacles.in_island_gap(world_y, g.sector_start_y):
+			draw_rect(Rect2(cx - island, y, island * 2.0, seg_end - y), grass)
+			draw_rect(Rect2(cx - island - 5.0, y, 5.0, seg_end - y), kerb)
+			draw_rect(Rect2(cx + island, y, 5.0, seg_end - y), kerb)
+		else:
+			# Crosswalk stripes across the opening.
+			if int(world_y / 16.0) % 2 == 0:
+				draw_rect(Rect2(cx - island - 30.0, y, island * 2.0 + 60.0, seg_end - y), Color(1, 1, 1, 0.16))
+		y = seg_end
+	# Grass texture flecks scroll with the world.
+	var fy0 := fposmod(-scroll, 46.0) - 46.0
+	var i := 0
+	var yy := top + fy0
+	while yy < bottom:
+		var world2: float = yy - 360.0 + g.cam_y - shake_off.y
+		if not RoadObstacles.in_island_gap(world2, g.sector_start_y):
+			for k in range(int(island / 22.0)):
+				var fx: float = cx - island + 10.0 + fmod(float(k) * 37.0 + float(i) * 17.0, island * 2.0 - 20.0)
+				draw_line(Vector2(fx, yy), Vector2(fx + 2.0, yy - 6.0), Color("7fcf6a", 0.35), 2.0)
+		yy += 46.0
+		i += 1
 
 func paint_ground() -> void:
 	for f in g.fx:
@@ -398,10 +446,12 @@ func paint_obstacles() -> void:
 				paint_median(p)
 			"barrier":
 				paint_roadblock(p, seed)
+			"cone":
+				paint_cone(p)
 			"car":
 				var hpmax_car = 110.0 + g.sector * 5.0
 				paint_car(p, seed, clampf(float(ob.get("hp", hpmax_car)) / hpmax_car, 0.0, 1.0))
-		if float(ob.get("hp", -1.0)) > 0.0:
+		if float(ob.get("hp", -1.0)) > 0.0 and kind != "cone":
 			var hpmax = 65.0 + g.sector * 3.0 if kind == "barrier" else 110.0 + g.sector * 5.0
 			var hpfrac = clampf(float(ob["hp"]) / hpmax, 0.0, 1.0)
 			if hpfrac < 0.95:
@@ -446,6 +496,16 @@ func paint_median(p: Vector2) -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(p.x - 15, y + 8), Vector2(p.x, y), Vector2(p.x + 15, y + 8),
 			Vector2(p.x + 15, y + 13), Vector2(p.x, y + 5), Vector2(p.x - 15, y + 13)]), Color("ffb43a"))
 	draw_line(body.position + Vector2(5, 4), body.position + Vector2(5, 64), Color(1, 1, 1, 0.35), 2.0)
+
+## Traffic cone seen from above: square base, banded orange cone.
+func paint_cone(p: Vector2) -> void:
+	draw_rect(Rect2(p + Vector2(-12, -12), Vector2(24, 24)), Color("15171d"))
+	draw_rect(Rect2(p + Vector2(-10, -10), Vector2(20, 20)), Color("3a3f4d"))
+	draw_circle(p, 9.5, Color("15171d"))
+	draw_circle(p, 8.0, Color("ff7a1f"))
+	draw_arc(p, 5.0, 0.0, TAU, 16, Color("fff4dc"), 2.5, true)
+	draw_circle(p, 2.2, Color("ffb066"))
+	draw_circle(p + Vector2(-3, -3), 1.6, Color(1, 1, 1, 0.6))
 
 ## Sawhorse roadblock: striped board on legs with blinking amber lamps.
 func paint_roadblock(p: Vector2, seed: float) -> void:
@@ -661,8 +721,7 @@ func paint_telegraphs() -> void:
 				draw_arc(drain_to, 27.0, 0, TAU, 30, Color("d9a3ff", 0.80), 3.0)
 				draw_arc(p, float(e["r"]) + 8.0, 0, TAU, 24, Color("d9a3ff", 0.90), 3.5)
 			elif e["kind"] == "spitter":
-				var spit_to = P(e.get("lock", g.hero["pos"]))
-				draw_line(p, spit_to, Color("a2ff83", 0.33), 2.0)
+				# Its acid is slow (~240 px/s) and easy to watch, so no aim line: only the body cue.
 				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, Color("a2ff83", 0.80), 2.5)
 			elif enemy_has_role(e, "mirror"):
 				var dest = P(e.get("lock", g.hero["pos"]))

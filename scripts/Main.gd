@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.66"
+const GAME_VERSION = "v0.1.67"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -173,6 +173,8 @@ var damage_dealt = 0.0
 var damage_taken = 0.0
 var last_hit_by = "the road"
 var sector_start_y = 0.0
+## Street layout of the current sector (see RoadObstacles.layout_for).
+var road_layout = "open"
 var finish_y = -SECTOR_LEN
 var spawn_acc = 0.0
 var rush_acc = 0.0
@@ -782,7 +784,8 @@ func begin_sector() -> void:
 	gates.clear()
 	barrels.clear()
 	obstacles.clear()
-	obstacles = RoadObstacles.generate(sector, road_half, sector_start_y, SECTOR_LEN)
+	road_layout = RoadObstacles.layout_for(sector, road_half, is_boss_sector())
+	obstacles = RoadObstacles.generate(sector, road_half, sector_start_y, SECTOR_LEN, is_boss_sector())
 	# No stale bomb or boss telegraph may carry into the next sector.
 	delayed.clear()
 	enemy_hazards.clear()

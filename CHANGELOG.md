@@ -1,3 +1,12 @@
+## v0.1.67 — Real streets: two-way roads, boulevards and roadworks
+
+- **Street layouts:** every sector is now a proper street, chosen per sector: two-way roads with a double yellow line and jersey-barrier dividers, boulevards with a tree-lined grass island, split carriageways around a wide park strip, or open multi-lane road. Islands are walkable with crosswalk gaps; their trees and dividers are the obstacles.
+- **More trees:** clumps of trees line both verges along the whole sector.
+- **Roadworks:** construction zones close part of one carriageway with sawhorse roadblocks and rows of traffic cones, always leaving a lane open. Cones and roadblocks can be shot down.
+- **More parked cars** from Sector 12, along the kerb and sometimes in a lane.
+- Boss arenas stay open roads with no roadblocks, cars or dividers.
+- Slow Spitter acid no longer draws an aim line before it fires; the slow shot is easy to watch. Fast shots (Mirror Mimic, Lancer spear, laser) keep theirs.
+
 ## v0.1.66 — Continuous fire and poison trails, redrawn road props
 
 - **One trail, not a row of circles:** a dash with fire trail now leaves a single continuous burning ribbon that burns out from its tail, and a Spitter's acid shot paints one growing poison ribbon instead of dozens of overlapping segments. Each trail is one hitbox along its whole length.
