@@ -1,3 +1,10 @@
+## v0.1.66 — Continuous fire and poison trails, redrawn road props
+
+- **One trail, not a row of circles:** a dash with fire trail now leaves a single continuous burning ribbon that burns out from its tail, and a Spitter's acid shot paints one growing poison ribbon instead of dozens of overlapping segments. Each trail is one hitbox along its whole length.
+- **Puddles merge:** overlapping fire, poison and ice zones of the same element combine into one larger puddle instead of stacking see-through circles.
+- **New ground art:** fire burns with flickering flame tongues and embers, poison bubbles in an irregular toxic puddle, and ice forms a cracked, sparkling frost sheet.
+- **Redrawn road props:** leafy trees that sway, parked cars with glass, wheels, lights and smoking damage, sawhorse roadblocks with blinking amber lamps, and concrete dividers with hazard chevrons.
+
 ## v0.1.65 — Bounded late-game crowds, tougher monsters
 
 - Keep sectors 1-12 population and spawn pacing intact, including the sector 9-11 relief band.

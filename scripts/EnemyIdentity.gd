@@ -1,6 +1,7 @@
 extends RefCounted
 ## Bounded normal-enemy traps with visible arming time, destructible eggs/mines and cover.
 const CAP = 84
+const Trails = preload("res://scripts/Trails.gd")
 
 static func place(g, kind: String, pos: Vector2, radius: float, damage: float, life: float, arm: float) -> void:
 	if g.enemy_hazards.size() >= CAP:
@@ -16,13 +17,30 @@ static func place_line(g, a: Vector2, b: Vector2, width: float, damage: float, d
 			"r": width, "dmg": damage, "life": duration, "max_life": duration,
 			"arm": arm_time, "hp": 0.0, "hurt_t": 0.0})
 
+## A Spitter shot paints ONE growing ribbon instead of a chain of segments.
+## The ribbon evaporates from its tail `duration` seconds after each part lands.
+static func extend_acid(g, s: Dictionary, width: float, damage: float, duration: float) -> void:
+	var h = s.get("trail_h")
+	if h == null or bool(h.get("gone", false)):
+		if g.enemy_hazards.size() >= CAP:
+			return
+		h = {"kind": "acid_trail", "r": width, "dmg": damage, "life": duration,
+			"max_life": duration, "arm": 0.08, "hp": 0.0, "hurt_t": 0.0, "trail_life": duration}
+		Trails.start(h, s["last"], g.run_time)
+		g.enemy_hazards.append(h)
+		s["trail_h"] = h
+	Trails.extend(h, s["pos"], g.run_time)
+	h["life"] = duration
+
 static func update_hazards(g, dt: float) -> void:
 	for i in range(g.enemy_hazards.size() - 1, -1, -1):
 		var h: Dictionary = g.enemy_hazards[i]
 		h["life"] = float(h["life"]) - dt
 		h["arm"] = maxf(0.0, float(h["arm"]) - dt)
 		h["hurt_t"] = maxf(0.0, float(h["hurt_t"]) - dt)
-		if float(h["life"]) <= 0.0 or (float(h["hp"]) <= 0.0 and str(h["kind"]) in ["mine", "egg"]):
+		var trail_alive: bool = not h.has("pts") or Trails.prune(h, g.run_time, float(h["trail_life"]))
+		if not trail_alive or float(h["life"]) <= 0.0 or (float(h["hp"]) <= 0.0 and str(h["kind"]) in ["mine", "egg"]):
+			h["gone"] = true
 			if str(h["kind"]) == "egg" and float(h["hp"]) > 0.0 and g.enemies.size() < g.MAX_ENEMIES:
 				var child = g.spawn_enemy("mini", h["pos"], false, false)
 				child["summon"] = true
@@ -32,7 +50,9 @@ static func update_hazards(g, dt: float) -> void:
 			continue
 		var hero: Vector2 = g.hero["pos"]
 		var inside = false
-		if str(h["kind"]) in ["fissure", "acid_trail"]:
+		if h.has("pts"):
+			inside = Trails.dist2(h, hero) <= pow(float(h["r"]) + 11.0, 2.0)
+		elif str(h["kind"]) in ["fissure", "acid_trail"]:
 			var nearest = Geometry2D.get_closest_point_to_segment(hero, h["a"], h["b"])
 			inside = hero.distance_squared_to(nearest) <= pow(float(h["r"]) + 11.0, 2.0)
 		else:

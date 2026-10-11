@@ -7,6 +7,7 @@ const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
 const BossFight = preload("res://scripts/BossFight.gd")
+const Trails = preload("res://scripts/Trails.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
@@ -382,11 +383,7 @@ static func update_shots(g, dt: float) -> void:
 			s["dead"] = true
 			continue
 		if not bool(s["friendly"]) and bool(s.get("acid_trail", false)):
-			var trail_anchor: Vector2 = s.get("trail_anchor", s["last"])
-			if trail_anchor.distance_to(s["pos"]) >= 26.0:
-				EnemyIdentity.place_line(g, trail_anchor, s["pos"], 13.0,
-					float(s.get("trail_dmg", s["dmg"])) * 0.30, 2.8, "acid_trail", 0.08)
-				s["trail_anchor"] = s["pos"]
+			EnemyIdentity.extend_acid(g, s, 13.0, float(s.get("trail_dmg", s["dmg"])) * 0.30, 2.8)
 		if not g.obstacles.is_empty():
 			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), g.obstacles)
 			if obstacle_idx >= 0:
@@ -2436,6 +2433,8 @@ static func update_zones(g, dt: float) -> void:
 	for i in range(g.zones.size() - 1, -1, -1):
 		var z = g.zones[i]
 		z["t"] = float(z["t"]) - dt
+		if z.has("pts") and not Trails.prune(z, g.run_time, float(z["life"])):
+			z["t"] = 0.0
 		if float(z["t"]) <= 0.0:
 			g.zones.remove_at(i)
 			continue
@@ -2473,8 +2472,20 @@ static func update_zones(g, dt: float) -> void:
 					apply_status(g, e, "shock", 1.0)
 			continue
 		var r = float(z["r"])
-		for e in query(g, z["pos"], r):
-			if bool(e["dead"]) or e["pos"].distance_to(z["pos"]) > r + float(e["r"]) * 0.5:
+		var center: Vector2 = z["pos"]
+		var reach: float = r
+		if z.has("pts"):
+			# One continuous trail: test the whole ribbon, not its head.
+			var box: Array = Trails.bounds(z)
+			center = box[0]
+			reach = float(box[1]) + r
+		for e in query(g, center, reach):
+			if bool(e["dead"]):
+				continue
+			if z.has("pts"):
+				if Trails.dist2(z, e["pos"]) > pow(r + float(e["r"]) * 0.5, 2.0):
+					continue
+			elif e["pos"].distance_to(z["pos"]) > r + float(e["r"]) * 0.5:
 				continue
 			match kind:
 				"fire":

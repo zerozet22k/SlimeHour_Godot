@@ -5,6 +5,7 @@ extends Node2D
 const Combat = preload("res://scripts/Combat.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const Effects = preload("res://scripts/Effects.gd")
+const Trails = preload("res://scripts/Trails.gd")
 const SfxScript = preload("res://scripts/Sfx.gd")
 const AutoTest = preload("res://scripts/AutoTest.gd")
 const ScreenFit = preload("res://scripts/ScreenFit.gd")
@@ -16,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.65"
+const GAME_VERSION = "v0.1.66"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -885,10 +886,17 @@ func move_hero(dt: float) -> void:
 		var dist = 175.0 * (1.0 + S.get("dashdist", 0.0))
 		h["pos"] += h["dash_dir"] * (dist / 0.16) * dt
 		h["trail_acc"] = float(h["trail_acc"]) + dist / 0.16 * dt
-		if S.get("dashtrail", 0) > 0 and float(h["trail_acc"]) > 34.0:
-			h["trail_acc"] = 0.0
-			add_zone("fire", h["pos"], 34.0, 2.5)
+		if S.get("dashtrail", 0) > 0:
+			# The whole dash leaves ONE ribbon of fire that burns out tail-first.
+			var ribbon = h.get("fire_trail")
+			if ribbon == null or not zones.has(ribbon):
+				ribbon = add_zone("fire", prev, 34.0, 2.5, {"pts": [], "born": []})
+				Trails.start(ribbon, prev, run_time)
+				h["fire_trail"] = ribbon
+			Trails.extend(ribbon, h["pos"], run_time)
+			ribbon["t"] = ribbon["life"]
 		if float(h["dash_t"]) <= 0.0:
+			h["fire_trail"] = null
 			Effects.trigger(self, "dashend", {"pos": h["pos"], "gen": 0})
 	else:
 		h["pos"] += (h["vel"] + h["push"]) * dt
@@ -2568,9 +2576,21 @@ func spawn_ring_fx(pos: Vector2, c: Color, r: float) -> void:
 	fx.append({"kind": "ring", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.35, "color": c, "size": r})
 
 func add_zone(kind: String, pos: Vector2, r: float, t: float, extra = {}) -> Dictionary:
+	var radius = r * (1.0 + st("area") * 0.5)
+	var duration = t * (1.0 + st("dur"))
+	# Overlapping puddles of the same element merge into one larger puddle
+	# instead of stacking into a pile of see-through circles.
+	if kind in ["fire", "blaze", "poison", "ice"] and not extra.has("pts"):
+		for other in zones:
+			if str(other["kind"]) == kind and not other.has("pts") and Vector2(other["pos"]).distance_to(pos) < maxf(float(other["r"]), radius) * 0.75:
+				other["pos"] = Vector2(other["pos"]).lerp(pos, 0.35)
+				other["r"] = minf(maxf(float(other["r"]), radius) * 1.06, radius * 1.6)
+				other["t"] = maxf(float(other["t"]), duration)
+				other["life"] = maxf(float(other["life"]), duration)
+				return other
 	if zones.size() > 90:
 		zones.remove_at(0)
-	var z = {"kind": kind, "pos": pos, "r": r * (1.0 + st("area") * 0.5), "t": t * (1.0 + st("dur")), "life": t * (1.0 + st("dur")), "tick": 0.0}
+	var z = {"kind": kind, "pos": pos, "r": radius, "t": duration, "life": duration, "tick": 0.0, "seed": randf() * 100.0}
 	z.merge(extra)
 	zones.append(z)
 	return z

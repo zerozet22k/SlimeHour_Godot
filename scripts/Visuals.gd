@@ -5,6 +5,7 @@ const Weapons = preload("res://scripts/Weapons.gd")
 const Combat = preload("res://scripts/Combat.gd")
 const BossFight = preload("res://scripts/BossFight.gd")
 const BossModels = preload("res://scripts/BossModels.gd")
+const Trails = preload("res://scripts/Trails.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -138,22 +139,18 @@ func paint_ground() -> void:
 		var p = P(z["pos"])
 		var fade = clampf(float(z["t"]) / 0.4, 0.0, 1.0)
 		var r = float(z["r"])
+		if p.y < g.view_top - r - 200.0 and not z.has("pts"):
+			continue
 		match z["kind"]:
 			"fire", "blaze":
-				draw_circle(p, r, Color(1.0, 0.4, 0.1, 0.18 * fade))
-				for i in range(7 if z["kind"] == "fire" else 12):
-					var a = i * 2.4 + g.anim_t * 3.0
-					var fp = p + Vector2.from_angle(a) * r * 0.55 * fmod(i * 0.37 + g.anim_t, 1.0)
-					var h = 8.0 + 5.0 * sin(g.anim_t * 12.0 + i)
-					draw_circle(fp, h, Color(1.0, 0.55 + 0.3 * sin(i + g.anim_t * 9.0), 0.1, 0.55 * fade))
+				if z.has("pts"):
+					paint_fire_ribbon(z, fade)
+				else:
+					paint_fire_patch(p, r, float(z.get("seed", 0.0)), fade, z["kind"] == "blaze")
 			"poison":
-				draw_circle(p, r, Color(0.4, 1.0, 0.3, 0.16 * fade))
-				for i in range(6):
-					var bp = p + Vector2.from_angle(i * 1.7 + g.anim_t) * r * 0.5
-					draw_circle(bp, 5.0 + 3.0 * sin(g.anim_t * 5.0 + i), Color(0.6, 1.0, 0.4, 0.4 * fade))
+				paint_poison_patch(p, r, float(z.get("seed", 0.0)), fade)
 			"ice":
-				draw_circle(p, r, Color(0.7, 0.95, 1.0, 0.22 * fade))
-				draw_arc(p, r, 0, TAU, 24, Color(0.85, 1.0, 1.0, 0.5 * fade), 2.0)
+				paint_ice_patch(p, r, float(z.get("seed", 0.0)), fade)
 			"oil":
 				draw_circle(p, r, Color(0.05, 0.03, 0.08, 0.7 * fade))
 				draw_arc(p + Vector2(-r * 0.3, -r * 0.2), r * 0.3, 3.5, 5.0, 8, Color(0.6, 0.4, 1.0, 0.4 * fade), 2.0)
@@ -194,6 +191,129 @@ func paint_ground() -> void:
 					draw_polyline(pts, Color("b5efff", (0.5 if ribbon == 0 else 0.3) * charge * pulse), 2.2 if ribbon == 0 else 1.3)
 				draw_circle(start, 5.0, Color("b6eaff", 0.38 * charge))
 				draw_circle(stop, 5.0, Color("b6eaff", 0.38 * charge))
+
+# ------------------------------------------------------------- ground effects
+## Irregular puddle outline; the same seed always gives the same shape.
+func puddle(p: Vector2, r: float, seed: float, wobble: float, n: int = 28, drift: float = 0.0) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(n):
+		var th := TAU * float(i) / float(n)
+		var k := 1.0 + wobble * (0.6 * sin(th * 3.0 + seed) + 0.4 * sin(th * 5.0 + seed * 1.7 + g.anim_t * drift))
+		pts.append(p + Vector2(cos(th), sin(th) * 0.86) * r * k)
+	return pts
+
+func flame_tongue(base: Vector2, h: float, phase: float, alpha: float) -> void:
+	var flick := 0.72 + 0.28 * sin(g.anim_t * 15.0 + phase)
+	var hh := h * flick
+	var w := h * 0.42
+	var sway := sin(g.anim_t * 7.0 + phase) * w * 0.35
+	draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(-w * 0.55 + sway * 0.5, -hh * 0.55),
+		base + Vector2(sway, -hh), base + Vector2(w * 0.55 + sway * 0.5, -hh * 0.55), base + Vector2(w, 0), base + Vector2(0, w * 0.45)]),
+		Color(1.0, 0.42, 0.08, alpha))
+	draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(sway * 0.7, -hh * 0.62),
+		base + Vector2(w * 0.5, 0), base + Vector2(0, w * 0.25)]), Color(1.0, 0.85, 0.32, alpha))
+
+func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: bool) -> void:
+	draw_colored_polygon(puddle(p, r, seed, 0.12, 28, 1.2), Color(1.0, 0.3, 0.08, 0.5 * fade))
+	draw_colored_polygon(puddle(p, r * 0.8, seed, 0.13, 28, 1.6), Color(1.0, 0.58, 0.16, 0.55 * fade))
+	draw_colored_polygon(puddle(p, r * 0.48, seed + 3.0, 0.16, 22, 2.0), Color(1.0, 0.9, 0.45, 0.6 * fade))
+	var count := clampi(int(r / 8.0), 4, 14 if blaze else 10)
+	for i in range(count):
+		var u := fmod(float(i) * 0.618 + seed, 1.0)
+		var base := p + Vector2.from_angle(seed * 3.0 + float(i) * 2.399) * r * 0.78 * sqrt(u) * Vector2(1.0, 0.86)
+		flame_tongue(base, (10.0 if blaze else 8.0) + 6.0 * (1.0 - u), float(i) * 1.7 + seed, 0.78 * fade)
+	for i in range(3):
+		var e := fmod(g.anim_t * 0.9 + float(i) * 0.33 + seed, 1.0)
+		draw_circle(p + Vector2(sin(seed + i * 2.0) * r * 0.5, -e * r * 0.9), 2.0 * (1.0 - e), Color(1.0, 0.8, 0.4, fade * (1.0 - e)))
+
+## A dash's fire is one continuous burning stripe that dies from its tail.
+func paint_fire_ribbon(z: Dictionary, fade: float) -> void:
+	var pts: Array = z["pts"]
+	if pts.size() < 2:
+		return
+	var ages := Trails.ages(z, g.run_time, float(z["life"]))
+	var screen := PackedVector2Array()
+	var outer := PackedColorArray()
+	var inner := PackedColorArray()
+	for i in range(pts.size()):
+		screen.append(P(pts[i]))
+		var live := (1.0 - ages[i]) * fade
+		outer.append(Color(1.0, 0.33, 0.08, 0.55 * live))
+		inner.append(Color(1.0, 0.82, 0.38, 0.7 * live))
+	var r := float(z["r"])
+	draw_polyline_colors(screen, outer, r * 1.7, true)
+	draw_polyline_colors(screen, inner, r * 0.7, true)
+	var stride := maxi(1, int(22.0 / Trails.STEP))
+	for i in range(0, pts.size(), stride):
+		var live2 := (1.0 - ages[i]) * fade
+		if live2 <= 0.05:
+			continue
+		var side := sin(float(i) * 2.3) * r * 0.45
+		var n := Vector2.UP
+		if i + 1 < screen.size():
+			n = (screen[i + 1] - screen[i]).normalized().orthogonal()
+		flame_tongue(screen[i] + n * side, 9.0 + 5.0 * live2, float(i) * 1.3, 0.85 * live2)
+
+func paint_poison_patch(p: Vector2, r: float, seed: float, fade: float) -> void:
+	draw_colored_polygon(puddle(p, r * 1.04, seed, 0.1, 30, 0.8), Color(0.12, 0.32, 0.08, 0.35 * fade))
+	draw_colored_polygon(puddle(p, r * 0.94, seed, 0.1, 30, 0.8), Color(0.45, 0.95, 0.28, 0.26 * fade))
+	draw_colored_polygon(puddle(p + Vector2(-r * 0.2, -r * 0.15), r * 0.35, seed + 5.0, 0.2, 18), Color(0.8, 1.0, 0.55, 0.16 * fade))
+	for i in range(5):
+		var u := fmod(g.anim_t * 0.7 + float(i) * 0.21 + seed, 1.0)
+		var bp := p + Vector2.from_angle(seed + float(i) * 2.2) * r * 0.55 * Vector2(1.0, 0.86)
+		draw_arc(bp, 3.0 + u * 6.0, 0.0, TAU, 12, Color(0.8, 1.0, 0.6, 0.6 * (1.0 - u) * fade), 1.5, true)
+
+func paint_ice_patch(p: Vector2, r: float, seed: float, fade: float) -> void:
+	var shard := PackedVector2Array()
+	for i in range(14):
+		var th := TAU * float(i) / 14.0 + seed
+		var k := 1.0 if i % 2 == 0 else 0.84 + 0.08 * sin(seed + i)
+		shard.append(p + Vector2(cos(th), sin(th) * 0.86) * r * k)
+	draw_colored_polygon(shard, Color(0.72, 0.95, 1.0, 0.24 * fade))
+	var edge := shard.duplicate()
+	edge.append(shard[0])
+	draw_polyline(edge, Color(0.9, 1.0, 1.0, 0.65 * fade), 2.0, true)
+	for i in range(0, 14, 3):
+		draw_line(p, p.lerp(shard[i], 0.85), Color(1, 1, 1, 0.3 * fade), 1.5, true)
+	for i in range(3):
+		var tw := 0.5 + 0.5 * sin(g.anim_t * 5.0 + float(i) * 2.1 + seed)
+		var sp := p + Vector2.from_angle(seed * 2.0 + float(i) * 2.1) * r * 0.5
+		var a := Color(1, 1, 1, tw * fade)
+		draw_line(sp - Vector2(4, 0), sp + Vector2(4, 0), a, 1.5)
+		draw_line(sp - Vector2(0, 4), sp + Vector2(0, 4), a, 1.5)
+
+## Enemy acid: one ribbon with rim and veins, evaporating from its tail.
+func paint_acid_ribbon(h: Dictionary) -> void:
+	var pts: Array = h["pts"]
+	if pts.size() < 2:
+		return
+	var ages := Trails.ages(h, g.run_time, float(h["trail_life"]))
+	var r := float(h["r"])
+	var screen := PackedVector2Array()
+	var rim := PackedColorArray()
+	var fill := PackedColorArray()
+	var vein := PackedColorArray()
+	var edge := PackedColorArray()
+	for i in range(pts.size()):
+		screen.append(P(pts[i]))
+		var live := 1.0 - ages[i]
+		rim.append(Color(0.16, 0.36, 0.1, 0.4 * live))
+		fill.append(Color(0.62, 1.0, 0.4, 0.32 * live))
+		vein.append(Color(0.87, 1.0, 0.6, 0.35 * live))
+		edge.append(Color(0.63, 0.97, 0.43, 0.7 * live))
+	draw_polyline_colors(screen, rim, r * 2.0 + 7.0, true)
+	draw_polyline_colors(screen, fill, r * 2.0, true)
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	for i in range(screen.size()):
+		var a := screen[maxi(0, i - 1)]
+		var b := screen[mini(screen.size() - 1, i + 1)]
+		var n := (b - a).normalized().orthogonal() if a.distance_squared_to(b) > 0.01 else Vector2.UP
+		left.append(screen[i] + n * r)
+		right.append(screen[i] - n * r)
+	draw_polyline_colors(left, edge, 2.0, true)
+	draw_polyline_colors(right, edge, 2.0, true)
+	draw_polyline_colors(screen, vein, 2.0, true)
 
 # ================================================================= gates & pitstop
 func paint_gates() -> void:
@@ -270,47 +390,123 @@ func paint_obstacles() -> void:
 			continue
 		var kind = str(ob["kind"])
 		draw_ellipse_shadow(p, radius)
+		var seed = absf(float(ob["pos"].x) * 0.137 + float(ob["pos"].y) * 0.071)
 		match kind:
 			"tree":
-				draw_circle(p + Vector2(0, 12), 15, Color("533a35"))
-				draw_rect(Rect2(p + Vector2(-8, -4), Vector2(16, 28)), Color("876043"))
-				draw_circle(p + Vector2(-10, -12), 25, Color("225c52"))
-				draw_circle(p + Vector2(14, -16), 22, Color("2f8966"))
-				draw_circle(p + Vector2(0, -27), 21, Color("48b879"))
-				draw_circle(p + Vector2(-14, -30), 8, Color("a8ef9e", 0.45))
-				draw_arc(p + Vector2(0, -17), radius, PI * 0.95, TAU * 0.95, 24, Color("78cba2"), 2.0)
+				paint_tree(p, radius, seed)
 			"median":
-				draw_rect(Rect2(p + Vector2(-23, -33), Vector2(46, 66)), Color("37414b"))
-				draw_rect(Rect2(p + Vector2(-19, -29), Vector2(38, 58)), Color("efb953"))
-				for k in range(4):
-					draw_line(p + Vector2(-16, -24 + k * 14), p + Vector2(16, -12 + k * 14), Color("292c3c"), 7.0)
-				draw_rect(Rect2(p + Vector2(-23, -33), Vector2(46, 66)), Color("fff3b0", 0.3), false, 2.0)
+				paint_median(p)
 			"barrier":
-				draw_rect(Rect2(p + Vector2(-32, -16), Vector2(64, 32)), Color("373748"))
-				draw_rect(Rect2(p + Vector2(-30, -18), Vector2(60, 27)), Color("ff9e35"))
-				for k in range(3):
-					var x = -23.0 + k * 21.0
-					draw_colored_polygon(PackedVector2Array([p + Vector2(x, 8), p + Vector2(x + 9, 8), p + Vector2(x + 27, -17), p + Vector2(x + 18, -17)]), Color("fff6ce"))
-				draw_rect(Rect2(p + Vector2(-32, -18), Vector2(64, 28)), Color("673344"), false, 3.0)
+				paint_roadblock(p, seed)
 			"car":
-				var car_color = Color("6c85c9") if int(absi(roundi(p.y))) % 2 == 0 else Color("c56a66")
-				draw_rect(Rect2(p + Vector2(-28, -49), Vector2(56, 98)), Color("0b111f"))
-				for off in [-39.0, 27.0]:
-					draw_rect(Rect2(p + Vector2(-35, off), Vector2(70, 13)), Color("252b39"))
-				draw_rect(Rect2(p + Vector2(-27, -45), Vector2(54, 90)), car_color)
-				draw_rect(Rect2(p + Vector2(-22, -25), Vector2(44, 25)), Color("82cddd"))
-				draw_rect(Rect2(p + Vector2(-22, 13), Vector2(44, 23)), Color("335c78"))
-				draw_rect(Rect2(p + Vector2(-25, -42), Vector2(10, 8)), Color("ffe7b1"))
-				draw_rect(Rect2(p + Vector2(15, -42), Vector2(10, 8)), Color("ffe7b1"))
-				draw_rect(Rect2(p + Vector2(-25, 40), Vector2(12, 5)), Color("ff706b"))
-				draw_rect(Rect2(p + Vector2(13, 40), Vector2(12, 5)), Color("ff706b"))
-				draw_rect(Rect2(p + Vector2(-28, -49), Vector2(56, 98)), Color("b7d9ed", 0.6), false, 2.0)
+				var hpmax_car = 110.0 + g.sector * 5.0
+				paint_car(p, seed, clampf(float(ob.get("hp", hpmax_car)) / hpmax_car, 0.0, 1.0))
 		if float(ob.get("hp", -1.0)) > 0.0:
 			var hpmax = 65.0 + g.sector * 3.0 if kind == "barrier" else 110.0 + g.sector * 5.0
 			var hpfrac = clampf(float(ob["hp"]) / hpmax, 0.0, 1.0)
 			if hpfrac < 0.95:
 				draw_rect(Rect2(p + Vector2(-31, -58), Vector2(62, 5)), Color("211d23"))
 				draw_rect(Rect2(p + Vector2(-31, -58), Vector2(62.0 * hpfrac, 5)), Color("ffae59"))
+
+## Leafy canopy seen from above: clustered crowns with a lit side and a
+## gentle sway. Opaque shapes, so overlaps never show as stacked circles.
+func paint_tree(p: Vector2, radius: float, seed: float) -> void:
+	var palettes = [[Color("17463f"), Color("23705a"), Color("3fa86f"), Color("8fe08a")],
+		[Color("1d4a2c"), Color("2f7a3d"), Color("57b04f"), Color("b5ec7a")],
+		[Color("3a3a1c"), Color("6b7a2a"), Color("a6b53c"), Color("e5ec8a")]]
+	var pal: Array = palettes[int(seed) % palettes.size()]
+	var sway := Vector2(sin(g.anim_t * 1.3 + seed) * 1.6, 0.0)
+	draw_rect(Rect2(p + Vector2(-6, 0), Vector2(12, 22)), Color("5a3b26"))
+	draw_rect(Rect2(p + Vector2(-6, 0), Vector2(5, 22)), Color("7a5236"))
+	var crowns: Array = []
+	for i in range(6):
+		var th := seed + float(i) * 1.047
+		crowns.append([p + sway + Vector2(0, -20) + Vector2.from_angle(th) * Vector2(17.0, 12.0), 15.0 + 4.0 * sin(seed + i)])
+	crowns.append([p + sway + Vector2(0, -22), 20.0])
+	for c in crowns:
+		draw_circle(c[0], float(c[1]) + 3.0, Color("0d221c"))
+	for c in crowns:
+		draw_circle(c[0], float(c[1]), pal[0])
+	for c in crowns:
+		draw_circle(Vector2(c[0]) + Vector2(-3, -4), float(c[1]) * 0.78, pal[1])
+	for c in crowns:
+		draw_circle(Vector2(c[0]) + Vector2(-6, -7), float(c[1]) * 0.42, pal[2])
+	for i in range(5):
+		var lp: Vector2 = p + sway + Vector2(0, -24) + Vector2.from_angle(seed * 2.0 + float(i) * 1.3) * 14.0
+		draw_circle(lp, 2.2, Color(pal[3], 0.75))
+
+## Concrete jersey divider with hazard chevrons.
+func paint_median(p: Vector2) -> void:
+	var body := Rect2(p + Vector2(-22, -34), Vector2(44, 68))
+	draw_rect(body.grow(3.0), Color("1a1d24"))
+	draw_rect(body, Color("9aa1ad"))
+	draw_rect(Rect2(body.position + Vector2(5, 4), Vector2(34, 60)), Color("c3c9d3"))
+	for k in range(4):
+		var y := body.position.y + 10.0 + k * 14.0
+		draw_colored_polygon(PackedVector2Array([Vector2(p.x - 15, y + 8), Vector2(p.x, y), Vector2(p.x + 15, y + 8),
+			Vector2(p.x + 15, y + 13), Vector2(p.x, y + 5), Vector2(p.x - 15, y + 13)]), Color("ffb43a"))
+	draw_line(body.position + Vector2(5, 4), body.position + Vector2(5, 64), Color(1, 1, 1, 0.35), 2.0)
+
+## Sawhorse roadblock: striped board on legs with blinking amber lamps.
+func paint_roadblock(p: Vector2, seed: float) -> void:
+	for side in [-1.0, 1.0]:
+		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 30, 16), Color("1a1d24"), 7.0)
+		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 30, 16), Color("6b7080"), 4.0)
+		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 14, 16), Color("1a1d24"), 7.0)
+		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 14, 16), Color("6b7080"), 4.0)
+	var board := Rect2(p + Vector2(-34, -18), Vector2(68, 18))
+	draw_rect(board.grow(3.0), Color("1a1d24"))
+	draw_rect(board, Color("fff4dc"))
+	for k in range(5):
+		var x0 := board.position.x + float(k) * 16.0 - 6.0
+		var stripe := PackedVector2Array()
+		for q in [Vector2(x0, board.end.y), Vector2(x0 + 8, board.end.y), Vector2(x0 + 18, board.position.y), Vector2(x0 + 10, board.position.y)]:
+			stripe.append(Vector2(clampf(q.x, board.position.x, board.end.x), q.y))
+		draw_colored_polygon(stripe, Color("ff7a1f"))
+	draw_line(board.position + Vector2(2, 2), Vector2(board.end.x - 2, board.position.y + 2), Color(1, 1, 1, 0.5), 2.0)
+	for side in [-1.0, 1.0]:
+		var lamp := p + Vector2(side * 28, -24)
+		var on := fmod(g.anim_t * 1.6 + (0.5 if side > 0 else 0.0) + seed, 1.0) < 0.5
+		draw_rect(Rect2(lamp + Vector2(-4, 2), Vector2(8, 6)), Color("2a2d36"))
+		if on:
+			draw_circle(lamp, 11.0, Color(1.0, 0.75, 0.2, 0.22))
+		draw_circle(lamp, 5.0, Color("ffcf4a") if on else Color("8a5a14"))
+
+## Top-down parked car: rounded body, glass, wheels, lights. Wrecks smoke.
+func paint_car(p: Vector2, seed: float, health: float) -> void:
+	var colors = [Color("4f74d9"), Color("d9534f"), Color("e8c547"), Color("e9eef5"), Color("3fb58a"), Color("9a5fd0"), Color("2b2f3a")]
+	var body_col: Color = colors[int(seed * 3.0) % colors.size()]
+	var dark := body_col.darkened(0.35)
+	for wy in [-30.0, 22.0]:
+		for side in [-1.0, 1.0]:
+			draw_rect(Rect2(p + Vector2(side * 26.0 - 6.0, wy), Vector2(12, 16)), Color("15171d"))
+	var hull := PackedVector2Array()
+	var hw := 25.0
+	var hh := 47.0
+	for corner in [[Vector2(hw - 10, -hh + 10), -PI * 0.5], [Vector2(hw - 10, hh - 10), 0.0], [Vector2(-hw + 10, hh - 10), PI * 0.5], [Vector2(-hw + 10, -hh + 10), PI]]:
+		for k in range(5):
+			hull.append(p + Vector2(corner[0]) + Vector2.from_angle(float(corner[1]) + PI * 0.5 * float(k) / 4.0) * 10.0)
+	var outline := hull.duplicate()
+	outline.append(hull[0])
+	draw_colored_polygon(hull, body_col)
+	draw_polyline(outline, Color("0b0d12"), 3.0, true)
+	draw_rect(Rect2(p + Vector2(-hw + 3, -hh + 6), Vector2(5, hh * 2.0 - 12)), Color(1, 1, 1, 0.18))
+	draw_rect(Rect2(p + Vector2(hw - 8, -hh + 6), Vector2(5, hh * 2.0 - 12)), Color(dark, 0.6))
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-19, -22), p + Vector2(19, -22), p + Vector2(15, -6), p + Vector2(-15, -6)]), Color("7cc6dc"))
+	draw_line(p + Vector2(-12, -19), p + Vector2(-4, -9), Color(1, 1, 1, 0.6), 2.0)
+	draw_rect(Rect2(p + Vector2(-16, -6), Vector2(32, 26)), dark)
+	draw_rect(Rect2(p + Vector2(-13, -3), Vector2(26, 20)), body_col.lightened(0.08))
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-15, 20), p + Vector2(15, 20), p + Vector2(18, 32), p + Vector2(-18, 32)]), Color("3d6f88"))
+	for side in [-1.0, 1.0]:
+		draw_rect(Rect2(p + Vector2(side * (hw + 1.0) - 3.0, -16), Vector2(6, 5)), dark)
+		draw_rect(Rect2(p + Vector2(side * 14.0 - 6.0, -hh + 1.0), Vector2(12, 6)), Color("fff2c4"))
+		draw_rect(Rect2(p + Vector2(side * 15.0 - 6.0, hh - 6.0), Vector2(12, 5)), Color("ff5a52"))
+	if health < 0.55:
+		draw_line(p + Vector2(-10, -18), p + Vector2(2, -12), Color(1, 1, 1, 0.8), 1.5)
+		draw_line(p + Vector2(2, -12), p + Vector2(-4, -8), Color(1, 1, 1, 0.8), 1.5)
+		for i in range(3):
+			var u := fmod(g.anim_t * 0.8 + float(i) * 0.33 + seed, 1.0)
+			draw_circle(p + Vector2(sin(i * 2.0 + seed) * 6.0, -hh + 8.0 - u * 40.0), 5.0 + u * 9.0, Color(0.2, 0.2, 0.22, 0.45 * (1.0 - u)))
 
 func draw_ellipse_shadow(p: Vector2, r: float) -> void:
 	draw_set_transform(p + Vector2(3, 13), 0.0, Vector2(1.0, 0.55))
@@ -694,6 +890,9 @@ func paint_identity_hazards() -> void:
 				draw_arc(p, r, 0, TAU, 20, Color("8adf5a", 0.55), 2.0)
 			"acid_trail":
 				# One uninterrupted toxic ribbon. Exact collision width, no rows of circles.
+				if h.has("pts"):
+					paint_acid_ribbon(h)
+					continue
 				var a: Vector2 = P(h["a"])
 				var b: Vector2 = P(h["b"])
 				var tangent: Vector2 = (b - a).normalized()

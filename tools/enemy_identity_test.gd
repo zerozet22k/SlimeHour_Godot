@@ -63,8 +63,8 @@ func _run() -> void:
 	for travel_step in range(5):
 		Combat.update_shots(g, 0.13)
 	var trails = g.enemy_hazards.filter(func(h): return str(h["kind"]) == "acid_trail")
-	check(trails.size() >= 2 and trails.all(func(h): return h.has("a") and h.has("b")),
-		"Poison ribbons grow segment by segment behind moving projectiles")
+	check(trails.size() >= 1 and trails.size() <= 3 and trails.all(func(h): return h.has("pts") and h["pts"].size() >= 3),
+		"Each acid projectile paints ONE growing poison ribbon, not a chain of segments")
 	g.enemy_hazards.clear()
 	g.shots.clear()
 	var zoomer = specimen(g, "zoomer")
