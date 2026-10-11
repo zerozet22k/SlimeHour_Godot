@@ -1,3 +1,9 @@
+## v0.1.78 — Spitter acid line
+
+- Spitter's acid line is now a real spilled-acid puddle instead of a glowing tube: wobbly liquid edges with a dark rim, a flat pool with a wet sheen, tapered ends and bubbles that swell and pop. The tail dries up by shrinking.
+- Only the main glob leaves the acid line. The two side hooks (sector 6+) splash a puddle where they land, so trails no longer pile into a bundle.
+- Fixed the Windows build check that failed on v0.1.77.
+
 ## v0.1.77 — Monsters use their weapons, guns follow your cursor
 
 - **Lancer actually uses its lance:** it holds the spear at its side, pulls it back and up to throw (glint before release), and its hand is empty until a new spear appears. For the close sweep it cocks the spear back and swings it through the slash. The thrown shot is a real spear in flight.

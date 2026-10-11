@@ -390,7 +390,7 @@ static func update_shots(g, dt: float) -> void:
 			continue
 		if bool(s["friendly"]) and s["flags"].has("frost_trail"):
 			WeaponSignatures.frost_trail(g, s)
-		if not bool(s["friendly"]) and bool(s.get("acid_trail", false)):
+		if not bool(s["friendly"]) and bool(s.get("acid_trail", false)) and not bool(s.get("no_trail", false)):
 			EnemyIdentity.extend_acid(g, s, 13.0, float(s.get("trail_dmg", s["dmg"])) * 0.30, 2.8)
 		if not g.obstacles.is_empty():
 			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), g.obstacles)
@@ -2094,6 +2094,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 								hook["curve"] = -side * 0.60
 								hook["color"] = Color("a2ff83")
 								hook["acid_trail"] = true
+								# Only the main glob draws the acid line; hooks just splash.
+								hook["no_trail"] = true
 								hook["trail_anchor"] = hook["pos"]
 								hook["trail_dmg"] = float(e["dmg"])
 				return Vector2.ZERO

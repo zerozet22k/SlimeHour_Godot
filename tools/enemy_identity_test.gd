@@ -148,7 +148,7 @@ func _run() -> void:
 	Combat.kill(g, phoenix, {"gen": 1, "pos": phoenix["pos"]}, 0.0)
 	check(float(phoenix.get("rebirth_t", 0.0)) > 0.0 and not bool(phoenix["dead"]), "Adult Ashwing can produce a second egg and repeat indefinitely")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
-	check(visuals.contains('e["kind"] == "leech"') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
+	check(visuals.contains('enemy_has_role(e, "leech")') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
 	check(visuals.contains('"acid_trail"') and visuals.contains('"blink_slash"') and visuals.contains("lancer_attack"), "The five mechanics have visible, hitbox-matched tells")
 	g.free()
 	print("ENEMY IDENTITY: ", "PASS" if failures == 0 else str(failures) + " failures")

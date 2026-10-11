@@ -764,38 +764,92 @@ func paint_ice_ribbon(z: Dictionary, fade: float) -> void:
 	draw_polyline_colors(screen, body, float(z["r"]) * 2.0, true)
 	draw_polyline_colors(screen, core, 3.0, true)
 
-## Enemy acid: one ribbon with rim and veins, evaporating from its tail.
+## Enemy acid: one continuous puddle stroke, drawn as a single mesh. The
+## width wobbles like spilled liquid, the ends taper like a drip, the edge has
+## a dark meniscus and a glossy centre, and the tail dries up by shrinking.
 func paint_acid_ribbon(h: Dictionary) -> void:
 	var pts: Array = h["pts"]
 	if pts.size() < 2:
 		return
 	var ages := Trails.ages(h, g.run_time, float(h["trail_life"]))
 	var r := float(h["r"])
-	var screen := PackedVector2Array()
-	var rim := PackedColorArray()
-	var fill := PackedColorArray()
-	var vein := PackedColorArray()
-	var edge := PackedColorArray()
-	for i in range(pts.size()):
-		screen.append(P(pts[i]))
-		var live := 1.0 - ages[i]
-		rim.append(Color(0.16, 0.36, 0.1, 0.4 * live))
-		fill.append(Color(0.62, 1.0, 0.4, 0.32 * live))
-		vein.append(Color(0.87, 1.0, 0.6, 0.35 * live))
-		edge.append(Color(0.63, 0.97, 0.43, 0.7 * live))
-	draw_polyline_colors(screen, rim, r * 2.0 + 7.0, true)
-	draw_polyline_colors(screen, fill, r * 2.0, true)
-	var left := PackedVector2Array()
-	var right := PackedVector2Array()
-	for i in range(screen.size()):
-		var a := screen[maxi(0, i - 1)]
-		var b := screen[mini(screen.size() - 1, i + 1)]
-		var n := (b - a).normalized().orthogonal() if a.distance_squared_to(b) > 0.01 else Vector2.UP
-		left.append(screen[i] + n * r)
-		right.append(screen[i] - n * r)
-	draw_polyline_colors(left, edge, 2.0, true)
-	draw_polyline_colors(right, edge, 2.0, true)
-	draw_polyline_colors(screen, vein, 2.0, true)
+	# Resample to an even step so the outline curves smoothly.
+	var line := PackedVector2Array()
+	var world := PackedVector2Array()
+	var age := PackedFloat32Array()
+	for i in range(pts.size() - 1):
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[i + 1]
+		var steps := maxi(1, int(ceil(a.distance_to(b) / 7.0)))
+		for k in range(steps):
+			var u := float(k) / float(steps)
+			world.append(a.lerp(b, u))
+			age.append(lerpf(ages[i], ages[i + 1], u))
+	world.append(pts[pts.size() - 1])
+	age.append(ages[ages.size() - 1])
+	var n := world.size()
+	for i in range(n):
+		line.append(P(world[i]))
+	var total := 0.0
+	var along := PackedFloat32Array([0.0])
+	for i in range(1, n):
+		total += line[i].distance_to(line[i - 1])
+		along.append(total)
+	# Cross-section: crisp dark rim, bright meniscus, flat pool, and back.
+	var offs := [-1.0, -0.96, -0.8, 0.0, 0.8, 0.96, 1.0]
+	var cn := offs.size()
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var gloss := PackedVector2Array()
+	var gloss_c := PackedColorArray()
+	for i in range(n):
+		var prev := line[maxi(0, i - 1)]
+		var next := line[mini(n - 1, i + 1)]
+		var normal := (next - prev).normalized().orthogonal() if prev.distance_squared_to(next) > 0.01 else Vector2.UP
+		var q: Vector2 = world[i]
+		var wobble := 0.5 + 0.35 * sin(q.x * 0.083 + q.y * 0.061) * sin(q.y * 0.117 - q.x * 0.043 + 1.7) + 0.15 * sin(q.x * 0.31 - q.y * 0.27)
+		var live := 1.0 - age[i]
+		var dry := clampf(1.0 - pow(age[i], 1.6), 0.0, 1.0)
+		var taper := clampf(along[i] / 22.0, 0.0, 1.0) * clampf((total - along[i]) / 16.0, 0.0, 1.0)
+		var w := r * (0.72 + 0.42 * wobble) * dry * sqrt(taper) + 1.5 * taper * dry
+		var rim := Color(0.08, 0.22, 0.06, 0.9 * live)
+		var edge := Color(0.62, 1.0, 0.32, 0.9 * live)
+		var pool := Color(0.36, 0.78, 0.16, 0.6 * live)
+		for k in range(cn):
+			var o: float = offs[k]
+			var ao := absf(o)
+			verts.append(line[i] + normal * signf(o) * (w * ao + (2.5 if ao == 1.0 else 0.0)))
+			cols.append(rim if ao > 0.9 else (edge if ao > 0.5 else pool))
+		gloss.append(line[i] + normal * w * 0.45)
+		gloss_c.append(Color(0.9, 1.0, 0.75, 0.45 * live * taper * wobble))
+	var idx := PackedInt32Array()
+	for i in range(n - 1):
+		for k in range(cn - 1):
+			var a0 := i * cn + k
+			var b0 := (i + 1) * cn + k
+			idx.append_array([a0, a0 + 1, b0, a0 + 1, b0 + 1, b0])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols)
+	draw_polyline_colors(gloss, gloss_c, 1.6, true)
+	# A few bubbles swell and pop at fixed spots along the puddle.
+	for i in range(3, n - 3, 4):
+		var q2: Vector2 = world[i]
+		var seed := fposmod(sin(q2.x * 12.9898 + q2.y * 78.233) * 43758.5453, 1.0)
+		if seed > 0.35 or age[i] > 0.75:
+			continue
+		var cycle := fposmod(g.anim_t * (0.8 + seed) + seed * 7.0, 1.0)
+		var side := (seed - 0.17) * 2.4
+		var prev2 := line[i - 1]
+		var normal2 := (line[i + 1] - prev2).normalized().orthogonal()
+		var bp := line[i] + normal2 * side * r * 0.5
+		var br := 1.2 + cycle * r * 0.32
+		if cycle < 0.85:
+			draw_arc(bp, br, 0.0, TAU, 10, Color(0.85, 1.0, 0.6, 0.75 * (1.0 - age[i])), 1.3, true)
+			draw_circle(bp + Vector2(-br * 0.35, -br * 0.35), maxf(0.6, br * 0.22), Color(1, 1, 1, 0.6 * (1.0 - age[i])))
+		else:
+			var pop := (cycle - 0.85) / 0.15
+			for j in range(4):
+				var d := Vector2.from_angle(j * TAU / 4.0 + seed * 3.0)
+				draw_line(bp + d * br * (1.0 + pop * 0.4), bp + d * br * (1.3 + pop), Color(0.85, 1.0, 0.6, 0.7 * (1.0 - pop)), 1.2)
 
 # ================================================================= gates & pitstop
 func paint_gates() -> void:
@@ -1416,7 +1470,7 @@ func paint_identity_hazards() -> void:
 			"acid":
 				paint_poison_patch(p, r, float(h["pos"].x) * 0.37, clampf(float(h["life"]) / 0.6, 0.0, 1.0))
 			"acid_trail":
-				# One uninterrupted toxic ribbon. Exact collision width, no rows of circles.
+				# One uninterrupted acid puddle stroke. Exact collision width, no rows of circles.
 				if h.has("pts"):
 					paint_acid_ribbon(h)
 					continue
