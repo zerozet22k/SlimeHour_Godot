@@ -679,7 +679,10 @@ func flame_tongue(base: Vector2, h: float, phase: float, alpha: float) -> void:
 	draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(sway * 0.7, -hh * 0.62),
 		base + Vector2(w * 0.5, 0), base + Vector2(0, w * 0.25)]), Color(1.0, 0.85, 0.32, alpha))
 
-func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: bool) -> void:
+func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: bool, hostile: bool = false) -> void:
+	if hostile:
+		paint_hellfire(p, r, seed, fade)
+		return
 	draw_colored_polygon(puddle(p, r, seed, 0.12, 28, 1.2), Color(1.0, 0.3, 0.08, 0.5 * fade))
 	draw_colored_polygon(puddle(p, r * 0.8, seed, 0.13, 28, 1.6), Color(1.0, 0.58, 0.16, 0.55 * fade))
 	draw_colored_polygon(puddle(p, r * 0.48, seed + 3.0, 0.16, 22, 2.0), Color(1.0, 0.9, 0.45, 0.6 * fade))
@@ -691,6 +694,23 @@ func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: boo
 	for i in range(3):
 		var e := fmod(g.anim_t * 0.9 + float(i) * 0.33 + seed, 1.0)
 		draw_circle(p + Vector2(sin(seed + i * 2.0) * r * 0.5, -e * r * 0.9), 2.0 * (1.0 - e), Color(1.0, 0.8, 0.4, fade * (1.0 - e)))
+
+## Enemy fire: crimson-magenta hellfire on a scorched base, with the red
+## danger rim. Your fire stays orange.
+func paint_hellfire(p: Vector2, r: float, seed: float, fade: float) -> void:
+	draw_colored_polygon(puddle(p, r, seed, 0.12, 28, 1.2), Color(0.18, 0.02, 0.06, 0.55 * fade))
+	draw_colored_polygon(puddle(p, r * 0.85, seed, 0.14, 28, 1.6), Color(0.85, 0.08, 0.25, 0.45 * fade))
+	draw_colored_polygon(puddle(p, r * 0.5, seed + 3.0, 0.16, 22, 2.0), Color(1.0, 0.45, 0.6, 0.5 * fade))
+	var count := clampi(int(r / 8.0), 4, 10)
+	for i in range(count):
+		var u := fmod(float(i) * 0.618 + seed, 1.0)
+		var base := p + Vector2.from_angle(seed * 3.0 + float(i) * 2.399) * r * 0.75 * sqrt(u) * Vector2(1.0, 0.86)
+		var flick := 0.72 + 0.28 * sin(g.anim_t * 15.0 + float(i) * 1.7)
+		var hh := (9.0 + 6.0 * (1.0 - u)) * flick
+		var w := hh * 0.42
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(0, -hh), base + Vector2(w, 0), base + Vector2(0, w * 0.4)]), Color(0.9, 0.1, 0.35, 0.8 * fade))
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.45, 0), base + Vector2(0, -hh * 0.6), base + Vector2(w * 0.45, 0)]), Color(1.0, 0.6, 0.75, 0.8 * fade))
+	danger_rim(p, r, seed, fade)
 
 ## A dash's fire is one continuous burning stripe that dies from its tail.
 func paint_fire_ribbon(z: Dictionary, fade: float) -> void:
@@ -720,14 +740,29 @@ func paint_fire_ribbon(z: Dictionary, fade: float) -> void:
 			n = (screen[i + 1] - screen[i]).normalized().orthogonal()
 		flame_tongue(screen[i] + n * side, 9.0 + 5.0 * live2, float(i) * 1.3, 0.85 * live2)
 
-func paint_poison_patch(p: Vector2, r: float, seed: float, fade: float) -> void:
-	draw_colored_polygon(puddle(p, r * 1.04, seed, 0.1, 30, 0.8), Color(0.12, 0.32, 0.08, 0.35 * fade))
-	draw_colored_polygon(puddle(p, r * 0.94, seed, 0.1, 30, 0.8), Color(0.45, 0.95, 0.28, 0.26 * fade))
-	draw_colored_polygon(puddle(p + Vector2(-r * 0.2, -r * 0.15), r * 0.35, seed + 5.0, 0.2, 18), Color(0.8, 1.0, 0.55, 0.16 * fade))
+## Your poison is a teal toxin; enemy acid is sickly yellow-green with a
+## pulsing red danger rim, so you can always tell whose puddle it is.
+func paint_poison_patch(p: Vector2, r: float, seed: float, fade: float, hostile: bool = false) -> void:
+	var base := Color(0.62, 0.9, 0.12) if hostile else Color(0.2, 0.92, 0.72)
+	var deep := Color(0.28, 0.26, 0.04) if hostile else Color(0.04, 0.3, 0.26)
+	var foam := Color(0.95, 1.0, 0.5) if hostile else Color(0.7, 1.0, 0.92)
+	draw_colored_polygon(puddle(p, r * 1.04, seed, 0.1, 30, 0.8), Color(deep, 0.4 * fade))
+	draw_colored_polygon(puddle(p, r * 0.94, seed, 0.1, 30, 0.8), Color(base, 0.3 * fade))
+	draw_colored_polygon(puddle(p + Vector2(-r * 0.2, -r * 0.15), r * 0.35, seed + 5.0, 0.2, 18), Color(foam, 0.18 * fade))
 	for i in range(5):
 		var u := fmod(g.anim_t * 0.7 + float(i) * 0.21 + seed, 1.0)
 		var bp := p + Vector2.from_angle(seed + float(i) * 2.2) * r * 0.55 * Vector2(1.0, 0.86)
-		draw_arc(bp, 3.0 + u * 6.0, 0.0, TAU, 12, Color(0.8, 1.0, 0.6, 0.6 * (1.0 - u) * fade), 1.5, true)
+		draw_arc(bp, 3.0 + u * 6.0, 0.0, TAU, 12, Color(foam, 0.6 * (1.0 - u) * fade), 1.5, true)
+	if hostile:
+		danger_rim(p, r, seed, fade)
+
+## Pulsing red dashed rim: the shared "this hurts YOU" mark on enemy ground hazards.
+func danger_rim(p: Vector2, r: float, seed: float, fade: float) -> void:
+	var pulse: float = 0.55 + 0.45 * sin(g.anim_t * 6.0 + seed)
+	var spin: float = g.anim_t * 0.6
+	for k in range(10):
+		var a0: float = spin + float(k) * TAU / 10.0
+		draw_arc(p, r * 1.02, a0, a0 + TAU / 20.0, 6, Color(1.0, 0.2, 0.25, 0.75 * pulse * fade), 2.5, true)
 
 func paint_ice_patch(p: Vector2, r: float, seed: float, fade: float) -> void:
 	var shard := PackedVector2Array()
@@ -813,9 +848,9 @@ func paint_acid_ribbon(h: Dictionary) -> void:
 		var dry := clampf(1.0 - pow(age[i], 1.6), 0.0, 1.0)
 		var taper := clampf(along[i] / 22.0, 0.0, 1.0) * clampf((total - along[i]) / 16.0, 0.0, 1.0)
 		var w := r * (0.72 + 0.42 * wobble) * dry * sqrt(taper) + 1.5 * taper * dry
-		var rim := Color(0.08, 0.22, 0.06, 0.9 * live)
-		var edge := Color(0.62, 1.0, 0.32, 0.9 * live)
-		var pool := Color(0.36, 0.78, 0.16, 0.6 * live)
+		var rim := Color(0.45, 0.06, 0.08, 0.9 * live)
+		var edge := Color(0.8, 1.0, 0.25, 0.9 * live)
+		var pool := Color(0.55, 0.8, 0.1, 0.6 * live)
 		for k in range(cn):
 			var o: float = offs[k]
 			var ao := absf(o)
@@ -1469,7 +1504,9 @@ func paint_identity_hazards() -> void:
 			"egg":
 				paint_mama_egg(p, r, 1.0 - clampf(float(h["life"]) / float(h["max_life"]), 0.0, 1.0), float(h["hp"]) / 28.0)
 			"acid":
-				paint_poison_patch(p, r, float(h["pos"].x) * 0.37, clampf(float(h["life"]) / 0.6, 0.0, 1.0))
+				paint_poison_patch(p, r, float(h["pos"].x) * 0.37, clampf(float(h["life"]) / 0.6, 0.0, 1.0), true)
+			"fire":
+				paint_fire_patch(p, r, float(h["pos"].x) * 0.37, clampf(float(h["life"]) / 0.6, 0.0, 1.0), false, true)
 			"acid_trail":
 				# One uninterrupted acid puddle stroke. Exact collision width, no rows of circles.
 				if h.has("pts"):
@@ -2576,6 +2613,13 @@ func paint_pets() -> void:
 # ================================================================= shots
 ## Fast GPU-free streaks. No extra Nodes or particle emitters per shot.
 ## Every projectile remains readable without this optional cosmetic layer.
+## Your own projectiles draw a little dimmer than enemy fire, so enemy
+## bullets always read first. Set per shot in paint_shots.
+var shot_dim := 1.0
+
+func dimc(col: Color) -> Color:
+	return Color(col, col.a * shot_dim)
+
 func paint_projectile_travel(s: Dictionary, p: Vector2, direction: Vector2) -> void:
 	var style = str(s.get("vfx_style", "kinetic"))
 	var pattern = str(s.get("vfx_pattern", ""))
@@ -2591,65 +2635,65 @@ func paint_projectile_travel(s: Dictionary, p: Vector2, direction: Vector2) -> v
 	if pattern == "parallel":
 		for signum in [-1.0, 1.0]:
 			var lane = p + side * signum * 3.3
-			draw_line(lane - direction * length, lane, Color(color, 0.65), 1.6)
+			draw_line(lane - direction * length, lane, dimc(Color(color, 0.65)), 1.6)
 	elif pattern in ["double_tap", "burst"]:
-		draw_line(p - direction * length * 1.1 + side * 3.3, p - direction * 3.0 + side * 3.3, Color("fff1b6", 0.55), 1.6)
-		draw_line(p - direction * length * 0.75 - side * 3.3, p - direction * 2.0 - side * 3.3, Color(color, 0.65), 1.5)
+		draw_line(p - direction * length * 1.1 + side * 3.3, p - direction * 3.0 + side * 3.3, dimc(Color("fff1b6", 0.55)), 1.6)
+		draw_line(p - direction * length * 0.75 - side * 3.3, p - direction * 2.0 - side * 3.3, dimc(Color(color, 0.65)), 1.5)
 	match style:
 		"fire":
-			draw_line(p - direction * length, p, Color("ff4e20", 0.25), radius * 2.0)
-			draw_line(p - direction * length * 0.7, p, Color("ffba55", 0.72), radius * 0.75)
+			draw_line(p - direction * length, p, dimc(Color("ff4e20", 0.25)), radius * 2.0)
+			draw_line(p - direction * length * 0.7, p, dimc(Color("ffba55", 0.72)), radius * 0.75)
 			if q != "low":
 				for i in range(2):
 					var jitter = sin(t * 23.0 + float(i) * 3.3 + float(s["phase"])) * (4.0 + i * 2.0)
-					draw_circle(p - direction * (8.0 + i * 11.0) + side * jitter, 1.7 + i * 0.3, Color("ffb264", 0.65))
+					draw_circle(p - direction * (8.0 + i * 11.0) + side * jitter, 1.7 + i * 0.3, dimc(Color("ffb264", 0.65)))
 		"toxic":
-			draw_line(p - direction * length, p, Color("5fbb4a", 0.28), radius * 1.5)
-			draw_line(p - direction * length * 0.57, p, Color("b7ff72", 0.8), 2.5)
+			draw_line(p - direction * length, p, dimc(Color("5fbb4a", 0.28)), radius * 1.5)
+			draw_line(p - direction * length * 0.57, p, dimc(Color("b7ff72", 0.8)), 2.5)
 			if q != "low":
 				for i in range(2):
 					var wobble = sin(t * 11.0 + float(i) * 1.9 + float(s["phase"])) * 5.0
-					draw_circle(p - direction * (9.0 + i * 12.0) + side * wobble, 2.2, Color("c0ff80", 0.62))
+					draw_circle(p - direction * (9.0 + i * 12.0) + side * wobble, 2.2, dimc(Color("c0ff80", 0.62)))
 		"frost", "boss_frost":
-			draw_line(p - direction * length, p, Color("62aeea", 0.3), radius * 1.6)
+			draw_line(p - direction * length, p, dimc(Color("62aeea", 0.3)), radius * 1.6)
 			var diamond = PackedVector2Array([p + direction * 5.0, p + side * 4.0, p - direction * 10.0, p - side * 4.0])
-			draw_colored_polygon(diamond, Color("c5faff", 0.84))
-			draw_line(p - direction * 13.0 + side * 3.0, p - direction * 19.0 - side * 2.0, Color.WHITE, 1.5)
+			draw_colored_polygon(diamond, dimc(Color("c5faff", 0.84)))
+			draw_line(p - direction * 13.0 + side * 3.0, p - direction * 19.0 - side * 2.0, dimc(Color.WHITE), 1.5)
 		"shock", "boss_storm":
 			var jitter = sin(t * 38.0 + float(s["phase"])) * 4.0
-			draw_line(p - direction * length, p - direction * length * 0.5 + side * jitter, Color("69bfff", 0.75), 2.0)
-			draw_line(p - direction * length * 0.5 + side * jitter, p, Color("eafcff", 0.9), 2.0)
-			draw_circle(p, 3.5, Color("f4fdff", 0.9))
+			draw_line(p - direction * length, p - direction * length * 0.5 + side * jitter, dimc(Color("69bfff", 0.75)), 2.0)
+			draw_line(p - direction * length * 0.5 + side * jitter, p, dimc(Color("eafcff", 0.9)), 2.0)
+			draw_circle(p, 3.5, dimc(Color("f4fdff", 0.9)))
 		"blast", "boss_ember":
-			draw_line(p - direction * length * 0.9, p, Color("ff6c29", 0.5), radius * 1.5)
-			draw_line(p - direction * length * 0.46, p, Color("ffe09d", 0.85), radius * 0.65)
+			draw_line(p - direction * length * 0.9, p, dimc(Color("ff6c29", 0.5)), radius * 1.5)
+			draw_line(p - direction * length * 0.46, p, dimc(Color("ffe09d", 0.85)), radius * 0.65)
 			if q != "low":
-				draw_circle(p - direction * 10.0 + side * sin(t * 18.0 + float(s["phase"])) * 3.0, 2.3, Color("ffad53", 0.72))
+				draw_circle(p - direction * 10.0 + side * sin(t * 18.0 + float(s["phase"])) * 3.0, 2.3, dimc(Color("ffad53", 0.72)))
 		"boss_void", "magic":
-			draw_line(p - direction * length, p, Color("a873ff", 0.36), radius * 1.5)
-			draw_arc(p, radius + 4.0, t * 3.0, t * 3.0 + PI * 1.4, 13, Color("e7b4ff", 0.72), 1.6)
-			draw_circle(p, radius * 0.4, Color("ffe0ff", 0.9))
+			draw_line(p - direction * length, p, dimc(Color("a873ff", 0.36)), radius * 1.5)
+			draw_arc(p, radius + 4.0, t * 3.0, t * 3.0 + PI * 1.4, 13, dimc(Color("e7b4ff", 0.72)), 1.6)
+			draw_circle(p, radius * 0.4, dimc(Color("ffe0ff", 0.9)))
 		"pierce":
-			draw_line(p - direction * length * 1.3, p + direction * 4.0, Color("8c74e8", 0.22), radius * 1.2)
-			draw_line(p - direction * length * 1.15, p + direction * 4.0, Color("f5eaff", 0.88), 2.2)
+			draw_line(p - direction * length * 1.3, p + direction * 4.0, dimc(Color("8c74e8", 0.22)), radius * 1.2)
+			draw_line(p - direction * length * 1.15, p + direction * 4.0, dimc(Color("f5eaff", 0.88)), 2.2)
 		"shard":
 			var shard = PackedVector2Array([p + direction * 7.0, p + side * 3.0, p - direction * 8.0, p - side * 3.0])
-			draw_colored_polygon(shard, Color("c4ffe4", 0.78))
-			draw_line(p - direction * length, p - direction * 8.0, Color("80eab5", 0.45), 1.7)
+			draw_colored_polygon(shard, dimc(Color("c4ffe4", 0.78)))
+			draw_line(p - direction * length, p - direction * 8.0, dimc(Color("80eab5", 0.45)), 1.7)
 		"ricochet":
-			draw_line(p - direction * length * 0.8, p, Color("ffd879", 0.65), 2.4)
-			draw_circle(p, radius * 0.7, Color("fff3ad", 0.42))
+			draw_line(p - direction * length * 0.8, p, dimc(Color("ffd879", 0.65)), 2.4)
+			draw_circle(p, radius * 0.7, dimc(Color("fff3ad", 0.42)))
 		"heavy":
-			draw_line(p - direction * length * 0.7, p, Color("ffa34e", 0.27), radius * 1.5)
-			draw_line(p - direction * length * 0.48, p, Color("ffe4a1", 0.82), 3.2)
+			draw_line(p - direction * length * 0.7, p, dimc(Color("ffa34e", 0.27)), radius * 1.5)
+			draw_line(p - direction * length * 0.48, p, dimc(Color("ffe4a1", 0.82)), 3.2)
 		"rapid":
-			draw_line(p - direction * length * 0.6, p, Color("64ccff", 0.52), 2.6)
-			draw_line(p - direction * length * 0.24, p, Color("e8ffff", 0.86), 1.4)
+			draw_line(p - direction * length * 0.6, p, dimc(Color("64ccff", 0.52)), 2.6)
+			draw_line(p - direction * length * 0.24, p, dimc(Color("e8ffff", 0.86)), 1.4)
 		"water":
-			draw_line(p - direction * length * 0.5, p, Color("7de8ff", 0.36), 2.2)
-			draw_arc(p, radius + 2.0, t, t + PI * 1.4, 12, Color("c9ffff", 0.45), 1.4)
+			draw_line(p - direction * length * 0.5, p, dimc(Color("7de8ff", 0.36)), 2.2)
+			draw_arc(p, radius + 2.0, t, t + PI * 1.4, 12, dimc(Color("c9ffff", 0.45)), 1.4)
 		_:
-			draw_line(p - direction * length * 0.67, p, Color(color, 0.52), 2.4)
+			draw_line(p - direction * length * 0.67, p, dimc(Color(color, 0.52)), 2.4)
 
 
 func paint_shots() -> void:
@@ -2663,6 +2707,7 @@ func paint_shots() -> void:
 		if p.y < g.view_top - 40.0 or p.y > g.view_bottom + 40.0:
 			continue
 		var c: Color = s["color"]
+		shot_dim = 0.75 if bool(s["friendly"]) else 1.0
 		# Less visual clutter in bullet-heavy builds; enemy warning shots remain strong.
 		if bool(s["friendly"]):
 			c.a *= 0.62
@@ -2680,57 +2725,57 @@ func paint_shots() -> void:
 					continue
 				if bool(s.get("spear", false)):
 					# The Lancer's actual spear in flight, with a speed streak.
-					draw_line(p - d * 70.0, p - d * 22.0, Color("c8d5ff", 0.35), 6.0)
+					draw_line(p - d * 70.0, p - d * 22.0, dimc(Color("c8d5ff", 0.35)), 6.0)
 					var side: Vector2 = d.orthogonal()
-					draw_line(p - d * 26.0, p + d * 10.0, Color("140d17"), 5.0, true)
-					draw_line(p - d * 26.0, p + d * 10.0, Color("9a6a3c"), 2.6, true)
+					draw_line(p - d * 26.0, p + d * 10.0, dimc(Color("140d17")), 5.0, true)
+					draw_line(p - d * 26.0, p + d * 10.0, dimc(Color("9a6a3c")), 2.6, true)
 					var blade := PackedVector2Array([p + d * 26.0, p + d * 13.0 + side * 6.0, p + d * 6.0, p + d * 13.0 - side * 6.0])
-					draw_colored_polygon(blade, Color("e8ecff"))
+					draw_colored_polygon(blade, dimc(Color("e8ecff")))
 					blade.append(blade[0])
-					draw_polyline(blade, Color("140d17"), 1.6, true)
+					draw_polyline(blade, dimc(Color("140d17")), 1.6, true)
 					continue
 				if bool(s.get("sticky_bomb", false)):
 					# Spinning bomb with a lit fuse.
 					var spin: float = float(s.get("t", 0.0)) * 12.0 + g.anim_t * 6.0
-					draw_circle(p, r + 3.0, Color("140d17"))
-					draw_circle(p, r + 1.0, Color("2a2c35"))
-					draw_arc(p, r * 0.75, spin, spin + 2.3, 10, Color("ff7a46"), 2.5)
+					draw_circle(p, r + 3.0, dimc(Color("140d17")))
+					draw_circle(p, r + 1.0, dimc(Color("2a2c35")))
+					draw_arc(p, r * 0.75, spin, spin + 2.3, 10, dimc(Color("ff7a46")), 2.5)
 					var fuse: Vector2 = p + Vector2.from_angle(spin - 1.2) * (r + 5.0)
-					draw_line(p + Vector2.from_angle(spin - 1.2) * r, fuse, Color("c8a060"), 2.0)
-					draw_circle(fuse, 3.0 + sin(g.anim_t * 30.0), Color("ffd24d"))
+					draw_line(p + Vector2.from_angle(spin - 1.2) * r, fuse, dimc(Color("c8a060")), 2.0)
+					draw_circle(fuse, 3.0 + sin(g.anim_t * 30.0), dimc(Color("ffd24d")))
 					continue
 				var enemy_color: Color = s["color"]
-				draw_circle(p, r + 5, Color(enemy_color, 0.25))
+				draw_circle(p, r + 5, dimc(Color(enemy_color, 0.25)))
 				draw_circle(p, r, enemy_color)
-				draw_circle(p, r * 0.46, Color("fff7ec"))
+				draw_circle(p, r * 0.46, dimc(Color("fff7ec")))
 				if str(s.get("vfx_style", "")).begins_with("boss_"):
 					var pulse = 0.55 + 0.45 * sin(g.anim_t * 12.0 + float(s["phase"]))
-					draw_arc(p, r + 5.5 + pulse * 2.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI * 1.3, 16, Color(enemy_color, 0.8), 2.1)
+					draw_arc(p, r + 5.5 + pulse * 2.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI * 1.3, 16, dimc(Color(enemy_color, 0.8)), 2.1)
 					for j in range(3):
 						var a = g.anim_t * 2.8 + float(j) * TAU / 3.0
-						draw_circle(p + Vector2.from_angle(a) * (r + 5.0), 1.8, Color("fff5e8", 0.85))
+						draw_circle(p + Vector2.from_angle(a) * (r + 5.0), 1.8, dimc(Color("fff5e8", 0.85)))
 			"skull":
-				draw_circle(p, r + 4, Color(0.7, 0.4, 1.0, 0.3))
-				draw_circle(p, r + 1, Color("e0d8f0"))
-				draw_circle(p + Vector2(-2.5, -1), 2, Color("301040"))
-				draw_circle(p + Vector2(2.5, -1), 2, Color("301040"))
+				draw_circle(p, r + 4, dimc(Color(0.7, 0.4, 1.0, 0.3)))
+				draw_circle(p, r + 1, dimc(Color("e0d8f0")))
+				draw_circle(p + Vector2(-2.5, -1), 2, dimc(Color("301040")))
+				draw_circle(p + Vector2(2.5, -1), 2, dimc(Color("301040")))
 			"rocket":
-				draw_line(p - d * 22.0, p - d * 6.0, Color(1, 0.6, 0.2, 0.7), 7.0)
-				draw_line(p - d * 8.0, p + d * 8.0, Color("e8e8f0"), 8.0)
+				draw_line(p - d * 22.0, p - d * 6.0, dimc(Color(1, 0.6, 0.2, 0.7)), 7.0)
+				draw_line(p - d * 8.0, p + d * 8.0, dimc(Color("e8e8f0")), 8.0)
 				draw_circle(p + d * 8.0, 4.0, c)
 			"grenade":
-				draw_circle(p, r, Color("405020"))
+				draw_circle(p, r, dimc(Color("405020")))
 				draw_circle(p - Vector2(2, 2), r * 0.6, c)
 			"egg":
 				draw_set_transform(p, float(s["spin"]), Vector2(0.8, 1.0))
-				draw_circle(Vector2.ZERO, r, Color("fff8e0"))
+				draw_circle(Vector2.ZERO, r, dimc(Color("fff8e0")))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			"flame":
 				var k = clampf(float(s["life"]) / maxf(0.01, float(s["max_life"])), 0.0, 1.0)
-				draw_circle(p, r, Color(1.0, 0.35 + 0.4 * k, 0.1, 0.35 * k + 0.1))
-				draw_circle(p, r * 0.5, Color(1.0, 0.9, 0.4, 0.5 * k))
+				draw_circle(p, r, dimc(Color(1.0, 0.35 + 0.4 * k, 0.1, 0.35 * k + 0.1)))
+				draw_circle(p, r * 0.5, dimc(Color(1.0, 0.9, 0.4, 0.5 * k)))
 			"disc":
-				draw_circle(p, r + 3, Color(c, 0.25))
+				draw_circle(p, r + 3, dimc(Color(c, 0.25)))
 				saw_blade(p, r, float(s["spin"]), c)
 			"saw":
 				saw_blade(p, r, float(s["spin"]), c)
@@ -2750,102 +2795,104 @@ func paint_shots() -> void:
 				draw_colored_polygon(PackedVector2Array([
 					Vector2(-4.0, -1.8), Vector2(-9.0, -6.0 * flap),
 					Vector2(-6.0, -9.0 * flap), Vector2(0.3, -3.0)]),
-					Color("d8f5ff", 0.72))
+					dimc(Color("d8f5ff", 0.72)))
 				draw_colored_polygon(PackedVector2Array([
 					Vector2(-4.0, 1.8), Vector2(-9.0, 6.0 * flap),
 					Vector2(-6.0, 9.0 * flap), Vector2(0.3, 3.0)]),
-					Color("d8f5ff", 0.72))
+					dimc(Color("d8f5ff", 0.72)))
 				# Pointed abdomen with two distinct thick black stripes.
 				draw_colored_polygon(PackedVector2Array([
 					Vector2(-11.0, 0.0), Vector2(-7.6, -4.3),
 					Vector2(-1.5, -5.0), Vector2(3.8, -3.5),
 					Vector2(4.7, 0.0), Vector2(3.8, 3.5),
 					Vector2(-1.5, 5.0), Vector2(-7.6, 4.3)]),
-					Color("251b11"))
+					dimc(Color("251b11")))
 				draw_colored_polygon(PackedVector2Array([
 					Vector2(-9.0, 0.0), Vector2(-6.0, -3.6),
 					Vector2(-1.5, -4.0), Vector2(3.0, -2.8),
 					Vector2(3.5, 0.0), Vector2(3.0, 2.8),
 					Vector2(-1.5, 4.0), Vector2(-6.0, 3.6)]),
-					Color("ffd43f"))
-				draw_line(Vector2(-4.8, -3.5), Vector2(-4.8, 3.5), Color("21170d"), 2.2)
-				draw_line(Vector2(-0.8, -3.8), Vector2(-0.8, 3.8), Color("21170d"), 2.2)
+					dimc(Color("ffd43f")))
+				draw_line(Vector2(-4.8, -3.5), Vector2(-4.8, 3.5), dimc(Color("21170d")), 2.2)
+				draw_line(Vector2(-0.8, -3.8), Vector2(-0.8, 3.8), dimc(Color("21170d")), 2.2)
 				# Small head, eyes, antennae and the pointed tail.
-				draw_circle(Vector2(5.6, 0.0), 3.5, Color("281e10"))
-				draw_circle(Vector2(5.6, 0.0), 2.8, Color("ffe26c"))
-				draw_circle(Vector2(7.3, -1.3), 1.1, Color("151515"))
-				draw_line(Vector2(6.4, -2.5), Vector2(7.8, -5.0), Color("2c2014"), 1.0)
-				draw_line(Vector2(6.1, 2.7), Vector2(7.3, 5.0), Color("2c2014"), 1.0)
+				draw_circle(Vector2(5.6, 0.0), 3.5, dimc(Color("281e10")))
+				draw_circle(Vector2(5.6, 0.0), 2.8, dimc(Color("ffe26c")))
+				draw_circle(Vector2(7.3, -1.3), 1.1, dimc(Color("151515")))
+				draw_line(Vector2(6.4, -2.5), Vector2(7.8, -5.0), dimc(Color("2c2014")), 1.0)
+				draw_line(Vector2(6.1, 2.7), Vector2(7.3, 5.0), dimc(Color("2c2014")), 1.0)
 				draw_colored_polygon(PackedVector2Array([
 					Vector2(-10.0, -1.5), Vector2(-14.0, 0.0),
-					Vector2(-10.0, 1.5)]), Color("27211a"))
+					Vector2(-10.0, 1.5)]), dimc(Color("27211a")))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			"ball":
-				draw_circle(p, r, Color("3a2a5a"))
-				draw_circle(p, r - 2, Color("6a4aa0"))
+				draw_circle(p, r, dimc(Color("3a2a5a")))
+				draw_circle(p, r - 2, dimc(Color("6a4aa0")))
 				for k in range(3):
-					draw_circle(p + Vector2.from_angle(float(s["spin"]) * 0.3 + k * 0.6) * r * 0.45, 2.5, Color("1a1028"))
+					draw_circle(p + Vector2.from_angle(float(s["spin"]) * 0.3 + k * 0.6) * r * 0.45, 2.5, dimc(Color("1a1028")))
 			"chicken":
 				draw_set_transform(p, float(s["spin"]) * 0.6, Vector2.ONE)
-				draw_circle(Vector2.ZERO, r, Color("fff27a"))
-				draw_circle(Vector2(r * 0.6, -r * 0.5), r * 0.5, Color("fff27a"))
-				draw_circle(Vector2(r * 0.6, -r * 1.0), r * 0.3, Color("ff3a3a"))
-				draw_colored_polygon(PackedVector2Array([Vector2(r, -r * 0.5), Vector2(r * 1.6, -r * 0.3), Vector2(r, -r * 0.2)]), Color("ffa020"))
+				draw_circle(Vector2.ZERO, r, dimc(Color("fff27a")))
+				draw_circle(Vector2(r * 0.6, -r * 0.5), r * 0.5, dimc(Color("fff27a")))
+				draw_circle(Vector2(r * 0.6, -r * 1.0), r * 0.3, dimc(Color("ff3a3a")))
+				draw_colored_polygon(PackedVector2Array([Vector2(r, -r * 0.5), Vector2(r * 1.6, -r * 0.3), Vector2(r, -r * 0.2)]), dimc(Color("ffa020")))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			"bubble":
-				draw_circle(p, r, Color(0.6, 0.9, 1.0, 0.15))
-				draw_arc(p, r, 0, TAU, 20, Color(0.85, 0.97, 1.0, 0.85), 2.0)
-				draw_circle(p + Vector2(-r * 0.4, -r * 0.4), r * 0.2, Color(1, 1, 1, 0.8))
+				draw_circle(p, r, dimc(Color(0.6, 0.9, 1.0, 0.15)))
+				draw_arc(p, r, 0, TAU, 20, dimc(Color(0.85, 0.97, 1.0, 0.85)), 2.0)
+				draw_circle(p + Vector2(-r * 0.4, -r * 0.4), r * 0.2, dimc(Color(1, 1, 1, 0.8)))
 			"snow":
-				draw_circle(p, r + 2, Color(0.8, 0.95, 1.0, 0.3))
-				draw_circle(p, r, Color("f0faff"))
-				draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.3, Color.WHITE)
+				draw_circle(p, r + 2, dimc(Color(0.8, 0.95, 1.0, 0.3)))
+				draw_circle(p, r, dimc(Color("f0faff")))
+				draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.3, dimc(Color.WHITE))
 			"coin":
 				var wx = absf(cos(float(s["spin"])))
 				draw_set_transform(p, 0.0, Vector2(maxf(0.2, wx), 1.0))
-				draw_circle(Vector2.ZERO, r, Color("ffd24d"))
+				draw_circle(Vector2.ZERO, r, dimc(Color("ffd24d")))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-				draw_line(p - d * 14.0, p, Color(1, 0.85, 0.3, 0.4), 3.0)
+				draw_line(p - d * 14.0, p, dimc(Color(1, 0.85, 0.3, 0.4)), 3.0)
 			"car":
 				var flip = -1.0 if v.x < 0 else 1.0
-				draw_rect(Rect2(p.x - 34, p.y - 16, 68, 26), Color("ff5a8a"))
-				draw_rect(Rect2(p.x - 18, p.y - 30, 34, 16), Color("ffd24d"))
-				draw_circle(p + Vector2(-20, 12), 8, Color("202028"))
-				draw_circle(p + Vector2(20, 12), 8, Color("202028"))
-				draw_circle(p + Vector2(4 * flip, -24), 6, Color("fff0e0"))
-				draw_circle(p + Vector2(8 * flip, -22), 3, Color("ff3a3a"))
-				draw_circle(p + Vector2(36 * flip, -6), 5, Color("fff27a"))
+				draw_rect(Rect2(p.x - 34, p.y - 16, 68, 26), dimc(Color("ff5a8a")))
+				draw_rect(Rect2(p.x - 18, p.y - 30, 34, 16), dimc(Color("ffd24d")))
+				draw_circle(p + Vector2(-20, 12), 8, dimc(Color("202028")))
+				draw_circle(p + Vector2(20, 12), 8, dimc(Color("202028")))
+				draw_circle(p + Vector2(4 * flip, -24), 6, dimc(Color("fff0e0")))
+				draw_circle(p + Vector2(8 * flip, -22), 3, dimc(Color("ff3a3a")))
+				draw_circle(p + Vector2(36 * flip, -6), 5, dimc(Color("fff27a")))
 			_:
 				if bool(s["friendly"]) and paint_gun_bullet(s, p, d, r, c):
 					continue
 				var tail = p - d * (10.0 + r * 2.5)
 				if shot_index % trail_stride == 0:
-					draw_line(tail, p, Color(c, 0.26), r * 1.6)
+					draw_line(tail, p, dimc(Color(c, 0.26)), r * 1.6)
 				# Batch all common bullets using the existing white-dot atlas,
 				# letting CanvasItem group matching sprites into GPU draws.
 				if atlas != null and atlas_cell.has("#dot"):
 					var dot_rect: Rect2 = atlas_cell["#dot"]
 					dot_rect = Rect2(dot_rect.position + Vector2(60, 60), Vector2(80, 80))
-					var tint = Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3)
+					var tint = dimc(Color(1.0, 1.0, 1.0, 0.7)) if s["flags"].has("big") else c.lightened(0.3)
 					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
 				else:
-					draw_circle(p, r, Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3))
+					draw_circle(p, r, dimc(Color(1.0, 1.0, 1.0, 0.7)) if s["flags"].has("big") else c.lightened(0.3))
 
 ## Spitter's acid: a wobbling glob lobbed through the air above its ground
 ## shadow (the shadow is where it really is), dripping as it flies.
+	shot_dim = 1.0
+
 func paint_acid_glob(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
 	var life := maxf(0.05, float(s["max_life"]))
 	var u := clampf(float(s["t"]) / life, 0.0, 1.0)
 	var lift := sin(u * PI) * 26.0
 	var size := r * (2.3 + 0.35 * sin(u * PI))
 	draw_set_transform(p + Vector2(0, 3), 0.0, Vector2(1.0, 0.45))
-	draw_circle(Vector2.ZERO, size * (1.0 - lift / 60.0), Color(0.05, 0.2, 0.02, 0.45))
+	draw_circle(Vector2.ZERO, size * (1.0 - lift / 60.0), dimc(Color(0.05, 0.2, 0.02, 0.45)))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var c := p - Vector2(0, lift)
 	# Droplets fall off behind the glob.
 	for k in range(3):
 		var back := c - d * (size * (1.2 + k * 0.9)) + Vector2(0, k * 4.0 + fmod(float(s["t"]) * 40.0, 4.0))
-		draw_circle(back, size * (0.32 - k * 0.07), Color("8dff5a", 0.85 - k * 0.2))
+		draw_circle(back, size * (0.32 - k * 0.07), dimc(Color("8dff5a", 0.85 - k * 0.2)))
 	var blob := PackedVector2Array()
 	var ph := float(s["phase"])
 	for i in range(12):
@@ -2853,14 +2900,14 @@ func paint_acid_glob(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
 		var wob := 1.0 + 0.14 * sin(th * 3.0 + float(s["t"]) * 14.0 + ph)
 		var stretch := 1.0 + 0.25 * maxf(0.0, Vector2.from_angle(th).dot(-d))
 		blob.append(c + Vector2.from_angle(th) * size * wob * stretch)
-	draw_colored_polygon(blob, Color("2f5a12"))
+	draw_colored_polygon(blob, dimc(Color("2f5a12")))
 	var inner := PackedVector2Array()
 	for q in blob:
 		inner.append(c + (q - c) * 0.8)
-	draw_colored_polygon(inner, Color("9dff4a"))
-	draw_circle(c + Vector2(size * 0.25, size * 0.15), size * 0.22, Color("d8ff91", 0.8))
-	draw_circle(c - Vector2(size * 0.2, size * 0.25), size * 0.12, Color("d8ff91", 0.9))
-	draw_circle(c + Vector2(-size * 0.35, -size * 0.35), size * 0.16, Color(1, 1, 1, 0.75))
+	draw_colored_polygon(inner, dimc(Color("9dff4a")))
+	draw_circle(c + Vector2(size * 0.25, size * 0.15), size * 0.22, dimc(Color("d8ff91", 0.8)))
+	draw_circle(c - Vector2(size * 0.2, size * 0.25), size * 0.12, dimc(Color("d8ff91", 0.9)))
+	draw_circle(c + Vector2(-size * 0.35, -size * 0.35), size * 0.16, dimc(Color(1, 1, 1, 0.75)))
 
 ## Bullet guns each get their own projectile silhouette. Returns false for
 ## guns that keep the shared batched dot.
@@ -2869,36 +2916,36 @@ func paint_gun_bullet(s: Dictionary, p: Vector2, d: Vector2, r: float, c: Color)
 	match str(s["src"]):
 		"revolver":
 			# Heavy brass slug with a hot trail.
-			draw_line(p - d * 22.0, p, Color(c, 0.35), r * 2.2)
-			draw_colored_polygon(PackedVector2Array([p + d * r * 2.2, p + n * r * 1.1, p - d * r * 1.6 + n * r * 1.1, p - d * r * 1.6 - n * r * 1.1, p - n * r * 1.1]), Color("ffcf5a"))
-			draw_line(p - d * r, p + d * r * 1.4, Color("fff3c4"), 1.5)
+			draw_line(p - d * 22.0, p, dimc(Color(c, 0.35)), r * 2.2)
+			draw_colored_polygon(PackedVector2Array([p + d * r * 2.2, p + n * r * 1.1, p - d * r * 1.6 + n * r * 1.1, p - d * r * 1.6 - n * r * 1.1, p - n * r * 1.1]), dimc(Color("ffcf5a")))
+			draw_line(p - d * r, p + d * r * 1.4, dimc(Color("fff3c4")), 1.5)
 		"smg":
 			# Thin electric streak.
-			draw_line(p - d * 18.0, p, Color(c, 0.5), 2.0)
-			draw_line(p - d * 6.0, p + d * 3.0, Color("e8fbff"), 2.5)
+			draw_line(p - d * 18.0, p, dimc(Color(c, 0.5)), 2.0)
+			draw_line(p - d * 6.0, p + d * 3.0, dimc(Color("e8fbff")), 2.5)
 		"minigun":
-			draw_line(p - d * 14.0, p + d * 2.0, Color("ffd36b", 0.85), 3.5)
-			draw_line(p - d * 5.0, p + d * 3.0, Color("fff6d8"), 2.0)
+			draw_line(p - d * 14.0, p + d * 2.0, dimc(Color("ffd36b", 0.85)), 3.5)
+			draw_line(p - d * 5.0, p + d * 3.0, dimc(Color("fff6d8")), 2.0)
 		"sniper":
 			# Long white needle.
-			draw_line(p - d * 46.0, p, Color(c, 0.3), 3.0)
-			draw_line(p - d * 16.0, p + d * 6.0, Color("ffffff"), 2.0)
+			draw_line(p - d * 46.0, p, dimc(Color(c, 0.3)), 3.0)
+			draw_line(p - d * 16.0, p + d * 6.0, dimc(Color("ffffff")), 2.0)
 		"nailgun":
 			# A nail: shaft plus a flat head.
-			draw_line(p - d * 9.0, p + d * 7.0, Color("c9ccd4"), 2.5)
-			draw_line(p - d * 9.0 - n * 4.0, p - d * 9.0 + n * 4.0, Color("8a8f9c"), 3.0)
-			draw_line(p + d * 7.0, p + d * 10.0, Color("e8eaf0"), 1.5)
+			draw_line(p - d * 9.0, p + d * 7.0, dimc(Color("c9ccd4")), 2.5)
+			draw_line(p - d * 9.0 - n * 4.0, p - d * 9.0 + n * 4.0, dimc(Color("8a8f9c")), 3.0)
+			draw_line(p + d * 7.0, p + d * 10.0, dimc(Color("e8eaf0")), 1.5)
 		"pinball":
 			# Chrome ball with a highlight.
-			draw_circle(p, r + 1.5, Color(0.1, 0.1, 0.12))
-			draw_circle(p, r, Color("c9ced8"))
-			draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.38, Color.WHITE)
+			draw_circle(p, r + 1.5, dimc(Color(0.1, 0.1, 0.12)))
+			draw_circle(p, r, dimc(Color("c9ced8")))
+			draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.38, dimc(Color.WHITE))
 		"shotgun":
 			if not s["flags"].has("slug"):
 				return false
-			draw_line(p - d * 20.0, p, Color(c, 0.35), r * 1.8)
-			draw_circle(p, r, Color("ffd08a"))
-			draw_circle(p, r * 0.5, Color("fff3d8"))
+			draw_line(p - d * 20.0, p, dimc(Color(c, 0.35)), r * 1.8)
+			draw_circle(p, r, dimc(Color("ffd08a")))
+			draw_circle(p, r * 0.5, dimc(Color("fff3d8")))
 		_:
 			return false
 	return true

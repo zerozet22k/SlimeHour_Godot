@@ -70,6 +70,9 @@ static func update_hazards(g, dt: float) -> void:
 			"fissure":
 				g.hurt(float(h["dmg"]), h["pos"], "a Burrower fissure")
 				h["hurt_t"] = 0.60
+			"fire":
+				g.hurt(float(h["dmg"]), h["pos"], "enemy flames")
+				h["hurt_t"] = 0.5
 
 static func hit_hazards(g, s: Dictionary) -> bool:
 	if not bool(s["friendly"]):

@@ -1,3 +1,16 @@
+## v0.1.81 — Whose fire is it? Cards you can read
+
+- **Your poison and fire vs enemies':**
+  - **Yours:** teal toxin and orange flames, with no rim.
+  - **Enemies':** sickly yellow-olive acid and crimson hellfire, both with a pulsing red danger rim.
+  - Spitter's acid line uses the same hostile palette.
+- **New enemy fire:** mutants with the Burning augment (Ashwing, Kaboomba and Larry parts) now leave a hellfire patch on the ground after the blast. It burns you while you stand in it.
+- **Your projectiles are a little dimmer**, so enemy bullets always read first. Enemy shots are unchanged.
+- **Card text never gets cut off:**
+  - The card art shrinks to make room, and the description shrinks only if it still needs to.
+  - Stat lines wrap onto extra rows, and cards now show all their stats (up to 4) instead of the first 2.
+  - This fixes cards like Hot & Cold and Rainbow Rounds.
+
 ## v0.1.80 — Hands on the gun, every mob its own colour
 
 - **Hands fixed:** the head no longer covers the hands holding the guns. A single gun is held in front of the chest with both hands on it, instead of off to one side with an arm crossing the face.

@@ -215,7 +215,9 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				g.gold -= taken
 				g.say(hero + Vector2(0, -30), "-%d GOLD" % taken, Color("ffd24d"), 16)
 		"fire":
-			C.schedule_boss_blast(g, pos, 52.0, dmg * 0.5, 0.35, "ff8a3d")
+			C.schedule_boss_blast(g, pos, 52.0, dmg * 0.5, 0.35, "ff3a6a")
+			# The blast leaves enemy hellfire burning on the ground.
+			EI.place(g, "fire", pos, 44.0, dmg * 0.25, 2.4, 0.45)
 		"shards":
 			for k in range(3):
 				var d := (hero - pos).normalized().rotated((float(k) - 1.0) * 0.35)

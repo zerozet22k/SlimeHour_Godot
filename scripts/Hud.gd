@@ -109,6 +109,40 @@ func wrap_text(t: String, x: float, y: float, width: float, size: int, color: Co
 			txt(lines[i], Vector2(x, y + i * line_h), size, color, 0, ff)
 	return y + mini(lines.size(), max_lines) * line_h
 
+## How many lines wrap_text would use for T at this width and size.
+func count_lines(t: String, width: float, size: int, f: Font = null) -> int:
+	var ff = f if f != null else body
+	var line = ""
+	var n := 0
+	for word in t.split(" "):
+		var test = word if line == "" else line + " " + word
+		if ff.get_string_size(test, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width and line != "":
+			n += 1
+			line = word
+		else:
+			line = test
+	return n + (1 if line != "" else 0)
+
+## Splits a "A  |  B  |  C" stat line into as few rows as fit WIDTH.
+func pack_rows(t: String, width: float, size: int, f: Font) -> Array:
+	var rows: Array = []
+	if t.strip_edges() == "":
+		return rows
+	var line := ""
+	for part in t.split("|"):
+		var piece := str(part).strip_edges()
+		if piece == "":
+			continue
+		var test := piece if line == "" else line + "  |  " + piece
+		if line != "" and f.get_string_size(test, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+			rows.append(line)
+			line = piece
+		else:
+			line = test
+	if line != "":
+		rows.append(line)
+	return rows
+
 func slant(r: Rect2, fill: Color, edge: Color = Color(0, 0, 0, 0), skew = 10.0, width = 3.0) -> void:
 	var pts = PackedVector2Array([r.position + Vector2(skew, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x - skew, r.end.y), Vector2(r.position.x, r.end.y)])
 	draw_colored_polygon(pts, fill)
@@ -1294,6 +1328,13 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 	# Weapon descriptions need more readable lines than decorative artwork.
 	var weapon_offer = str(info.get("cat", "")) in ["NEW GUN", "GUN UPGRADE", "EVOLUTION"]
 	var art_height = minf(r.size.x - 24, r.size.y * (0.36 if weapon_offer else 0.53))
+	# The art gives way to the text: measure the description (at 15px) and the
+	# stat rows first, then let the art take only what is left.
+	var foot_pre = str(info.get("foot", ""))
+	var footer_h := 68.0 if (foot_pre.contains("DMG") or foot_pre.contains("MAG")) else 44.0
+	var rows_pre := pack_rows(str(info.get("stack", "")), r.size.x - 28, 13, bold)
+	var text_h: float = count_lines(str(info["desc"]), r.size.x - 32, 15, body) * 19.0 + rows_pre.size() * 17.0 + 6.0
+	art_height = clampf(r.size.y - 46.0 - 60.0 - text_h - footer_h, minf(110.0, art_height), art_height)
 	var art_r = Rect2(r.position + Vector2(12, 46), Vector2(r.size.x - 24, art_height))
 	card_art(art_r, info, rc)
 	# title + desc
@@ -1303,10 +1344,20 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 	var stack = str(info.get("stack", ""))
 	var foot = str(info.get("foot", ""))
 	var has_stats = foot.contains("DMG") or foot.contains("MAG")
-	var lines = maxi(2, int((r.end.y - (68 if has_stats else 44) - (ty + 26) - (22 if stack != "" else 0)) / 20.0))
-	var y = wrap_text(str(info["desc"]), r.position.x + 16, ty + 26, r.size.x - 32, 16, Color("dbe4f5"), 20, body, true, lines)
-	if stack != "":
-		txt(stack, Vector2(r.get_center().x, minf(y + 4, r.end.y - 40)), fit(stack, r.size.x - 24, 15, bold, 10), Color("7dff9a"), 1, bold, 3)
+	# Everything on a card must be readable: the stat line breaks at its "|"
+	# separators into extra rows, and the description steps its font down
+	# until the whole text fits above the footer. Nothing is cut off.
+	var stat_rows := pack_rows(stack, r.size.x - 28, 13, bold)
+	var bottom := r.end.y - (68.0 if has_stats else 44.0)
+	var room: float = bottom - (ty + 26.0) - stat_rows.size() * 17.0 - (4.0 if not stat_rows.is_empty() else 0.0)
+	var desc := str(info["desc"])
+	var size := 15
+	while size > 11 and count_lines(desc, r.size.x - 32, size, body) * (size + 4) > room + 2.0:
+		size -= 1
+	var y = wrap_text(desc, r.position.x + 16, ty + 26, r.size.x - 32, size, Color("dbe4f5"), size + 4, body, true)
+	for k in range(stat_rows.size()):
+		var row := str(stat_rows[k])
+		txt(row, Vector2(r.get_center().x, y + 4 + k * 17.0), fit(row, r.size.x - 24, 13, bold, 10), Color("7dff9a"), 1, bold, 3)
 	# footer: rarity chip + owned/new
 	var rl = str(info.get("rarlabel", RARITY[rar])) if not bool(info.get("cursed", false)) else "CURSED"
 	var cw = bold.get_string_size(rl, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 20

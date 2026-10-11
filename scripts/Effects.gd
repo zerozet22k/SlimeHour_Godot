@@ -200,7 +200,7 @@ static func stack_preview(g, id: String, owned_view: bool = false) -> String:
 			parts.append("%s %s > %s" % [STAT_NAMES[key], format_mod(key, old_value), format_mod(key, new_value)])
 		else:
 			parts.append("%s %s" % [STAT_NAMES[key], format_mod(key, new_value)])
-		if parts.size() >= 2:
+		if parts.size() >= 4:
 			break
 	if not parts.is_empty():
 		return "  |  ".join(parts)
