@@ -159,11 +159,32 @@ var draw_prof := OS.get_environment("PERF_DRAW") != ""
 ## one draw call each and was the main frame-rate killer in big fights.
 var dot_src := Rect2()
 
+## A clean white disc with a smooth alpha edge, in its own texture: white
+## RGB everywhere so mipmaps never darken it, and no neighbouring sprites to
+## bleed in when a bullet-sized dot samples a small mip level.
+var dot_tex: Texture2D = null
+
+func make_dot_texture() -> Texture2D:
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := (n - 1) * 0.5
+	var radius := n * 0.5 - 2.0
+	for y in range(n):
+		for x in range(n):
+			var d := Vector2(x - c, y - c).length()
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(radius - d + 0.5, 0.0, 1.0)))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+func dot_rect(rect: Rect2, col: Color) -> void:
+	if dot_tex == null:
+		dot_tex = make_dot_texture()
+	draw_texture_rect(dot_tex, rect, false, col)
+
 func dot(p: Vector2, r: float, col: Color) -> void:
-	if atlas != null and dot_src.size.x > 0.0:
-		draw_texture_rect_region(atlas, Rect2(p.x - r, p.y - r, r * 2.0, r * 2.0), dot_src, col)
-	else:
-		draw_circle(p, r, col)
+	if dot_tex == null:
+		dot_tex = make_dot_texture()
+	draw_texture_rect(dot_tex, Rect2(p.x - r, p.y - r, r * 2.0, r * 2.0), false, col)
 
 func _draw() -> void:
 	if headless:
@@ -1080,17 +1101,28 @@ func paint_median(p: Vector2) -> void:
 	draw_line(body.position + Vector2(5, 4), body.position + Vector2(5, 64), Color(1, 1, 1, 0.35), 2.0)
 
 ## Traffic cone seen from above: square base, banded orange cone.
+## Traffic cone from above, drawn big and bright so it reads at a glance:
+## shadow, black base, orange cone with two white reflective bands.
 func paint_cone(p: Vector2) -> void:
-	draw_rect(Rect2(p + Vector2(-12, -12), Vector2(24, 24)), Color("15171d"))
-	draw_rect(Rect2(p + Vector2(-10, -10), Vector2(20, 20)), Color("3a3f4d"))
-	dot(p, 9.5, Color("15171d"))
-	dot(p, 8.0, Color("ff7a1f"))
-	draw_arc(p, 5.0, 0.0, TAU, 16, Color("fff4dc"), 2.5, true)
-	dot(p, 2.2, Color("ffb066"))
-	dot(p + Vector2(-3, -3), 1.6, Color(1, 1, 1, 0.6))
+	dot(p + Vector2(4, 5), 17.0, Color(0, 0, 0, 0.35))
+	draw_rect(Rect2(p + Vector2(-17, -17), Vector2(34, 34)), Color("15171d"))
+	draw_rect(Rect2(p + Vector2(-14.5, -14.5), Vector2(29, 29)), Color("2c303a"))
+	dot(p, 13.5, Color("15171d"))
+	dot(p, 12.0, Color("ff6a10"))
+	dot(p, 8.6, Color("fff4dc"))
+	dot(p, 6.6, Color("ff7a1f"))
+	dot(p, 3.6, Color("fff4dc"))
+	dot(p, 2.2, Color("ff8a2e"))
+	dot(p + Vector2(-5, -5), 2.2, Color(1, 1, 1, 0.55))
 
 ## Sawhorse roadblock: striped board on legs with blinking amber lamps.
 func paint_roadblock(p: Vector2, seed: float) -> void:
+	# Drawn 25% larger than before so roadworks are unmissable.
+	draw_set_transform(p, 0.0, Vector2.ONE * 1.25)
+	paint_roadblock_at(Vector2.ZERO, seed)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func paint_roadblock_at(p: Vector2, seed: float) -> void:
 	for side in [-1.0, 1.0]:
 		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 30, 16), Color("1a1d24"), 7.0)
 		draw_line(p + Vector2(side * 22, -6), p + Vector2(side * 30, 16), Color("6b7080"), 4.0)
@@ -1954,13 +1986,15 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		var big_head = g.st("bighead") > 0
 		for ex in ([0.0] if kind == "necro" else [-0.36, 0.36]):
 			var ep = p + Vector2(ex * r * sx, ey)
-			if not bodies:
+			# Pupils use the clean dot texture and are drawn in the extras
+			# pass, so pass 1 stays one unbroken batch of atlas sprites.
+			if not extras:
 				pass
 			elif big_head:
-				draw_texture_rect_region(atlas, Rect2(ep - Vector2(eye_r, eye_r) * 1.6, Vector2(eye_r, eye_r) * 3.2), dot_src_rect, Color.WHITE)
-				draw_texture_rect_region(atlas, Rect2(ep + off * 1.6 - Vector2(pr, pr) * 1.6, Vector2(pr, pr) * 3.2), dot_src_rect, pc)
+				dot_rect(Rect2(ep - Vector2(eye_r, eye_r) * 1.6, Vector2(eye_r, eye_r) * 3.2), Color.WHITE)
+				dot_rect(Rect2(ep + off * 1.6 - Vector2(pr, pr) * 1.6, Vector2(pr, pr) * 3.2), pc)
 			else:
-				draw_texture_rect_region(atlas, Rect2(ep + off - Vector2(pr, pr), Vector2(pr, pr) * 2.0), dot_src_rect, pc)
+				dot_rect(Rect2(ep + off - Vector2(pr, pr), Vector2(pr, pr) * 2.0), pc)
 			if extras and float(e["charm"]) > 0.0:
 				heart(ep + Vector2(0, -1), eye_r * 0.6, Color("ff3a8a"))
 	if not extras:
@@ -2494,7 +2528,9 @@ func paint_hero() -> void:
 	for i in range(g.guns.size()):
 		var w = g.guns[i]
 		held.append({"id": str(w["id"]), "aim": Weapons.aim_for_slot(g, i), "muzzle": P(Weapons.muzzle_pos(g, i)),
-			"firing": float(w["flash"]) > 0.0, "charge": float(w.get("charge", 0.0)), "evolved": bool(w["evolved"])})
+			"firing": float(w["flash"]) > 0.0, "charge": float(w.get("charge", 0.0)), "evolved": bool(w["evolved"]),
+			# A thrown Returner / Razor Disc is out of your hand until caught.
+			"hidden": str(g.weapon_db[w["id"]]["kind"]) in ["disc", "boomerang"] and int(w["ammo"]) <= 0})
 	var bash_phase := -1.0
 	if float(h.get("bash_t", 0.0)) > 0.0:
 		bash_phase = 1.0 - clampf(float(h["bash_t"]) / 0.23, 0.0, 1.0)
@@ -2816,7 +2852,7 @@ func paint_shots() -> void:
 		if p.y < g.view_top - 40.0 or p.y > g.view_bottom + 40.0:
 			continue
 		var c: Color = s["color"]
-		shot_dim = 0.75 if bool(s["friendly"]) else 1.0
+		shot_dim = 0.6 if bool(s["friendly"]) else 1.0
 		# Less visual clutter in bullet-heavy builds; enemy warning shots remain strong.
 		if bool(s["friendly"]):
 			c.a *= 0.62
@@ -2853,10 +2889,13 @@ func paint_shots() -> void:
 					draw_line(p + Vector2.from_angle(spin - 1.2) * r, fuse, dimc(Color("c8a060")), 2.0)
 					dot(fuse, 3.0 + sin(g.anim_t * 30.0), dimc(Color("ffd24d")))
 					continue
+				# Enemy shots must always read first: a glow, a dark contrast rim,
+				# a bright body and a white core.
 				var enemy_color: Color = s["color"]
-				dot(p, r + 5, dimc(Color(enemy_color, 0.25)))
+				dot(p, r + 7, Color(enemy_color, 0.32))
+				dot(p, r + 2.2, Color(0.05, 0.02, 0.06, 0.85))
 				dot(p, r, enemy_color)
-				dot(p, r * 0.46, dimc(Color("fff7ec")))
+				dot(p, r * 0.46, Color("fff7ec"))
 				if str(s.get("vfx_style", "")).begins_with("boss_"):
 					var pulse = 0.55 + 0.45 * sin(g.anim_t * 12.0 + float(s["phase"]))
 					draw_arc(p, r + 5.5 + pulse * 2.0, g.anim_t * 2.0, g.anim_t * 2.0 + PI * 1.3, 16, dimc(Color(enemy_color, 0.8)), 2.1)
@@ -2978,9 +3017,8 @@ func paint_shots() -> void:
 				# Batch all common bullets using the existing white-dot atlas,
 				# letting CanvasItem group matching sprites into GPU draws.
 				if atlas != null and atlas_cell.has("#dot"):
-					var dot_rect: Rect2 = dot_src
 					var tint = dimc(Color(1.0, 1.0, 1.0, 0.7)) if s["flags"].has("big") else c.lightened(0.3)
-					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
+					dot_rect(Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), tint)
 				else:
 					dot(p, r, dimc(Color(1.0, 1.0, 1.0, 0.7)) if s["flags"].has("big") else c.lightened(0.3))
 
@@ -3278,9 +3316,8 @@ func paint_fx() -> void:
 				draw_arc(p, rr, 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), 7.0 * (1.0 - k) + 1.5, true)
 				draw_arc(p, rr * 0.92, 0, TAU, 40, Color(1, 1, 1, 0.5 * (1.0 - k)), 1.5, true)
 			"smoke":
-				var sr = float(f["size"]) * (0.6 + k * 0.9)
-				dot(p, sr, Color(0.16, 0.15, 0.17, 0.3 * (1.0 - k)))
-				dot(p + Vector2(-sr * 0.25, -sr * 0.25), sr * 0.55, Color(0.3, 0.29, 0.32, 0.25 * (1.0 - k)))
+				var sr = float(f["size"]) * (0.6 + k * 0.6)
+				dot(p, sr, Color(0.16, 0.15, 0.17, 0.14 * (1.0 - k)))
 			"slash":
 				paint_slash(self, f, p, k, false)
 			"blast":
@@ -3296,13 +3333,14 @@ func paint_fx() -> void:
 					var th := TAU * float(i) / 20.0
 					var wob := 1.0 + 0.07 * sin(th * 5.0 + seed_b + k * 6.0) + 0.04 * sin(th * 9.0 - seed_b)
 					ball.append(p + Vector2.from_angle(th) * r * wob)
-				draw_colored_polygon(ball, Color(c.darkened(0.15), 0.55 * fade))
-				dot(p, r * 0.72, Color(c.lightened(0.25), 0.6 * fade))
-				dot(p, r * 0.42 * (1.0 - k), Color(1.0, 0.95, 0.75, 0.9 * fade))
+				# Your explosions stay readable but quieter than enemy attacks.
+				draw_colored_polygon(ball, Color(c.darkened(0.15), 0.38 * fade))
+				dot(p, r * 0.72, Color(c.lightened(0.25), 0.42 * fade))
+				dot(p, r * 0.42 * (1.0 - k), Color(1.0, 0.95, 0.75, 0.7 * fade))
 				var flash = maxf(0.0, 1.0 - k * 4.0)
 				if flash > 0.0:
-					dot(p, size_b * 0.5, Color(1, 1, 1, 0.6 * flash))
-				draw_arc(p, size_b * (0.6 + 0.7 * ease_out(k)), 0, TAU, 44, Color(c.lightened(0.4), 0.8 * fade), 5.0 * fade + 1.0, true)
+					dot(p, size_b * 0.5, Color(1, 1, 1, 0.4 * flash))
+				draw_arc(p, size_b * (0.6 + 0.7 * ease_out(k)), 0, TAU, 44, Color(c.lightened(0.4), 0.55 * fade), 4.0 * fade + 1.0, true)
 			"shock":
 				draw_arc(p, float(f["size"]) * k, 0, TAU, 48, Color(c, 1.0 - k), 8.0 * (1.0 - k) + 1.0)
 			"confetti":

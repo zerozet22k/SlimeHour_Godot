@@ -30,9 +30,11 @@ class Sheet extends Node2D:
 			for col in range(5):
 				var p := Vector2(110 + col * 240, 75 + row * 140)
 				var f: Vector2 = aims[col].normalized()
-				var k := 1.6
+				var k := float(OS.get_environment("HERO_K")) if OS.get_environment("HERO_K") != "" else 1.6
 				var guns: Array = []
 				var ids: Array = ["shotgun", "sniper"] if col == 2 else [str(ch["weapon"])]
+				if OS.get_environment("HERO_GUNS") != "":
+					ids = Array(OS.get_environment("HERO_GUNS").split(","))
 				for i in range(ids.size()):
 					guns.append({"id": ids[i], "aim": f, "muzzle": HeroModels.muzzle_for(p, f, k, str(ids[i]), i, ids.size())})
 				var o := {"t": 0.4 + row, "step": 2.0}

@@ -1,3 +1,17 @@
+## v0.1.85 — Readable attacks, sturdier runner
+
+- **Fixed: enemy attacks showed as faint brown discs.** v0.1.84's circle batching made small bullets and circles render dark and see-through. Circles now use their own clean texture.
+- **Enemy projectiles stand out; yours step back.** Enemy shots get a dark contrast rim and a stronger glow. Your shots and explosions are toned down, and explosions leave only a small, short wisp of smoke instead of big lingering discs.
+- **Heli is now the first boss (sector 5) and Chonkzilla the second (sector 10).** Chonkzilla's base damage is trimmed (30 to 24) for its new slot.
+- **Mirror nerfed:** its reflect recharges in 1.8s (was 1.1s), and reflected shots are slower and hit no harder than the Mirror itself.
+- **Returner fixed:** it no longer curls away the moment it leaves your hand. It sweeps across where you aim, reaches it, and comes back. While a Returner or Razor Disc is in flight, your hand is empty.
+- **Fixed: stretched arms.** A target very close to you could spin a long gun around and stretch the arm across the screen.
+- **Guns have categories:** Sidearm, Rapid Fire, Close Range, Long Range, Explosive, Energy, Thrown and Special. They show on gun cards, the HUD and the arsenal.
+- **Bigger, easier-to-see obstacles:** traffic cones are much larger and brighter, and roadblocks are 25% bigger.
+- **Charmed monsters no longer count as enemies left.** They fight for you, then collapse when the charm wears off.
+- **More survivable:** 130 base HP plus 18 per sector (was 100 plus 12), heart drops twice as often, and clearing a sector heals 25% of your max HP.
+- **Fixed: King Blob dropped many chests.** It splits into pieces, and each piece used to drop full boss loot. Now only the last piece drops the chest.
+
 ## v0.1.84 — Much smoother, and the late game is fun again
 
 - **Big frame-rate boost in crowded fights.** In the same heavy test fight, frames went from 8 fps to about 45 fps. Typical busy fights now run at 70-90 fps.

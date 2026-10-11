@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.84"
+const GAME_VERSION = "v0.1.85"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1297,7 +1297,7 @@ func regular_crowd_defeated() -> bool:
 	if budget_spawned < sector_budget or not rush_done or rush_queue > 0:
 		return false
 	for e in enemies:
-		if not bool(e["dead"]) and not bool(e["boss"]):
+		if not bool(e["dead"]) and not bool(e["boss"]) and not bool(e.get("turned", false)):
 			return false
 	return true
 
@@ -1390,7 +1390,7 @@ func update_director(dt: float) -> void:
 		spawn_enemy("goblin", Vector2(randf_range(-300, 300), cam_y - maxf(380.0, ui_height * 0.5 + 80.0)))
 		say(hero["pos"] + Vector2(0, -80), "A GOLD GOBLIN!", Color("ffd24d"), 24)
 	if is_boss_sector() and not boss_spawned and regular_crowd_defeated():
-		var bosses = ["chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
+		var bosses = ["heli", "chonkzilla", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
 		var kind = bosses[((sector - WIN_SECTOR - 1) if sector > WIN_SECTOR else (int(sector / 5) - 1)) % bosses.size()]
 		begin_boss_reveal(kind)
 	update_gates()
@@ -1404,7 +1404,7 @@ func crowd_cleared() -> bool:
 	if is_boss_sector() and not boss_spawned:
 		return false
 	for e in enemies:
-		if not bool(e["dead"]) and e["kind"] != "goblin":
+		if not bool(e["dead"]) and e["kind"] != "goblin" and not bool(e.get("turned", false)):
 			return false
 	return true
 
@@ -1646,6 +1646,9 @@ func sector_clear() -> void:
 		pk["vacuum"] = true
 	var stipend = 5 + sector * 2
 	gold += stipend
+	# Clearing a sector patches you up: a quarter of your max HP.
+	if not hero.is_empty():
+		heal(float(hero["maxhp"]) * 0.25)
 	if st("interest") > 0:
 		var interest = mini(15 * int(st("interest")), int(gold * 0.1 * st("interest")))
 		gold += interest

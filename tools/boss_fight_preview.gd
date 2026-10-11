@@ -3,7 +3,7 @@ extends SceneTree
 ## Needs a real window:  Godot --path . --script tools/boss_fight_preview.gd -- --boss=heli
 ## Omit --boss to capture every boss in sequence.
 
-const BOSSES = ["chonkzilla", "heli", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
+const BOSSES = ["heli", "chonkzilla", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
 const SHOTS = [2.5, 5.0, 7.5, 10.0, 12.5, 15.0]
 
 var game

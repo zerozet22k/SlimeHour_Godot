@@ -28,6 +28,21 @@ static func new_gun(g, id: String, tier: int = 0) -> Dictionary:
 	w["virtual_ammo"] = w["mag_max"]
 	return w
 
+## What kind of gun it is, shown on cards, the HUD and the arsenal.
+const CLASSES = {
+	"pistol": "SIDEARM", "revolver": "SIDEARM", "pinball": "SIDEARM", "chicken": "SIDEARM",
+	"smg": "RAPID FIRE", "minigun": "RAPID FIRE", "nailgun": "RAPID FIRE",
+	"shotgun": "CLOSE RANGE", "flame": "CLOSE RANGE",
+	"sniper": "LONG RANGE", "rail": "LONG RANGE", "splitbow": "LONG RANGE",
+	"rocket": "EXPLOSIVE", "grenade": "EXPLOSIVE", "bowling": "EXPLOSIVE",
+	"laser": "ENERGY", "tesla": "ENERGY",
+	"disc": "THROWN", "boomerang": "THROWN",
+	"bees": "SPECIAL", "bubble": "SPECIAL", "snow": "SPECIAL",
+}
+
+static func gun_class(id: String) -> String:
+	return str(CLASSES.get(id, "SPECIAL"))
+
 static func display_name(g, w: Dictionary) -> String:
 	if bool(w["evolved"]):
 		return str(EVOLVED_NAMES.get(w["id"], "EX " + str(g.weapon_db[w["id"]]["name"])))
@@ -166,17 +181,32 @@ static func muzzle_pos(g, slot: int) -> Vector2:
 		reach = GunModels.reach(str(g.guns[slot]["id"]))
 	return hand_pos(g, slot) + Vector2(g.hero["aim"]).normalized() * reach
 
+## Points a gun from its muzzle at TARGET, but only when the target lies
+## beyond the gun's own reach, and never more than ~50 degrees off the body's
+## facing. A target inside a long gun's reach used to spin the gun around its
+## muzzle and stretch the arm across the screen.
+static func converge(g, slot: int, base: Vector2, target: Vector2) -> Vector2:
+	var hand: Vector2 = hand_pos(g, slot)
+	var reach: float = muzzle_pos(g, slot).distance_to(hand)
+	if Vector2(target).distance_to(hand) < reach + 40.0:
+		return base
+	var dir := WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
+	var delta := wrapf(dir.angle() - base.angle(), -PI, PI)
+	return base.rotated(clampf(delta, -0.9, 0.9))
+
 ## Cursor aim must converge from the actual muzzle, not run parallel to the
 ## hero-to-cursor ray. This matters most for precise weapons and close targets.
 static func aim_for_slot(g, slot: int) -> Vector2:
 	var base: Vector2 = g.hero["aim"]
+	var target = null
 	if str(g.settings.get("aim", "auto")) == "mouse" and g.autotest == "" and not g.is_touch_active():
-		var target: Vector2 = g.screen_to_world(g.aim_screen)
-		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
+		target = g.screen_to_world(g.aim_screen)
 	elif g.hero.get("aim_point") != null:
 		# Auto aim: both hands converge on the locked enemy (or the free cursor)
 		# instead of firing two parallel lines past a close target.
-		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), g.hero["aim_point"])
+		target = g.hero["aim_point"]
+	if target != null:
+		base = converge(g, slot, base, target)
 	# Homing has no physical bullet to steer on cone/hitscan weapons. Convert
 	# it to a SMALL capped aim correction toward a target already near the reticle.
 	if not g.has_method("st") or g.st("homing") <= 0.0 or slot >= g.guns.size():
@@ -794,6 +824,10 @@ static func emit(g, w: Dictionary, pos: Vector2, dir: Vector2, dmg: float, eopts
 			if reinforced != null:
 				reinforced["dmg"] = minf(float(reinforced["base_dmg"]) * 1.3, float(reinforced["dmg"]) * 1.025)
 			return
+	if kind == "boomerang":
+		# Thrown slightly to one side so its curve sweeps ACROSS the aim line
+		# and reaches what you aimed at, instead of curling away from it.
+		dir = dir.rotated(-0.45)
 	Combat.shot(g, pos, dir, dmg, o)
 
 static func fire_flame(g, w: Dictionary, origin: Vector2, direction: Vector2, damage: float, can_bank: bool = true) -> void:

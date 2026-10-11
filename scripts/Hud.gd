@@ -1175,7 +1175,7 @@ func paint_gun_slot(w: Dictionary, i: int, pos: Vector2) -> void:
 		draw_circle(pos + Vector2(38, 32), 22, Color(str(d["color"])))
 	var weapon_name = Weapons.display_name(g, w).to_upper()
 	txt(weapon_name, pos + Vector2(72, 27), fit(weapon_name, 102, 15, bold, 10), Color.WHITE, 0, bold, 3)
-	txt(RARITY[tier], pos + Vector2(176, 12), 10, RCOL[tier], 2, bold)
+	txt(RARITY[tier] + "  ·  " + Weapons.gun_class(str(w["id"])), pos + Vector2(176, 12), 10, RCOL[tier], 2, bold)
 	for s in range(5):
 		var filled = s < int(w["lvl"])
 		draw_colored_polygon(star(pos + Vector2(80 + s * 15, 36), 6.0), Color("ffd24d") if filled else Color(0.3, 0.3, 0.4))
@@ -1280,7 +1280,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var stats = "%d DMG  ·  %.1f/s  ·  MAG %d" % [roundi(tdmg), float(d["rate"]) * Weapons.TIER_RATE[clampi(tier, 0, 5)], int(d["mag"])]
 			if d["kind"] == "beam":
 				stats = "%d DMG/tick  ·  continuous" % roundi(tdmg)
-			return {"title": d["name"], "desc": d["desc"], "rar": tier, "cat": "NEW GUN", "catc": CAT_COLOR,
+			return {"title": d["name"], "desc": d["desc"], "rar": tier, "cat": "NEW GUN", "gun_class": Weapons.gun_class(str(o["gun"])), "catc": CAT_COLOR,
 				"art": g.tex("res://assets/weapons/%s.png" % o["gun"]), "foot": "" if bool(o.get("preview", false)) else stats,
 				"rarlabel": "RANDOM TIER" if bool(o.get("preview", false)) else RARITY[tier], "max": "", "icon": true}
 		"gun_up":
@@ -1292,12 +1292,12 @@ func offer_info(o: Dictionary) -> Dictionary:
 				desc += " UNLOCK: " + str(d2["lv3"])
 			elif nl == 5:
 				desc += " UNLOCK: " + str(d2["lv5"]) + ". Then it can EVOLVE."
-			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "catc": CAT_COLOR,
+			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "gun_class": Weapons.gun_class(str(w["id"])), "catc": CAT_COLOR,
 				"art": g.tex("res://assets/weapons/%s.png" % w["id"]), "foot": "LV %d  >  LV %d" % [nl - 1, nl], "max": "", "icon": true}
 		"evolve":
 			var w2 = g.guns[int(o["slot"])]
 			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2),
-				"rar": maxi(3, int(w2.get("tier", 0))), "cat": "EVOLUTION", "catc": CAT_COLOR, "art": g.tex("res://assets/weapons/%s.png" % w2["id"]),
+				"rar": maxi(3, int(w2.get("tier", 0))), "cat": "EVOLUTION", "gun_class": Weapons.gun_class(str(w2["id"])), "catc": CAT_COLOR, "art": g.tex("res://assets/weapons/%s.png" % w2["id"]),
 				"foot": str(g.weapon_db[w2["id"]]["name"]) + " is ready", "max": "", "icon": true}
 	return {}
 
@@ -1326,7 +1326,10 @@ func draw_card(r: Rect2, info: Dictionary, hover: bool, appear: float, index: in
 	rbox(r, PANEL, 20, rc, 4 if hover else 3)
 	# header band in rarity colour
 	rbox(Rect2(r.position + Vector2(4, 4), Vector2(r.size.x - 8, 34)), Color(rc, 0.18), 16)
-	txt(str(info["cat"]).to_upper(), r.position + Vector2(18, 28), fit(str(info["cat"]).to_upper(), r.size.x - 70, 16), rc.lerp(Color.WHITE, 0.3), 0, bold)
+	var cat_label := str(info["cat"]).to_upper()
+	if info.has("gun_class"):
+		cat_label += "  ·  " + str(info["gun_class"])
+	txt(cat_label, r.position + Vector2(18, 28), fit(cat_label, r.size.x - 70, 16), rc.lerp(Color.WHITE, 0.3), 0, bold)
 	if index >= 0:
 		cbox(Rect2(r.position + Vector2(r.size.x - 39, 7), Vector2(30, 30)), Color("06080d"), 7, rc, 2)
 		txt(str(index + 1), r.position + Vector2(r.size.x - 24, 30), 20, Color.WHITE, 1, bold)
@@ -1436,7 +1439,7 @@ func paint_arsenal() -> void:
 		if icon != null:
 			draw_texture_rect(icon, Rect2(r.position + Vector2(8, 8), Vector2(84, 84)), false)
 		txt(Weapons.display_name(g, w).to_upper(), r.position + Vector2(100, 30), 22, Color.WHITE, 0, bold, 3)
-		txt(RARITY[tier], r.position + Vector2(350, 20), 12, RCOL[tier], 2, bold)
+		txt(RARITY[tier] + "  ·  " + Weapons.gun_class(str(w["id"])), r.position + Vector2(350, 20), 12, RCOL[tier], 2, bold)
 		for s in range(5):
 			draw_colored_polygon(star(r.position + Vector2(108 + s * 18, 46), 7.0), Color("ffd24d") if s < int(w["lvl"]) else Color(0.3, 0.3, 0.4))
 		txt("%d dmg  ·  %.1f/s" % [roundi(Weapons.shot_damage(g, w)), Weapons.fire_rate(g, w)], r.position + Vector2(100, 76), 15, Color("c8d0e0"), 0, body)

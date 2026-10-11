@@ -320,7 +320,7 @@ static func update_shots(g, dt: float) -> void:
 				var out_time = float(s["max_life"])
 				if not bool(s["back"]):
 					if kind == "boomerang":
-						vel = vel.rotated(2.6 * dt)
+						vel = vel.rotated(1.6 * dt)
 					if float(s["t"]) > out_time:
 						s["back"] = true
 						s["hit"] = {}
@@ -618,13 +618,14 @@ static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool
 	if float(e["stun"]) > 0.0 or float(e["frozen"]) > 0.0:
 		return false
 	if has_role(g, e, "mirror") and float(e.get("mirror_cd", 0.0)) <= 0.0:
-		e["mirror_cd"] = 1.1
+		# Toned down: a longer recharge, and slower, weaker reflections.
+		e["mirror_cd"] = 1.8
 		var back: Vector2 = (Vector2(g.hero["pos"]) - impact).normalized()
 		s["friendly"] = false
 		s["kind"] = "enemy"
-		s["speed"] = clampf(float(s["speed"]), 380.0, 700.0)
+		s["speed"] = clampf(float(s["speed"]), 300.0, 520.0)
 		s["vel"] = back * float(s["speed"])
-		s["dmg"] = minf(float(s["dmg"]), float(e["dmg"]) * 1.6)
+		s["dmg"] = minf(float(s["dmg"]), float(e["dmg"]) * 1.0)
 		s["r"] = clampf(float(s["r"]), 4.0, 8.0)
 		for key in ["homing", "wave", "curve"]:
 			s[key] = 0.0
@@ -1119,11 +1120,24 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	if e.has("summon"):
 		pass  # boss / Mama minions: no loot, so stalling a fight never pays
 	elif bool(e["boss"]):
-		for i in range(12):
-			g.spawn_pickup("xp", pos, maxi(1, int(e["xp"]) / 6))
-		for i in range(8):
+		# A boss pays out ONCE: King Blob splits into pieces when it dies, so
+		# only its last piece drops the chest and the full boss loot.
+		var splits_again: bool = str(e["kind"]) == "kingblob" and int(e["gen"]) < 2
+		var others_left := false
+		for other in g.enemies:
+			if other != e and bool(other["boss"]) and not bool(other["dead"]):
+				others_left = true
+				break
+		if splits_again or others_left:
+			for i in range(3):
+				g.spawn_pickup("xp", pos, maxi(1, int(e["xp"]) / 12))
 			g.spawn_pickup("gold", pos, 2)
-		g.spawn_pickup("chest", pos, 1)
+		else:
+			for i in range(12):
+				g.spawn_pickup("xp", pos, maxi(1, int(e["xp"]) / 6))
+			for i in range(8):
+				g.spawn_pickup("gold", pos, 2)
+			g.spawn_pickup("chest", pos, 1)
 	else:
 		g.spawn_pickup("xp", pos, xp_value)
 		if randf() < 0.14:
@@ -1141,7 +1155,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 			g.say(pos + Vector2(0, -30), "CHA-CHING!", Color("ffd24d"), 26)
 		if kind == "nurse":
 			g.spawn_pickup("heart", pos, 1) # Guaranteed Normal and Hard.
-		elif randf() < (0.0025 if g.hard_mode else 0.004) + g.st("heartdrop"):
+		elif randf() < (0.005 if g.hard_mode else 0.008) + g.st("heartdrop"):
 			g.spawn_pickup("heart", pos, 1)
 	if g.st("lifesteal") > 0.0:
 		g.hero["hp"] = minf(float(g.hero["maxhp"]), float(g.hero["hp"]) + g.st("lifesteal"))
@@ -1314,6 +1328,12 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			if not bool(e["boss"]):
 				e["charm"] = 5.0 * dur * (2.0 if g.st("brainwash") > 0.0 else 1.0)
 				g.say(e["pos"] + Vector2(0, -24), "<3", Color("ff8ad8"), 22)
+				# A charmed monster is on your side: it stops counting toward the
+				# sector right away, and collapses when the charm wears off.
+				if e.has("budget"):
+					e.erase("budget")
+					g.sector_kills += 1
+				e["turned"] = true
 		"wet":
 			e["wet"] = 4.0 * dur
 		"mark":
@@ -1495,9 +1515,15 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e["sdt"]) >= 0.1:
 			var sdt = float(e["sdt"])
 			e["sdt"] = 0.0
+			var was_charmed := float(e.get("charm", 0.0)) > 0.0
 			for key in ["burn", "frozen", "shock", "slow", "stun", "charm", "wet", "mark", "pinned", "flung", "dance"]:
 				if float(e.get(key, 0.0)) > 0.0:
 					e[key] = maxf(0.0, float(e[key]) - sdt)
+			if was_charmed and float(e["charm"]) <= 0.0 and bool(e.get("turned", false)):
+				# Spent: the turned monster falls (normal kill reward, already
+				# counted toward the sector when it was charmed).
+				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
+				continue
 			e["chill"] = maxf(0.0, float(e["chill"]) - sdt * 14.0)
 			if float(e["poison"]) > 0.0:
 				e["poison_t"] = float(e.get("poison_t", 0.0)) - sdt
@@ -2331,13 +2357,14 @@ static func explode(g, pos: Vector2, r: float, dmg: float, gen: int, color: Colo
 	var big = r > 100.0
 	g.fx.append({"kind": "blast", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.45 if not big else 0.65, "color": color, "size": r})
 	if g.frame_booms < 12:
-		g.spawn_burst(pos, color, 10 if not big else 24, r * 3.0, 5.0)
-		# Lingering smoke puffs drift up after the fireball.
-		if g.fx.size() < 600:
-			for i in range(3 if not big else 6):
-				g.fx.append({"kind": "smoke", "pos": pos + Vector2(randf_range(-r, r), randf_range(-r, r)) * 0.35,
-					"vel": Vector2(randf_range(-30, 30), randf_range(-60, -20)), "t": 0.0,
-					"life": randf_range(0.8, 1.3), "color": color, "size": r * randf_range(0.28, 0.45)})
+		g.spawn_burst(pos, color, 6 if not big else 14, r * 3.0, 4.0)
+		# A wisp of smoke: small, faint and short, so a busy build never
+		# litters the road with discs that read like enemy projectiles.
+		if g.fx.size() < 200:
+			for i in range(1 if not big else 2):
+				g.fx.append({"kind": "smoke", "pos": pos + Vector2(randf_range(-r, r), randf_range(-r, r)) * 0.3,
+					"vel": Vector2(randf_range(-25, 25), randf_range(-50, -20)), "t": 0.0,
+					"life": randf_range(0.45, 0.7), "color": color, "size": r * randf_range(0.18, 0.26)})
 		g.add_shake(minf(14.0, r / 14.0))
 		g.sfx.play("boom" if r > 70.0 else "boom_small")
 	if dmg > 0.0:

@@ -147,14 +147,14 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 			var side: float = -1.0 if rng.randf() < 0.5 else 1.0
 			var zone_len: float = 380.0
 			for end_y in [zy, zy - zone_len]:
-				place(result, "barrier", Vector2(side * lane_mid, end_y), 31.0, 65.0 + sector * 3.0)
+				place(result, "barrier", Vector2(side * lane_mid, end_y), 38.0, 65.0 + sector * 3.0)
 			var cy: float = zy - 45.0
 			while cy > zy - zone_len + 30.0:
-				place(result, "cone", Vector2(side * (inner + 6.0), cy), 12.0, 18.0 + sector)
-				cy -= 48.0
+				place(result, "cone", Vector2(side * (inner + 6.0), cy), 17.0, 18.0 + sector)
+				cy -= 58.0
 			for k in range(3):
 				var u: float = float(k + 1) / 4.0
-				place(result, "cone", Vector2(side * lerpf(outer - 12.0, inner + 6.0, u), zy + 40.0 + (1.0 - u) * 150.0), 12.0, 18.0 + sector)
+				place(result, "cone", Vector2(side * lerpf(outer - 12.0, inner + 6.0, u), zy + 40.0 + (1.0 - u) * 150.0), 17.0, 18.0 + sector)
 	# Parked cars sit in the parking lane from Sector 6, never in traffic.
 	if sector >= 6 and not boss and float(st["park"]) > 0.0:
 		var cars: int = 3 + mini(10, (sector - 6) / 2)

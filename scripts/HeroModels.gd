@@ -122,6 +122,8 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 			ci.draw_line(centre - f * 8.0 * k, it["rear"], INK, 5.0)
 			ci.draw_line(centre - f * 8.0 * k, it["rear"], Color("4a5160"), 3.0)
 		var gun: Dictionary = it["gun"]
+		if bool(gun.get("hidden", false)):
+			continue
 		ci.draw_set_transform(it["origin"], float(it["ang"]), Vector2(1.0, float(it["fs"])) * float(it["size"]))
 		GunModels.draw(ci, str(gun["id"]), {"t": t, "firing": bool(gun.get("firing", false)),
 			"charge": float(gun.get("charge", 0.0)), "evolved": bool(gun.get("evolved", false))})
