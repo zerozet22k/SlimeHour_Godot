@@ -13,6 +13,7 @@ class FakeWorld:
 	var cam_y := 0.0
 	var road_half := 530.0
 	var sector_kills := 0
+	var hero := {"pos": Vector2.ZERO}
 	func back_limit() -> float:
 		return 380.0
 var failures := 0
@@ -58,11 +59,21 @@ func _run() -> void:
 	check(Combat.leech_link_can_reach(365.0, true), "Existing tether has small break-distance allowance")
 	check(not Combat.leech_link_can_reach(400.0, true), "Leechling tether breaks when player escapes reduced range")
 	var world = FakeWorld.new()
-	var broken = {"pos": Vector2(0, 3000), "dead": false, "boss": false, "budget": true}
+	var broken = {"pos": Vector2(0, 3000), "dead": false, "boss": false, "budget": true, "r": 14.0}
 	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Out-of-range enemy gets a recovery grace period")
 	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Bugged enemy not reaped immediately")
-	check(Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Unrecoverable enemy is reaped after grace period")
-	check(bool(broken["dead"]) and world.sector_kills == 1, "Reaped budget enemy still counts toward wave clear")
+	# Outrunning a sector monster never clears it: it comes back into play.
+	check(not Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0), "Left-behind sector monster is recalled, not killed")
+	check(not bool(broken["dead"]) and world.sector_kills == 0, "Recall gives no free sector progress")
+	check(absf(float(broken["pos"].y)) < 600.0 and absf(float(broken["pos"].x)) < 530.0, "Recalled monster is back on the road near the view")
+	# A monster that keeps getting lost is finally reaped so the sector cannot stall.
+	var reaped := false
+	for i in range(40):
+		broken["pos"] = Vector2(0, 3000)
+		if Combat.reap_unreachable(world, broken, Vector2.ZERO, 1.0):
+			reaped = true
+			break
+	check(reaped and bool(broken["dead"]) and world.sector_kills == 1, "A monster lost again and again still counts toward wave clear")
 	var boss = {"pos": Vector2(0, 3000), "dead": false, "boss": true}
 	for i in range(12):
 		Combat.reap_unreachable(world, boss, Vector2.ZERO, 1.0)

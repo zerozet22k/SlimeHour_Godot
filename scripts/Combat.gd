@@ -1361,9 +1361,34 @@ static func reap_unreachable(g, e: Dictionary, hero_pos: Vector2, dt: float) -> 
 		e["straggler_sample_t"] = sample
 	if float(e.get("straggler_t", 0.0)) < 9.0:
 		return false
+	# Monsters you have to kill come back into play instead of vanishing:
+	# outrunning them must never clear a sector.
+	if e.has("budget") and recall_straggler(g, e):
+		return false
 	e["dead"] = true
 	if e.has("budget"):
 		g.sector_kills += 1
+	return true
+
+## Puts a left-behind sector monster back just off-screen, usually AHEAD of
+## the player so running forward runs into it. Gives up (false) only after
+## several recalls, so a truly stuck monster cannot stall the sector.
+static func recall_straggler(g, e: Dictionary) -> bool:
+	e["recalls"] = int(e.get("recalls", 0)) + 1
+	if int(e["recalls"]) > 6:
+		return false
+	var view_half_h: float = g.ui_height * 0.5 if g.portrait else 360.0
+	var r := float(e["r"])
+	var y: float = g.cam_y - view_half_h - 70.0 - r
+	if randf() < 0.35:
+		y = minf(g.cam_y + view_half_h + 70.0 + r, g.back_limit() - r - 20.0)
+	var half: float = maxf(40.0, g.road_half - r - 30.0)
+	e["pos"] = Vector2(randf_range(-half, half), y)
+	e["vel"] = Vector2.ZERO
+	e["kb"] = Vector2.ZERO
+	e["straggler_t"] = 0.0
+	e["straggler_sample_t"] = 0.0
+	e["straggler_dist"] = Vector2(e["pos"]).distance_to(g.hero["pos"])
 	return true
 
 
@@ -1671,12 +1696,13 @@ static func update_enemies(g, dt: float) -> void:
 			e["thorn_cd"] = float(e["thorn_cd"]) - dt
 		if g.state != "playing":
 			return
-		# Enemies left far behind cannot block a sector or force infinite
-		# replacements. This is cleanup, never an XP- or loot-producing kill.
+		# Enemies left far behind come back into play (see recall_straggler);
+		# only extras that do not count toward the sector are cleaned up.
 		if e["pos"].y > hero_pos.y + 900.0 and not bool(e["boss"]):
-			e["dead"] = true
-			if e.has("budget"):
-				g.sector_kills += 1
+			if not (e.has("budget") and recall_straggler(g, e)):
+				e["dead"] = true
+				if e.has("budget"):
+					g.sector_kills += 1
 
 ## Threat phases create new patterns, not inflated damage. Phase thresholds at 65% and 32%.
 static func boss_stage(e: Dictionary) -> int:

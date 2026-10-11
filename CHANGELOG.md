@@ -1,3 +1,9 @@
+## v0.1.83 — No more running away
+
+- **Outrunning monsters no longer clears a sector.** Before, any monster that fell far behind you was silently deleted and counted as killed. Now a left-behind sector monster comes back just off-screen, usually ahead of you, so you have to deal with it.
+- Only extras that don't count toward the sector (like Mitosis minis) still vanish when left behind.
+- A monster that gets lost again and again (6 times) is finally cleared, so a sector can never get stuck.
+
 ## v0.1.82 — Every card checked
 
 - **All 300 cards were re-checked against what they actually do.** Every card's effect is wired up, and every number in a description matches the real value.
