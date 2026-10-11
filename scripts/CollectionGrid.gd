@@ -1,9 +1,9 @@
 extends RefCounted
 ## Virtualized collection grid: every item is reachable by vertical row scrolling.
 ## Pure layout/scroll calculations keep desktop and portrait input consistent.
-const DESKTOP_COLUMNS = 4
+const DESKTOP_COLUMNS = 6
 const PORTRAIT_COLUMNS = 2
-const DESKTOP_ROWS = 2
+const DESKTOP_ROWS = 3
 const PORTRAIT_TILE_HEIGHT = 258.0
 const PORTRAIT_STEP = 270.0
 

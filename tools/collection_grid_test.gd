@@ -14,8 +14,8 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	check(Grid.columns(false) == 4 and Grid.columns(true) == 2, "Desktop four-column / portrait two-column layout")
-	check(Grid.visible_rows(false) == 2, "Desktop shows two grid rows")
+	check(Grid.columns(false) == 6 and Grid.columns(true) == 2, "Desktop six-column / portrait two-column layout")
+	check(Grid.visible_rows(false) == 3, "Desktop shows three grid rows")
 	check(Grid.visible_rows(true, 1280.0) >= 3, "Tall portrait shows at least three grid rows")
 	check(Grid.visible_rows(true, 720.0) >= 1, "Small portrait never drops below one row")
 	check(Grid.indices(0, 4, 2, 0).is_empty(), "An empty category remains safe")

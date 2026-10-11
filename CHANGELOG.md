@@ -1,3 +1,7 @@
+## v0.1.87 — Bigger collection pages
+
+- The Collection now shows 18 cards per page (6 x 3) instead of 8, so a whole category fits in one or two pages.
+
 ## v0.1.86 — Lock, banish, sell and a real economy
 
 - **Lock cards:** pay gold to lock a level-up card (it comes back at your next level-up) or a shop item (it stays in every shop until you buy it).

@@ -1902,7 +1902,8 @@ func paint_collection() -> void:
 		var index = int(shown[i])
 		var col = i % cols
 		var row = int(i / cols)
-		var tile = Rect2(30.0 + col * 219.0, 198.0 + row * 219.0, 206.0, 207.0)
+		# 6 x 3 smaller tiles: 18 cards a page instead of 8.
+		var tile = Rect2(30.0 + col * 146.0, 198.0 + row * 146.0, 138.0, 138.0)
 		var item = items[index]
 		mini_card(tile, collection_info(item), item == selected_collection_item)
 		buttons.append({"rect": tile, "action": "select_card_%d" % index})
