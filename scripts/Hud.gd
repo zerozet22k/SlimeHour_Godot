@@ -2,6 +2,8 @@ extends Node2D
 ## All UI: HUD, level-up cards, arsenal, collection, menus. Buttons register themselves each
 ## frame while drawing; click() resolves them.
 
+const HeroModels = preload("res://scripts/HeroModels.gd")
+const GunModels = preload("res://scripts/GunModels.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 const Characters = preload("res://scripts/Characters.gd")
@@ -1620,14 +1622,13 @@ func paint_characters() -> void:
 		var r = Rect2(x, y, 222.0, 315.0)
 		var accent = Color(str(ch["color"]))
 		rbox(r, Color("243750") if active else Color("111b2c"), 14, accent if active else Color("3a4e65"), 3 if active else 1)
-		draw_circle(Vector2(x + 111, y + 58), 38, Color("101a2c"))
-		draw_circle(Vector2(x + 111, y + 58), 27, accent.darkened(0.25))
-		draw_circle(Vector2(x + 100, y + 53), 4, Color.WHITE)
-		draw_circle(Vector2(x + 122, y + 53), 4, Color.WHITE)
-		draw_line(Vector2(x + 104, y + 72), Vector2(x + 118, y + 72), Color("152035"), 3.0)
-		var art = g.tex("res://assets/weapons/%s.png" % str(ch["weapon"]))
-		if art != null:
-			draw_texture_rect(art, Rect2(x + 137, y + 48, 57, 57), false)
+		# Front-facing bust portrait on a tinted backdrop, starting gun as a badge.
+		rbox(Rect2(x + 12, y + 10, 198, 104), Color(accent.darkened(0.55), 0.9 if active else 0.55), 10)
+		draw_circle(Vector2(x + 111, y + 60), 44, Color(accent, 0.22 if active else 0.12))
+		HeroModels.bust(self, str(ch["id"]), Vector2(x + 111, y + 63), 102.0, g.anim_t + i * 1.3)
+		draw_set_transform(Vector2(x + 200, y + 86), -0.3, Vector2.ONE * 36.0 / float(GunModels.LENGTH.get(str(ch["weapon"]), 20.0)))
+		GunModels.draw(self, str(ch["weapon"]), {"t": g.anim_t})
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		txt(str(ch["name"]), Vector2(x + 111, y + 135), 25, Color.WHITE, 1, bold)
 		txt(str(ch["role"]).to_upper(), Vector2(x + 111, y + 158), fit(str(ch["role"]), 196, 14, bold, 11), accent, 1, bold)
 		txt(str(g.weapon_db[ch["weapon"]]["name"]).to_upper(), Vector2(x + 111, y + 189), 17, Color("e3ecf5"), 1, bold)
@@ -1652,9 +1653,9 @@ func paint_portrait_characters() -> void:
 		var y = top + i * (row_h + 8.0)
 		var accent = Color(str(ch["color"]))
 		rbox(Rect2(30.0, y, 660.0, row_h), Color("243750") if active else Color("111b2c"), 13, accent if active else Color("405670"), 3 if active else 1)
-		draw_circle(Vector2(83.0, y + 43.0), 27.0, accent.darkened(0.28))
-		draw_circle(Vector2(74.0, y + 37.0), 3.6, Color.WHITE)
-		draw_circle(Vector2(92.0, y + 37.0), 3.6, Color.WHITE)
+		var face_box := minf(row_h - 16.0, 92.0)
+		rbox(Rect2(40.0, y + 8.0, face_box, face_box), Color(accent.darkened(0.55), 0.9 if active else 0.55), 9)
+		HeroModels.bust(self, str(ch["id"]), Vector2(40.0 + face_box * 0.5, y + 8.0 + face_box * 0.5), face_box, g.anim_t + i * 1.3)
 		txt(str(ch["name"]) + "   /   " + str(g.weapon_db[ch["weapon"]]["name"]), Vector2(137.0, y + 29.0), fit(str(ch["name"]) + str(g.weapon_db[ch["weapon"]]["name"]), 340, 22, bold, 15), Color.WHITE, 0, bold)
 		txt(str(ch["perks"]), Vector2(137.0, y + 56.0), 17, Color("b0f4c0"), 0, body)
 		txt(str(ch["tradeoff"]), Vector2(137.0, y + 80.0), 16, Color("ffbaad") if str(ch["tradeoff"]) != "No drawback" else MUTED, 0, body)

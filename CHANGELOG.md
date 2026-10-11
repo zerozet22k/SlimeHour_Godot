@@ -1,3 +1,15 @@
+## v0.1.79 — Five real runners
+
+- **Five distinct characters**, each with their own model that turns with your aim:
+  - **Scout:** street runner with a cap, red scarf and messenger bag.
+  - **Ember:** firefighter with a helmet, reflective coat and twin fuel tanks. A hose runs to the flamethrower.
+  - **Ace:** gunslinger with a wide-brim hat, flapping duster coat and spurs. Ace holds a single gun one-handed.
+  - **Vector:** operator with a helmet, night vision, plate carrier and radio antenna.
+  - **Coil:** hooded technomancer with a glowing visor, rippling cloak and a power coil on the back. With the rail gun, a cable runs from the coil to the gun.
+- **Guns are redrawn** for all 22 weapons and actually held: arms reach the real grip, and the support hand takes the foregrip of long guns. Shots come out of the drawn muzzle, so a sniper reaches further than a pistol. A third gun rides a back mount.
+- **Each runner has their own bash:** Scout swings a baseball bat, Ember chops with a fire axe, Ace cracks a bullwhip, Vector shoves with a riot shield and Coil fires a shock palm. The hit area is unchanged.
+- **Character select** shows a front-facing portrait of each runner with their starting gun.
+
 ## v0.1.78 — Spitter acid line
 
 - Spitter's acid line is now a real spilled-acid puddle instead of a glowing tube: wobbly liquid edges with a dark rim, a flat pool with a wet sheen, tapered ends and bubbles that swell and pop. The tail dries up by shrinking.

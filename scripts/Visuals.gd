@@ -11,6 +11,7 @@ const MonsterModels = preload("res://scripts/MonsterModels.gd")
 const MutationKit = preload("res://scripts/MutationKit.gd")
 const MutationParts = preload("res://scripts/MutationParts.gd")
 const MonsterKit = preload("res://scripts/MonsterKit.gd")
+const HeroModels = preload("res://scripts/HeroModels.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -2341,109 +2342,25 @@ func paint_hero() -> void:
 	paint_orbitals()
 	draw_set_transform(p + Vector2(0, 12 * scale), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, 14.0 * scale, Color(0, 0, 0, 0.4))
-	draw_set_transform(p, 0.0, Vector2.ONE * scale)
-	var facing_back = aim.y < -0.38
-	var facing_side = absf(aim.x) > 0.55
-	var side = aim.orthogonal().normalized()
-	var step = sin(g.anim_t * 13.0) * (3.0 if bool(h["moving"]) else 0.0)
-	# Character colors carry through to the playable hero, not just the select screen.
-	var character_colors = {
-		"scout": ["9a5c35", "e83f50", "8e552f"],
-		"ember": ["a64b32", "ff933c", "81362a"],
-		"ace": ["755d4c", "ffd080", "9b7542"],
-		"vector": ["28675f", "71deb1", "24584d"],
-		"coil": ["514f85", "aaa5ff", "373d77"]
-	}
-	var colors: Array = character_colors.get(g.selected_character, character_colors["scout"])
-	var coat = Color(str(colors[0]))
-	var scarf_color = Color(str(colors[1]))
-	var hat_color = Color(str(colors[2]))
-	if blink:
-		coat.a = 0.48
-	if float(h["flash"]) > 0.0:
-		coat = Color("ff797c")
-	# Legs alternate while running; all features use aim so the silhouette turns.
-	for s in [-1.0, 1.0]:
-		var foot = side * s * 7.0 - aim * (10.0 + step * s)
-		draw_circle(foot, 5.8, Color("201b28"))
-		draw_circle(foot + aim * 2.0, 3.8, Color("6e4530"))
-	var scarf_tail = -aim * 25.0 + side * sin(g.anim_t * 11.0) * 5.0
-	draw_line(-aim * 5.0, scarf_tail, Color("751f30"), 9.0)
-	draw_line(-aim * 5.0, scarf_tail, scarf_color, 6.0)
-	draw_circle(Vector2.ZERO, 17.0, Color("211c29"))
-	draw_circle(Vector2.ZERO, 14.5, coat)
-	draw_line(-side * 9.0 - aim * 4.0, side * 9.0 - aim * 4.0, Color("d7985a"), 2.0)
-	for s in [-1.0, 1.0]:
-		draw_circle(side * s * 13.0 + aim * 3.0, 5.3, Color("302734"))
-		draw_circle(side * s * 13.0 + aim * 3.0, 3.4, coat.lightened(0.16))
-	# The red neckerchief stays visible even when the back faces the camera.
-	draw_arc(aim * 2.0, 12.0, aim.angle() - 1.0, aim.angle() + 1.0, 14, scarf_color.darkened(0.18), 5.0)
-	var head = aim * 4.5
-	draw_circle(head, 9.2, Color("322329"))
-	draw_circle(head, 7.6, Color("965a37") if facing_back else Color("edb184"))
-	if not facing_back:
-		var eye_line = head + aim * 4.5
-		if facing_side:
-			draw_circle(eye_line + side * 1.0, 1.8, Color("172637"))
-			draw_line(eye_line + aim * 2.0, eye_line - side * 2.0 + aim * 2.0, Color("693d32"), 1.5)
-		else:
-			for s in [-1.0, 1.0]:
-				draw_circle(eye_line + side * s * 3.0, 1.5, Color("172637"))
-			draw_line(eye_line + aim * 2.0 - side * 2.0, eye_line + aim * 2.0 + side * 2.0, Color("7c4436"), 1.5)
-	# Hat brim lies across the sight line; crown and goggles move behind it.
-	var hat = head - aim * 4.0
-	draw_line(hat - side * 14.0, hat + side * 14.0, Color("2c2026"), 9.0)
-	draw_line(hat - side * 14.0, hat + side * 14.0, hat_color, 6.0)
-	draw_circle(hat - aim * 3.0, 7.0, Color("2c2026"))
-	draw_circle(hat - aim * 3.0, 5.5, hat_color)
-	draw_line(hat - side * 5.0 - aim * 2.0, hat + side * 5.0 - aim * 2.0, scarf_color.lightened(0.2), 2.0)
-	for s in [-1.0, 1.0]:
-		draw_circle(hat + side * s * 3.0 - aim * 2.0, 2.5, Color("2b2631"))
-		draw_circle(hat + side * s * 3.0 - aim * 2.0, 1.6, Color("a6e1e9"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# Visible melee sweep follows the MC's aim, fading after the hit frame.
-	if float(h.get("bash_t", 0.0)) > 0.0:
-		var phase = 1.0 - clampf(float(h["bash_t"]) / 0.23, 0.0, 1.0)
-		var dir: Vector2 = h.get("bash_dir", aim)
-		var ang = dir.angle()
-		var half = deg_to_rad(72.0)
-		var swing = ang - half + phase * half * 1.0
-		for radius in [56.0, 77.0, 90.0]:
-			draw_arc(p, radius, swing, swing + half, 20, Color(1.0, 0.96, 0.65, 0.7 * (1.0 - phase)), 8.0 if radius == 77.0 else 3.0)
-		draw_line(p + dir * 17.0, p + dir.rotated(-0.28 + phase * 0.56) * 68.0, Color("fff5c2", 0.72 * (1.0 - phase)), 8.0)
-	# Mirrored L / reverse-L supporting arms behind the weapon art.
-	# The real barrel origin is unchanged, so the pose never spoils cursor aim.
-	for i in range(g.guns.size()):
-		var grip: Vector2 = Weapons.hand_pos(g, i)
-		var arm: PackedVector2Array = WeaponAim.arm_pose(hp, aim, i, grip)
-		for joint in range(arm.size() - 1):
-			var start = P(arm[joint])
-			var finish = P(arm[joint + 1])
-			draw_line(start, finish, Color("251d2a"), 11.0, true)
-			draw_line(start, finish, Color("9a603d") if not blink else Color("db876d", 0.5), 7.0, true)
-		var wrist = P(arm[arm.size() - 1])
-		draw_circle(wrist, 5.5, Color("261d27"))
-		draw_circle(wrist, 3.8, Color("ebb27d") if not blink else Color("ebb27d", 0.55))
-	# Guns in hand, using the generated weapon art.
+	# Each runner is their own model; arms reach the real grips of the guns.
+	var held: Array = []
 	for i in range(g.guns.size()):
 		var w = g.guns[i]
-		var gun_aim: Vector2 = Weapons.aim_for_slot(g, i)
+		held.append({"id": str(w["id"]), "aim": Weapons.aim_for_slot(g, i), "muzzle": P(Weapons.muzzle_pos(g, i)),
+			"firing": float(w["flash"]) > 0.0, "charge": float(w.get("charge", 0.0)), "evolved": bool(w["evolved"])})
+	var bash_phase := -1.0
+	if float(h.get("bash_t", 0.0)) > 0.0:
+		bash_phase = 1.0 - clampf(float(h["bash_t"]) / 0.23, 0.0, 1.0)
+	HeroModels.draw_rig(self, str(g.selected_character), p, aim, scale, held,
+		{"t": g.anim_t, "step": sin(g.anim_t * 13.0) * (3.0 if bool(h["moving"]) else 0.0), "blink": blink,
+		"flash": float(h["flash"]) > 0.0, "bash": bash_phase, "bash_dir": h.get("bash_dir", aim)})
+	for i in range(g.guns.size()):
+		var w = g.guns[i]
 		var muzzle = P(Weapons.muzzle_pos(g, i))
-		var t = g.tex("res://assets/weapons/%s.png" % w["id"])
-		var flip = WeaponAim.mirrored_grip(gun_aim, i)
-		var ang = WeaponAim.art_rotation_for_mirror(gun_aim, str(w["id"]), flip)
-		var kick = -gun_aim * (5.0 if float(w["flash"]) > 0.0 else 0.0)
-		var anchor = WeaponAim.sprite_anchor(muzzle, gun_aim)
-		draw_set_transform(anchor + kick, ang, Vector2(1.0, -1.0 if flip else 1.0))
-		if t != null:
-			draw_texture_rect(t, Rect2(-16, -18, 40, 40), false, Color("ffe9a0") if bool(w["evolved"]) else Color.WHITE)
-		else:
-			draw_rect(Rect2(-4, -4, 22, 8), Color(str(g.weapon_db[w["id"]]["color"])))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if float(w["flash"]) > 0.0:
-			var tip = muzzle
-			draw_circle(tip, 9.0, Color(1, 0.95, 0.6, 0.8))
-			draw_circle(tip, 5.0, Color.WHITE)
+			draw_circle(muzzle, 9.0, Color(1, 0.95, 0.6, 0.8))
+			draw_circle(muzzle, 5.0, Color.WHITE)
 		if g.weapon_db[w["id"]]["kind"] == "rail" and float(w["charge"]) > 0.0:
 			draw_arc(muzzle, 6.0 + float(w["charge"]) * 10.0, 0, TAU, 16, Color(0.6, 0.9, 1.0, float(w["charge"])), 2.0)
 	# shield charges & reload rings

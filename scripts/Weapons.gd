@@ -2,6 +2,7 @@ extends RefCounted
 ## Gun behaviour. Each gun has a "kind" that decides how it fires; volley() decides the
 ## pattern (fan, parallel, rear, side, burst, echo, ghost twin) and emit() spawns one unit.
 
+const GunModels = preload("res://scripts/GunModels.gd")
 const Combat = preload("res://scripts/Combat.gd")
 const ProjectileVfx = preload("res://scripts/ProjectileVfx.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
@@ -148,15 +149,22 @@ static func reload_time(g, w: Dictionary) -> float:
 
 static func hand_pos(g, slot: int) -> Vector2:
 	var aim: Vector2 = g.hero["aim"]
-	# Hands sit at the shoulders, slightly forward, so the guns stick out past
-	# the body instead of lying across the face. A third gun is held up front.
+	# Arms reach forward from the shoulders so the guns stick out in front of
+	# the body. A third gun rides a back mount over the shoulders.
 	var side = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
-	var back = 17.0 if slot == 2 else 5.0
-	return g.hero["pos"] + aim.orthogonal() * side + aim * back
+	var forward = 6.0 if slot == 2 else 12.0
+	if "guns" in g and g.guns.size() == 1:
+		# One gun is held two-handed, closer to the middle.
+		side = 11.0
+	return g.hero["pos"] + aim.orthogonal() * side + aim * forward
 
-## All guns share a single origin contract for the sprite and the projectile.
+## The shot leaves from the drawn gun's own muzzle: the gun is held by its
+## grip at the hand, so a long rifle reaches further than a pistol.
 static func muzzle_pos(g, slot: int) -> Vector2:
-	return WeaponAim.muzzle(hand_pos(g, slot), g.hero["aim"])
+	var reach: float = WeaponAim.MUZZLE_DISTANCE
+	if "guns" in g and slot < g.guns.size():
+		reach = GunModels.reach(str(g.guns[slot]["id"]))
+	return hand_pos(g, slot) + Vector2(g.hero["aim"]).normalized() * reach
 
 ## Cursor aim must converge from the actual muzzle, not run parallel to the
 ## hero-to-cursor ray. This matters most for precise weapons and close targets.
