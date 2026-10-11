@@ -1,3 +1,9 @@
+## v0.1.73 — Better fusions
+
+- Every species now has a **main part** it always keeps as a body (Spitter's neck, Ashwing's wings, Sapper's bomb pack, Siren's fin ears, Mama's egg pack...) and **parts it gives**, each with a slot (top, hand, legs, wings, head, tail, spikes, back).
+- A fusion keeps the body's shape, eyes and main part and adds the other parent's colours, mouth, pattern and every given part whose slot is free, so pieces never collide. Ember Spore is a Spitter with Ashwing's wings and beak; Toxic Artillery keeps its neck and carries Sapper's bomb pack; Brood Bastion carries Mama's eggs.
+- Blinky, Mitosis and Mirror now give parts too (ghost wisp, cell buds, prism spikes). Kaboomba has a proper bomb cap.
+
 ## v0.1.72 — True fusion mutations
 
 - Street monsters are now built from layers. The **body parent** gives the silhouette, its own anatomy (Spitter's neck and bulb, Bull's horns, Tick's legs, Ashwing's wings, Kaboomba's fuse...) and its eyes. The **other parent** gives its colours, surface pattern, mouth and decorations (Kaboomba's black skin, red grin and bomb spikes; Riot's armour; Leechling's sucker mouth...).

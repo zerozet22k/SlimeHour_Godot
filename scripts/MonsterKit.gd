@@ -10,34 +10,36 @@ extends RefCounted
 
 const INK := Color(0.08, 0.05, 0.09)
 
-## shape, sig (body appendage), eyes | body/dark/accent colours, back/top
-## decorations, pattern, mouth.
+## Body: shape, eyes and a MAIN part it always keeps. Giver: colours,
+## pattern, mouth and the PARTS it gives, each in a slot (top, hand, legs,
+## wings, head, tail, spikes). A giver part only goes where the body's own
+## main part leaves the slot free, so nothing ever overlaps.
 const SPECS = {
-	"blob": {"shape": "drip", "sig": "drip_tail", "eyes": "two", "body": "ff7b93", "dark": "8a2a44", "accent": "6c2946", "back": [], "top": "", "pattern": "gloss", "mouth": "smile"},
-	"zoomer": {"shape": "dart", "sig": "", "eyes": "two", "body": "ffb36b", "dark": "8a4a1c", "accent": "66323c", "back": ["swept_fins", "speed_tail"], "top": "", "pattern": "gloss", "mouth": "flat"},
-	"chonk": {"shape": "sumo", "sig": "topknot", "eyes": "two", "body": "e86a8a", "dark": "7a2a40", "accent": "201018", "back": ["stubby_feet"], "top": "", "pattern": "belly", "mouth": "frown"},
-	"spitter": {"shape": "round", "sig": "neck_bulb", "eyes": "two", "body": "b6ff6b", "dark": "4a7a20", "accent": "d8ff91", "back": [], "top": "", "pattern": "bubbles", "mouth": "o_mouth"},
-	"kaboomba": {"shape": "round", "sig": "fuse", "eyes": "two", "body": "3a3037", "dark": "1a1016", "accent": "ff704d", "back": ["bomb_spikes"], "top": "", "pattern": "shine", "mouth": "red_grin"},
-	"mitosis": {"shape": "cell", "sig": "", "eyes": "two", "body": "7dffcf", "dark": "2a8a6a", "accent": "276c64", "back": [], "top": "", "pattern": "nuclei", "mouth": "small_o"},
-	"mini": {"shape": "round", "sig": "tuft", "eyes": "two", "body": "7dffcf", "dark": "2a8a6a", "accent": "66323c", "back": [], "top": "", "pattern": "gloss", "mouth": "flat"},
-	"riot": {"shape": "box", "sig": "visor_band", "eyes": "two", "body": "8fb0ff", "dark": "263650", "accent": "b7d8f9", "back": [], "top": "", "pattern": "plate", "mouth": "grill"},
-	"bull": {"shape": "wide", "sig": "horns", "eyes": "two", "body": "ff9157", "dark": "7a3a18", "accent": "fff0cf", "back": [], "top": "", "pattern": "belly", "mouth": "snout"},
-	"mama": {"shape": "lobes", "sig": "egg_pack", "eyes": "two", "body": "ff9ad1", "dark": "8a3a6a", "accent": "ff3a8a", "back": [], "top": "bow", "pattern": "gloss", "mouth": "smile"},
-	"mortar": {"shape": "round", "sig": "mortar_tube", "eyes": "two", "body": "c9b27a", "dark": "5a4a28", "accent": "6a6656", "back": [], "top": "army_helmet", "pattern": "", "mouth": "flat"},
-	"totem": {"shape": "pillar", "sig": "", "eyes": "two", "body": "7ad1ff", "dark": "1d3550", "accent": "e8f8ff", "back": [], "top": "crown", "pattern": "stripes", "mouth": "grill"},
-	"blinky": {"shape": "ghost", "sig": "", "eyes": "two", "body": "c58cff", "dark": "5a2a8a", "accent": "3a1450", "back": [], "top": "", "pattern": "gloss", "mouth": "small_o"},
-	"tick": {"shape": "round", "sig": "six_legs", "eyes": "two", "body": "9dff6b", "dark": "24331c", "accent": "24331c", "back": [], "top": "", "pattern": "back_shell", "mouth": "fangs"},
-	"goblin": {"shape": "round", "sig": "gold_sack", "eyes": "two", "body": "ffd24d", "dark": "8a6a20", "accent": "fff4a3", "back": ["pointy_ears"], "top": "", "pattern": "", "mouth": "gold_grin"},
-	"ashwing": {"shape": "round", "sig": "flame_wings", "eyes": "two", "body": "ff9d59", "dark": "6d291c", "accent": "ffe19c", "back": [], "top": "flame_crest", "pattern": "", "mouth": "beak"},
-	"mirror": {"shape": "diamond", "sig": "", "eyes": "two", "body": "82e9ef", "dark": "24899c", "accent": "c0faff", "back": [], "top": "", "pattern": "facets", "mouth": "flat"},
-	"burrower": {"shape": "round", "sig": "dig_claws", "eyes": "two", "body": "c8a66e", "dark": "72502d", "accent": "ffe2a3", "back": [], "top": "", "pattern": "face_patch", "mouth": "nose_dot"},
-	"siren": {"shape": "cone", "sig": "", "eyes": "two", "body": "f194da", "dark": "7d3d76", "accent": "ffd6f5", "back": ["fin_ears"], "top": "", "pattern": "stripes", "mouth": "megaphone"},
-	"skitter": {"shape": "beetle", "sig": "four_legs", "eyes": "two", "body": "63dbff", "dark": "1c5a7a", "accent": "d6faff", "back": [], "top": "antennae", "pattern": "shell_split", "mouth": ""},
-	"sapper": {"shape": "round", "sig": "bomb_pack", "eyes": "visor", "body": "ffbb61", "dark": "7a4a14", "accent": "ff7a46", "back": [], "top": "hard_hat", "pattern": "", "mouth": ""},
-	"lancer": {"shape": "round", "sig": "spear", "eyes": "visor", "body": "bfc7ff", "dark": "3a4268", "accent": "9caaff", "back": [], "top": "plume", "pattern": "", "mouth": ""},
-	"leech": {"shape": "round", "sig": "worm_tail", "eyes": "two", "body": "a783ff", "dark": "4a2a8a", "accent": "f2e6ff", "back": [], "top": "", "pattern": "gloss", "mouth": "sucker"},
-	"nurse": {"shape": "round", "sig": "cross_satchel", "eyes": "two", "body": "9af0cd", "dark": "2a7a5a", "accent": "e8394a", "back": [], "top": "nurse_cap", "pattern": "", "mouth": "smile"},
-	"larry": {"shape": "round", "sig": "laser_lens", "eyes": "two", "body": "f35a8a", "dark": "6a1a3a", "accent": "ff3a5a", "back": ["heat_vents"], "top": "", "pattern": "", "mouth": "grit"},
+	"blob": {"shape": "drip", "main": ["drip_tail", "tail"], "gives": [["drip_tail", "tail"]], "eyes": "two", "body": "ff7b93", "dark": "8a2a44", "accent": "6c2946", "pattern": "gloss", "mouth": "smile"},
+	"zoomer": {"shape": "dart", "main": ["speed_tail", "tail"], "gives": [["swept_fins", "wings"]], "eyes": "two", "body": "ffb36b", "dark": "8a4a1c", "accent": "66323c", "pattern": "gloss", "mouth": "flat"},
+	"chonk": {"shape": "sumo", "main": ["topknot", "top"], "gives": [["stubby_feet", "legs"], ["topknot", "top"]], "eyes": "two", "body": "e86a8a", "dark": "7a2a40", "accent": "201018", "pattern": "belly", "mouth": "frown"},
+	"spitter": {"shape": "round", "main": ["neck_bulb", "top"], "gives": [["neck_bulb", "top"]], "eyes": "two", "body": "b6ff6b", "dark": "4a7a20", "accent": "d8ff91", "pattern": "bubbles", "mouth": "o_mouth"},
+	"kaboomba": {"shape": "bomb", "main": ["fuse", "top"], "gives": [["bomb_spikes", "spikes"], ["fuse", "top"]], "eyes": "two", "body": "3a3037", "dark": "1a1016", "accent": "ff704d", "pattern": "shine", "mouth": "red_grin"},
+	"mitosis": {"shape": "cell", "main": ["", ""], "gives": [["cell_buds", "side"]], "eyes": "two", "body": "7dffcf", "dark": "2a8a6a", "accent": "276c64", "pattern": "nuclei", "mouth": "small_o"},
+	"mini": {"shape": "round", "main": ["tuft", "top"], "gives": [["tuft", "top"]], "eyes": "two", "body": "7dffcf", "dark": "2a8a6a", "accent": "66323c", "pattern": "gloss", "mouth": "flat"},
+	"riot": {"shape": "box", "main": ["visor_band", "face"], "gives": [["visor_band", "face"]], "eyes": "two", "body": "8fb0ff", "dark": "263650", "accent": "b7d8f9", "pattern": "plate", "mouth": "grill"},
+	"bull": {"shape": "wide", "main": ["horns", "head"], "gives": [["horns", "head"]], "eyes": "two", "body": "ff9157", "dark": "7a3a18", "accent": "fff0cf", "pattern": "belly", "mouth": "snout"},
+	"mama": {"shape": "lobes", "main": ["egg_pack", "back"], "gives": [["egg_pack", "back"], ["bow", "top"]], "eyes": "two", "body": "ff9ad1", "dark": "8a3a6a", "accent": "ff3a8a", "pattern": "gloss", "mouth": "smile"},
+	"mortar": {"shape": "round", "main": ["mortar_tube", "hand"], "gives": [["army_helmet", "top"], ["mortar_tube", "hand"]], "eyes": "two", "body": "c9b27a", "dark": "5a4a28", "accent": "6a6656", "pattern": "", "mouth": "flat"},
+	"totem": {"shape": "pillar", "main": ["", ""], "gives": [["crown", "top"]], "eyes": "two", "body": "7ad1ff", "dark": "1d3550", "accent": "e8f8ff", "pattern": "stripes", "mouth": "grill"},
+	"blinky": {"shape": "ghost", "main": ["ghost_wisp", "tail"], "gives": [["ghost_wisp", "tail"]], "eyes": "two", "body": "c58cff", "dark": "5a2a8a", "accent": "3a1450", "pattern": "gloss", "mouth": "small_o"},
+	"tick": {"shape": "round", "main": ["six_legs", "legs"], "gives": [["six_legs", "legs"]], "eyes": "two", "body": "9dff6b", "dark": "24331c", "accent": "24331c", "pattern": "back_shell", "mouth": "fangs"},
+	"goblin": {"shape": "round", "main": ["gold_sack", "hand"], "gives": [["pointy_ears", "head"], ["gold_sack", "hand"]], "eyes": "two", "body": "ffd24d", "dark": "8a6a20", "accent": "fff4a3", "pattern": "", "mouth": "gold_grin"},
+	"ashwing": {"shape": "round", "main": ["flame_wings", "wings"], "gives": [["flame_wings", "wings"], ["flame_crest", "top"]], "eyes": "two", "body": "ff9d59", "dark": "6d291c", "accent": "ffe19c", "pattern": "", "mouth": "beak"},
+	"mirror": {"shape": "diamond", "main": ["", ""], "gives": [["prism_spikes", "spikes"]], "eyes": "two", "body": "82e9ef", "dark": "24899c", "accent": "c0faff", "pattern": "facets", "mouth": "flat"},
+	"burrower": {"shape": "round", "main": ["dig_claws", "legs"], "gives": [["dig_claws", "legs"]], "eyes": "two", "body": "c8a66e", "dark": "72502d", "accent": "ffe2a3", "pattern": "face_patch", "mouth": "nose_dot"},
+	"siren": {"shape": "cone", "main": ["fin_ears", "head"], "gives": [["fin_ears", "head"]], "eyes": "two", "body": "f194da", "dark": "7d3d76", "accent": "ffd6f5", "pattern": "stripes", "mouth": "megaphone"},
+	"skitter": {"shape": "beetle", "main": ["four_legs", "legs"], "gives": [["antennae", "top"], ["four_legs", "legs"]], "eyes": "two", "body": "63dbff", "dark": "1c5a7a", "accent": "d6faff", "pattern": "shell_split", "mouth": ""},
+	"sapper": {"shape": "round", "main": ["bomb_pack", "hand"], "gives": [["hard_hat", "top"], ["bomb_pack", "hand"]], "eyes": "visor", "body": "ffbb61", "dark": "7a4a14", "accent": "ff7a46", "pattern": "", "mouth": ""},
+	"lancer": {"shape": "round", "main": ["spear", "hand"], "gives": [["plume", "top"], ["spear", "hand"]], "eyes": "visor", "body": "bfc7ff", "dark": "3a4268", "accent": "9caaff", "pattern": "", "mouth": ""},
+	"leech": {"shape": "round", "main": ["worm_tail", "tail"], "gives": [["worm_tail", "tail"]], "eyes": "two", "body": "a783ff", "dark": "4a2a8a", "accent": "f2e6ff", "pattern": "gloss", "mouth": "sucker"},
+	"nurse": {"shape": "round", "main": ["cross_satchel", "hand"], "gives": [["nurse_cap", "top"], ["cross_satchel", "hand"]], "eyes": "two", "body": "9af0cd", "dark": "2a7a5a", "accent": "e8394a", "pattern": "", "mouth": "smile"},
+	"larry": {"shape": "round", "main": ["laser_lens", "top"], "gives": [["heat_vents", "wings"], ["laser_lens", "top"]], "eyes": "two", "body": "f35a8a", "dark": "6a1a3a", "accent": "ff3a5a", "pattern": "", "mouth": "grit"},
 }
 
 static func has(kind: String) -> bool:
@@ -56,7 +58,28 @@ static func ell(c: Vector2, rx: float, ry: float, n: int = 26) -> PackedVector2A
 		pts.append(c + Vector2(cos(th) * rx, sin(th) * ry))
 	return pts
 
-## Draws BODY's silhouette and appendage wearing SKIN's colours and features.
+## Parts drawn behind the silhouette.
+const BEHIND = ["six_legs", "four_legs", "dig_claws", "stubby_feet", "flame_wings", "swept_fins",
+	"bomb_spikes", "horns", "pointy_ears", "fin_ears", "egg_pack", "heat_vents", "ghost_wisp", "prism_spikes"]
+
+## Which parts a fusion of BODY and SKIN wears: the body's main part, then
+## every skin part whose slot is still free.
+static func parts_for(body_kind: String, skin_kind: String) -> Array:
+	var b: Dictionary = SPECS.get(body_kind, SPECS["blob"])
+	var s: Dictionary = SPECS.get(skin_kind, b)
+	var result: Array = []
+	var taken := {}
+	if str(b["main"][0]) != "":
+		result.append(str(b["main"][0]))
+		taken[str(b["main"][1])] = true
+	for g in s["gives"]:
+		if not taken.has(str(g[1])) and not result.has(str(g[0])):
+			result.append(str(g[0]))
+			taken[str(g[1])] = true
+	return result
+
+## Draws BODY's silhouette, eyes and main part wearing SKIN's colours,
+## pattern, mouth and the skin's parts that fit.
 static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float, flash: bool = false) -> void:
 	var b: Dictionary = SPECS.get(body_kind, SPECS["blob"])
 	var s: Dictionary = SPECS.get(skin_kind, b)
@@ -64,19 +87,17 @@ static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float,
 	var dark := Color(str(s["dark"]))
 	var accent := Color(str(s["accent"]))
 	var shape := str(b["shape"])
-	var behind := str(b["sig"]) in ["six_legs", "flame_wings", "dig_claws", "four_legs", "horns", "egg_pack"]
-	if behind:
-		signature(ci, str(b["sig"]), r, body, dark, accent, shape)
-	for d in s["back"]:
-		decor(ci, str(d), shape, r, body, dark, accent)
+	var parts := parts_for(body_kind, skin_kind)
+	for part in parts:
+		if part in BEHIND:
+			signature(ci, part, r, body, dark, accent, shape)
 	silhouette(ci, shape, r, body, dark)
 	pattern(ci, str(s["pattern"]), shape, r, body, dark, accent)
-	if str(b["sig"]) != "" and not behind:
-		signature(ci, str(b["sig"]), r, body, dark, accent, shape)
-	if str(s["top"]) != "":
-		decor(ci, str(s["top"]), shape, r, body, dark, accent)
+	for part in parts:
+		if not part in BEHIND:
+			signature(ci, part, r, body, dark, accent, shape)
 	eyes(ci, str(b["eyes"]), r)
-	mouth(ci, str(s["mouth"]), r, body, dark, accent)
+	mouth(ci, str(s["mouth"]) if str(s["mouth"]) != "" else str(b["mouth"]), r, body, dark, accent)
 
 # ------------------------------------------------------------------ silhouettes
 static func silhouette(ci: CanvasItem, shape: String, r: float, body: Color, dark: Color) -> void:
@@ -131,13 +152,24 @@ static func silhouette(ci: CanvasItem, shape: String, r: float, body: Color, dar
 			poly(ci, [Vector2(0, -r * 1.2), Vector2(r * 1.0, r * 0.75), Vector2(-r * 1.0, r * 0.75)], body, dark, 3.0)
 		"beetle":
 			poly(ci, ell(Vector2(0, r * 0.15), r * 0.9, r * 1.05), body, dark.darkened(0.3), 3.0)
+		"bomb":
+			# A round bomb with a riveted metal cap where the fuse goes in.
+			ci.draw_circle(Vector2.ZERO, r, INK)
+			ci.draw_circle(Vector2(0, -1), r - 2.5, body)
+			ci.draw_rect(Rect2(-r * 0.32, -r * 1.12, r * 0.64, r * 0.3), INK)
+			ci.draw_rect(Rect2(-r * 0.26, -r * 1.07, r * 0.52, r * 0.2), Color("8a8f9c"))
+			for side in [-1.0, 1.0]:
+				ci.draw_circle(Vector2(side * r * 0.16, -r * 0.97), r * 0.04, Color("4a4e5a"))
 		_:
 			ci.draw_circle(Vector2.ZERO, r, dark)
 			ci.draw_circle(Vector2(0, -1), r - 2.0, body)
 
 # ------------------------------------------------------------------ body appendages (taker)
 static func signature(ci: CanvasItem, sig: String, r: float, body: Color, dark: Color, accent: Color, shape: String = "round") -> void:
-	if sig in ["fuse", "six_legs", "flame_wings", "dig_claws", "laser_lens", "four_legs", "horns", "egg_pack"]:
+	if sig in ["fuse", "six_legs", "flame_wings", "dig_claws", "laser_lens", "four_legs", "horns", "egg_pack",
+			"bomb_spikes", "swept_fins", "speed_tail", "stubby_feet", "bow", "army_helmet", "crown", "pointy_ears",
+			"flame_crest", "fin_ears", "antennae", "hard_hat", "plume", "nurse_cap", "heat_vents",
+			"ghost_wisp", "prism_spikes", "cell_buds"]:
 		decor(ci, sig, shape, r, body, dark, accent)
 		return
 	match sig:
@@ -207,7 +239,7 @@ static func decor(ci: CanvasItem, d: String, shape: String, r: float, body: Colo
 				ci.draw_colored_polygon(PackedVector2Array([Vector2.from_angle(a - 0.16) * r * 0.85, Vector2.from_angle(a) * r * (reach + 0.2), Vector2.from_angle(a + 0.16) * r * 0.85]), dark)
 				ci.draw_circle(Vector2.from_angle(a) * r * (reach + 0.18), r * 0.06, accent)
 		"fuse":
-			var top := Vector2(r * 0.15, -r * (reach - 0.05))
+			var top := Vector2(r * 0.05, -r * (reach + 0.02))
 			ci.draw_line(top, top + Vector2(r * 0.22, -r * 0.42), Color("c8a060"), 3.0)
 			ci.draw_circle(top + Vector2(r * 0.24, -r * 0.46), r * 0.12, Color("ffd24d"))
 			ci.draw_circle(top + Vector2(r * 0.24, -r * 0.46), r * 0.06, Color.WHITE)
@@ -225,9 +257,9 @@ static func decor(ci: CanvasItem, d: String, shape: String, r: float, body: Colo
 				poly(ci, [Vector2(side * r * 0.6, -r * 0.5), Vector2(side * r * 1.25, -r * 1.5), Vector2(side * r * 0.95, -r * 0.12)], Color("fff0cf"), INK, 2.0)
 		"egg_pack":
 			for k in range(3):
-				var ep := Vector2((k - 1) * r * 0.55, -r * 0.85 - float(k % 2) * r * 0.15)
-				ci.draw_circle(ep, r * 0.26, INK)
-				ci.draw_circle(ep, r * 0.22, Color("ffd9e6"))
+				var ep := Vector2((k - 1) * r * 0.55, -r * 1.02 - float(k % 2) * r * 0.2)
+				ci.draw_circle(ep, r * 0.3, INK)
+				ci.draw_circle(ep, r * 0.26, Color("ffd9e6"))
 				ci.draw_circle(ep + Vector2(r * 0.06, r * 0.04), r * 0.06, accent)
 		"bow":
 			for side in [-1.0, 1.0]:
@@ -285,6 +317,22 @@ static func decor(ci: CanvasItem, d: String, shape: String, r: float, body: Colo
 			ci.draw_circle(Vector2(0, -r * 1.1), r * 0.3, INK)
 			ci.draw_circle(Vector2(0, -r * 1.1), r * 0.22, accent)
 			ci.draw_circle(Vector2(0, -r * 1.1), r * 0.09, Color("ffe0e8"))
+		"ghost_wisp":
+			var skirt := PackedVector2Array([Vector2(-r * 0.75, r * 0.4), Vector2(r * 0.75, r * 0.4)])
+			for k in range(7):
+				var x := r * 0.75 - float(k) * r * 1.5 / 6.0
+				skirt.append(Vector2(x, r * (1.25 if k % 2 == 0 else 0.95)))
+			poly(ci, skirt, Color(body, 0.85), dark, 2.0)
+		"prism_spikes":
+			for k in range(6):
+				var a2 := TAU * float(k) / 6.0 + PI / 6.0
+				poly(ci, [Vector2.from_angle(a2 - 0.14) * r * 0.85, Vector2.from_angle(a2) * r * (reach + 0.35), Vector2.from_angle(a2 + 0.14) * r * 0.85], Color("c6f6ff"), Color("1b4b66"), 1.5)
+		"cell_buds":
+			for side in [-1.0, 1.0]:
+				var bc := Vector2(side * r * 0.85, r * 0.55)
+				ci.draw_circle(bc, r * 0.32, dark)
+				ci.draw_circle(bc, r * 0.26, body)
+				ci.draw_circle(bc + Vector2(r * 0.04, r * 0.02), r * 0.09, Color(dark, 0.7))
 		"heat_vents":
 			for side in [-1.0, 1.0]:
 				ci.draw_rect(Rect2(side * r * 1.0 - r * 0.18, -r * 0.35, r * 0.36, r * 0.7), Color("4a4e5a"))
