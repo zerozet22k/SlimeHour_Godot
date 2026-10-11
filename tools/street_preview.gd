@@ -25,7 +25,7 @@ func capture() -> void:
 		game.barrels.clear()
 		game.state = "playing"
 		game.set_physics_process(false)
-		game.hero["pos"] = Vector2(0, game.sector_start_y - 1700.0)
+		game.hero["pos"] = Vector2(0, game.sector_start_y - 1150.0)
 		game.cam_y = game.hero["pos"].y - game.hero_offset()
 		game.cam_x = 0.0
 		game.banner_t = 0.0

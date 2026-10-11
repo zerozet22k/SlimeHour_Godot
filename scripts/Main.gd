@@ -174,7 +174,7 @@ var damage_taken = 0.0
 var last_hit_by = "the road"
 var sector_start_y = 0.0
 ## Street layout of the current sector (see RoadObstacles.layout_for).
-var road_layout = "open"
+var road_layout = "four_lane"
 var finish_y = -SECTOR_LEN
 var spawn_acc = 0.0
 var rush_acc = 0.0
