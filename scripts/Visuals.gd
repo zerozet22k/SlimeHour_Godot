@@ -2653,6 +2653,9 @@ func paint_shots() -> void:
 			"bossbullet":
 				paint_boss_bullet(s, p, d, r)
 			"enemy":
+				if bool(s.get("acid_trail", false)):
+					paint_acid_glob(s, p, d, r)
+					continue
 				var enemy_color: Color = s["color"]
 				draw_circle(p, r + 5, Color(enemy_color, 0.25))
 				draw_circle(p, r, enemy_color)
@@ -2784,6 +2787,37 @@ func paint_shots() -> void:
 					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
 				else:
 					draw_circle(p, r, Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3))
+
+## Spitter's acid: a wobbling glob lobbed through the air above its ground
+## shadow (the shadow is where it really is), dripping as it flies.
+func paint_acid_glob(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
+	var life := maxf(0.05, float(s["max_life"]))
+	var u := clampf(float(s["t"]) / life, 0.0, 1.0)
+	var lift := sin(u * PI) * 26.0
+	var size := r * (2.3 + 0.35 * sin(u * PI))
+	draw_set_transform(p + Vector2(0, 3), 0.0, Vector2(1.0, 0.45))
+	draw_circle(Vector2.ZERO, size * (1.0 - lift / 60.0), Color(0.05, 0.2, 0.02, 0.45))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var c := p - Vector2(0, lift)
+	# Droplets fall off behind the glob.
+	for k in range(3):
+		var back := c - d * (size * (1.2 + k * 0.9)) + Vector2(0, k * 4.0 + fmod(float(s["t"]) * 40.0, 4.0))
+		draw_circle(back, size * (0.32 - k * 0.07), Color("8dff5a", 0.85 - k * 0.2))
+	var blob := PackedVector2Array()
+	var ph := float(s["phase"])
+	for i in range(12):
+		var th := TAU * float(i) / 12.0
+		var wob := 1.0 + 0.14 * sin(th * 3.0 + float(s["t"]) * 14.0 + ph)
+		var stretch := 1.0 + 0.25 * maxf(0.0, Vector2.from_angle(th).dot(-d))
+		blob.append(c + Vector2.from_angle(th) * size * wob * stretch)
+	draw_colored_polygon(blob, Color("2f5a12"))
+	var inner := PackedVector2Array()
+	for q in blob:
+		inner.append(c + (q - c) * 0.8)
+	draw_colored_polygon(inner, Color("9dff4a"))
+	draw_circle(c + Vector2(size * 0.25, size * 0.15), size * 0.22, Color("d8ff91", 0.8))
+	draw_circle(c - Vector2(size * 0.2, size * 0.25), size * 0.12, Color("d8ff91", 0.9))
+	draw_circle(c + Vector2(-size * 0.35, -size * 0.35), size * 0.16, Color(1, 1, 1, 0.75))
 
 ## Bullet guns each get their own projectile silhouette. Returns false for
 ## guns that keep the shared batched dot.

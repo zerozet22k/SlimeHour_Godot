@@ -1,3 +1,7 @@
+## v0.1.76 — Spitter acid globs
+
+- Spitter's shot is now a wobbling acid glob lobbed through the air over its ground shadow (the shadow marks where it really is), dripping as it flies and splashing into a poison puddle where it lands.
+
 ## v0.1.75 — Effects that actually look good
 
 - **Real glow:** lasers, beams, sparks, explosion cores, enemy bullets and fire now glow on an additive light layer.

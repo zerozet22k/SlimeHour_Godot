@@ -463,6 +463,9 @@ static func expire(g, s: Dictionary) -> void:
 			schedule_boss_blast(g, s["pos"], 60.0, float(s["dmg"]), 0.9, "ff7a46")
 		if bool(s.get("acid_trail", false)):
 			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15)
+			# Splash: droplets and a ring as the glob hits the road.
+			g.spawn_burst(s["pos"], Color("9dff4a"), 9, 170.0, 4.5)
+			g.spawn_ring_fx(s["pos"], Color("8dff5a"), 40.0)
 		if s.has("mut_src"):
 			MutationKit.on_attack(g, s["mut_src"], s["pos"], false)
 		return
