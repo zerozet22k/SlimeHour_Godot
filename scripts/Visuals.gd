@@ -660,6 +660,10 @@ func paint_obstacles() -> void:
 		var seed = absf(float(ob["pos"].x) * 0.137 + float(ob["pos"].y) * 0.071)
 		match kind:
 			"tree":
+				if absf(float(ob["pos"].x)) > g.road_half - 80.0:
+					# Kerbside planter: a kerbed square of soil the tree grows from.
+					draw_rect(Rect2(p + Vector2(-30, -18), Vector2(60, 50)), Color(0.62, 0.64, 0.68))
+					draw_rect(Rect2(p + Vector2(-25, -13), Vector2(50, 40)), Color("3a2a20"))
 				paint_tree(p, radius, seed)
 			"median":
 				paint_median(p)
