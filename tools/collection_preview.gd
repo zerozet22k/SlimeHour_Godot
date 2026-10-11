@@ -8,7 +8,7 @@ func capture_collection() -> void:
 	root.add_child(scene)
 	await process_frame
 	scene.state = "collection"
-	scene.hud.collection_cat = "weapons"
+	scene.hud.collection_cat = "all"
 	scene.hud.collection_page = 0
 	scene.mouse_screen = Vector2(100, 210)
 	for i in range(5):

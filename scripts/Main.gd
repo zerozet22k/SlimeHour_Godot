@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.87"
+const GAME_VERSION = "v0.1.88"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1970,19 +1970,19 @@ func rest_train(slot: int) -> void:
 # ================================================================= random encounters ("?" nodes)
 ## Options with "dice" roll that many d6 on screen before the outcome is applied.
 const EVENTS = [
-	{"id": "gambler", "title": "ROADSIDE GAMBLER", "text": "A man at a folding table shakes a cup. Bet {bet} gold: roll 4 or more and he pays you {win}.",
+	{"id": "gambler", "title": "ROADSIDE GAMBLER", "text": "A man at a folding table shakes a cup. \"Feeling lucky?\"",
 		"opts": [{"label": "BET {bet} G", "dice": 1, "cost": "bet"}, {"label": "WALK AWAY"}]},
-	{"id": "crate", "title": "MYSTERY CRATE", "text": "A sealed crate sits in the road. Roll to open it. 1: it explodes. 2-3: {low} card. 4-5: {mid} card. 6: {high} card.",
+	{"id": "crate", "title": "MYSTERY CRATE", "text": "A sealed crate sits in the road. Something rattles inside.",
 		"opts": [{"label": "OPEN IT", "dice": 1}, {"label": "LEAVE IT"}]},
 	{"id": "mechanic", "title": "SHADY MECHANIC", "text": "\"{cost} gold and I'll tune one of your guns. No refunds.\" A random gun gains {levels}.",
 		"opts": [{"label": "PAY {cost} G", "cost": "cost"}, {"label": "NO THANKS"}]},
 	{"id": "altar", "title": "BLOOD ALTAR", "text": "An altar asks for blood. Lose 25% of your max HP to take a free card, {mid} or better.",
 		"opts": [{"label": "OFFER BLOOD"}, {"label": "LEAVE"}]},
-	{"id": "fountain", "title": "WISHING FOUNTAIN", "text": "Toss in 10 gold and roll. 6: a Four-Leaf Clover. 3-5: heal 35% HP. 1-2: nothing.",
+	{"id": "fountain", "title": "WISHING FOUNTAIN", "text": "Toss in 10 gold and make a wish.",
 		"opts": [{"label": "TOSS 10 G", "dice": 1, "cost": 10}, {"label": "LEAVE"}]},
-	{"id": "dummy", "title": "TRAINING YARD", "text": "Free target practice. Roll the dice: each pip is worth 20% of a level in EXP.",
+	{"id": "dummy", "title": "TRAINING YARD", "text": "Free target practice. Every pip you roll is EXP.",
 		"opts": [{"label": "TRAIN", "dice": 1}, {"label": "SKIP"}]},
-	{"id": "double", "title": "DOUBLE OR NOTHING", "text": "Roll two dice. Doubles: a {high} card. Total 9 or more: a {mid} card. Anything else: lose 15% max HP.",
+	{"id": "double", "title": "DOUBLE OR NOTHING", "text": "Two dice. Big rewards, or it bites back.",
 		"opts": [{"label": "ROLL TWO DICE", "dice": 2}, {"label": "LEAVE"}]},
 	{"id": "traveler", "title": "STRANDED DRIVER", "text": "A driver needs help pushing a car out of the crowd. You will take some hits (15 HP). Pays {pay} gold.",
 		"opts": [{"label": "HELP (-15 HP)"}, {"label": "IGNORE"}]},
@@ -1990,11 +1990,50 @@ const EVENTS = [
 		"opts": [{"label": "PAY {cost} G", "cost": "cost"}, {"label": "NOT TODAY"}]},
 	{"id": "medic", "title": "FIELD MEDIC", "text": "A medic waves you into her tent. {small} gold: a full heal and +20 max HP for the rest of the run.",
 		"opts": [{"label": "PAY {small} G", "cost": "small"}, {"label": "I'M FINE"}]},
-	{"id": "treasure", "title": "TREASURE MAP", "text": "A map marks a spot under the overpass. Roll: 1-2 it's an ambush (lose 20% HP). 3-6: dig up gold, more the higher you roll.",
+	{"id": "treasure", "title": "TREASURE MAP", "text": "A map marks a spot under the overpass.",
 		"opts": [{"label": "DIG", "dice": 1}, {"label": "LEAVE IT"}]},
 	{"id": "trader", "title": "CARD TRADER", "text": "\"Give me your newest card and I'll hand you one a rarity higher.\"",
 		"opts": [{"label": "TRADE"}, {"label": "KEEP MY CARDS"}]},
 ]
+
+## What each roll does, shown as a table on the event screen instead of a
+## paragraph. Rows: [faces, label, tone] with tone bad / meh / good / great.
+## Two-dice events use conditions instead of faces.
+func event_table() -> Array:
+	var n := event_numbers()
+	match str(event.get("id", "")):
+		"gambler":
+			return [[[1, 2, 3], "LOSE %d G" % int(n["bet"]), "bad"], [[4, 5, 6], "WIN %d G" % int(n["win"]), "great"]]
+		"crate":
+			return [[[1], "IT EXPLODES", "bad"], [[2, 3], "%s CARD" % str(n["low"]).to_upper(), "meh"],
+				[[4, 5], "%s CARD" % str(n["mid"]).to_upper(), "good"], [[6], "%s CARD" % str(n["high"]).to_upper(), "great"]]
+		"fountain":
+			return [[[1, 2], "NOTHING", "meh"], [[3, 4, 5], "HEAL 35%", "good"], [[6], "FOUR-LEAF CLOVER", "great"]]
+		"dummy":
+			return [[[1, 2], "+20-40% LEVEL", "meh"], [[3, 4], "+60-80% LEVEL", "good"], [[5, 6], "+100-120% LEVEL", "great"]]
+		"treasure":
+			return [[[1, 2], "AMBUSH: -20% HP", "bad"], [[3, 4], "SOME GOLD", "good"], [[5, 6], "LOTS OF GOLD", "great"]]
+		"double":
+			return [["DOUBLES", "%s CARD" % str(n["high"]).to_upper(), "great"], ["9 OR MORE", "%s CARD" % str(n["mid"]).to_upper(), "good"],
+				["ANYTHING ELSE", "-15% HP", "bad"]]
+	return []
+
+## Which table row the current roll landed on (-1 before rolling).
+func event_table_hit() -> int:
+	if event_dice.is_empty():
+		return -1
+	var roll := 0
+	for d in event_dice:
+		roll += int(d)
+	var rows := event_table()
+	if str(event.get("id", "")) == "double":
+		if event_dice.size() == 2 and event_dice[0] == event_dice[1]:
+			return 0
+		return 1 if roll >= 9 else 2
+	for i in range(rows.size()):
+		if (rows[i][0] as Array).has(roll):
+			return i
+	return -1
 
 ## Event numbers scale with the sector so a late encounter still matters.
 func event_numbers() -> Dictionary:
@@ -2036,7 +2075,7 @@ func event_choose(i: int) -> void:
 		for k in range(int(opt["dice"])):
 			event_dice.append(randi_range(1, 6))
 		event_faces = event_dice.duplicate()
-		event_roll_t = 1.3
+		event_roll_t = 1.6
 		event_stage = "rolling"
 		sfx.play("pick")
 	else:

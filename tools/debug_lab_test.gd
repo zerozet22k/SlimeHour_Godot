@@ -59,7 +59,7 @@ func _run() -> void:
 	check(DebugLab.items(game, "CARDS", "DEFENSE", "projectile").is_empty(), "Search honors active card category")
 	game.weapon_db["sniper"]["kind"] = "beam"
 	game.weapon_db["pistol"]["kind"] = "bullet"
-	check(DebugLab.items(game, "WEAPONS", "BEAM", "final").size() == 1, "Weapon type and name search work together")
+	check(DebugLab.items(game, "WEAPONS", "LONG RANGE", "final").size() == 1, "Weapon class and name search work together")
 	game.debug_panel_open = true
 	game.debug_category = "BOSSES"
 	game.debug_query = "unused"

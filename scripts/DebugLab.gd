@@ -185,7 +185,7 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 				var weapon: Dictionary = g.weapon_db[id]
 				result.append({
 					"id": str(id), "label": str(weapon.get("name", id)),
-					"category": str(weapon.get("kind", "other")).to_upper(),
+					"category": Weapons.gun_class(str(id)),
 					"detail": str(weapon.get("desc", "")) + " " + str(weapon.get("lv5", ""))
 				})
 		"ENEMIES":

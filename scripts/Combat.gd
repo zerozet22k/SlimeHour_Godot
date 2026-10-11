@@ -618,14 +618,20 @@ static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool
 	if float(e["stun"]) > 0.0 or float(e["frozen"]) > 0.0:
 		return false
 	if has_role(g, e, "mirror") and float(e.get("mirror_cd", 0.0)) <= 0.0:
-		# Toned down: a longer recharge, and slower, weaker reflections.
+		# Toned down: a longer recharge, and slower, weaker reflections. The
+		# reflection keeps YOUR shot's look and deals 20% of its damage.
 		e["mirror_cd"] = 1.8
 		var back: Vector2 = (Vector2(g.hero["pos"]) - impact).normalized()
 		s["friendly"] = false
-		s["kind"] = "enemy"
+		s["reflected"] = true
+		# Plain bullets keep their shape; anything with its own flight logic
+		# (rockets, grenades, balls...) comes back as a simple shot.
+		if kind not in ["bullet", "pellet", "bolt"]:
+			s["kind"] = "enemy"
+			s["vfx_style"] = "enemy"
 		s["speed"] = clampf(float(s["speed"]), 300.0, 520.0)
 		s["vel"] = back * float(s["speed"])
-		s["dmg"] = minf(float(s["dmg"]), float(e["dmg"]) * 1.0)
+		s["dmg"] = float(s["dmg"]) * 0.2
 		s["r"] = clampf(float(s["r"]), 4.0, 8.0)
 		for key in ["homing", "wave", "curve"]:
 			s[key] = 0.0
@@ -634,8 +640,6 @@ static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool
 		s["flags"] = {}
 		s["hit"] = {}
 		s["life"] = 2.0
-		s["color"] = Color("82e9ef")
-		s["vfx_style"] = "enemy"
 		s["src"] = "a Mirror Mimic reflection"
 		e["flash"] = 0.12
 		g.spawn_ring_fx(impact, Color("bff8ff"), 26.0)

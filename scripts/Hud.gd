@@ -17,7 +17,7 @@ var bold: Font
 var body: Font
 var buttons: Array = []
 var peek = false
-var collection_cat = "volley"
+var collection_cat = "all"
 var collection_page = 0  # first visible GRID ROW, not a four-card page
 var collection_track := Rect2()
 var collection_touch_id := -1
@@ -965,8 +965,7 @@ func paint_portrait_settings() -> void:
 	txt("VERSION  " + g.GAME_VERSION, Vector2(360, g.ui_height - 20), 18, Color("9db2ce"), 1, bold)
 
 func portrait_collection_cat(delta: int) -> void:
-	var cats = g.categories.keys()
-	cats.append("weapons")
+	var cats = COLLECTION_TABS
 	var idx = cats.find(collection_cat)
 	collection_cat = str(cats[posmod(idx + delta, cats.size())])
 	collection_page = 0
@@ -977,7 +976,7 @@ func paint_portrait_collection() -> void:
 	portrait_bg()
 	txt("COLLECTION", Vector2(360, 92), 56, Color.WHITE, 1, bold, 6)
 	button(Rect2(28, 124, 96, 72), "<", "mobile_cat_prev", false, 34)
-	var cat_label = {"weapons": "GUNS"}.get(collection_cat, str(g.categories.get(collection_cat, "")).to_upper())
+	var cat_label = str(COLLECTION_TAB_LABELS.get(collection_cat, "ALL CARDS"))
 	rbox(Rect2(140, 128, 440, 62), Color(0, 0, 0, 0.5), 31)
 	txt(cat_label, Vector2(360, 170), fit(cat_label, 420, 28), Color("ffd24d"), 1, bold, 3)
 	button(Rect2(596, 124, 96, 72), ">", "mobile_cat_next", false, 34)
@@ -1097,13 +1096,19 @@ func paint_hud() -> void:
 		var lt = "BOSS INCOMING" if g.is_boss_sector() and not g.boss_spawned and prog > 0.6 else ("%d ENEMIES LEFT" % left if left > 0 else "FINISH THEM")
 		txt(lt, Vector2(640, 78), 15, Color("ffd24d") if left < 15 else Color("c8d8eb"), 1, bold, 3)
 	# --- gold, kills, time, pause
-	var gx = 1205.0
+	var gx = 1205.0 if g.is_touch_active() else 1262.0
 	txt("%d" % g.gold, Vector2(gx, 40), 28, Color("ffd24d"), 2, bold, 5)
 	var gw = bold.get_string_size("%d" % g.gold, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x
 	draw_circle(Vector2(gx - gw - 16, 30), 10, Color("b8860b"))
 	draw_circle(Vector2(gx - gw - 16, 30), 7.5, Color("ffd24d"))
+	var touch: bool = g.is_touch_active()
+	if not touch:
+		gx = 1262.0
 	txt("%d KILLS   %d:%02d" % [g.kills, int(g.run_time) / 60, int(g.run_time) % 60], Vector2(gx, 64), 16, Color("c8d0e0"), 2, bold, 3)
-	button(Rect2(1222, 16, 44, 40), "||", "pause", false, 18)
+	# Pause and Arsenal are buttons on touch screens only; on PC they live on
+	# Esc and Tab, so the corners stay clean.
+	if touch:
+		button(Rect2(1222, 16, 44, 40), "||", "pause", false, 18)
 	# --- boss bar
 	for e in g.enemies:
 		if bool(e["boss"]) and not bool(e["dead"]) and int(e["gen"]) == 0:
@@ -1122,18 +1127,20 @@ func paint_hud() -> void:
 	for i in range(g.guns.size()):
 		paint_gun_slot(g.guns[i], i, Vector2(110 + i * 196, 636))
 	# --- owned card strip
+	# Build strip: the newest cards, a count, and how to open the full build.
 	var n = g.owned_order.size()
-	var shown = mini(n, 12)
+	var shown = mini(n, 8)
 	for i in range(shown):
 		var id = g.owned_order[n - shown + i]
-		var c = g.card_by_id[id]
-		var r = Rect2(1262 - (shown - i) * 42, 658, 38, 32)
+		var r = Rect2(1262 - (shown - i) * 36, 668, 32, 32)
 		mini_tile(r, id)
 		if int(g.owned[id]) > 1:
-			txt("x%d" % int(g.owned[id]), r.position + Vector2(r.size.x - 2, r.size.y + 1), 13, Color.WHITE, 2, bold, 3)
+			txt("x%d" % int(g.owned[id]), r.position + Vector2(r.size.x - 1, r.size.y + 1), 12, Color.WHITE, 2, bold, 3)
 	if n > 0:
-		button(Rect2(1116, 616, 148, 32), "ARSENAL", "open_arsenal", false, 14)
-		txt("(%d cards)" % n, Vector2(1262, 656), 13, Color("9fb8d0"), 2, bold, 3)
+		var hint := "%d CARDS" % n + ("" if g.is_touch_active() else "   ·   TAB")
+		txt(hint, Vector2(1262, 660), 13, Color("9fb8d0"), 2, bold, 3)
+		if g.is_touch_active():
+			button(Rect2(1116, 612, 148, 34), "ARSENAL", "open_arsenal", false, 14)
 	# --- combo
 	if g.combo >= 8:
 		var words = [[8, "NICE"], [20, "SPICY"], [40, "UNHINGED"], [80, "MASSACRE"], [150, "WAR CRIME"], [300, "GOD MODE"]]
@@ -1159,11 +1166,47 @@ func paint_hud() -> void:
 		if g.is_touch_active():
 			txt("DRAG LOWER LEFT TO MOVE   ·   TAP DASH TO DODGE   ·   TAP BASH TO STRIKE   ·   GUNS AUTO-TARGET & FIRE", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
 		else:
-			txt("WASD move   ·   LEFT CLICK gun 1   ·   RIGHT CLICK gun 2   ·   R reload   ·   SPACE dash   ·   F bash   ·   TAB arsenal", Vector2(640, 600), 17, Color(1, 1, 1, 0.85), 1, body, 4)
+			controls_guide(Vector2(640, 586), clampf((14.0 - g.run_time) / 2.0, 0.0, 1.0))
 	if g.state == "playing":
 		paint_enemy_arrows()
 	if g.is_touch_active() and g.state == "playing":
 		paint_touch_controls()
+
+## First-sector controls guide: keycaps instead of a line of text. It fades
+## out over the last two seconds of the hint window.
+func controls_guide(c: Vector2, a: float) -> void:
+	if a <= 0.0:
+		return
+	var groups = [[["W", "A", "S", "D"], "MOVE"], [["LMB"], "GUN 1"], [["RMB"], "GUN 2"], [["SPACE"], "DASH"],
+		[["F"], "BASH"], [["R"], "RELOAD"], [["TAB"], "BUILD"], [["ESC"], "PAUSE"]]
+	# Measure the row first so it is centred.
+	var widths: Array = []
+	var total := 0.0
+	for grp in groups:
+		var w := 0.0
+		for key in grp[0]:
+			w += keycap_w(str(key)) + 3.0
+		w += 6.0 + bold.get_string_size(str(grp[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		widths.append(w)
+		total += w + 18.0
+	total -= 18.0
+	rbox(Rect2(c.x - total * 0.5 - 16.0, c.y - 22.0, total + 32.0, 44.0), Color(0.02, 0.04, 0.09, 0.78 * a), 12, Color(Color("4fe0ff"), 0.35 * a), 1)
+	var x := c.x - total * 0.5
+	for i in range(groups.size()):
+		var grp: Array = groups[i]
+		for key in grp[0]:
+			var kw: float = keycap_w(str(key))
+			var kr := Rect2(x, c.y - 13.0, kw, 26.0)
+			rbox(Rect2(kr.position + Vector2(0, 3), kr.size), Color(0, 0, 0, 0.6 * a), 6)
+			rbox(kr, Color(Color("e8eef8"), a), 6, Color(Color("8fa3bd"), a), 1)
+			txt(str(key), kr.get_center() + Vector2(0, 5), 13, Color(Color("0b1224"), a), 1, bold)
+			x += kw + 3.0
+		x += 6.0
+		txt(str(grp[1]), Vector2(x, c.y + 5), 14, Color(Color("dbe8f5"), a), 0, bold, 3)
+		x += bold.get_string_size(str(grp[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 18.0
+
+func keycap_w(key: String) -> float:
+	return maxf(26.0, bold.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 14.0)
 
 func paint_gun_slot(w: Dictionary, i: int, pos: Vector2) -> void:
 	var d = g.weapon_db[w["id"]]
@@ -1529,11 +1572,13 @@ func paint_arsenal() -> void:
 func paint_debug_panel() -> void:
 	var w = sw()
 	var h = sh()
-	var px = 15.0 if g.portrait else 122.0
-	var pw = w - 30.0 if g.portrait else 1036.0
-	var py = 28.0 if g.portrait else 27.0
-	var ph = h - 56.0 if g.portrait else 665.0
-	draw_rect(Rect2(0, 0, w, h), Color("020714", 0.95))
+	# Fills the whole screen on desktop too (it is a full workspace).
+	var lr: Rect2 = g.landscape_rect()
+	var px = 15.0 if g.portrait else lr.position.x + 14.0
+	var pw = w - 30.0 if g.portrait else lr.size.x - 28.0
+	var py = 28.0 if g.portrait else 10.0
+	var ph = h - 56.0 if g.portrait else 700.0
+	draw_rect(Rect2(0, 0, w, h) if g.portrait else lr, Color("020714", 0.97))
 	panel(Rect2(px, py, pw, ph), Color("111d35"), Color("5beaff"), 3.0)
 	var heading = "DEBUG LAB  //  " + g.GAME_VERSION
 	txt(heading, Vector2(px + 22, py + 44), fit(heading, pw - 180, 35, bold), Color("8ff2ff"), 0, bold, 2)
@@ -1856,15 +1901,33 @@ func collection_info(item: Dictionary) -> Dictionary:
 			"rar": 0, "cat": "GUN", "catid": "locked", "art": null, "foot": "LOCKED", "icon": true}
 	return offer_info(item)
 
+## Collection tabs: every card together (sorted by rarity, then name),
+## rarity filters, the gun-specific cards, and the guns themselves.
+const COLLECTION_TABS = ["all", "common", "rare", "epic", "legendary", "gun_cards", "weapons"]
+const COLLECTION_TAB_LABELS = {"all": "ALL CARDS", "common": "COMMON", "rare": "RARE", "epic": "EPIC",
+	"legendary": "LEGENDARY+", "gun_cards": "GUN CARDS", "weapons": "GUNS"}
+
 func get_collection_items() -> Array:
 	var items = []
 	if collection_cat == "weapons":
 		for id in g.weapon_ids:
 			items.append({"type": "gun_new", "gun": id, "preview": true})
-	else:
-		for c in g.db_cards:
-			if c["cat"] == collection_cat:
-				items.append({"type": "card", "id": c["id"]})
+		return items
+	var cards: Array = []
+	for c in g.db_cards:
+		var r := int(c["rarity"])
+		var keep := true
+		match collection_cat:
+			"common": keep = r == 0
+			"rare": keep = r == 1
+			"epic": keep = r == 2
+			"legendary": keep = r >= 3
+			"gun_cards": keep = c.get("req", {}).has("weapon")
+		if keep:
+			cards.append(c)
+	cards.sort_custom(func(a, b): return [int(a["rarity"]), str(a["name"])] < [int(b["rarity"]), str(b["name"])])
+	for c in cards:
+		items.append({"type": "card", "id": c["id"]})
 	return items
 
 func select_collection_index(idx: int) -> void:
@@ -1876,11 +1939,10 @@ func paint_collection() -> void:
 	paint_menu_bg()
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.78))
 	txt("COLLECTION", Vector2(640, 60), 52, Color.WHITE, 1, bold, 7)
-	var cats = g.categories.keys()
-	cats.append("weapons")
+	var cats = COLLECTION_TABS
 	var tx = 30.0
 	for c in cats:
-		var label = {"weapons": "GUNS"}.get(c, str(g.categories.get(c, c)))
+		var label = str(COLLECTION_TAB_LABELS[c])
 		var w = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 20
 		var rect = Rect2(tx, 80, w, 32)
 		var sel = c == collection_cat
@@ -2655,48 +2717,111 @@ func paint_event() -> void:
 	txt(str(ev["title"]), Vector2(W * 0.5, 196 if g.portrait else 150), fit(str(ev["title"]), W - 60, 50 if g.portrait else 40), Color.WHITE, 1, bold, 5)
 	status_chips(222 if g.portrait else 168)
 	var pw = 640.0 if g.portrait else 760.0
-	var pr = Rect2(W * 0.5 - pw * 0.5, 290 if g.portrait else 228, pw, 150 if g.portrait else 110)
-	rbox(pr, PANEL, 20, PANEL_EDGE, 2)
-	wrap_text(str(ev["text"]), pr.position.x + 26, pr.position.y + 42, pw - 52, 22 if g.portrait else 19, Color("dbe4f5"), 30 if g.portrait else 25, body, true, 4)
-	var dice_y = pr.end.y + (150.0 if g.portrait else 95.0)
+	var y0: float = 280.0 if g.portrait else 214.0
+	txt(str(ev["text"]), Vector2(W * 0.5, y0 + 18), fit(str(ev["text"]), pw, 22 if g.portrait else 20, body, 14), Color("dbe4f5"), 1, body, 3)
+	var rows: Array = g.event_table()
+	var hit: int = g.event_table_hit() if g.event_stage == "result" else -1
+	var ty: float = y0 + 44.0
+	if not rows.is_empty():
+		ty = event_outcomes(Rect2(W * 0.5 - pw * 0.5, y0 + 40.0, pw, 0), rows, hit)
+	var dice_y = ty + (120.0 if g.portrait else 78.0)
 	var n = g.event_faces.size()
 	if n > 0:
 		var rolling = g.event_stage == "rolling"
+		var size: float = 104.0 if g.portrait else 88.0
 		for k in range(n):
-			var c = Vector2(W * 0.5 + (k - (n - 1) * 0.5) * 150.0, dice_y)
+			var c = Vector2(W * 0.5 + (k - (n - 1) * 0.5) * 140.0, dice_y)
+			var t: float = g.event_roll_t
 			var spin = 0.0
+			var lift := 0.0
 			if rolling:
-				spin = g.event_roll_t * 9.0 + k * 1.3
-				c.y -= absf(sin(g.event_roll_t * 11.0 + k)) * 40.0 * g.event_roll_t
-			draw_die(c, 104.0 if g.portrait else 84.0, int(g.event_faces[k]), spin)
-	var by = dice_y + (110.0 if g.portrait else 70.0) if n > 0 else pr.end.y + 40.0
+				# Tosses up, tumbles, and bounces twice before settling.
+				var u: float = clampf(1.0 - t / 1.6, 0.0, 1.0)
+				spin = (1.0 - u) * (1.0 - u) * 14.0 + k * 0.9
+				lift = absf(sin(u * PI * 2.5)) * 70.0 * pow(1.0 - u, 1.4)
+			draw_die(c + Vector2(0, -lift), size, int(g.event_faces[k]), spin, lift)
+			if g.event_stage == "result":
+				var tone := str(rows[hit][2]) if hit >= 0 else "meh"
+				draw_arc(c, size * 0.78, 0.0, TAU, 40, Color(tone_color(tone), 0.7), 4.0, true)
+	var by = dice_y + (110.0 if g.portrait else 74.0) if n > 0 else ty + 30.0
 	if g.event_stage == "choose":
 		var opts: Array = ev["opts"]
 		for i in range(opts.size()):
 			var o: Dictionary = opts[i]
 			var can = int(o.get("cost", 0)) <= g.gold
-			var r = Rect2(W * 0.5 - 260, by + i * 104, 520, 86) if g.portrait else Rect2(W * 0.5 - 220, by + i * 82, 440, 66)
+			var r = Rect2(W * 0.5 - 260, by + i * 104, 520, 86) if g.portrait else Rect2(W * 0.5 - 220, by + i * 78, 440, 64)
 			button(r, str(o["label"]) if can else "%s (NOT ENOUGH)" % str(o["label"]), "event_opt_%d" % i, i == 0, 30 if g.portrait else 26, can)
 	elif g.event_stage == "result":
-		var rr = Rect2(W * 0.5 - pw * 0.5, by, pw, 100 if g.portrait else 76)
-		rbox(rr, Color(0, 0, 0, 0.5), 20)
-		wrap_text(g.event_result, rr.position.x + 20, rr.position.y + (40 if g.portrait else 32), pw - 40, 24 if g.portrait else 20, Color("ffd24d"), 30 if g.portrait else 26, bold, true, 3)
-		var cb = Rect2(W * 0.5 - 210, rr.end.y + 40, 420, 88) if g.portrait else Rect2(W * 0.5 - 170, rr.end.y + 26, 340, 66)
+		var tone2 := str(rows[hit][2]) if hit >= 0 else "meh"
+		var rr = Rect2(W * 0.5 - pw * 0.5, by, pw, 100 if g.portrait else 70)
+		rbox(rr, Color(tone_color(tone2), 0.14), 20, Color(tone_color(tone2), 0.6), 2)
+		wrap_text(g.event_result, rr.position.x + 20, rr.position.y + (40 if g.portrait else 30), pw - 40, 24 if g.portrait else 20, Color.WHITE, 30 if g.portrait else 26, bold, true, 3)
+		var cb = Rect2(W * 0.5 - 210, rr.end.y + 40, 420, 88) if g.portrait else Rect2(W * 0.5 - 170, rr.end.y + 22, 340, 62)
 		button(cb, "CONTINUE", "event_continue", true, 34 if g.portrait else 28)
 
-## A d6 with pips; spin rotates it while it tumbles.
-func draw_die(c: Vector2, size: float, face: int, spin: float) -> void:
+func tone_color(tone: String) -> Color:
+	match tone:
+		"bad": return Color("ff5a6e")
+		"good": return Color("7dff9a")
+		"great": return Color("ffd24d")
+	return Color("9fb0c8")
+
+## The outcome table: one chip per result, with the dice faces that give it.
+## After the roll, the landed result lights up and the others dim.
+func event_outcomes(area: Rect2, rows: Array, hit: int) -> float:
+	var n: int = rows.size()
+	var gap := 10.0
+	var w: float = (area.size.x - gap * (n - 1)) / n
+	var h: float = 92.0 if g.portrait else 78.0
+	for i in range(n):
+		var row: Array = rows[i]
+		var r := Rect2(area.position.x + i * (w + gap), area.position.y, w, h)
+		var col := tone_color(str(row[2]))
+		var dim := hit >= 0 and hit != i
+		var a := 0.35 if dim else 1.0
+		rbox(r, Color(col, (0.1 if dim else (0.32 if hit == i else 0.16))), 14, Color(col, a), 3 if hit == i else 2)
+		var faces = row[0]
+		if faces is Array:
+			var fw := 32.0 if g.portrait else 28.0
+			var fx: float = r.get_center().x - (faces.size() * (fw + 6.0) - 6.0) * 0.5 + fw * 0.5
+			for k in range(faces.size()):
+				draw_die(Vector2(fx + k * (fw + 6.0), r.position.y + 24.0), fw, int(faces[k]), 0.0, 0.0, a)
+		else:
+			txt(str(faces), Vector2(r.get_center().x, r.position.y + 32), fit(str(faces), w - 12, 18, bold, 11), Color(Color.WHITE, a), 1, bold, 2)
+		txt(str(row[1]), Vector2(r.get_center().x, r.end.y - 14), fit(str(row[1]), w - 12, 17, bold, 10), Color(col, a), 1, bold, 3)
+	return area.position.y + h
+
+## A chunky d6: drop shadow, a darker side for depth, a lit top face and
+## pips with a glint. LIFT shrinks the shadow while it is in the air.
+func draw_die(c: Vector2, size: float, face: int, spin: float, lift: float = 0.0, alpha: float = 1.0) -> void:
+	var sh_scale: float = 1.0 - clampf(lift / 140.0, 0.0, 0.5)
+	draw_set_transform(c + Vector2(0, size * 0.55 + lift), 0.0, Vector2(1.0, 0.3))
+	dot_shape(Vector2.ZERO, size * 0.5 * sh_scale, Color(0, 0, 0, 0.35 * alpha))
 	draw_set_transform(c, spin, Vector2.ONE)
 	var r = Rect2(Vector2(-size, -size) * 0.5, Vector2(size, size))
-	rbox(Rect2(r.position + Vector2(0, 8), r.size), Color(0, 0, 0, 0.4), size * 0.2)
-	rbox(r, Color("f4f1ea"), size * 0.2, Color("c9c2b4"), 4)
+	var small := size < 40.0
+	if small:
+		# Table chips: a flat face so the pips stay readable at icon size.
+		draw_rect(r, Color(Color("2a2430"), alpha))
+		draw_rect(r.grow(-2.0), Color(Color("fbf8f1"), alpha))
+	else:
+		rbox(Rect2(r.position + Vector2(0, size * 0.1), r.size), Color(Color("a89f8f"), alpha), size * 0.22, Color(Color("2a2430"), alpha), 3)
+		rbox(r, Color(Color("fbf8f1"), alpha), size * 0.22, Color(Color("2a2430"), alpha), 3)
+		rbox(Rect2(r.position + Vector2(size * 0.1, size * 0.08), Vector2(size * 0.8, size * 0.18)), Color(1, 1, 1, 0.5 * alpha), size * 0.09)
 	var pips = {1: [Vector2.ZERO], 2: [Vector2(-1, -1), Vector2(1, 1)], 3: [Vector2(-1, -1), Vector2.ZERO, Vector2(1, 1)],
 		4: [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)],
 		5: [Vector2(-1, -1), Vector2(1, -1), Vector2.ZERO, Vector2(-1, 1), Vector2(1, 1)],
 		6: [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 0), Vector2(1, 0), Vector2(-1, 1), Vector2(1, 1)]}
+	var pip_col := Color("e8344f") if face == 1 else Color("1b2238")
 	for pp in pips.get(clampi(face, 1, 6), []):
-		draw_circle(pp * size * 0.26, size * 0.09, Color("ff4d6a") if face == 1 else Color("1b2238"))
+		var q: Vector2 = pp * size * 0.26
+		dot_shape(q, size * (0.15 if face == 1 else (0.11 if small else 0.09)), Color(pip_col, alpha))
+		if not small:
+			dot_shape(q + Vector2(-size * 0.025, -size * 0.025), size * 0.03, Color(1, 1, 1, 0.45 * alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func dot_shape(p: Vector2, r: float, col: Color) -> void:
+	draw_circle(p, r, col)
 
 ## Profile level, XP bar and how many cards are unlocked.
 func profile_bar(c: Vector2, w: float) -> void:

@@ -3011,7 +3011,7 @@ func paint_shots() -> void:
 				dot(p + Vector2(8 * flip, -22), 3, dimc(Color("ff3a3a")))
 				dot(p + Vector2(36 * flip, -6), 5, dimc(Color("fff27a")))
 			_:
-				if bool(s["friendly"]) and paint_gun_bullet(s, p, d, r, c):
+				if (bool(s["friendly"]) or bool(s.get("reflected", false))) and paint_gun_bullet(s, p, d, r, c):
 					continue
 				var tail = p - d * (10.0 + r * 2.5)
 				if shot_index % trail_stride == 0:

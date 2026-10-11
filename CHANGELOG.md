@@ -1,3 +1,12 @@
+## v0.1.88 — Clearer screens
+
+- **Collection:** opens on ALL CARDS together, sorted by rarity. The other tabs are Common, Rare, Epic, Legendary+, Gun Cards (cards for one gun) and Guns.
+- **Debug Lab:** fills the whole screen, and the Weapons filter uses gun classes (Sidearm, Long Range...) instead of internal types.
+- **Random encounters:** a one-line description plus an outcome table showing which dice roll gives what. After the roll, the result you landed on lights up. The dice are chunkier, toss and bounce, and the rolled result is colour-coded.
+- **HUD on PC:** the Pause and Arsenal buttons are gone (use Esc and Tab); they stay on touch screens. The card strip is smaller and shows how many cards you have.
+- **Controls guide:** the first-sector hint is now a row of keycaps (WASD MOVE, LMB GUN 1, ...) that fades out, instead of a line of text.
+- **Mirror:** reflected shots keep the look of your own projectile and deal 20% of its damage.
+
 ## v0.1.87 — Bigger collection pages
 
 - The Collection now shows 18 cards per page (6 x 3) instead of 8, so a whole category fits in one or two pages.
