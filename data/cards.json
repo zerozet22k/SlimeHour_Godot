@@ -126,7 +126,7 @@
       "cat": "volley",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 6th volley also fires a ring of 12 bullets.",
+      "desc": "Every 6th volley also fires a ring of 12 bullets (10 base damage each).",
       "art": "a clock face exploding with bullets",
       "mods": {},
       "procs": [
@@ -145,7 +145,7 @@
       "cat": "volley",
       "rarity": 1,
       "max": 3,
-      "desc": "Each volley has a 20% chance to also blast 5 pellets in a cone.",
+      "desc": "Each volley has a 20% chance to also blast 5 pellets in a cone (9 base damage each).",
       "art": "a wedding cake with a shotgun",
       "mods": {},
       "procs": [
@@ -165,7 +165,7 @@
       "cat": "volley",
       "rarity": 3,
       "max": 1,
-      "desc": "+2 projectiles and +1 parallel lane. Per-weapon volley limits prevent explosive spam.",
+      "desc": "+2 projectiles and +1 parallel lane.",
       "art": "three-headed hydra gun firing into parallel lanes",
       "mods": {
         "mult": 2,
@@ -291,7 +291,7 @@
       "cat": "volley",
       "rarity": 1,
       "max": 2,
-      "desc": "Starting a reload fans out 6 bullets forward.",
+      "desc": "Starting a reload fans out 6 bullets forward (12 base damage each).",
       "art": "a hand fanning a revolver hammer",
       "mods": {},
       "procs": [
@@ -364,7 +364,7 @@
       "cat": "volley",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 10th volley releases a damaging confetti explosion.",
+      "desc": "Every 10th volley releases a confetti explosion: 25 base damage in a 95 radius.",
       "art": "a party confetti cannon",
       "mods": {},
       "procs": [
@@ -442,7 +442,7 @@
       "cat": "volley",
       "rarity": 1,
       "max": 2,
-      "desc": "Starting a reload releases a knockback shockwave.",
+      "desc": "Starting a reload releases a shockwave: 15 base damage in a 120 radius, knocking enemies back.",
       "art": "a shockwave ring",
       "mods": {},
       "procs": [
@@ -529,7 +529,7 @@
       "cat": "projectile",
       "rarity": 1,
       "max": 3,
-      "desc": "Projectiles home in on enemies.",
+      "desc": "Your projectiles curve toward nearby enemies. Flames and beams nudge their aim onto targets.",
       "art": "a heat seeking missile",
       "mods": {
         "homing": 2.5
@@ -556,7 +556,7 @@
       "cat": "projectile",
       "rarity": 3,
       "max": 1,
-      "desc": "Flying projectiles return once and can hit again. Returning explosives have reduced second-blast damage.",
+      "desc": "Projectiles fly back once after their flight and can hit again. Returning explosives blast for less.",
       "art": "a boomerang shaped bullet",
       "mods": {
         "boomer": 1
@@ -693,7 +693,7 @@
       "cat": "projectile",
       "rarity": 1,
       "max": 1,
-      "desc": "Excess damage from a kill jumps to the nearest enemy.",
+      "desc": "When a hit kills, the leftover damage jumps to the nearest enemy within 220 range.",
       "art": "a bullet bursting through two monsters",
       "mods": {
         "overkill": 1
@@ -733,7 +733,7 @@
       "cat": "projectile",
       "rarity": 2,
       "max": 2,
-      "desc": "20% of hits stick a bomb that explodes 0.6s later.",
+      "desc": "20% of hits stick a bomb that explodes 0.6s later for the hit's full damage in a 60 radius.",
       "art": "a sticky bomb with a fuse",
       "mods": {},
       "procs": [
@@ -832,7 +832,7 @@
       "cat": "projectile",
       "rarity": 1,
       "max": 2,
-      "desc": "Projectiles speed up and gain damage as they fly.",
+      "desc": "Projectiles speed up as they fly and hit up to 16% harder at the end of their range (22% at 2 stacks).",
       "art": "a bullet with rocket boosters",
       "mods": {
         "accel": 1
@@ -928,7 +928,7 @@
       "cat": "chain",
       "rarity": 3,
       "max": 1,
-      "desc": "Fragments can split again (one more generation).",
+      "desc": "Fragments can split again into 2 more fragments: one extra generation.",
       "art": "a fractal pattern of bullets",
       "mods": {
         "fractal": 1
@@ -964,7 +964,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 3,
-      "desc": "30% of kills explode.",
+      "desc": "30% of kills explode: 18 base damage in a 65 radius.",
       "art": "a monster exploding into goo",
       "mods": {},
       "procs": [
@@ -983,7 +983,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 3,
-      "desc": "15% of hits arc lightning through 3 enemies.",
+      "desc": "15% of hits arc lightning through 3 enemies for 70% of the hit's damage.",
       "art": "chain lightning between monsters",
       "mods": {},
       "procs": [
@@ -1002,7 +1002,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 2,
-      "desc": "Explosions have a 25% chance to cause another explosion nearby.",
+      "desc": "Explosions have a 25% chance to set off another explosion nearby (14 base damage).",
       "art": "falling dominoes exploding",
       "mods": {},
       "procs": [
@@ -1027,7 +1027,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "Kills pop like popcorn: 6 tiny kernels fly everywhere.",
+      "desc": "Kills pop like popcorn: 6 tiny kernels fly everywhere (6 base damage each).",
       "art": "popcorn exploding from a bucket",
       "mods": {},
       "procs": [
@@ -1047,7 +1047,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "6% of kills burst into gold coins and confetti.",
+      "desc": "6% of kills burst into 2 gold coins and a confetti pop (10 base damage).",
       "art": "a colorful pinata bursting",
       "mods": {},
       "procs": [
@@ -1073,7 +1073,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 2,
-      "desc": "Killing an elite fires a 16-bullet nova from its corpse.",
+      "desc": "Killing an elite fires a 16-bullet nova from its corpse (20 base damage each).",
       "art": "a waterfall of bullets",
       "mods": {},
       "procs": [
@@ -1093,7 +1093,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 15 kills, launch 3 homing rockets.",
+      "desc": "Every 15 kills, launch 3 homing rockets (30 base damage each).",
       "art": "three homing rockets",
       "mods": {},
       "procs": [
@@ -1112,7 +1112,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 3,
-      "desc": "20% of kills call down a lightning strike on a nearby enemy.",
+      "desc": "20% of kills call down a lightning strike on a nearby enemy (30 base damage).",
       "art": "a thundercloud striking",
       "mods": {},
       "procs": [
@@ -1131,7 +1131,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "Fragments bounce off walls twice and ricochet once.",
+      "desc": "Fragments bounce off walls 2 times and ricochet to 1 more enemy.",
       "art": "bouncy rubber shards",
       "mods": {
         "fragbounce": 1
@@ -1149,7 +1149,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "Fragments home in on enemies.",
+      "desc": "Fragments home in hard on enemies.",
       "art": "homing shards with eyes",
       "mods": {
         "fraghome": 1
@@ -1167,7 +1167,7 @@
       "cat": "chain",
       "rarity": 3,
       "max": 1,
-      "desc": "Burning enemies explode when they die.",
+      "desc": "Burning enemies explode when they die: 25 base damage in a 75 radius.",
       "art": "a chain of fiery explosions",
       "mods": {},
       "procs": [
@@ -1192,7 +1192,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 2,
-      "desc": "25% of kills launch a rolling sawblade.",
+      "desc": "25% of kills launch a rolling sawblade (18 base damage).",
       "art": "a rolling sawblade",
       "mods": {},
       "procs": [
@@ -1248,7 +1248,7 @@
       "cat": "chain",
       "rarity": 0,
       "max": 3,
-      "desc": "Crits throw 4 sparks in a ring.",
+      "desc": "Crits throw 4 sparks in a ring, each dealing 50% of the crit's damage.",
       "art": "a shower of sparks",
       "mods": {},
       "procs": [
@@ -1267,7 +1267,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "40% of explosions also release a knockback shockwave.",
+      "desc": "40% of explosions also release a knockback shockwave (8 base damage, 85 radius).",
       "art": "an earthquake crack",
       "mods": {},
       "procs": [
@@ -1292,7 +1292,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "30% of explosions arc lightning to 2 enemies.",
+      "desc": "30% of explosions arc lightning to 2 enemies (15 base damage).",
       "art": "a lightning rod on a bomb",
       "mods": {},
       "procs": [
@@ -1316,7 +1316,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 1,
-      "desc": "Fragments explode in a small blast when they hit.",
+      "desc": "Fragments explode when they hit, in a small 32-radius blast.",
       "art": "glowing unstable shards",
       "mods": {
         "fragboom": 1
@@ -1352,7 +1352,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "Every 25 kills unleashes a massive shockwave.",
+      "desc": "Every 25 kills, unleash a shockwave: 40 base damage in a 230 radius.",
       "art": "a giant shockwave ring",
       "mods": {},
       "procs": [
@@ -1374,7 +1374,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 2,
-      "desc": "10% of kills release 3 floating bubbles that pop on enemies.",
+      "desc": "10% of kills release 3 floating bubbles that pop on enemies (20 base damage each).",
       "art": "a balloon dog",
       "mods": {},
       "procs": [
@@ -1393,7 +1393,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 2,
-      "desc": "12% of kills shoot a firework that bursts into 10 colorful sparks.",
+      "desc": "12% of kills shoot a firework that bursts into 10 sparks (15 base damage each).",
       "art": "fireworks exploding",
       "mods": {},
       "procs": [
@@ -1415,7 +1415,7 @@
       "cat": "chain",
       "rarity": 2,
       "max": 1,
-      "desc": "Enemies knocked back hard become projectiles that smash other enemies.",
+      "desc": "Enemies knocked back hard fly into other enemies and smash them.",
       "art": "bowling pins flying",
       "mods": {
         "fling": 1
@@ -1428,7 +1428,7 @@
       "cat": "chain",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 10th volley zaps 6 enemies.",
+      "desc": "Every 10th volley zaps 6 enemies (18 base damage).",
       "art": "a crackling static ball",
       "mods": {},
       "procs": [
@@ -1447,7 +1447,7 @@
       "cat": "chain",
       "rarity": 4,
       "max": 1,
-      "desc": "Every 50 kills, detonate a screen-shaking supernova.",
+      "desc": "Every 50 kills, detonate a supernova: 120 base damage in a 270 radius, with a beat of slow motion.",
       "art": "an exploding star",
       "mods": {},
       "procs": [
@@ -1654,7 +1654,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Bleed bursts for heavy damage at 5 stacks.",
+      "desc": "At 5 bleed stacks, bleed bursts for 9 base damage per stack and resets.",
       "art": "a burst of red",
       "mods": {
         "hemorrhage": 1
@@ -1672,7 +1672,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Burning + chilled enemies erupt in a steam explosion.",
+      "desc": "Burning a chilled enemy (or chilling a burning one) erupts in steam: 26 base damage in a 75 radius.",
       "art": "a steam engine whistle",
       "mods": {
         "steam": 1
@@ -1691,7 +1691,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Burning + shocked enemies explode.",
+      "desc": "Burning a shocked enemy (or shocking a burning one) makes it explode: 30 base damage in an 80 radius.",
       "art": "an overloaded electric fireball",
       "mods": {
         "overload": 1
@@ -1710,7 +1710,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Shocking a wet enemy arcs to every wet enemy nearby.",
+      "desc": "Shocking a wet enemy arcs to every wet enemy within 260 range for 6x shock damage.",
       "art": "an orchestra conductor with lightning",
       "mods": {
         "conduct": 1
@@ -1729,7 +1729,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Frozen enemies shatter into ice shards when killed.",
+      "desc": "Frozen enemies burst into 6 ice shards (10 base damage each) when killed.",
       "art": "a shattering ice statue",
       "mods": {
         "shatter": 1
@@ -1747,7 +1747,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 1,
-      "desc": "Burning enemies spread fire to nearby enemies when they die.",
+      "desc": "Burning enemies set every enemy within 95 range on fire when they die.",
       "art": "a spreading wildfire",
       "mods": {
         "wildfire": 1
@@ -1765,7 +1765,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 1,
-      "desc": "Poisoned enemies leave a poison cloud when they die.",
+      "desc": "Poisoned enemies leave a poison cloud (70 radius, 3s) when they die.",
       "art": "a plague doctor mask",
       "mods": {
         "plague": 1
@@ -1783,7 +1783,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 1,
-      "desc": "Charm lasts twice as long. Charmed enemies explode when they die.",
+      "desc": "Charm lasts twice as long. Charmed enemies explode when they die: 30 base damage in an 80 radius.",
       "art": "a brain in a washing machine",
       "mods": {
         "brainwash": 1
@@ -1817,7 +1817,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 2,
-      "desc": "Hitting burning enemies can leave fire on the ground.",
+      "desc": "10% of hits on burning enemies leave a fire patch on the ground (55 radius, 3s).",
       "art": "a napalm fire puddle",
       "mods": {},
       "procs": [
@@ -1843,7 +1843,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 2,
-      "desc": "Getting hit freezes every enemy near you.",
+      "desc": "Getting hit freezes every enemy within 170 range.",
       "art": "an icy nova blast",
       "mods": {},
       "procs": [
@@ -1862,7 +1862,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 2s, zap 2 enemies near you.",
+      "desc": "Every 2s, zap 2 enemies near you (12 base damage).",
       "art": "a static electric field",
       "mods": {},
       "procs": [
@@ -1881,7 +1881,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 2,
-      "desc": "Leave poison puddles as you run.",
+      "desc": "Every 90px you run leaves a poison puddle (36 radius, 3s).",
       "art": "toxic green footprints",
       "mods": {},
       "procs": [
@@ -1902,7 +1902,7 @@
       "cat": "element",
       "rarity": 0,
       "max": 2,
-      "desc": "+5% speed. Leave chilling ice as you run.",
+      "desc": "+5% move speed. Every 120px you run leaves a patch of chilling ice (42 radius, 2.5s).",
       "art": "a pair of ice skates",
       "mods": {
         "speed": 0.05
@@ -1944,7 +1944,7 @@
       "cat": "element",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing spills oil. Fire on oil becomes a huge blaze.",
+      "desc": "Dashing spills an oil slick (75 radius, 6s). Fire touching the oil becomes a huge blaze.",
       "art": "a black oil spill",
       "mods": {},
       "procs": [
@@ -2110,7 +2110,7 @@
       "cat": "auto",
       "rarity": 2,
       "max": 1,
-      "desc": "Drones fire explosive rockets instead of bullets.",
+      "desc": "Drones fire explosive rockets (20 base damage) instead of bullets, at half the fire rate.",
       "art": "a drone with rockets",
       "mods": {
         "dronerocket": 1
@@ -2152,7 +2152,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "A sawblade bounces around the road shredding enemies.",
+      "desc": "A sawblade bounces around the road, shredding every enemy it touches.",
       "art": "a huge bouncing sawblade",
       "mods": {
         "sawblade": 1
@@ -2178,7 +2178,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "A chicken follows you and lays explosive eggs near enemies.",
+      "desc": "A chicken follows you and lays an explosive egg (35 base damage) near enemies every 3s.",
       "art": "a cute chicken with a bomb egg",
       "mods": {
         "chickenpet": 1
@@ -2191,7 +2191,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "An intern follows you and plinks enemies with a pea shooter.",
+      "desc": "An intern follows you and plinks enemies with a pea shooter: 9 base damage, about 2 shots a second.",
       "art": "a nervous intern holding a tiny gun",
       "mods": {
         "minion": 1
@@ -2230,7 +2230,7 @@
       "cat": "auto",
       "rarity": 2,
       "max": 2,
-      "desc": "A dog fetches enemies: dashes in and bites (bleed).",
+      "desc": "A dog dashes at enemies and bites for 26 base damage plus bleed, about once a second.",
       "art": "a heroic dog",
       "mods": {
         "dog": 1
@@ -2243,7 +2243,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 1.5s, zap 3 nearby enemies.",
+      "desc": "Every 1.5s, zap 3 nearby enemies (14 base damage).",
       "art": "a tesla coil backpack",
       "mods": {},
       "procs": [
@@ -2262,7 +2262,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 5s, a meteor crashes into an enemy.",
+      "desc": "Every 5s, a meteor crashes into an enemy: 60 base damage in an 85 radius.",
       "art": "a smiling meteor",
       "mods": {},
       "procs": [
@@ -2281,7 +2281,7 @@
       "cat": "auto",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 12s, an airstrike carpet-bombs the road ahead.",
+      "desc": "Every 12s, an airstrike drops 8 bombs on the road ahead (45 base damage each).",
       "art": "a fighter jet dropping bombs",
       "mods": {},
       "procs": [
@@ -2300,7 +2300,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 6s, an anvil falls on an enemy. BONK.",
+      "desc": "Every 6s, an anvil falls on an enemy: 90 base damage. BONK.",
       "art": "a falling cartoon anvil",
       "mods": {},
       "procs": [
@@ -2320,7 +2320,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "Automatically throw a boomerang every 2.5s.",
+      "desc": "Every 2.5s, automatically throw a boomerang (22 base damage).",
       "art": "a boomerang mid-flight",
       "mods": {},
       "procs": [
@@ -2338,7 +2338,7 @@
       "cat": "auto",
       "rarity": 1,
       "max": 3,
-      "desc": "Every 3s, fire 2 homing rockets.",
+      "desc": "Every 3s, fire 2 homing rockets (25 base damage each).",
       "art": "shoulder mounted rocket pods",
       "mods": {},
       "procs": [
@@ -2357,7 +2357,7 @@
       "cat": "auto",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 1.2s, shoot a laser from your eyes at the nearest enemy.",
+      "desc": "Every 1.2s, shoot a laser from your eyes at the nearest enemy (30 base damage).",
       "art": "a face with red laser eyes",
       "mods": {},
       "procs": [
@@ -2375,7 +2375,7 @@
       "cat": "auto",
       "rarity": 2,
       "max": 1,
-      "desc": "Orbiting blades also shoot at enemies every second.",
+      "desc": "Each orbiting blade also shoots at an enemy once per second.",
       "art": "blades with tiny guns",
       "mods": {
         "orbitguns": 1
@@ -2407,7 +2407,7 @@
       "cat": "auto",
       "rarity": 0,
       "max": 3,
-      "desc": "Every 4s, spikes burst from the ground around you.",
+      "desc": "Every 4s, 8 spikes burst from the ground around you (14 base damage each).",
       "art": "spikes bursting from ground",
       "mods": {},
       "procs": [
@@ -2426,7 +2426,7 @@
       "cat": "auto",
       "rarity": 5,
       "max": 1,
-      "desc": "Every 15s, open a black hole that swallows enemies.",
+      "desc": "Every 15s, open a black hole for 3s that drags in every enemy within 190 range.",
       "art": "a black hole in a pocket",
       "mods": {},
       "procs": [
@@ -2552,7 +2552,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing leaves a trail of fire.",
+      "desc": "Dashing leaves one stripe of fire behind you that burns for 2.5s.",
       "art": "burning tire tracks",
       "mods": {
         "dashtrail": 1
@@ -2565,7 +2565,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 1,
-      "desc": "Dashing instantly reloads your guns.",
+      "desc": "Dashing instantly reloads all your guns.",
       "art": "a soldier doing a tactical roll",
       "mods": {
         "dashreload": 1
@@ -2578,7 +2578,7 @@
       "cat": "move",
       "rarity": 2,
       "max": 2,
-      "desc": "Dashing fires a 12-bullet ring.",
+      "desc": "Dashing fires a 12-bullet ring (15 base damage each).",
       "art": "a hero spinning with two guns",
       "mods": {},
       "procs": [
@@ -2633,7 +2633,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 2,
-      "desc": "Perfect dodges detonate an explosion around you.",
+      "desc": "Perfect dodges detonate an explosion around you: 50 base damage in a 130 radius.",
       "art": "a fencer riposte with explosion",
       "mods": {},
       "procs": [
@@ -2652,7 +2652,7 @@
       "cat": "move",
       "rarity": 0,
       "max": 2,
-      "desc": "Dashing drops smoke that slows nearby enemies.",
+      "desc": "Dashing drops smoke that slows every enemy within 130 range.",
       "art": "a smoke bomb cloud",
       "mods": {},
       "procs": [
@@ -2671,7 +2671,7 @@
       "cat": "move",
       "rarity": 2,
       "max": 2,
-      "desc": "Dashing leaves a decoy that lures enemies and explodes after 1.5s.",
+      "desc": "Dashing leaves a decoy that lures enemies, then explodes after 1.5s (45 base damage).",
       "art": "a glowing afterimage silhouette",
       "mods": {},
       "procs": [
@@ -2729,7 +2729,7 @@
       "cat": "move",
       "rarity": 2,
       "max": 2,
-      "desc": "Standing still fires an 8-bullet ring every second.",
+      "desc": "Standing still fires an 8-bullet ring every second (12 base damage each).",
       "art": "a hero turning into a turret",
       "mods": {},
       "procs": [
@@ -2748,7 +2748,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 1,
-      "desc": "Dashing into enemies sends them flying.",
+      "desc": "Dashing into enemies knocks them flying.",
       "art": "a hockey shoulder check",
       "mods": {
         "dashpush": 1
@@ -2761,7 +2761,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 2,
-      "desc": "Gain damage equal to your bonus move speed.",
+      "desc": "Gain bonus damage equal to your bonus move speed: +30% speed means +30% damage.",
       "art": "a demon with racing stripes",
       "mods": {
         "speeddmg": 1
@@ -2810,7 +2810,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing fires 2 rockets at nearby enemies.",
+      "desc": "Dashing fires 2 rockets at nearby enemies (20 base damage each).",
       "art": "rocket powered boots",
       "mods": {},
       "procs": [
@@ -2860,7 +2860,7 @@
       "cat": "move",
       "rarity": 2,
       "max": 1,
-      "desc": "+0.4s invulnerability after a hit and dash recharge. This is defensive, separate from Ghost Walker.",
+      "desc": "+0.4s invulnerability after a hit, and getting hit instantly recharges your dash.",
       "art": "a ghostly footprint",
       "mods": {
         "iframe": 0.4
@@ -2878,7 +2878,7 @@
       "cat": "move",
       "rarity": 2,
       "max": 2,
-      "desc": "The end of each dash slams the ground.",
+      "desc": "The end of each dash slams the ground: 30 base damage in a 135 radius, knocking enemies back.",
       "art": "a superhero ground pound",
       "mods": {},
       "procs": [
@@ -2898,7 +2898,7 @@
       "cat": "move",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing drops a banana peel. Enemies slip, spin and get stunned.",
+      "desc": "Dashing drops a banana peel that lasts 12s. Enemies that step on it slip, spin and get stunned.",
       "art": "a banana peel",
       "mods": {},
       "procs": [
@@ -2938,7 +2938,7 @@
       "cat": "move",
       "rarity": 0,
       "max": 1,
-      "desc": "Dashing pulls in nearby pickups.",
+      "desc": "Dashing pulls in every pickup around you.",
       "art": "a horseshoe magnet",
       "mods": {},
       "procs": [
@@ -3117,7 +3117,7 @@
       "cat": "defense",
       "rarity": 1,
       "max": 2,
-      "desc": "Getting hit fires a 16-bullet nova.",
+      "desc": "Getting hit fires a 16-bullet nova (20 base damage each).",
       "art": "an angry hero firing everywhere",
       "mods": {},
       "procs": [
@@ -3135,7 +3135,7 @@
       "cat": "defense",
       "rarity": 1,
       "max": 2,
-      "desc": "Getting hit causes an explosion around you.",
+      "desc": "Getting hit causes an explosion around you: 40 base damage in a 145 radius.",
       "art": "an explosion of rage",
       "mods": {},
       "procs": [
@@ -3273,7 +3273,7 @@
       "cat": "defense",
       "rarity": 1,
       "max": 1,
-      "desc": "Healing above max HP becomes shield charges (up to 3).",
+      "desc": "Healing at least 10 HP past your max HP gives a shield charge (up to 3).",
       "art": "a blood bank",
       "mods": {
         "overheal": 1
@@ -3300,7 +3300,7 @@
       "cat": "defense",
       "rarity": 1,
       "max": 2,
-      "desc": "Getting hit fires 10 fragments around you.",
+      "desc": "Getting hit fires 10 fragments around you (12 base damage each).",
       "art": "reactive armor plates exploding",
       "mods": {},
       "procs": [
@@ -3580,7 +3580,7 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "Gold Goblins appear much more often.",
+      "desc": "Gold Goblins appear 2.5x as often.",
       "art": "a whistle and a goblin",
       "mods": {
         "goblins": 1
@@ -3698,7 +3698,7 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "Every 8th volley flicks a coin that ricochets 4 times.",
+      "desc": "Every 8th volley flicks a coin that ricochets between 4 enemies (40 base damage).",
       "art": "a flipping gold coin",
       "mods": {},
       "procs": [
@@ -3862,7 +3862,7 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "Leveling up blasts a 24-bullet ring.",
+      "desc": "Leveling up blasts a 24-bullet ring (30 base damage each).",
       "art": "a lightbulb exploding with ideas",
       "mods": {},
       "procs": [
@@ -3898,7 +3898,7 @@
       "cat": "chaos",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 8s a clown car drives across the road, running over everything.",
+      "desc": "Every 8s a clown car drives across the road, running over everything (60 base damage).",
       "art": "a tiny clown car honking",
       "mods": {},
       "procs": [
@@ -3945,7 +3945,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "Every 6s a disco ball makes nearby enemies dance (stunned).",
+      "desc": "Every 6s a disco ball makes every enemy within 190 range dance, stunned for 1.5s.",
       "art": "a disco ball with dancing monsters",
       "mods": {},
       "procs": [
@@ -3968,7 +3968,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing pops a damaging confetti blast.",
+      "desc": "Dashing pops a confetti blast: 20 base damage in a 105 radius.",
       "art": "a party popper",
       "mods": {},
       "procs": [
@@ -4008,7 +4008,7 @@
       "cat": "chaos",
       "rarity": 0,
       "max": 2,
-      "desc": "Every 4s you might sneeze a ring of 10 bullets. ACHOO!",
+      "desc": "Every 4s, a 50% chance to sneeze a ring of 10 bullets (12 base damage each). ACHOO!",
       "art": "a sneezing hero",
       "mods": {},
       "procs": [
@@ -4029,7 +4029,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "Dashing leaves a poison cloud. Pffft.",
+      "desc": "Dashing leaves a poison cloud (85 radius, 3s). Pffft.",
       "art": "a bean burrito with green gas",
       "mods": {},
       "procs": [
@@ -4098,7 +4098,7 @@
       "cat": "chaos",
       "rarity": 2,
       "max": 2,
-      "desc": "Every 5s a hot potato bounces between 4 enemies, then explodes.",
+      "desc": "Every 5s a hot potato bounces between 4 enemies, then explodes for 80 base damage.",
       "art": "a flaming hot potato",
       "mods": {},
       "procs": [
@@ -4154,7 +4154,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "Every 10s a vortex pulls enemies together and sucks up pickups.",
+      "desc": "Every 10s a vortex pulls enemies within 170 range together and sucks up nearby pickups.",
       "art": "a vacuum cleaner",
       "mods": {},
       "procs": [
@@ -4179,7 +4179,7 @@
       "cat": "chaos",
       "rarity": 0,
       "max": 1,
-      "desc": "Reloading plays a kazoo that stuns nearby enemies.",
+      "desc": "Reloading plays a kazoo that stuns every enemy within 110 range for 1s.",
       "art": "a kazoo",
       "mods": {},
       "procs": [
@@ -4217,7 +4217,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 3,
-      "desc": "6% of kills cause a big explosion.",
+      "desc": "6% of kills cause a big explosion: 50 base damage in a 115 radius.",
       "art": "a cartoon bomb with KABOOM cloud",
       "mods": {},
       "procs": [
@@ -4237,7 +4237,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "+20% burn chance. Getting hit spews fire around you.",
+      "desc": "+20% burn chance. Getting hit spews a ring of fire around you (95 radius, 2s).",
       "art": "a ghost pepper on fire",
       "mods": {
         "burn": 0.2
@@ -4338,7 +4338,7 @@
       "cat": "chaos",
       "rarity": 1,
       "max": 2,
-      "desc": "Every 600px you run, fire a 20-bullet ring.",
+      "desc": "Every 600px you run, fire a 20-bullet ring (15 base damage each).",
       "art": "a hamster in a wheel",
       "mods": {},
       "procs": [
@@ -4357,7 +4357,7 @@
       "cat": "chaos",
       "rarity": 2,
       "max": 1,
-      "desc": "Every 10s a piano falls on the biggest enemy.",
+      "desc": "Every 10s a piano falls on the biggest enemy: 220 base damage in a 95 radius.",
       "art": "a falling grand piano",
       "mods": {},
       "procs": [
@@ -4413,7 +4413,7 @@
       "cat": "chaos",
       "rarity": 5,
       "max": 1,
-      "desc": "Survive death once, nuking everything on screen.",
+      "desc": "Survive death once with 50% HP, and the blast hits everything on screen for 400 base damage.",
       "art": "a big red nuke button",
       "mods": {
         "revive": 1,
@@ -4427,7 +4427,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Boomstick: +3 pellets.",
+      "desc": "Breacher: +3 pellets.",
       "art": "a pile of shotgun shells",
       "mods": {},
       "procs": [],
@@ -4446,7 +4446,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 1,
-      "desc": "Boomstick/Railgun: recoil is tripled and blasts fragments behind you.",
+      "desc": "Breacher/Gauss Lance: recoil is tripled and blasts fragments behind you.",
       "art": "a hero flying backward from recoil",
       "mods": {},
       "procs": [],
@@ -4467,7 +4467,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "SMG/Lawnmower/Nail Gun: +100% magazine, +15% fire rate.",
+      "desc": "Cyclone/Vulcan/Rivet Driver: +100% magazine, +15% fire rate.",
       "art": "an ammo belt feeding a gun",
       "mods": {},
       "procs": [],
@@ -4489,7 +4489,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 1,
-      "desc": "Lawnmower: starts at full spin.",
+      "desc": "Vulcan: starts at full spin.",
       "art": "a spinning minigun barrel",
       "mods": {},
       "procs": [],
@@ -4508,7 +4508,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Long Goodbye/Six Shooter: +4 pierce, +30% damage.",
+      "desc": "Longshot/Deadeye: +4 pierce, +30% damage.",
       "art": "a hawk eye",
       "mods": {},
       "procs": [],
@@ -4529,7 +4529,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Peashooter/Six Shooter/Long Goodbye: +3 wall bounces.",
+      "desc": "Longshot/Deadeye/Service Nine: +3 wall bounces.",
       "art": "a bullet bouncing off a wall",
       "mods": {},
       "procs": [],
@@ -4550,7 +4550,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 1,
-      "desc": "Party Starter: rockets split into 4 bomblets.",
+      "desc": "Payload: rockets split into 4 bomblets.",
       "art": "a rocket splitting into bomblets",
       "mods": {},
       "procs": [],
@@ -4569,7 +4569,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Party Starter/Bouncer: +60% blast radius, +20% damage.",
+      "desc": "Payload/Rebound: +60% blast radius, +20% damage.",
       "art": "a tiny nuke warhead",
       "mods": {},
       "procs": [],
@@ -4590,7 +4590,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 1,
-      "desc": "Bouncer: grenades stick to enemies.",
+      "desc": "Rebound: grenades stick to enemies.",
       "art": "a sticky grenade covered in goo",
       "mods": {},
       "procs": [],
@@ -4609,7 +4609,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Beam Me: +2 extra beams.",
+      "desc": "Prism Beam: +2 extra beams.",
       "art": "a prism splitting a laser beam",
       "mods": {},
       "procs": [],
@@ -4628,7 +4628,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Zapper: +4 chain jumps, +20% damage.",
+      "desc": "Arc Caster: +4 chain jumps, +20% damage.",
       "art": "a wizard calling lightning",
       "mods": {},
       "procs": [],
@@ -4648,7 +4648,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 1,
-      "desc": "Hot Take: +60% range, flames ignite the ground.",
+      "desc": "Cinder: +60% range, flames ignite the ground.",
       "art": "a dragon breathing fire",
       "mods": {},
       "procs": [],
@@ -4668,7 +4668,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Frisbee of Doom: +2 discs.",
+      "desc": "Razor Disc: +2 discs.",
       "art": "a stack of frisbees",
       "mods": {},
       "procs": [],
@@ -4687,7 +4687,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Boomer: +80% size, +30% damage.",
+      "desc": "Returner: +80% size, +30% damage.",
       "art": "a huge boomerang",
       "mods": {},
       "procs": [],
@@ -4707,7 +4707,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Railgun: +60% damage, charges 30% faster.",
+      "desc": "Gauss Lance: +60% damage, charges 30% faster.",
       "art": "an overcharged battery",
       "mods": {},
       "procs": [],
@@ -4727,7 +4727,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Beehive: +3 bees, +25% damage.",
+      "desc": "Swarmcaster: +3 bees, +25% damage.",
       "art": "an angry killer bee",
       "mods": {},
       "procs": [],
@@ -4747,7 +4747,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Strike Cannon: +1 ball, +40% size.",
+      "desc": "Impact Cannon: +1 ball, +40% size.",
       "art": "bowling pins exploding in a strike",
       "mods": {},
       "procs": [],
@@ -4767,7 +4767,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Nail Gun: +40% pin chance, +20% fire rate.",
+      "desc": "Rivet Driver: +40% pin chance, +20% fire rate.",
       "art": "a stapler gun",
       "mods": {},
       "procs": [],
@@ -4787,7 +4787,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Poultry Launcher: +2 chickens per shot.",
+      "desc": "Fowl Play: +2 chickens per shot.",
       "art": "a chicken coop",
       "mods": {},
       "procs": [],
@@ -4806,7 +4806,7 @@
       "cat": "mastery",
       "rarity": 1,
       "max": 2,
-      "desc": "Bubble Blaster: traps +2 enemies, +40% size.",
+      "desc": "Pressure Pop: traps +2 enemies, +40% size.",
       "art": "a bubble bath",
       "mods": {},
       "procs": [],
@@ -4826,7 +4826,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 1,
-      "desc": "Pinball: every wall bounce adds another ball.",
+      "desc": "Ricochet: every wall bounce adds another ball.",
       "art": "multiple pinballs",
       "mods": {},
       "procs": [],
@@ -4845,7 +4845,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Splitbow: +2 split bolts, splits home in.",
+      "desc": "Hydra Bow: +2 split bolts, splits home in.",
       "art": "a hydra headed arrow",
       "mods": {},
       "procs": [],
@@ -4865,7 +4865,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 1,
-      "desc": "Snow Cannon: snowballs grow twice as big and freeze instantly.",
+      "desc": "Frostcaster: snowballs grow twice as big and freeze instantly.",
       "art": "an avalanche",
       "mods": {},
       "procs": [],
@@ -4885,7 +4885,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 1,
-      "desc": "Six Shooter/Long Goodbye: +25% crit, crits pierce everything.",
+      "desc": "Deadeye/Longshot: +25% crit, crits pierce everything.",
       "art": "a glowing dead eye",
       "mods": {},
       "procs": [],
@@ -4906,7 +4906,7 @@
       "cat": "mastery",
       "rarity": 2,
       "max": 2,
-      "desc": "Peashooter/SMG: +1 bullet, +50% reload speed.",
+      "desc": "Service Nine/Cyclone: +1 bullet, +50% reload speed.",
       "art": "two pistols crossed",
       "mods": {},
       "procs": [],

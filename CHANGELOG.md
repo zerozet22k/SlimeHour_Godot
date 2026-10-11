@@ -1,3 +1,14 @@
+## v0.1.82 — Every card checked
+
+- **All 300 cards were re-checked against what they actually do.** Every card's effect is wired up, and every number in a description matches the real value.
+- **Gun cards used old gun names.** 25 cards still said Boomstick, Lawnmower, Long Goodbye, Six Shooter, Peashooter, Party Starter, Zapper, Hot Take, Beam Me, Frisbee of Doom and so on. They now use the current names (Breacher, Vulcan, Longshot, Deadeye, Service Nine, Payload, Arc Caster, Cinder, Prism Beam, Razor Disc and the rest).
+- **About 90 descriptions are more detailed.** Cards that only said things like "zaps enemies", "a meteor crashes" or "burning enemies explode" now say how hard and how big: base damage, radius, duration, count and range.
+- **Fixed inaccurate text:**
+  - Blood Bank: the shield comes from overhealing by 10+ HP.
+  - Sticky Bombs: the bomb hits for the hit's full damage.
+  - Hydra and Ghost Walk no longer contain developer notes.
+- **Stat lines:** show all of a card's stats (up to 4). Timed effects now read "EVERY 5S" instead of "5.0 PER TRIGGER", and walking effects read "EVERY 90PX".
+
 ## v0.1.81 — Whose fire is it? Cards you can read
 
 - **Your poison and fire vs enemies':**

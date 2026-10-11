@@ -166,13 +166,17 @@ static func proc_preview(c: Dictionary) -> String:
 		if proc.has("r"):
 			parts.append("%d RADIUS" % roundi(float(proc["r"])))
 		if proc.has("every"):
-			parts.append("%s PER TRIGGER" % str(proc["every"]))
+			# Timers count seconds; walking procs count distance run.
+			if str(proc.get("on", "")) == "walk":
+				parts.append("EVERY %dPX" % roundi(float(proc["every"])))
+			else:
+				parts.append("EVERY %sS" % str(snappedf(float(proc["every"]), 0.1)).trim_suffix(".0"))
 		if proc.has("n"):
 			parts.append("%d SHOTS/HITS" % int(proc["n"]))
 		if proc.has("t") and parts.size() < 2:
 			parts.append("%.1f SECONDS" % float(proc["t"]))
 		if not parts.is_empty():
-			return "  |  ".join(parts.slice(0, 2))
+			return "  |  ".join(parts.slice(0, 4))
 	return ""
 
 ## Show quantified improvements on first picks, upgrades, and collection cards.
