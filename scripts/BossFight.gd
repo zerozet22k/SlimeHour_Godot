@@ -32,21 +32,21 @@ const PALETTE_ALT = {
 ## phase introduces, so a phase change is immediately felt.
 const MOVES = {
 	"chonkzilla": [
-		["quake_slam", "goo_geyser", "boulder_toss"],
-		["meteor_shower", "quake_slam", "belly_roll", "goo_geyser", "boulder_toss"],
-		["kaiju_rage", "belly_roll", "meteor_shower", "quake_slam", "goo_geyser"]],
+		["quake_slam", "goo_mortar", "boulder_roll"],
+		["meteor_shower", "quake_slam", "belly_roll", "goo_mortar", "boulder_roll"],
+		["kaiju_rage", "belly_roll", "meteor_shower", "boulder_roll", "goo_mortar"]],
 	"heli": [
 		["strafe_run", "missile_salvo", "minigun_sweep"],
 		["carpet_bomb", "strafe_run", "missile_salvo", "minigun_sweep"],
 		["danger_close", "carpet_bomb", "minigun_sweep", "missile_salvo", "strafe_run"]],
 	"necro": [
 		["raise_wards", "skull_waltz", "soul_harvest"],
-		["grave_field", "raise_wards", "skull_waltz", "soul_harvest"],
-		["death_bloom", "grave_field", "raise_wards", "soul_harvest", "skull_waltz"]],
+		["grave_march", "raise_wards", "skull_waltz", "soul_harvest"],
+		["death_bloom", "grave_march", "raise_wards", "soul_harvest", "skull_waltz"]],
 	"kingblob": [
-		["royal_slam", "jelly_juggle", "summon_court"],
-		["crown_rain", "royal_slam", "jelly_juggle", "summon_court"],
-		["royal_decree", "crown_rain", "royal_slam", "jelly_juggle"]],
+		["royal_slam", "jelly_fountain", "summon_court"],
+		["bounce_house", "royal_slam", "jelly_fountain", "summon_court"],
+		["royal_decree", "bounce_house", "royal_slam", "jelly_fountain"]],
 	"coilqueen": [
 		["burrow_strike", "serpent_stream", "venom_squeeze"],
 		["constrict", "burrow_strike", "serpent_stream", "venom_squeeze"],
@@ -54,25 +54,25 @@ const MOVES = {
 	"glassoracle": [
 		["hall_of_mirrors", "prism_lasers", "shard_bloom"],
 		["echo_volley", "hall_of_mirrors", "prism_lasers", "shard_bloom"],
-		["kaleidoscope", "prism_lasers", "hall_of_mirrors", "shard_bloom", "echo_volley"]],
+		["prism_split", "prism_lasers", "hall_of_mirrors", "shard_bloom", "echo_volley"]],
 	"voidweaver": [
 		["rift_crossfire", "void_pinwheel", "blink_strike"],
 		["web_lattice", "rift_crossfire", "gravity_well", "void_pinwheel", "blink_strike"],
 		["event_horizon", "web_lattice", "blink_strike", "rift_crossfire", "void_pinwheel"]],
 	"dreadengine": [
-		["piston_bank", "gear_grinder", "furnace_breath"],
-		["mortar_barrage", "piston_bank", "gear_grinder", "furnace_breath"],
-		["overdrive", "piston_bank", "mortar_barrage", "gear_grinder", "furnace_breath"]],
+		["piston_bank", "assembly_line", "furnace_breath"],
+		["mortar_barrage", "piston_bank", "assembly_line", "furnace_breath"],
+		["overdrive", "piston_bank", "mortar_barrage", "assembly_line", "furnace_breath"]],
 }
 
 ## [display name, tell seconds, base duration, rest after]
 const ATTACKS = {
 	"quake_slam": ["QUAKE SLAM", 0.75, 1.5, 0.8],
-	"goo_geyser": ["GOO GEYSER", 0.65, 3.4, 0.9],
-	"boulder_toss": ["BOULDER TOSS", 0.6, 2.4, 0.8],
+	"goo_mortar": ["GOO MORTAR", 0.6, 3.0, 0.9],
+	"boulder_roll": ["BOULDER ROLL", 0.6, 3.4, 0.8],
 	"meteor_shower": ["METEOR SHOWER", 0.8, 3.9, 0.9],
 	"belly_roll": ["BELLY ROLL", 0.75, 1.3, 0.4],
-	"kaiju_rage": ["KAIJU RAGE", 1.0, 6.0, 1.0],
+	"kaiju_rage": ["KAIJU RAGE", 1.0, 3.0, 1.0],
 	"strafe_run": ["STRAFING RUN", 0.9, 2.3, 0.6],
 	"missile_salvo": ["MISSILE SALVO", 0.6, 2.3, 0.8],
 	"minigun_sweep": ["MINIGUN SWEEP", 0.75, 2.6, 0.8],
@@ -81,12 +81,12 @@ const ATTACKS = {
 	"raise_wards": ["RAISE THE DEAD", 0.8, 1.6, 0.6],
 	"skull_waltz": ["SKULL WALTZ", 0.6, 3.6, 0.9],
 	"soul_harvest": ["SOUL HARVEST", 0.5, 3.4, 0.8],
-	"grave_field": ["GRAVE FIELD", 0.8, 3.4, 0.9],
+	"grave_march": ["GRAVE MARCH", 0.8, 3.6, 0.9],
 	"death_bloom": ["DEATH BLOOM", 1.0, 6.0, 1.0],
 	"royal_slam": ["ROYAL BELLY FLOP", 0.7, 1.7, 0.8],
-	"jelly_juggle": ["JELLY JUGGLE", 0.6, 2.8, 0.9],
+	"jelly_fountain": ["JELLY FOUNTAIN", 0.6, 3.2, 0.9],
 	"summon_court": ["SUMMON THE COURT", 0.6, 3.0, 0.7],
-	"crown_rain": ["CROWN JEWEL RAIN", 0.8, 4.2, 0.9],
+	"bounce_house": ["BOUNCE HOUSE", 0.8, 5.0, 0.9],
 	"royal_decree": ["ROYAL DECREE", 1.0, 6.0, 1.0],
 	"burrow_strike": ["BURROW STRIKE", 0.5, 1.3, 0.7],
 	"serpent_stream": ["SERPENT STREAM", 0.6, 3.0, 0.9],
@@ -97,7 +97,7 @@ const ATTACKS = {
 	"prism_lasers": ["PRISM LASERS", 0.6, 3.4, 0.9],
 	"shard_bloom": ["SHARD BLOOM", 0.5, 2.8, 0.9],
 	"echo_volley": ["ECHO VOLLEY", 0.6, 2.6, 0.8],
-	"kaleidoscope": ["KALEIDOSCOPE", 1.0, 6.5, 1.0],
+	"prism_split": ["PRISM SPLIT", 1.0, 6.0, 1.0],
 	"rift_crossfire": ["RIFT CROSSFIRE", 0.5, 2.8, 0.8],
 	"void_pinwheel": ["VOID PINWHEEL", 0.6, 3.6, 0.9],
 	"blink_strike": ["BLINK STRIKE", 0.3, 1.0, 0.8],
@@ -105,13 +105,13 @@ const ATTACKS = {
 	"gravity_well": ["GRAVITY WELL", 0.7, 4.0, 0.9],
 	"event_horizon": ["EVENT HORIZON", 1.0, 6.5, 1.0],
 	"piston_bank": ["PISTON BANK", 0.8, 2.8, 0.8],
-	"gear_grinder": ["GEAR GRINDER", 0.7, 3.2, 0.8],
+	"assembly_line": ["ASSEMBLY LINE", 0.7, 4.2, 0.8],
 	"furnace_breath": ["FURNACE BREATH", 0.6, 2.6, 0.8],
 	"mortar_barrage": ["MORTAR BARRAGE", 0.6, 3.0, 0.8],
 	"overdrive": ["OVERDRIVE", 1.0, 6.5, 0.4],
 }
 
-const HEAT_COST = {"piston_bank": 30.0, "gear_grinder": 25.0, "furnace_breath": 30.0,
+const HEAT_COST = {"piston_bank": 30.0, "assembly_line": 25.0, "furnace_breath": 30.0,
 	"mortar_barrage": 25.0, "overdrive": 100.0}
 
 static var _combat = null
@@ -258,7 +258,8 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 		s["wave"] = float(o["wave"])
 	var bh := {"dir": dir.normalized() if dir.length_squared() > 0.0001 else Vector2.DOWN}
 	for key in ["accel", "min", "max", "turn", "stop_t", "aim_t", "aim_speed", "aim_point",
-			"homing_t", "split", "split_speed", "split_shape"]:
+			"homing_t", "split", "split_speed", "split_shape", "split_fan", "split_r", "split_life",
+			"split_again", "grav", "box"]:
 		if o.has(key):
 			bh[key] = o[key]
 	s["bh"] = bh
@@ -353,6 +354,8 @@ static func update(g, e: Dictionary, dir: Vector2, dist: float, dt: float) -> Ve
 	var stage: int = stage_of(e)
 	if stage > int(e["bf_phase"]) and str(e["bf_state"]) != "transition":
 		begin_transition(g, e, stage)
+	# Phases never go backwards, even if wards or devoured blobs heal the boss.
+	stage = int(e["bf_phase"])
 	e["bf_t"] = float(e["bf_t"]) - dt
 	var move := Vector2.ZERO
 	match str(e["bf_state"]):
@@ -479,7 +482,7 @@ static func tell_move(g, e: Dictionary, dt: float) -> Vector2:
 			var start := Vector2(float(a["cx"]) - float(e["bf_side"]) * (float(a["half"]) - 40.0), float(a["y"]) - 300.0)
 			e["pos"] = Vector2(e["pos"]).lerp(start, 1.0 - exp(-5.5 * dt))
 			return Vector2.ZERO
-		"kaiju_rage", "royal_decree", "death_bloom", "kaleidoscope", "event_horizon", "hydra_frenzy", "overdrive":
+		"royal_decree", "death_bloom", "prism_split", "event_horizon", "hydra_frenzy", "overdrive", "bounce_house":
 			var a2: Dictionary = arena(g)
 			return seek(e, Vector2(float(a2["cx"]), float(a2["y"]) - 280.0), 2.0)
 	return Vector2.ZERO
@@ -609,14 +612,40 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 			var waves: int = 3 if stage < 2 else 4
 			grid_waves(g, e, 6, 4, waves, 1.25, 0.85, 0.75, 2)
 			e["bf_len"] = 1.25 + 0.85 * waves + 0.2
-		"grave_field":
-			var graves: int = 2 if stage < 2 else 3
-			grid_waves(g, e, 6, 4, graves, 1.25, 0.9, 0.7, 2, {"burst": 3 if stage >= 2 else 0, "burst_shape": "skull"})
-			e["bf_len"] = 1.25 + 0.9 * graves + 0.3
-		"crown_rain":
-			var jewels: int = 3 if stage < 2 else 4
-			grid_waves(g, e, 6, 4, jewels, 1.3, 0.8, 0.7, 3, {"burst": 4, "burst_shape": "shard"})
-			e["bf_len"] = 1.3 + 0.8 * jewels + 0.3
+		"grave_march":
+			# Soul pillars erupt column by column across the whole arena:
+			# wait for the pillar in front of you, then cross behind it.
+			var cols2 := 8 + stage
+			var going: float = 1.0 if randf() < 0.5 else -1.0
+			var cw: float = 2.0 * float(a["half"]) / float(cols2)
+			for c in range(cols2):
+				var idx: int = c if going > 0.0 else cols2 - 1 - c
+				var gx: float = float(a["left"]) + (idx + 0.5) * cw
+				line(g, e, Vector2(gx, float(a["top"]) - 40.0), Vector2(gx, float(a["bottom"]) + 40.0),
+					cw * 0.5 - 4.0, 1.1 + c * 0.3, 0.6, {"grave": true})
+			e["bf_len"] = 1.1 + cols2 * 0.3 + 0.4
+		"kaiju_rage":
+			e["bf_len"] = 3.0
+		"boulder_roll":
+			# Warned lanes; a boulder rolls in from the side along each.
+			var lanes3: int = 3 + stage
+			var rows3: Array = []
+			for r in range(lanes3):
+				rows3.append(float(a["top"]) + 40.0 + (r + 0.5) * (float(a["bottom"]) - float(a["top"]) - 60.0) / float(lanes3))
+			rows3.shuffle()
+			for r in range(lanes3):
+				var side3: float = -1.0 if r % 2 == 0 else 1.0
+				event(g, e, "bf_boulder", Vector2(float(a["cx"]) - side3 * (float(a["half"]) + 10.0), float(rows3[r])),
+					0.9 + r * 0.55, {"dir": side3, "a": Vector2(float(a["left"]), float(rows3[r])),
+					"b": Vector2(float(a["right"]), float(rows3[r])), "tele": 26.0})
+			e["bf_len"] = 0.9 + lanes3 * 0.55 + 1.6
+		"bounce_house":
+			var orbs: int = 2 + stage
+			for o in range(orbs):
+				var d := Vector2.from_angle(PI * 0.25 + PI * 0.5 * float(o) + randf_range(-0.3, 0.3))
+				fire(g, e, Vector2(e["pos"]) + d * float(e["r"]), d, 175.0,
+					{"shape": "big", "r": 28.0, "dmg": 0.55, "life": 5.6,
+					"box": [float(a["left"]), float(a["right"]), float(a["top"]) - 60.0, float(a["bottom"]) + 40.0]})
 		"carpet_bomb":
 			var cols := 7
 			var rows := 5
@@ -772,42 +801,31 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 				var off: float = randf() * TAU
 				ring(g, e, e["pos"], n, 175.0, off, {"r": 5.5}, INF, 0.0, 30.0)
 				ring(g, e, e["pos"], n, 120.0, off + PI / float(n), {"r": 5.5, "color": alt}, INF, 0.0, 30.0)
-		"goo_geyser":
-			var arms: int = 2 + stage
-			for _i in range(every(e, "spiral", 0.1, dt)):
-				e["bf_ang"] = float(e["bf_ang"]) + 0.23
-				for arm in range(arms):
-					var d := Vector2.from_angle(float(e["bf_ang"]) + TAU * float(arm) / float(arms))
-					fire(g, e, me + d * float(e["r"]) * 0.7, d, 165.0, {"accel": 35.0, "max": 250.0, "r": 5.5})
-			if stage >= 2:
-				for _i in range(every(e, "counter", 0.18, dt)):
-					e["bf_ang2"] = float(e["bf_ang2"]) - 0.31
-					for arm in range(3):
-						var d2 := Vector2.from_angle(float(e["bf_ang2"]) + TAU * float(arm) / 3.0)
-						fire(g, e, me + d2 * float(e["r"]) * 0.7, d2, 120.0, {"r": 7.0, "shape": "big", "color": alt})
-		"boulder_toss":
-			var tosses: int = 3 + stage
-			for _i in range(every(e, "toss", 0.36, dt)):
-				if int(e["bf_k"]) >= tosses:
-					break
-				e["bf_k"] = int(e["bf_k"]) + 1
-				var spot: Vector2 = lead(g, 0.5) + Vector2(randf_range(-60.0, 60.0), randf_range(-50.0, 50.0))
-				circle(g, e, spot, 72.0, 1.05, 0.7, {"burst": 8 + 2 * stage, "burst_shape": "orb", "boulder": true, "from": me})
+		"goo_mortar":
+			# Lobbed globs arc through the air and splash where they land.
+			for _i in range(every(e, "lob", 0.42, dt)):
+				var land: Vector2 = lead(g, 0.4) + Vector2(randf_range(-150.0, 150.0), randf_range(-110.0, 110.0))
+				var flight := 1.05
+				var grav := Vector2(0.0, 520.0)
+				var v0: Vector2 = (land - me) / flight - grav * flight * 0.5
+				fire(g, e, me, v0.normalized(), v0.length(), {"shape": "big", "r": 9.0, "life": flight,
+					"grav": grav, "split": 8 + 2 * stage, "split_speed": 140.0, "dmg": 0.4})
+				circle(g, e, land, 30.0, flight, 0.0, {"marker": true})
 		"meteor_shower":
 			for _i in range(every(e, "aim", 0.95, dt, 0.4)):
 				fan(g, e, me, aim_from(g, me), 3, 0.5, 210.0, {"r": 5.5})
 		"belly_roll":
 			roll_step(g, e, stage, T, dt)
 		"kaiju_rage":
-			for _i in range(every(e, "flower", 0.45, dt)):
+			# Three chained slams; each landing sends out two shockwave bands.
+			if not bool(e.get("bf_air", false)) and int(e["bf_k"]) < 3 and T >= float(e["bf_k"]) * 0.95:
 				e["bf_k"] = int(e["bf_k"]) + 1
-				var off2: float = float(e["bf_k"]) * 0.19
-				for i in range(22):
-					var d3 := Vector2.from_angle(off2 + TAU * float(i) / 22.0)
-					fire(g, e, me + d3 * float(e["r"]) * 0.7, d3, 150.0 if i % 2 == 0 else 205.0,
-						{"r": 5.5, "color": col if i % 2 == 0 else alt})
-			for _i in range(every(e, "meteor", 0.75, dt, 0.5)):
-				circle(g, e, lead(g, 0.45), 72.0, 0.95, 0.7)
+				leap(g, e, lead(g, 0.3), 0.62, 100.0, 0.8)
+			if update_leap(g, e, dt):
+				ring(g, e, e["pos"], 20, 190.0, randf() * TAU, {"r": 5.5, "color": alt}, INF, 0.0, 30.0)
+				event(g, e, "bf_ring", e["pos"], 0.55, {"inner": 140.0, "outer": 200.0, "dmg": float(e["dmg"]) * 0.6})
+				event(g, e, "bf_ring", e["pos"], 0.95, {"inner": 270.0, "outer": 335.0, "dmg": float(e["dmg"]) * 0.6})
+				e["bf_t"] = maxf(float(e["bf_t"]), 1.0 if int(e["bf_k"]) >= 3 else 0.2)
 		# ---------------------------------------------------------- HELI
 		"strafe_run":
 			var pass_len: float = 2.2
@@ -865,7 +883,7 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					break
 				e["bf_k"] = int(e["bf_k"]) + 1
 				soul_ring(g, e, hero, 22, 265.0, 3)
-		"raise_wards", "grave_field", "hall_of_mirrors", "web_lattice", "piston_bank":
+		"raise_wards", "grave_march", "hall_of_mirrors", "web_lattice", "piston_bank", "boulder_roll":
 			# The setpiece is already on the ground; keep light aimed pressure.
 			for _i in range(every(e, "poke", 0.85, dt, 0.5)):
 				fan(g, e, me, aim_from(g, me), 3, 0.45, 220.0, {"r": 5.0, "shape": "shard" if attack == "hall_of_mirrors" else "orb"})
@@ -892,32 +910,32 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 						{"r": 6.0, "shape": "big" if k == 0 else "orb", "color": col if k != 1 else alt}, INF, 0.0, 40.0)
 				for side in [-1.0, 1.0]:
 					spawn_minion(g, e, "blob", Vector2(e["pos"]) + Vector2(side * (float(e["r"]) + 50.0), 20.0), "fragment", 0.8, false)
-		"jelly_juggle":
-			for _i in range(every(e, "lob", 0.8, dt)):
-				fan(g, e, me, aim_from(g, me), 4 + stage, 1.2, 205.0,
-					{"shape": "big", "r": 11.0, "bounce": 2, "life": 2.5, "dmg": 0.4,
-					"split": 7, "split_speed": 160.0, "split_shape": "orb"})
+		"jelly_fountain":
+			# Jelly sprays up out of the crown and rains back down.
+			for _i in range(every(e, "spray", 0.07, dt)):
+				var up := Vector2(randf_range(-0.85, 0.85), -1.0).normalized()
+				fire(g, e, me + Vector2(0, -float(e["r"]) * 0.6), up, randf_range(260.0, 380.0),
+					{"r": 6.0, "grav": Vector2(0.0, 300.0), "life": 3.6,
+					"color": col if randf() < 0.6 else alt, "shape": "big" if randf() < 0.2 else "orb"})
 		"summon_court":
 			for _i in range(every(e, "spokes", 0.25, dt)):
 				e["bf_ang"] = float(e["bf_ang"]) + 0.13
 				ring(g, e, me, 8, 150.0, float(e["bf_ang"]), {"r": 5.5, "color": alt})
-		"crown_rain":
-			for _i in range(every(e, "poke", 1.0, dt, 0.5)):
-				fan(g, e, me, aim_from(g, me), 3, 0.5, 200.0, {"r": 6.0, "shape": "big"})
+		"bounce_house":
+			for _i in range(every(e, "poke", 0.9, dt, 0.6)):
+				fan(g, e, me, aim_from(g, me), 3, 0.5, 200.0, {"r": 6.0})
 		"royal_decree":
-			for _i in range(every(e, "spiral", 0.13, dt)):
+			# Crown spins: alternating thick and thin rings, plus bouncing orbs.
+			for _i in range(every(e, "ring", 0.55, dt)):
 				e["bf_k"] = int(e["bf_k"]) + 1
-				var turn: float = 1.0 if int(T / 1.5) % 2 == 0 else -1.0
-				e["bf_ang"] = float(e["bf_ang"]) + 0.17 * turn
-				for arm in range(5):
-					var d9 := Vector2.from_angle(float(e["bf_ang"]) + TAU * float(arm) / 5.0)
-					if int(e["bf_k"]) % 2 == 0:
-						fire(g, e, me + d9 * float(e["r"]) * 0.7, d9, 140.0, {"shape": "big", "r": 9.0})
-					else:
-						fire(g, e, me + d9 * float(e["r"]) * 0.7, d9, 210.0, {"r": 5.0, "color": alt})
-			for _i in range(every(e, "jelly", 2.0, dt, 1.0)):
-				fan(g, e, me, aim_from(g, me), 3, 0.9, 200.0,
-					{"shape": "big", "r": 11.0, "bounce": 2, "life": 2.4, "dmg": 0.4, "split": 6, "split_speed": 150.0})
+				var thick: bool = int(e["bf_k"]) % 2 == 0
+				ring(g, e, me, 12 if thick else 24, 130.0 if thick else 200.0, float(e["bf_k"]) * 0.21,
+					{"r": 9.0 if thick else 5.0, "shape": "big" if thick else "orb", "color": col if thick else alt})
+			for _i in range(every(e, "orb", 2.4, dt, 0.8)):
+				var a3: Dictionary = arena(g)
+				var d3 := Vector2.from_angle(randf_range(0.3, PI - 0.3))
+				fire(g, e, me + d3 * float(e["r"]), d3, 170.0, {"shape": "big", "r": 26.0, "dmg": 0.5, "life": 5.0,
+					"box": [float(a3["left"]), float(a3["right"]), float(a3["top"]) - 60.0, float(a3["bottom"]) + 40.0]})
 		# ---------------------------------------------------------- COIL QUEEN
 		"burrow_strike":
 			var strikes: int = 1 + stage
@@ -993,19 +1011,19 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 		"echo_volley":
 			for _i in range(every(e, "fan", 0.9, dt, 0.4)):
 				fan(g, e, me, aim_from(g, me), 4, 0.5, 230.0, {"shape": "shard", "r": 5.0})
-		"kaleidoscope":
-			for _i in range(every(e, "spin", 0.12, dt)):
-				e["bf_ang"] = float(e["bf_ang"]) + 0.14
-				for arm in range(6):
-					var base2: float = TAU * float(arm) / 6.0
-					var d13 := Vector2.from_angle(float(e["bf_ang"]) + base2)
-					var d14 := Vector2.from_angle(-float(e["bf_ang"]) + base2)
-					fire(g, e, me + d13 * 26.0, d13, 165.0, {"shape": "shard", "r": 5.0})
-					fire(g, e, me + d14 * 26.0, d14, 135.0, {"shape": "shard", "r": 5.0, "color": alt})
-			for _i in range(every(e, "prism", 1.7, dt, 1.0)):
+		"prism_split":
+			# Big prisms fly out, then shatter twice into widening fans.
+			for _i in range(every(e, "prism", 0.5, dt)):
+				e["bf_ang"] = float(e["bf_ang"]) + 0.5
+				for arm in range(4):
+					var d13 := Vector2.from_angle(float(e["bf_ang"]) + TAU * float(arm) / 4.0)
+					fire(g, e, me + d13 * 30.0, d13, 210.0, {"shape": "shard", "r": 9.0, "life": 0.75,
+						"split": 3, "split_fan": 0.7, "split_speed": 230.0, "split_r": 6.0, "split_shape": "shard",
+						"split_life": 0.6, "split_again": true})
+			for _i in range(every(e, "prism2", 1.9, dt, 1.2)):
 				var off6: float = randf() * TAU
-				for b in range(6):
-					var d15 := Vector2.from_angle(off6 + TAU * float(b) / 6.0)
+				for b in range(5):
+					var d15 := Vector2.from_angle(off6 + TAU * float(b) / 5.0)
 					line(g, e, me + d15 * (float(e["r"]) + 6.0), me + d15 * 900.0, 12.0, 0.8, 0.5, {"prism": true})
 		# ---------------------------------------------------------- VOID WEAVER
 		"void_pinwheel":
@@ -1045,11 +1063,20 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 				e["bf_ang2"] = float(e["bf_ang2"]) + 0.3
 				ring(g, e, me, 6, 150.0, float(e["bf_ang2"]), {"turn": 0.5, "r": 5.0})
 		# ---------------------------------------------------------- DREAD ENGINE
-		"gear_grinder":
-			var spokes: int = 8 + 2 * stage
-			for _i in range(every(e, "spokes", 0.2, dt)):
-				e["bf_ang"] = float(e["bf_ang"]) + 0.16
-				ring(g, e, me, spokes, 205.0, float(e["bf_ang"]), {"r": 5.5, "shape": "gear"})
+		"assembly_line":
+			# Conveyor rows of bolts stream across in alternating directions.
+			# Every row has regular gaps to slip through.
+			var a4: Dictionary = arena(g)
+			var rows4: int = 5 + mini(stage, 1)
+			for _i in range(every(e, "belt", 0.26, dt)):
+				e["bf_k"] = int(e["bf_k"]) + 1
+				for r in range(rows4):
+					if (int(e["bf_k"]) + r * 2) % 4 == 0:
+						continue
+					var y4: float = float(a4["top"]) + 30.0 + (r + 0.5) * (float(a4["bottom"]) - float(a4["top"]) - 40.0) / float(rows4)
+					var dir4: float = 1.0 if r % 2 == 0 else -1.0
+					var from4 := Vector2(float(a4["cx"]) - dir4 * (float(a4["half"]) + 5.0), y4)
+					fire(g, e, from4, Vector2(dir4, 0.0), 230.0 + stage * 20.0, {"shape": "gear", "r": 6.0, "life": 5.0, "dmg": 0.28})
 		"furnace_breath":
 			var dir_sign2: float = 1.0 if int(e["bf_i"]) % 2 == 0 else -1.0
 			var u3: float = clampf(T / float(e["bf_len"]), 0.0, 1.0)
@@ -1144,16 +1171,16 @@ static func roll_step(g, e: Dictionary, stage: int, T: float, dt: float) -> void
 		g.say(p + Vector2(0, -r - 30.0), "DIZZY!", Color("ffe07f"), 22)
 
 # ================================================================= attacks: movement
-const STATIONARY = ["kaiju_rage", "royal_decree", "death_bloom", "kaleidoscope", "event_horizon",
-	"hydra_frenzy", "overdrive", "goo_geyser", "skull_waltz", "prism_lasers", "gear_grinder",
-	"furnace_breath", "minigun_sweep"]
+const STATIONARY = ["royal_decree", "death_bloom", "prism_split", "event_horizon",
+	"hydra_frenzy", "overdrive", "goo_mortar", "skull_waltz", "prism_lasers", "assembly_line",
+	"furnace_breath", "minigun_sweep", "jelly_fountain", "bounce_house"]
 
 static func attack_move(g, e: Dictionary, attack: String, stage: int, T: float, dt: float, dir: Vector2) -> Vector2:
 	var a: Dictionary = arena(g)
 	if attack in STATIONARY:
 		return Vector2.ZERO
 	match attack:
-		"quake_slam", "royal_slam", "burrow_strike", "belly_roll":
+		"quake_slam", "royal_slam", "burrow_strike", "belly_roll", "kaiju_rage":
 			return Vector2.ZERO
 		"blink_strike":
 			# Reappear exactly where the warned circle detonates.
@@ -1211,6 +1238,18 @@ static func move_bullet(g, s: Dictionary, vel: Vector2, dt: float) -> Vector2:
 		speed = clampf(speed + float(bh["accel"]) * dt, float(bh.get("min", 0.0)), float(bh.get("max", 600.0)))
 	if bh.has("turn"):
 		dir = dir.rotated(float(bh["turn"]) * dt)
+	if bh.has("grav"):
+		var v: Vector2 = dir * speed + Vector2(bh["grav"]) * dt
+		speed = v.length()
+		dir = v / speed if speed > 0.01 else dir
+	if bh.has("box"):
+		# Bounce inside the arena (x walls are also handled by Combat).
+		var box: Array = bh["box"]
+		var q: Vector2 = s["pos"]
+		if (q.y < float(box[2]) and dir.y < 0.0) or (q.y > float(box[3]) and dir.y > 0.0):
+			dir.y = -dir.y
+		if (q.x < float(box[0]) and dir.x < 0.0) or (q.x > float(box[1]) and dir.x > 0.0):
+			dir.x = -dir.x
 	if bh.has("homing_t") and t >= float(bh["homing_t"]):
 		s["homing"] = 0.0
 	bh["dir"] = dir
@@ -1229,11 +1268,24 @@ static func on_bullet_expire(g, s: Dictionary) -> void:
 	if boss == null:
 		return
 	var n: int = int(bh["split"])
+	var at: Vector2 = Vector2(s["pos"]) - Vector2(s["vel"]).normalized() * 6.0
+	var child := {"r": float(bh.get("split_r", 4.5)), "shape": str(bh.get("split_shape", "orb")), "color": s["color"]}
+	if bh.has("split_fan"):
+		# Shatter forward into a widening fan; may shatter once more.
+		child["life"] = float(bh.get("split_life", 3.0))
+		if bool(bh.get("split_again", false)):
+			child["split"] = 2
+			child["split_fan"] = 0.45
+			child["split_r"] = 4.5
+			child["split_speed"] = 250.0
+		else:
+			child["life"] = 3.5
+		fan(g, boss, at, Vector2(bh["dir"]), n, float(bh["split_fan"]), float(bh.get("split_speed", 200.0)), child)
+		return
 	var off: float = randf() * TAU
 	for i in range(n):
 		var d := Vector2.from_angle(off + TAU * float(i) / float(n))
-		fire(g, boss, Vector2(s["pos"]) - Vector2(s["vel"]).normalized() * 6.0, d,
-			float(bh.get("split_speed", 160.0)), {"r": 4.5, "shape": str(bh.get("split_shape", "orb"))})
+		fire(g, boss, at, d, float(bh.get("split_speed", 160.0)), child)
 
 # ================================================================= hazards
 ## Extra effects when a boss circle detonates (bullet bursts, emergence).
@@ -1268,6 +1320,17 @@ static func resolve(g, item: Dictionary) -> void:
 		"bf_echo":
 			fan(g, boss, pos, aim_from(g, pos), 5, 0.6, 300.0, {"shape": "shard", "r": 5.0})
 			g.spawn_ring_fx(pos, Color(PALETTE["glassoracle"]), 30.0)
+		"bf_boulder":
+			var dir: float = float(item["dir"])
+			fire(g, boss, pos, Vector2(dir, 0.0), 300.0, {"shape": "boulder", "r": 24.0, "dmg": 0.7, "life": 4.5})
+			g.add_shake(4.0)
+		"bf_ring":
+			var dist: float = Vector2(g.hero["pos"]).distance_to(pos)
+			g.spawn_ring_fx(pos, Color(PALETTE[str(boss["kind"])]), float(item["outer"]))
+			g.spawn_ring_fx(pos, Color(PALETTE_ALT[str(boss["kind"])]), float(item["inner"]))
+			if dist >= float(item["inner"]) - 11.0 and dist <= float(item["outer"]) + 11.0:
+				g.hurt(float(item["dmg"]), pos, src(g, boss))
+			g.add_shake(6.0)
 		"bf_squeeze":
 			var hero: Vector2 = g.hero["pos"]
 			var gap: float = float(item["gap"])

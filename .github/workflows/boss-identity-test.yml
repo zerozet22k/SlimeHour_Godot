@@ -5,11 +5,13 @@ on:
     paths:
       - scripts/**
       - tools/boss_encounter_test.gd
+      - tools/boss_fight_test.gd
       - .github/workflows/boss-identity-test.yml
   pull_request:
     paths:
       - scripts/**
       - tools/boss_encounter_test.gd
+      - tools/boss_fight_test.gd
       - .github/workflows/boss-identity-test.yml
   workflow_dispatch:
 permissions:
@@ -31,5 +33,7 @@ jobs:
         run: timeout 180 ./godot-ci --headless --path . --editor --import --quit
       - name: Verify boss-clear cinematic and unique spatial setpieces
         run: timeout 150 ./godot-ci --headless --path . --script tools/boss_encounter_test.gd
+      - name: Simulate all eight three-phase boss fights
+        run: timeout 400 ./godot-ci --headless --path . --script tools/boss_fight_test.gd
       - name: Preserve enemy mutation identity
         run: timeout 150 ./godot-ci --headless --path . --script tools/enemy_identity_test.gd

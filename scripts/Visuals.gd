@@ -854,6 +854,30 @@ func paint_boss_event(d: Dictionary) -> void:
 	var k := 1.0 - clampf(float(d["t"]) / life, 0.0, 1.0)
 	var col := Color(str(d.get("color", "ffffff")))
 	match str(d["fn"]):
+		"bf_boulder":
+			# The lane the boulder will roll down, with an arrow showing its direction.
+			var la: Vector2 = P(d["a"])
+			var lb: Vector2 = P(d["b"])
+			var w: float = float(d.get("tele", 26.0))
+			draw_rect(Rect2(Vector2(la.x, la.y - w), Vector2(lb.x - la.x, w * 2.0)), Color(col, 0.06 + 0.14 * k))
+			for side in [-1.0, 1.0]:
+				draw_line(Vector2(la.x, la.y + side * w), Vector2(lb.x, lb.y + side * w), Color(col.lightened(0.3), 0.75), 2.0)
+			var dir := float(d["dir"])
+			var x := fmod(g.anim_t * 120.0, 60.0)
+			while x < lb.x - la.x:
+				var ax: float = la.x + x if dir > 0.0 else lb.x - x
+				draw_line(Vector2(ax, la.y - 9.0), Vector2(ax + dir * 10.0, la.y), Color(col.lightened(0.4), 0.7), 3.0)
+				draw_line(Vector2(ax + dir * 10.0, la.y), Vector2(ax, la.y + 9.0), Color(col.lightened(0.4), 0.7), 3.0)
+				x += 60.0
+		"bf_ring":
+			# Expanding shockwave band: stand inside or outside it, not on it.
+			var inner: float = float(d["inner"])
+			var outer: float = float(d["outer"])
+			var mid: float = (inner + outer) * 0.5
+			draw_arc(p, mid, 0.0, TAU, 64, Color(col, 0.08 + 0.16 * k), outer - inner, true)
+			draw_arc(p, inner, 0.0, TAU, 64, Color(col.lightened(0.35), 0.9), 2.0, true)
+			draw_arc(p, outer, 0.0, TAU, 64, Color(col.lightened(0.35), 0.9), 2.0, true)
+			draw_arc(p, lerpf(inner, outer, k), 0.0, TAU, 64, Color(1, 1, 1, 0.25 + 0.5 * k), 2.0, true)
 		"bf_lock":
 			var rr: float = float(d.get("tele", 34.0)) * (1.7 - 0.7 * k)
 			var red := Color("ff4d4d")
@@ -2265,6 +2289,14 @@ func paint_boss_bullet(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
 			draw_line(p - d * 10.0, p + d * 10.0, Color(0.05, 0.02, 0.06), 11.0)
 			draw_line(p - d * 9.0, p + d * 9.0, Color("dfe2ea"), 7.0)
 			draw_circle(p + d * 9.0, 4.0, Color("ff4d4d"))
+		"boulder":
+			var spin_b := float(s["t"]) * 7.0 * signf(Vector2(s["vel"]).x)
+			draw_circle(p, vr + 2.5, Color(0.05, 0.02, 0.06, 0.85))
+			draw_circle(p, vr, Color("8a6648"))
+			for i in range(3):
+				var q := p + Vector2.from_angle(spin_b + TAU * float(i) / 3.0) * vr * 0.5
+				draw_circle(q, vr * 0.22, Color("6b4a33"))
+			draw_circle(p + Vector2(-vr * 0.3, -vr * 0.35), vr * 0.25, Color(1, 1, 1, 0.18))
 		"gear":
 			draw_circle(p, vr + 1.8, Color(0.05, 0.02, 0.06, 0.8))
 			draw_colored_polygon(BossModels.gear_pts(p, vr * 1.15, 6, float(s["spin"])), col)

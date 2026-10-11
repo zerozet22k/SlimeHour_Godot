@@ -166,7 +166,7 @@ static func update_delayed(g, dt: float) -> void:
 				explode(g, item["pos"], radius, 0.0, 9, Color(str(item.get("color", "ff9944"))))
 				ProjectileVfx.boss_impact(g, item["pos"], "boss_ember" if str(item.get("color", "")) == "ff9944" else "boss_void", radius)
 				g.sfx.play_projectile("boss_impact")
-				if g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
+				if not bool(item.get("marker", false)) and g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], str(item.get("src", "a boss attack")))
 				BossFight.on_blast(g, item)
 			"blink_slash":
