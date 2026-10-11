@@ -66,7 +66,7 @@ func _run() -> void:
 	var autotest = FileAccess.get_file_as_string("res://scripts/AutoTest.gd")
 	check(visual.contains("draw_hybrid_trait") and not visual.contains("Organic split horns and offset eyes"),
 		"Gameplay uses inherited body part renderer, not generic pasted monster overlays")
-	check(hud.contains("v.draw_hybrid_trait(self"), "Bestiary previews render the inherited part")
+	check(hud.contains("v.MonsterModels.augment(self") and visual.contains("MonsterModels.augment(self"), "Game and Bestiary draw the mutation's augment emblem")
 	check(main.contains('for key in ["mobs", "announced_mobs"]') and main.contains("records.erase(known)"),
 		"Old save bestiary and announcement records are migrated")
 	check(not autotest.contains('"nurse"') and not autotest.contains('"larry"'),

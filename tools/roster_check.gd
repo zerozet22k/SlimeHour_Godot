@@ -47,7 +47,8 @@ func _test() -> void:
 		var hybrid = game.spawn_enemy(id, game.hero["pos"] + Vector2(0, -300), false, false)
 		Combat.ai(game, hybrid, Vector2.DOWN, 300.0, 0.1, false)
 		check(str(hybrid["kind"]) == id, id + " spawns as a valid enemy")
-		check(hybrid.has("mix_state_" + first) and hybrid.has("mix_state_" + second), id + " initializes both parent mechanics")
+		var MK = load("res://scripts/MutationKit.gd")
+		check(hybrid.has("mut_of") and MK.payload_of(game, hybrid) != "", id + " fights as its body parent and carries the other parent's augment")
 	# After sector 12, cap population and rates instead of stacking
 	# unbounded monsters on top of the existing mutation schedule.
 	game.route = {"spawns": 1.0}

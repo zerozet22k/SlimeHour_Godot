@@ -1,3 +1,9 @@
+## v0.1.70 — Mutations you can read at a glance
+
+- **Mutation art:** a mutant keeps its body parent's silhouette, wears patches of the other parent's colour, and shows an emblem of the augment its attacks carry: a red laser lens, a green heal cross, a lit fuse, poison drips, a guard hex, lightning, a sticky bomb and more. The same look is used in game and in the Mutation Book.
+- **Spitter** has a curved neck and dripping acid bulb instead of the straight spout.
+- Fix the Windows release check that still expected mutants to run both parents' AIs.
+
 ## v0.1.69 — Full-width streets, reworked monsters and real mutations
 
 - **Streets fill the screen** with real proportions: traffic lanes, bike lane, parking lane, kerb, grass verge with trees and pavement, with houses along the edges. Trees only collide at the trunk so you never get stuck, and only stand in the verge. Street lights no longer look like targets.

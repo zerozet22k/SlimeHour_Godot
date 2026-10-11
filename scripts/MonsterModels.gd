@@ -71,10 +71,18 @@ static func draw(ci: CanvasItem, kind: String, r: float, body: Color, dark: Colo
 			gloss(ci, r)
 			ci.draw_circle(Vector2(0, r * 0.45), r * 0.15, Color("276c64"))
 		"spitter":
-			# A spout on top for lobbing acid, toxic bubbles in the body.
-			poly(ci, PackedVector2Array([Vector2(-r * 0.28, -r * 0.7), Vector2(-r * 0.38, -r * 1.45), Vector2(r * 0.38, -r * 1.45), Vector2(r * 0.28, -r * 0.7)]), dark)
-			ci.draw_circle(Vector2(0, -r * 1.45), r * 0.36, dark)
-			ci.draw_circle(Vector2(0, -r * 1.45), r * 0.24, Color("d8ff91"))
+			# A curved neck ending in a dripping acid bulb, toxic bubbles inside.
+			var neck := PackedVector2Array()
+			for i in range(9):
+				var u := float(i) / 8.0
+				neck.append(Vector2(sin(u * PI * 0.9) * r * 0.45, -r * 0.6 - u * r * 0.85))
+			ci.draw_polyline(neck, INK, r * 0.46, true)
+			ci.draw_polyline(neck, body.darkened(0.15), r * 0.34, true)
+			var bulb: Vector2 = neck[neck.size() - 1]
+			ci.draw_circle(bulb, r * 0.36, INK)
+			ci.draw_circle(bulb, r * 0.3, body)
+			ci.draw_circle(bulb + Vector2(r * 0.05, -r * 0.05), r * 0.17, Color("d8ff91"))
+			ci.draw_circle(bulb + Vector2(r * 0.2, r * 0.32), r * 0.08, Color("d8ff91"))
 			ci.draw_circle(Vector2.ZERO, r, dark)
 			ci.draw_circle(Vector2(0, -1), r - 2.0, body)
 			for k in range(3):
@@ -137,6 +145,98 @@ static func draw(ci: CanvasItem, kind: String, r: float, body: Color, dark: Colo
 			ci.draw_line(Vector2(-r * 0.55, ey - r * 0.36), Vector2(-r * 0.15, ey - r * 0.2), Color("201018"), 3.0)
 			ci.draw_line(Vector2(r * 0.55, ey - r * 0.36), Vector2(r * 0.15, ey - r * 0.2), Color("201018"), 3.0)
 			ci.draw_arc(Vector2(0, r * 0.45), r * 0.3, PI + 0.3, TAU - 0.3, 10, Color("201018"), 3.0)
+
+## Giver-coloured patches on a mutant's body, so both parents' colours
+## show at a glance. Kept clear of the eyes.
+static func markings(ci: CanvasItem, c: Vector2, r: float, giver: Color, seed: int) -> void:
+	var col := giver
+	if col.get_luminance() < 0.3:
+		col = col.lightened(0.3)
+	var spots := [Vector2(-0.58, 0.42), Vector2(0.56, 0.48), Vector2(0.02, 0.7)]
+	for i in range(spots.size()):
+		var sp: Vector2 = spots[(i + seed) % spots.size()]
+		var rr: float = r * (0.2 if i == 0 else 0.15)
+		ci.draw_circle(c + sp * r, rr + 1.2, Color(col.darkened(0.45), 0.85))
+		ci.draw_circle(c + sp * r, rr, Color(col, 0.95))
+
+## Mutation emblem: what the mutant's attacks carry, drawn on its body so
+## you can read the augment at a glance. `accent` is the giver's colour.
+static func augment(ci: CanvasItem, c: Vector2, r: float, payload: String, accent: Color, t: float = 0.0) -> void:
+	var glow := 0.5 + 0.5 * sin(t * 5.0)
+	match payload:
+		"heal":
+			ci.draw_circle(c, r * 1.25, Color(0.5, 1.0, 0.65, 0.10 + 0.06 * glow))
+			poly(ci, PackedVector2Array([c + Vector2(-r * 0.12, -r * 1.35), c + Vector2(r * 0.12, -r * 1.35), c + Vector2(r * 0.12, -r * 1.12),
+				c + Vector2(r * 0.35, -r * 1.12), c + Vector2(r * 0.35, -r * 0.88), c + Vector2(r * 0.12, -r * 0.88), c + Vector2(r * 0.12, -r * 0.65),
+				c + Vector2(-r * 0.12, -r * 0.65), c + Vector2(-r * 0.12, -r * 0.88), c + Vector2(-r * 0.35, -r * 0.88), c + Vector2(-r * 0.35, -r * 1.12),
+				c + Vector2(-r * 0.12, -r * 1.12)]), Color("5dff8f"), Color("1b5a2c"), 2.0)
+		"laser":
+			ci.draw_circle(c + Vector2(0, -r * 0.95), r * 0.3, Color("2a0b14"))
+			ci.draw_circle(c + Vector2(0, -r * 0.95), r * 0.21, Color("ff3a5a"))
+			ci.draw_circle(c + Vector2(0, -r * 0.95), r * 0.09, Color("ffe0e8"))
+			ci.draw_line(c + Vector2(0, -r * 0.95), c + Vector2(r * 1.4, -r * 1.6), Color(1.0, 0.25, 0.35, 0.35 + 0.3 * glow), 2.0)
+		"explode", "fire":
+			ci.draw_line(c + Vector2(0, -r * 0.9), c + Vector2(r * 0.25, -r * 1.35), Color("c8a060"), 3.0)
+			var spark: Color = Color("ffd24d") if payload == "explode" else Color("ff7a2a")
+			for k in range(5):
+				var a := TAU * float(k) / 5.0 + t * 6.0
+				ci.draw_line(c + Vector2(r * 0.28, -r * 1.4), c + Vector2(r * 0.28, -r * 1.4) + Vector2.from_angle(a) * r * (0.18 + 0.08 * glow), spark, 2.0)
+			ci.draw_circle(c + Vector2(r * 0.28, -r * 1.4), r * 0.1, Color.WHITE)
+		"poison", "glue":
+			var drip: Color = Color("8dff5a") if payload == "poison" else Color("e8f4ff")
+			for k in range(3):
+				var x := (float(k) - 1.0) * r * 0.45
+				var drop_len := r * (0.3 + 0.15 * sin(t * 3.0 + k))
+				ci.draw_line(c + Vector2(x, r * 0.8), c + Vector2(x, r * 0.8 + drop_len), drip, 3.0)
+				ci.draw_circle(c + Vector2(x, r * 0.8 + drop_len), r * 0.1, drip)
+		"guard":
+			var hex := PackedVector2Array()
+			for k in range(7):
+				hex.append(c + Vector2.from_angle(TAU * float(k) / 6.0 + t * 0.5) * r * 1.3)
+			ci.draw_polyline(hex, Color(0.6, 0.85, 1.0, 0.55 + 0.25 * glow), 2.5, true)
+		"rally":
+			poly(ci, PackedVector2Array([c + Vector2(r * 0.6, -r * 0.1), c + Vector2(r * 1.4, -r * 0.45), c + Vector2(r * 1.4, r * 0.35), c + Vector2(r * 0.6, r * 0.1)]), Color("ffb0e8"), INK, 2.0)
+			for k in range(2):
+				ci.draw_arc(c + Vector2(r * 1.4, 0), r * (0.3 + k * 0.22), -0.7, 0.7, 8, Color(1, 0.7, 0.9, 0.6 * glow), 2.0, true)
+		"shock":
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.2, -r * 1.5), c + Vector2(r * 0.1, -r * 1.05), c + Vector2(-r * 0.1, -r * 1.0), c + Vector2(r * 0.25, -r * 0.6)]), Color("83eaff"), 3.0, true)
+		"sticky":
+			ci.draw_circle(c + Vector2(r * 0.85, -r * 0.55), r * 0.3, Color("1d1f26"))
+			ci.draw_circle(c + Vector2(r * 0.85, -r * 0.85), r * 0.09, Color("ff3b3b") if glow > 0.5 else Color("5a1414"))
+		"spear":
+			ci.draw_line(c + Vector2(-r * 0.6, r * 0.8), c + Vector2(r * 1.1, -r * 1.3), Color("e4e8ff"), 3.0)
+			poly(ci, PackedVector2Array([c + Vector2(r * 1.1, -r * 1.3) + Vector2(-r * 0.12, r * 0.25), c + Vector2(r * 1.25, -r * 1.5), c + Vector2(r * 1.1, -r * 1.3) + Vector2(r * 0.2, r * 0.08)]), Color("9caaff"), INK, 1.5)
+		"drain":
+			part(ci, c, r, "sucker", accent)
+			ci.draw_circle(c + Vector2(0, r * 0.95), r * 0.1, Color("ff3a5a"))
+		"shards":
+			for k in range(3):
+				var a2 := -PI * 0.5 + (float(k) - 1.0) * 0.55
+				var b := c + Vector2.from_angle(a2) * r * 0.85
+				poly(ci, PackedVector2Array([b + Vector2.from_angle(a2 + PI * 0.5) * r * 0.12, b + Vector2.from_angle(a2) * r * 0.55, b - Vector2.from_angle(a2 + PI * 0.5) * r * 0.12]), Color("bff8ff"), Color("1b4b66"), 1.5)
+		"rush":
+			for k in range(3):
+				ci.draw_line(c + Vector2(-r * 1.1, (float(k) - 1.0) * r * 0.35), c + Vector2(-r * 1.6, (float(k) - 1.0) * r * 0.35), Color(accent, 0.7), 2.5)
+		"slam", "shove", "quake":
+			for side in [-1.0, 1.0]:
+				poly(ci, PackedVector2Array([c + Vector2(side * r * 0.45, -r * 0.7), c + Vector2(side * r * 1.0, -r * 1.35), c + Vector2(side * r * 0.75, -r * 0.45)]), Color("fff0cf"), INK, 2.0)
+		"split", "hatch":
+			for side in [-1.0, 1.0]:
+				ci.draw_circle(c + Vector2(side * r * 0.95, r * 0.45), r * 0.3, accent.darkened(0.3))
+				ci.draw_circle(c + Vector2(side * r * 0.95, r * 0.45), r * 0.22, accent if payload == "split" else Color("ffd9e6"))
+		"shell":
+			ci.draw_line(c + Vector2(r * 0.2, -r * 0.4), c + Vector2(r * 0.8, -r * 1.3), Color("2b2a24"), r * 0.4)
+			ci.draw_line(c + Vector2(r * 0.2, -r * 0.4), c + Vector2(r * 0.78, -r * 1.22), Color("6a6656"), r * 0.26)
+		"blink":
+			ci.draw_circle(c + Vector2(-r * 0.6, r * 0.1), r * 0.8, Color(0.75, 0.6, 1.0, 0.18 + 0.12 * glow))
+		"latch":
+			for k in range(3):
+				var y := (float(k) - 1.0) * r * 0.4
+				for side in [-1.0, 1.0]:
+					ci.draw_line(c + Vector2(side * r * 0.85, y), c + Vector2(side * r * 1.35, y + r * 0.3), Color("24331c"), 2.5)
+		"steal":
+			ci.draw_circle(c + Vector2(r * 0.9, r * 0.35), r * 0.38, Color("c8a040"))
+			ci.draw_circle(c + Vector2(r * 0.9, r * 0.35), r * 0.26, Color("ffd24d"))
 
 ## Inheritable mutation parts introduced with the new silhouettes.
 ## Returns false if the trait is not one of these.

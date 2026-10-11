@@ -8,6 +8,7 @@ const BossModels = preload("res://scripts/BossModels.gd")
 const Trails = preload("res://scripts/Trails.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const MonsterModels = preload("res://scripts/MonsterModels.gd")
+const MutationKit = preload("res://scripts/MutationKit.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -1503,6 +1504,9 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 			tint = tint.lerp(Color(0.65, 0.95, 1.25), clampf(float(e["chill"]) / 100.0, 0.0, 0.7))
 		if float(e["charm"]) > 0.0:
 			tint = tint.lerp(Color(1.25, 0.6, 1.05), 0.6)
+		if mixed and parents.size() >= 2:
+			# Both parents read on the body: tint toward the giver's colour.
+			tint *= Color.WHITE.lerp(Color(str(g.enemy_db[str(parents[1])]["color"])).lightened(0.25), 0.32)
 	var spawn = float(e["spawn"])
 	var bob = sin(float(e["t"]) * 10.0 + float(e["phase"])) * 0.06
 	var sq = float(e["squash"])
@@ -1595,8 +1599,8 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		# Inherit one ANATOMICAL feature from the second parent. Do not
 		# paste eyes, masks, lips or a complete second face onto the base.
 		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
-		draw_hybrid_trait(self, p, r, str(e.get("hybrid_trait", parts.get("trait", "ears"))),
-			secondary, int(parts.get("variant", 0)))
+		MonsterModels.markings(self, p, r, secondary, posmod(kind.hash(), 5))
+		MonsterModels.augment(self, p, r, MutationKit.payload_for(kind, str(parents[1])), secondary, g.anim_t + float(e["phase"]))
 	draw_status(e, p, r)
 
 ## Bosses are drawn live: they animate, react to phases and wind up visibly.
