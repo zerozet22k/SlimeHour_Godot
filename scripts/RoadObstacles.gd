@@ -12,17 +12,24 @@ static func camera_x(hero_x: float, road_half: float, canvas_width: float) -> fl
 	var limit = maxf(0.0, road_half - canvas_width * 0.5 + 70.0)
 	return clampf(hero_x, -limit, limit)
 
-## Each sector is a real street cross-section. Only the middle is asphalt;
-## the rest of the walkable width is pavement with street trees.
-##   two_lane   1 lane each way, dashed yellow centre line
-##   four_lane  2 lanes each way, double yellow centre line
-##   boulevard  2 lanes each way around a planted centre island
-##   avenue     3 lanes each way around a wider planted island
+## Each sector is a real street cross-section that fills the walkable width.
+## From the centre outwards on each side:
+##   island | traffic lanes | bike lane | parking lane | kerb | grass verge | pavement | buildings
+## Layouts pick which parts exist; extra width becomes more lanes and parts,
+## never a giant empty pavement.
 const LANE_W = 115.0
 const GUTTER = 12.0
-const MIN_PAVEMENT = 150.0
-const LAYOUT_LANES = {"two_lane": 1, "four_lane": 2, "boulevard": 2, "avenue": 3}
-const LAYOUT_ISLAND = {"two_lane": 0.0, "four_lane": 0.0, "boulevard": 55.0, "avenue": 90.0}
+const BIKE_W = 52.0
+const PARK_W = 80.0
+const VERGE_W = 72.0
+const MIN_PAVEMENT = 95.0
+const MAX_PAVEMENT = 210.0
+const LAYOUTS = {
+	"two_lane": {"lanes": 1, "island": 0.0, "bike": true, "parking": true, "verge": true},
+	"four_lane": {"lanes": 2, "island": 0.0, "bike": false, "parking": true, "verge": true},
+	"boulevard": {"lanes": 2, "island": 55.0, "bike": true, "parking": false, "verge": true},
+	"avenue": {"lanes": 3, "island": 90.0, "bike": false, "parking": true, "verge": false},
+}
 ## Cross streets: a junction every CROSS_EVERY, CROSS_W tall. Islands open at
 ## junctions and nothing is ever placed inside one.
 const CROSS_EVERY = 1350.0
@@ -33,21 +40,52 @@ static func layout_for(sector: int, half: float, boss: bool = false) -> String:
 	if sector <= 1 or boss:
 		return "four_lane"
 	var kinds: Array = ["two_lane", "four_lane", "boulevard"]
-	if half >= 900.0:
+	if half >= 800.0:
 		kinds.append("avenue")
 	var rng = RandomNumberGenerator.new()
 	rng.seed = int(5113 + sector * 7717)
 	return str(kinds[(sector + rng.randi()) % kinds.size()])
 
-## Lane count, island and carriageway half-width for a layout on this road,
-## shrinking lanes if the pavement would get too narrow.
+static func street_used(island: float, lanes: int, bike: float, park: float, verge: float) -> float:
+	return island + lanes * LANE_W + bike + park + GUTTER + verge
+
+## Positions of every part of the cross-section (distances from the centre).
 static func street(layout: String, half: float) -> Dictionary:
-	var lanes: int = int(LAYOUT_LANES.get(layout, 2))
-	var island: float = float(LAYOUT_ISLAND.get(layout, 0.0))
-	while lanes > 1 and half - (island + lanes * LANE_W + GUTTER) < MIN_PAVEMENT:
-		lanes -= 1
-	var carriage: float = island + lanes * LANE_W + GUTTER
-	return {"layout": layout, "lanes": lanes, "island": island, "carriage": carriage, "pavement": half - carriage}
+	var cfg: Dictionary = LAYOUTS.get(layout, LAYOUTS["four_lane"])
+	var lanes: int = int(cfg["lanes"])
+	var island: float = float(cfg["island"])
+	var bike: float = BIKE_W if bool(cfg["bike"]) else 0.0
+	var park: float = PARK_W if bool(cfg["parking"]) else 0.0
+	var verge: float = VERGE_W if bool(cfg["verge"]) else 0.0
+	# Too much width: add the missing parts, then more lanes.
+	while half - street_used(island, lanes, bike, park, verge) > MAX_PAVEMENT:
+		if verge == 0.0:
+			verge = VERGE_W
+		elif park == 0.0:
+			park = PARK_W
+		elif bike == 0.0:
+			bike = BIKE_W
+		elif lanes < 6:
+			lanes += 1
+		else:
+			break
+	# Too little width: drop optional parts, then lanes.
+	while half - street_used(island, lanes, bike, park, verge) < MIN_PAVEMENT:
+		if bike > 0.0:
+			bike = 0.0
+		elif park > 0.0:
+			park = 0.0
+		elif verge > 0.0:
+			verge = 0.0
+		elif lanes > 1:
+			lanes -= 1
+		else:
+			break
+	var traffic: float = island + lanes * LANE_W
+	var carriage: float = traffic + bike + park + GUTTER
+	return {"layout": layout, "lanes": lanes, "island": island, "traffic": traffic,
+		"bike": bike, "park": park, "verge": verge, "carriage": carriage,
+		"pavement_start": carriage + verge, "pavement": half - carriage - verge, "half": half}
 
 ## World y of every junction centre in a sector.
 static func crossings(start_y: float, length: float) -> Array:
@@ -79,16 +117,15 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 	var island: float = float(st["island"])
 	var top: float = start_y - length + 150.0
 	var first: float = start_y - 420.0
-	# Street trees grow from tree pits on the pavement next to the kerb; wide
-	# pavements get a second, staggered row near the buildings.
+	# Street trees: in the grass verge if there is one, otherwise in pavement
+	# tree pits beside the kerb.
+	var tree_x: float = float(st["carriage"]) + (float(st["verge"]) * 0.5 if float(st["verge"]) > 0.0 else 48.0)
 	var y: float = first
 	while y > top:
 		for side in [-1.0, 1.0]:
 			if rng.randf() < 0.9:
-				place(result, "tree", Vector2(side * (carriage + 52.0), y), 29.0, -1.0)
-			if float(st["pavement"]) >= 300.0 and rng.randf() < 0.75:
-				place(result, "tree", Vector2(side * (half - 70.0), y - 120.0), 29.0, -1.0)
-		y -= 250.0
+				place(result, "tree", Vector2(side * tree_x, y), 29.0, -1.0)
+		y -= 230.0
 	# Planted centre islands.
 	if island > 0.0 and not boss:
 		y = first - 120.0
@@ -99,7 +136,7 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 	# Roadworks close the kerb-side lane on multi-lane roads: sawhorses across
 	# both ends, a cone taper on the approach and cones along the lane marking.
 	if sector >= 2 and not boss and int(st["lanes"]) >= 2:
-		var outer: float = carriage - GUTTER
+		var outer: float = float(st["traffic"])
 		var inner: float = outer - LANE_W
 		var lane_mid: float = (inner + outer) * 0.5
 		var zones: int = 1 + mini(4, sector / 3)
@@ -116,19 +153,19 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 			for k in range(3):
 				var u: float = float(k + 1) / 4.0
 				place(result, "cone", Vector2(side * lerpf(outer - 12.0, inner + 6.0, u), zy + 40.0 + (1.0 - u) * 150.0), 12.0, 18.0 + sector)
-	# Parked cars from Sector 12 sit along the kerb in the outer lane.
-	if sector >= 12 and not boss:
-		var cars: int = 3 + mini(8, (sector - 12) / 2)
+	# Parked cars sit in the parking lane from Sector 6, never in traffic.
+	if sector >= 6 and not boss and float(st["park"]) > 0.0:
+		var cars: int = 3 + mini(10, (sector - 6) / 2)
 		var placed := 0
 		var py: float = first - 140.0
-		var lane_x: float = carriage - GUTTER - LANE_W * 0.5
+		var lane_x: float = float(st["carriage"]) - GUTTER - float(st["park"]) * 0.5
 		while py > top and placed < cars:
 			var side2: float = -1.0 if rng.randf() < 0.5 else 1.0
 			var before: int = result.size()
-			place(result, "car", Vector2(side2 * lane_x, py), 43.0, 110.0 + sector * 5.0)
+			place(result, "car", Vector2(side2 * lane_x, py), 34.0, 110.0 + sector * 5.0)
 			if result.size() > before:
 				placed += 1
-			py -= 250.0 * float(1 + rng.randi() % 2)
+			py -= 230.0 * float(1 + rng.randi() % 2)
 	# Junctions stay clear for cross traffic.
 	return result.filter(func(o): return not in_junction(float(o["pos"].y), start_y, float(o["radius"]) + 85.0))
 

@@ -11,5 +11,6 @@ static func canvas_width(vp: Vector2) -> float:
 static func canvas_left(vp: Vector2) -> float:
 	return 640.0 - canvas_width(vp) * 0.5
 
+## The walkable street (road + pavements) fills the whole visible width.
 static func road_half(vp: Vector2) -> float:
-	return maxf(530.0, canvas_width(vp) * 0.5 - 110.0)
+	return canvas_width(vp) * 0.5

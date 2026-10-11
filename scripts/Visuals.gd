@@ -115,9 +115,11 @@ func paint_road() -> void:
 		var s: float = sy(float(cy))
 		if s > top - RoadObstacles.CROSS_W and s < bottom + RoadObstacles.CROSS_W:
 			junctions.append(s)
+	var ps: float = float(st["pavement_start"])
 	paint_city_blocks(b, left, right, top, bottom)
-	paint_pavement(b, left, cl, top, bottom)
-	paint_pavement(b, cr, right, top, bottom)
+	paint_pavement(b, left, cx - ps, top, bottom)
+	paint_pavement(b, cx + ps, right, top, bottom)
+	paint_verges(b, st, cx, top, bottom)
 	draw_rect(Rect2(cl, top, cr - cl, bottom - top), asphalt)
 	# Cross streets run out through both pavements and between the buildings.
 	var half_w: float = RoadObstacles.CROSS_W * 0.5
@@ -126,10 +128,11 @@ func paint_road() -> void:
 	paint_asphalt_wear(asphalt, cl, cr, top, bottom)
 	paint_kerbs(cl, cr, top, bottom, junctions)
 	paint_street_layout(b, g.cam_y)
+	paint_bike_and_parking(st, cx, top, bottom, junctions)
 	paint_lane_markings(st, cx, cl, cr, top, bottom, junctions)
 	for js in junctions:
 		paint_junction(cl, cr, left, right, js)
-	paint_street_lights(cl, cr, top, bottom, junctions)
+	paint_street_lights(cx, st, top, bottom, junctions)
 	# The building line is the edge of the arena.
 	for edge in [left, right]:
 		draw_rect(Rect2(float(edge) - 3.0, top, 6.0, bottom - top), Color(b["edge"], 0.35))
@@ -267,8 +270,9 @@ func paint_lane_markings(st: Dictionary, cx: float, cl: float, cr: float, top: f
 	while y < bottom:
 		var y2: float = minf(bottom, y + 24.0)
 		if not blocked.call(y, y2, 30.0):
-			draw_rect(Rect2(cl + 10.0, y, 4.0, y2 - y), white)
-			draw_rect(Rect2(cr - 14.0, y, 4.0, y2 - y), white)
+			var edge: float = float(st["traffic"])
+			draw_rect(Rect2(cx - edge - 2.0, y, 4.0, y2 - y), white)
+			draw_rect(Rect2(cx + edge - 2.0, y, 4.0, y2 - y), white)
 			if island <= 0.0:
 				if layout == "two_lane":
 					if int(floor(wy(y) / 60.0)) % 2 == 0:
@@ -319,25 +323,109 @@ func paint_junction(cl: float, cr: float, left: float, right: float, js: float) 
 			draw_rect(Rect2(float(edge) - 32.0, yy, 64.0, 14.0), white)
 			yy += 28.0
 
-func paint_street_lights(cl: float, cr: float, top: float, bottom: float, junctions: Array) -> void:
+func paint_street_lights(cx: float, st: Dictionary, top: float, bottom: float, junctions: Array) -> void:
 	var step := 330.0
 	var y: float = sy(floor(wy(top) / step) * step) - step
+	var pole_x: float = float(st["carriage"]) + 16.0
+	var lamp_x: float = float(st["traffic"]) - 10.0
 	while y < bottom + step:
 		var skip := false
 		for js in junctions:
-			if absf(y - js) < RoadObstacles.CROSS_W * 0.5 + 30.0:
+			if absf(y + 125.0 - js) < RoadObstacles.CROSS_W * 0.5 + 30.0:
 				skip = true
 		if not skip:
 			for side in [-1.0, 1.0]:
-				var base := Vector2(cl - 22.0 if side < 0.0 else cr + 22.0, y + 125.0)
-				var lamp := Vector2(cl + 22.0 if side < 0.0 else cr - 22.0, y + 125.0)
-				for k in range(3):
-					draw_circle(lamp, 70.0 - k * 18.0, Color(1.0, 0.86, 0.55, 0.035))
+				var base := Vector2(cx + side * pole_x, y + 125.0)
+				var lamp := Vector2(cx + side * lamp_x, y + 125.0)
+				draw_circle(lamp, 58.0, Color(1.0, 0.86, 0.55, 0.05))
 				draw_circle(base, 5.0, Color(0.1, 0.1, 0.12))
 				draw_line(base, lamp, Color(0.18, 0.19, 0.22), 4.0)
-				draw_circle(lamp, 6.0, Color(0.18, 0.19, 0.22))
-				draw_circle(lamp, 3.5, Color("ffe6a8"))
+				draw_circle(lamp, 5.0, Color(0.18, 0.19, 0.22))
+				draw_circle(lamp, 3.0, Color("ffe6a8"))
 		y += step
+
+## Grass verge strips between the kerb and the pavement.
+func paint_verges(b: Dictionary, st: Dictionary, cx: float, top: float, bottom: float) -> void:
+	var verge: float = float(st["verge"])
+	if verge <= 0.0:
+		return
+	var grass := Color(b["bg"]).lerp(Color("2f6b3a"), 0.5)
+	var carriage: float = float(st["carriage"])
+	for side in [-1.0, 1.0]:
+		var x0: float = cx + carriage if side > 0.0 else cx - carriage - verge
+		draw_rect(Rect2(x0, top, verge, bottom - top), grass)
+		var step := 40.0
+		var gy: float = sy(floor(wy(top) / step) * step)
+		var i := 0
+		while gy < bottom:
+			for k in range(2):
+				var fx: float = x0 + 10.0 + fmod(float(k) * 31.0 + float(i) * 19.0, verge - 20.0)
+				draw_line(Vector2(fx, gy), Vector2(fx + 2.0, gy - 6.0), Color("7fcf6a", 0.35), 2.0)
+			gy += step
+			i += 1
+
+## Screen-space [y0, y1] runs between junctions.
+func open_segments(top: float, bottom: float, junctions: Array, pad: float) -> Array:
+	var half_w: float = RoadObstacles.CROSS_W * 0.5 + pad
+	var segs: Array = [[top, bottom]]
+	for js in junctions:
+		var next: Array = []
+		for sg in segs:
+			if js + half_w <= sg[0] or js - half_w >= sg[1]:
+				next.append(sg)
+			else:
+				if js - half_w > sg[0]:
+					next.append([sg[0], js - half_w])
+				if js + half_w < sg[1]:
+					next.append([js + half_w, sg[1]])
+		segs = next
+	return segs
+
+## Green bike lanes with bike symbols, and parking lanes with bay marks.
+func paint_bike_and_parking(st: Dictionary, cx: float, top: float, bottom: float, junctions: Array) -> void:
+	var segs := open_segments(top, bottom, junctions, 60.0)
+	var traffic: float = float(st["traffic"])
+	var bike: float = float(st["bike"])
+	var park: float = float(st["park"])
+	var white := Color(0.92, 0.93, 0.95, 0.7)
+	for side in [-1.0, 1.0]:
+		if bike > 0.0:
+			var bx: float = cx + side * (traffic + bike * 0.5)
+			for sg in segs:
+				draw_rect(Rect2(bx - bike * 0.5, sg[0], bike, sg[1] - sg[0]), Color(0.18, 0.55, 0.32, 0.35))
+			var sym_step := 520.0
+			var syy: float = sy(floor(wy(top) / sym_step) * sym_step)
+			while syy < bottom + sym_step:
+				var in_open := false
+				for sg in segs:
+					if syy > sg[0] + 20.0 and syy < sg[1] - 20.0:
+						in_open = true
+				if not in_open:
+					syy += sym_step
+					continue
+				var c := Vector2(bx, syy)
+				draw_arc(c + Vector2(-9, 6), 7.0, 0.0, TAU, 14, white, 2.0, true)
+				draw_arc(c + Vector2(9, 6), 7.0, 0.0, TAU, 14, white, 2.0, true)
+				draw_polyline(PackedVector2Array([c + Vector2(-9, 6), c + Vector2(-2, -4), c + Vector2(9, 6), c + Vector2(4, -6)]), white, 2.0, true)
+				syy += sym_step
+		if park > 0.0:
+			var p0: float = traffic + bike
+			var line_x: float = cx + side * p0
+			var bay := 230.0
+			var by: float = sy(floor(wy(top) / bay) * bay)
+			while by < bottom + bay:
+				var blocked := false
+				for js in junctions:
+					if absf(by - js) < RoadObstacles.CROSS_W * 0.5 + 40.0:
+						blocked = true
+				if not blocked:
+					draw_line(Vector2(line_x, by), Vector2(line_x + side * park * 0.8, by), white, 3.0)
+				by += bay
+			for sg in segs:
+				var y: float = sg[0]
+				while y < sg[1]:
+					draw_line(Vector2(line_x, y), Vector2(line_x, minf(sg[1], y + 20.0)), Color(white, 0.5), 2.0)
+					y += 34.0
 
 ## Planted centre islands with kerbs, opening at every junction.
 func paint_street_layout(b: Dictionary, _scroll: float) -> void:
@@ -665,7 +753,8 @@ func paint_obstacles() -> void:
 		var seed = absf(float(ob["pos"].x) * 0.137 + float(ob["pos"].y) * 0.071)
 		match kind:
 			"tree":
-				if absf(float(ob["pos"].x)) > 60.0:
+				var st_now := street_now()
+				if absf(float(ob["pos"].x)) > float(st_now["carriage"]) + float(st_now["verge"]):
 					# Pavement tree pit with an iron grate.
 					draw_rect(Rect2(p + Vector2(-26, -14), Vector2(52, 44)), Color(0.2, 0.2, 0.23))
 					draw_rect(Rect2(p + Vector2(-22, -10), Vector2(44, 36)), Color("3a2a20"))

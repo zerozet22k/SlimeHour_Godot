@@ -38,7 +38,9 @@ func _run() -> void:
 	for hazard in middle:
 		if hazard["kind"] == "median":
 			middle_medians += 1
-		check(hazard["kind"] != "car", "no cars before sector 12")
+		if hazard["kind"] == "car":
+			var mst: Dictionary = Obst.street(Obst.layout_for(8, 810.0), 810.0)
+			check(absf(float(hazard["pos"].x)) > float(mst["traffic"]) + float(mst["bike"]), "parked cars stay in the parking lane")
 	for hazard in advanced:
 		if hazard["kind"] == "car":
 			advanced_cars += 1
@@ -51,15 +53,15 @@ func _run() -> void:
 	for n in [1, 4, 9, 15, 24, 35]:
 		var half: float = Obst.road_half_for_sector(n, 530.0)
 		var st: Dictionary = Obst.street(Obst.layout_for(n, half), half)
-		check(int(st["lanes"]) >= 1 and int(st["lanes"]) <= 3, "sector %d has a real lane count" % n)
+		check(int(st["lanes"]) >= 1 and int(st["lanes"]) <= 6, "sector %d has a real lane count" % n)
 		check(float(st["pavement"]) >= Obst.MIN_PAVEMENT, "sector %d keeps a wide walkable pavement" % n)
 		var props = Obst.generate(n, half, 0.0, 4800.0)
 		var on_asphalt = props.filter(func(h): return str(h["kind"]) == "tree" and absf(float(h["pos"].x)) > float(st["island"]) + 30.0 and absf(float(h["pos"].x)) < float(st["carriage"]))
 		check(on_asphalt.is_empty(), "sector %d street trees stand on the pavement, not the asphalt" % n)
 		check(props.filter(func(h): return str(h["kind"]) == "tree").size() >= 12, "sector %d has plenty of trees" % n)
 		var works = props.filter(func(h): return str(h["kind"]) in ["barrier", "cone"])
-		var kerb_lane = works.all(func(h): return absf(float(h["pos"].x)) >= float(st["carriage"]) - Obst.GUTTER - Obst.LANE_W - 1.0)
-		check(kerb_lane, "sector %d roadworks only close the kerb lane" % n)
+		var kerb_lane = works.all(func(h): return absf(float(h["pos"].x)) >= float(st["traffic"]) - Obst.LANE_W - 1.0 and absf(float(h["pos"].x)) <= float(st["traffic"]) + 1.0)
+		check(kerb_lane, "sector %d roadworks only close the outer traffic lane" % n)
 	check(Obst.generate(10, 1100.0, 0.0, 4800.0, true).filter(func(h): return str(h["kind"]) != "tree").is_empty(), "boss arenas have no roadworks or cars")
 	check(advanced_cars >= 2, "later sectors introduce vehicle obstructions")
 	check(advanced == Obst.generate(19, 1250.0, 0.0, 4800.0), "map objects are deterministically generated")
