@@ -1,3 +1,22 @@
+## v0.1.86 — Lock, banish, sell and a real economy
+
+- **Lock cards:** pay gold to lock a level-up card (it comes back at your next level-up) or a shop item (it stays in every shop until you buy it).
+- **Banish cards:** remove a card from an offer or the shop so it never shows up again this run. You start with 1 banish; the new GRUDGE LIST upgrade adds up to 4 more, and the Grudge List card gives +2.
+- **Sell cards:** in the Arsenal (outside a fight), inspect a card and sell one copy for 40% of its price.
+- **A bigger shop:** 8 stalls in two rows: 4 cards (one Rare or better, one premium stall with extra luck), a gun, a heal, a max HP upgrade and the mystery card.
+- **Less late-game gold:** kill gold thins out after sector 8, and the sector stipend grows more slowly after sector 10.
+- **Campfire:** resting heals 60% (was 40%), or FORTIFY for +30 max HP.
+- **Random encounters:** rewards now scale with the sector, card rewards are a tier better from sector 10, and there are 4 new encounters: Arms Dealer, Field Medic, Treasure Map and Card Trader.
+- **20 new cards:**
+  - Every gun now has at least two cards of its own.
+  - New general cards: Grudge List, Second Skin, Adrenaline Shot, Blood Money, Static Shield, Hot Streak, Field Dressing and Scrap Collector.
+- **Card text:** the "how this works with your guns" notes are now written in plain language instead of developer wording.
+- **Fixed: enemy attacks looked like faint discs.** Explosions no longer leave smoke puffs that read like projectiles.
+- **Runners hold their guns close:** no more long arms. Guns sit under the body, shoulders and head, and only the barrels poke out.
+- **Hard limit of 110 monsters alive at once:** spawns wait until there is room, which keeps late sectors smooth.
+- **Elite labels** (TURRET · REGEN · ARMORED) only show for elites near you.
+- **Fixed:** the treasure chest icon overlapped the TREASURE! title.
+
 ## v0.1.85 — Readable attacks, sturdier runner
 
 - **Fixed: enemy attacks showed as faint brown discs.** v0.1.84's circle batching made small bullets and circles render dark and see-through. Circles now use their own clean texture.

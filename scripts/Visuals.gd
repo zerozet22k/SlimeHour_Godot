@@ -1709,7 +1709,9 @@ func paint_enemies() -> void:
 			for k in range(3):
 				var th2: float = g.anim_t * 5.0 + TAU * float(k) / 3.0
 				dot(p + Vector2(cos(th2) * r * 0.9, -r - 6.0 + sin(th2) * 4.0), 3.0, Color("ffe07f"))
-		if e.has("affix"):
+		# Elite affix labels only near you: a screen full of them is unreadable
+		# and expensive.
+		if e.has("affix") and Vector2(e["pos"]).distance_squared_to(g.hero["pos"]) < 280.0 * 280.0:
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif body == "totem":
 			var linked_allies = 0

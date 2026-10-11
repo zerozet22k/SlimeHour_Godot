@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.85"
+const GAME_VERSION = "v0.1.86"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -30,7 +30,7 @@ func landscape_rect() -> Rect2:
 	return Rect2(landscape_left, 0.0, landscape_width, 720.0)
 const SECTOR_LEN = 4800.0
 const HERO_SCREEN_Y = 470.0
-const MAX_ENEMIES = 160
+const MAX_ENEMIES = 110
 const MAX_SHOTS = 500
 const MAX_SHOTS_LIMIT = 500
 ## Clear this sector to win; the run can continue after it (every sector is then a boss).
@@ -234,6 +234,12 @@ var hive_t = 0.0
 var stats_dirty = true
 var prof: Dictionary = {}
 var obstacle_index: Dictionary = {}
+## Card management for this run: banished cards never show up again, locked
+## offers come back in the next level-up / shop, banishes are a limited stock.
+var banished: Dictionary = {}
+var banishes := 0
+var locked_offers: Array = []
+var locked_shop: Array = []
 var acid_trails := 0
 ## Fine-grained benchmark timing (PERF_DRAW=1 only).
 var perf_detail := OS.get_environment("PERF_DRAW") != ""
@@ -649,6 +655,11 @@ func start_run() -> void:
 	damage_taken = 0.0
 	run_time = 0.0
 	rerolls = 2 + meta_level("reroll")
+	banished = {}
+	banishes = 1 + meta_level("banish")
+	locked_offers = []
+	locked_shop = []
+	shop_items = []
 	gold += int(15 * meta_level("gold"))
 	pending_levels = 0
 	pending_chests = 0
@@ -1644,7 +1655,7 @@ func sector_clear() -> void:
 			shots.erase(s)
 	for pk in pickups:
 		pk["vacuum"] = true
-	var stipend = 5 + sector * 2
+	var stipend = 5 + mini(sector, 10) * 2 + maxi(0, sector - 10)
 	gold += stipend
 	# Clearing a sector patches you up: a quarter of your max HP.
 	if not hero.is_empty():
@@ -1856,6 +1867,11 @@ func after_offer() -> void:
 # ================================================================= shop & campfire
 ## Shops are map nodes. Riskier roads since the last shop (Elite, Hell Lane) stock it with better cards.
 func open_shop() -> void:
+	# Locked items from the last shop come back in this one.
+	for it in shop_items:
+		if bool(it.get("locked", false)) and not bool(it["sold"]) and not locked_shop.has(it):
+			locked_shop.append(it)
+	shop_items = []
 	phase = "shop"
 	state = "shop"
 	shop_bonus = 3.0 * route_risk
@@ -1865,11 +1881,25 @@ func open_shop() -> void:
 func shop_luck() -> float:
 	return shop_bonus
 func make_shop_items() -> Array:
+	# Locked items stay until bought; the rest of the shop is rolled fresh.
+	var kept: Array = []
+	for it in shop_items:
+		if bool(it.get("locked", false)) and not bool(it["sold"]):
+			kept.append(it)
+	for it in locked_shop:
+		if not kept.has(it):
+			kept.append(it)
+	locked_shop = []
 	var items = Effects.make_shop(self)
 	items.append({"kind": "mystery", "price": roundi((70 + sector * 6) * clampf(1.0 - st("discount"), 0.7, 1.0))})
 	for it in items:
 		it["sold"] = false
-	return items
+	var out: Array = kept.duplicate()
+	for it in items:
+		if out.size() >= 8:
+			break
+		out.append(it)
+	return out
 
 func buy_shop(i: int) -> void:
 	if state != "shop" or i < 0 or i >= shop_items.size():
@@ -1913,8 +1943,19 @@ func reroll_shop() -> void:
 func rest_heal() -> void:
 	if state != "rest":
 		return
-	heal(float(hero["maxhp"]) * 0.4)
+	heal(float(hero["maxhp"]) * 0.6)
 	sfx.play("heal")
+	open_map()
+
+## Campfire option: grow tougher instead of healing.
+func rest_fortify() -> void:
+	if state != "rest":
+		return
+	owned["_camp_hp"] = int(owned.get("_camp_hp", 0)) + 1
+	stats_dirty = true
+	Effects.recalc(self)
+	heal(float(hero["maxhp"]) * 0.2)
+	sfx.play("level")
 	open_map()
 
 func rest_train(slot: int) -> void:
@@ -1929,28 +1970,53 @@ func rest_train(slot: int) -> void:
 # ================================================================= random encounters ("?" nodes)
 ## Options with "dice" roll that many d6 on screen before the outcome is applied.
 const EVENTS = [
-	{"id": "gambler", "title": "ROADSIDE GAMBLER", "text": "A man at a folding table shakes a cup. Bet 30 gold: roll 4 or more and he pays you 75.",
-		"opts": [{"label": "BET 30 G", "dice": 1, "cost": 30}, {"label": "WALK AWAY"}]},
-	{"id": "crate", "title": "MYSTERY CRATE", "text": "A sealed crate sits in the road. Roll to open it. 1: it explodes. 2-3: Common card. 4-5: Rare card. 6: Epic card.",
+	{"id": "gambler", "title": "ROADSIDE GAMBLER", "text": "A man at a folding table shakes a cup. Bet {bet} gold: roll 4 or more and he pays you {win}.",
+		"opts": [{"label": "BET {bet} G", "dice": 1, "cost": "bet"}, {"label": "WALK AWAY"}]},
+	{"id": "crate", "title": "MYSTERY CRATE", "text": "A sealed crate sits in the road. Roll to open it. 1: it explodes. 2-3: {low} card. 4-5: {mid} card. 6: {high} card.",
 		"opts": [{"label": "OPEN IT", "dice": 1}, {"label": "LEAVE IT"}]},
-	{"id": "mechanic", "title": "SHADY MECHANIC", "text": "\"40 gold and I'll tune one of your guns. No refunds.\" A random gun gains a level.",
-		"opts": [{"label": "PAY 40 G", "cost": 40}, {"label": "NO THANKS"}]},
-	{"id": "altar", "title": "BLOOD ALTAR", "text": "An altar asks for blood. Lose 25% of your max HP to take a free card, Rare or better.",
+	{"id": "mechanic", "title": "SHADY MECHANIC", "text": "\"{cost} gold and I'll tune one of your guns. No refunds.\" A random gun gains {levels}.",
+		"opts": [{"label": "PAY {cost} G", "cost": "cost"}, {"label": "NO THANKS"}]},
+	{"id": "altar", "title": "BLOOD ALTAR", "text": "An altar asks for blood. Lose 25% of your max HP to take a free card, {mid} or better.",
 		"opts": [{"label": "OFFER BLOOD"}, {"label": "LEAVE"}]},
-	{"id": "fountain", "title": "WISHING FOUNTAIN", "text": "Toss in 10 gold and roll. 6: a Four-Leaf Clover. 3-5: heal 25% HP. 1-2: nothing.",
+	{"id": "fountain", "title": "WISHING FOUNTAIN", "text": "Toss in 10 gold and roll. 6: a Four-Leaf Clover. 3-5: heal 35% HP. 1-2: nothing.",
 		"opts": [{"label": "TOSS 10 G", "dice": 1, "cost": 10}, {"label": "LEAVE"}]},
-	{"id": "dummy", "title": "TRAINING YARD", "text": "Free target practice. Roll the dice: each pip is worth 15% of a level in EXP.",
+	{"id": "dummy", "title": "TRAINING YARD", "text": "Free target practice. Roll the dice: each pip is worth 20% of a level in EXP.",
 		"opts": [{"label": "TRAIN", "dice": 1}, {"label": "SKIP"}]},
-	{"id": "double", "title": "DOUBLE OR NOTHING", "text": "Roll two dice. Doubles: an Epic card. Total 9 or more: a Rare card. Anything else: lose 15% max HP.",
+	{"id": "double", "title": "DOUBLE OR NOTHING", "text": "Roll two dice. Doubles: a {high} card. Total 9 or more: a {mid} card. Anything else: lose 15% max HP.",
 		"opts": [{"label": "ROLL TWO DICE", "dice": 2}, {"label": "LEAVE"}]},
-	{"id": "traveler", "title": "STRANDED DRIVER", "text": "A driver needs help pushing a car out of the crowd. You will take some hits (15 HP). Pays 35 gold.",
+	{"id": "traveler", "title": "STRANDED DRIVER", "text": "A driver needs help pushing a car out of the crowd. You will take some hits (15 HP). Pays {pay} gold.",
 		"opts": [{"label": "HELP (-15 HP)"}, {"label": "IGNORE"}]},
+	{"id": "arms", "title": "ARMS DEALER", "text": "A trunk full of parts. \"{cost} gold and every gun you carry gets a level.\"",
+		"opts": [{"label": "PAY {cost} G", "cost": "cost"}, {"label": "NOT TODAY"}]},
+	{"id": "medic", "title": "FIELD MEDIC", "text": "A medic waves you into her tent. {small} gold: a full heal and +20 max HP for the rest of the run.",
+		"opts": [{"label": "PAY {small} G", "cost": "small"}, {"label": "I'M FINE"}]},
+	{"id": "treasure", "title": "TREASURE MAP", "text": "A map marks a spot under the overpass. Roll: 1-2 it's an ambush (lose 20% HP). 3-6: dig up gold, more the higher you roll.",
+		"opts": [{"label": "DIG", "dice": 1}, {"label": "LEAVE IT"}]},
+	{"id": "trader", "title": "CARD TRADER", "text": "\"Give me your newest card and I'll hand you one a rarity higher.\"",
+		"opts": [{"label": "TRADE"}, {"label": "KEEP MY CARDS"}]},
 ]
+
+## Event numbers scale with the sector so a late encounter still matters.
+func event_numbers() -> Dictionary:
+	var late := 1 if sector >= 10 else 0
+	var names = ["Common", "Rare", "Epic", "Legendary", "Mythic", "Ascendant"]
+	return {"bet": 20 + 4 * sector, "win": roundi((20 + 4 * sector) * 2.5), "cost": 30 + 5 * sector,
+		"small": 15 + 3 * sector, "pay": 35 + 6 * sector, "levels": "two levels" if late else "a level",
+		"low": names[0 + late], "mid": names[1 + late], "high": names[2 + late], "late": late}
 
 func start_event() -> void:
 	phase = "event"
 	state = "event"
 	event = EVENTS[randi() % EVENTS.size()].duplicate(true)
+	var nums := event_numbers()
+	for key in nums:
+		event["text"] = str(event["text"]).replace("{%s}" % key, str(nums[key]))
+		event["title"] = str(event["title"]).replace("{%s}" % key, str(nums[key]))
+	for opt in event["opts"]:
+		for key in nums:
+			opt["label"] = str(opt["label"]).replace("{%s}" % key, str(nums[key]))
+		if opt.get("cost") is String:
+			opt["cost"] = int(nums[str(opt["cost"])])
 	event_stage = "choose"
 	event_dice = []
 	event_roll_t = 0.0
@@ -1998,62 +2064,103 @@ func resolve_event() -> void:
 	var roll = 0
 	for d in event_dice:
 		roll += int(d)
+	var nums := event_numbers()
+	var late: int = int(nums["late"])
 	var msg = "You move on."
 	if first:
 		match id:
 			"gambler":
 				if roll >= 4:
-					gold += 75
-					msg = "You rolled %d. He pays you 75 gold." % roll
+					gold += int(nums["win"])
+					msg = "You rolled %d. He pays you %d gold." % [roll, int(nums["win"])]
 				else:
-					msg = "You rolled %d. He keeps your 30 gold." % roll
+					msg = "You rolled %d. He keeps your %d gold." % [roll, int(nums["bet"])]
 			"crate":
 				if roll == 1:
 					hurt_pct(0.2)
 					msg = "You rolled 1. The crate explodes in your face."
 				else:
-					msg = "You rolled %d. " % roll + event_card(0 if roll <= 3 else (1 if roll <= 5 else 2))
+					msg = "You rolled %d. " % roll + event_card((0 if roll <= 3 else (1 if roll <= 5 else 2)) + late)
 			"mechanic":
 				var up = []
 				for k in range(guns.size()):
 					if int(guns[k]["lvl"]) < 5:
 						up.append(k)
 				if up.is_empty():
-					gold += 40
+					gold += int(nums["cost"])
 					msg = "Your guns are already maxed. He gives the money back."
 				else:
 					var w = guns[up[randi() % up.size()]]
-					w["lvl"] = int(w["lvl"]) + 1
+					w["lvl"] = mini(5, int(w["lvl"]) + 1 + late)
 					stats_dirty = true
 					msg = "%s is now level %d." % [Weapons.display_name(self, w), int(w["lvl"])]
 			"altar":
 				hurt_pct(0.25)
-				var c = Effects.random_card(self, 1, 5, Effects.CHEST_LUCK)
-				msg = "The altar drinks. " + (take_card_msg(c) if c != null else "Nothing happens.")
+				var c = Effects.random_card(self, 1 + late, 5, Effects.CHEST_LUCK)
+				msg = "The altar drinks. " + (take_card_msg(c, 1 + late) if c != null else "Nothing happens.")
 			"fountain":
 				if roll == 6 and Effects.eligible(self, card_by_id["four_leaf"]):
 					Effects.add_card(self, "four_leaf")
 					msg = "You rolled 6. A Four-Leaf Clover floats up. +1 luck."
 				elif roll >= 3:
-					heal(float(hero["maxhp"]) * 0.25)
+					heal(float(hero["maxhp"]) * 0.35)
 					msg = "You rolled %d. The water heals you." % roll
 				else:
 					msg = "You rolled %d. Nothing happens." % roll
 			"dummy":
-				gain_xp(float(xp_need) * 0.15 * roll / 0.7)
-				msg = "You rolled %d. +%d%% of a level." % [roll, roll * 15]
+				gain_xp(float(xp_need) * 0.2 * roll / 0.7)
+				msg = "You rolled %d. +%d%% of a level." % [roll, roll * 20]
 			"double":
 				if event_dice.size() == 2 and event_dice[0] == event_dice[1]:
-					msg = "Doubles! " + event_card(2)
+					msg = "Doubles! " + event_card(2 + late)
 				elif roll >= 9:
-					msg = "You rolled %d. " % roll + event_card(1)
+					msg = "You rolled %d. " % roll + event_card(1 + late)
 				else:
 					hurt_pct(0.15)
 					msg = "You rolled %d. That hurt." % roll
 			"traveler":
 				hero["hp"] = maxf(1.0, float(hero["hp"]) - 15.0)
-				gold += 35
-				msg = "The car rolls free. +35 gold."
+				gold += int(nums["pay"])
+				msg = "The car rolls free. +%d gold." % int(nums["pay"])
+			"arms":
+				var levelled := 0
+				for w in guns:
+					if int(w["lvl"]) < 5:
+						w["lvl"] = int(w["lvl"]) + 1
+						levelled += 1
+				stats_dirty = true
+				if levelled == 0:
+					gold += int(nums["cost"])
+					msg = "Every gun is already maxed. He hands your gold back."
+				else:
+					msg = "%d gun%s gained a level." % [levelled, "" if levelled == 1 else "s"]
+			"medic":
+				owned["_camp_hp"] = int(owned.get("_camp_hp", 0)) + 1
+				stats_dirty = true
+				Effects.recalc(self)
+				hero["hp"] = float(hero["maxhp"])
+				msg = "Patched up. Full health and +30 max HP."
+			"treasure":
+				if roll <= 2:
+					hurt_pct(0.2)
+					msg = "You rolled %d. It was an ambush." % roll
+				else:
+					var found: int = 15 * roll + 5 * sector
+					gold += found
+					msg = "You rolled %d. You dig up %d gold." % [roll, found]
+			"trader":
+				var give := ""
+				for k in range(owned_order.size() - 1, -1, -1):
+					var cid := str(owned_order[k])
+					if int(card_by_id[cid]["rarity"]) < 5:
+						give = cid
+						break
+				if give == "":
+					msg = "You have nothing he wants."
+				else:
+					var r: int = int(card_by_id[give]["rarity"])
+					Effects.remove_card(self, give)
+					msg = "You hand over %s. " % str(card_by_id[give]["name"]) + take_card_msg(Effects.card_of_rarity(self, r + 1, r + 1, 5), r + 1)
 	event_result = msg
 	Effects.recalc(self)
 	sfx.play("buy" if first else "pick")
@@ -2117,6 +2224,7 @@ const META_UPS = [
 	{"id": "xp", "name": "BOOK SMARTS", "desc": "+5% EXP", "stat": "xp", "per": 0.05, "max": 5, "cost": 20},
 	{"id": "magnet", "name": "STICKY HANDS", "desc": "+15% pickup range", "stat": "magnet", "per": 0.15, "max": 4, "cost": 10},
 	{"id": "gold", "name": "POCKET MONEY", "desc": "+15 gold at the start", "stat": "", "per": 15.0, "max": 5, "cost": 10},
+	{"id": "banish", "name": "GRUDGE LIST", "desc": "+1 card banish per run", "stat": "", "per": 1.0, "max": 4, "cost": 35},
 	{"id": "haggle", "name": "HAGGLER", "desc": "Shop rerolls -4 gold", "stat": "", "per": 4.0, "max": 3, "cost": 15},
 ]
 
@@ -2524,6 +2632,86 @@ func take_offer(o: Dictionary) -> void:
 			flash_screen(Color("ffcf4d"), 0.4)
 			banner("EVOLVED!", Weapons.display_name(self, w2), 2.0)
 	Effects.recalc(self)
+
+## Gold to lock a card so it comes back next time (a late-game gold sink).
+func lock_cost() -> int:
+	return 15 + 4 * sector
+
+## Locking a level-up card: pay once, it is offered again at the next level-up.
+func lock_offer(i: int) -> void:
+	if state != "levelup" or i < 0 or i >= offers.size() or bool(offers[i].get("locked", false)):
+		return
+	if gold < lock_cost():
+		sfx.play("deny")
+		return
+	gold -= lock_cost()
+	offers[i]["locked"] = true
+	locked_offers.append(offers[i].duplicate(true))
+	sfx.play("buy")
+
+## Banishing: the card never shows up again this run; a new card takes its place.
+func banish_offer(i: int) -> void:
+	if state != "levelup" or i < 0 or i >= offers.size() or banishes <= 0 or str(offers[i]["type"]) != "card":
+		sfx.play("deny")
+		return
+	var id := str(offers[i]["id"])
+	banished[id] = true
+	banishes -= 1
+	locked_offers = locked_offers.filter(func(o): return str(o.get("id", "")) != id)
+	for k in range(40):
+		var o = Effects.roll_offer(self, offer_mode)
+		if o == null:
+			continue
+		var dup := false
+		for x in offers:
+			if x["type"] == o["type"] and x.get("id") == o.get("id") and x.get("gun") == o.get("gun") and x.get("slot") == o.get("slot"):
+				dup = true
+		if not dup:
+			offers[i] = o
+			break
+	if str(offers[i].get("id", "")) == id:
+		offers.remove_at(i)
+	sfx.play("block")
+
+## Shop locks are paid too; a locked item stays in every shop until bought.
+func lock_shop(i: int) -> void:
+	if state != "shop" or i < 0 or i >= shop_items.size():
+		return
+	var item = shop_items[i]
+	if bool(item["sold"]) or bool(item.get("locked", false)):
+		return
+	if gold < lock_cost():
+		sfx.play("deny")
+		return
+	gold -= lock_cost()
+	item["locked"] = true
+	sfx.play("buy")
+
+func banish_shop(i: int) -> void:
+	if state != "shop" or i < 0 or i >= shop_items.size() or banishes <= 0:
+		return
+	var item = shop_items[i]
+	if bool(item["sold"]) or str(item.get("kind", "")) != "offer" or str(item["offer"]["type"]) != "card":
+		return
+	banished[str(item["offer"]["id"])] = true
+	banishes -= 1
+	item["sold"] = true
+	item["banished"] = true
+	sfx.play("block")
+
+## Selling a card from the arsenal: one stack goes, 40% of its price back.
+func sell_price(id: String) -> int:
+	return roundi(Effects.card_price(self, int(card_by_id[id]["rarity"])) * 0.4)
+
+func sell_card(id: String) -> void:
+	if not owned.has(id) or state != "arsenal" or arsenal_back == "playing":
+		sfx.play("deny")
+		return
+	gold += sell_price(id)
+	Effects.remove_card(self, id)
+	if not owned.has(id):
+		hud.inspected_card_id = ""
+	sfx.play("coin")
 
 func skip_gold() -> int:
 	return 3 + sector
@@ -3057,6 +3245,8 @@ func do_action(action: String) -> void:
 			open_map()
 		"rest_heal":
 			rest_heal()
+		"rest_fortify":
+			rest_fortify()
 		"dash":
 			if state == "playing":
 				try_dash()
@@ -3069,6 +3259,16 @@ func do_action(action: String) -> void:
 					selected_character = pick
 					sfx.play("pick")
 					save_options()
+			elif action.begins_with("lock_offer_"):
+				lock_offer(int(action.trim_prefix("lock_offer_")))
+			elif action.begins_with("banish_offer_"):
+				banish_offer(int(action.trim_prefix("banish_offer_")))
+			elif action.begins_with("shop_lock_"):
+				lock_shop(int(action.trim_prefix("shop_lock_")))
+			elif action.begins_with("shop_banish_"):
+				banish_shop(int(action.trim_prefix("shop_banish_")))
+			elif action.begins_with("sell_card_"):
+				sell_card(action.trim_prefix("sell_card_"))
 			elif action.begins_with("offer"):
 				choose_offer(int(action.trim_prefix("offer")))
 			elif action.begins_with("event_opt_"):

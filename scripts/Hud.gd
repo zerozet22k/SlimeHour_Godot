@@ -908,7 +908,9 @@ func paint_portrait_arsenal() -> void:
 		buttons.clear()
 		dim(0.7)
 		portrait_offer_row(Rect2(24, h * 0.5 - 130, 672, 240), offer_info({"type": "card", "id": inspected_card_id, "owned_view": true}))
-		txt("TAP ANYWHERE TO CLOSE", Vector2(360, h * 0.5 + 160), 20, MUTED, 1, bold)
+		if g.state == "arsenal" and g.arsenal_back != "playing":
+			button(Rect2(190, h * 0.5 + 130, 340, 64), "SELL ONE  +%d G" % g.sell_price(inspected_card_id), "sell_card_" + inspected_card_id, false, 22)
+		txt("TAP ANYWHERE ELSE TO CLOSE", Vector2(360, h * 0.5 + 230), 20, MUTED, 1, bold)
 		buttons.append({"rect": Rect2(0, 0, 720, h), "action": "close_inspect"})
 
 func arsenal_rows() -> Array:
@@ -1268,7 +1270,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 			if not owned_view:
 				var adapted = Compatibility.card_interaction(g, str(o["id"]))
 				if adapted != "":
-					desc_text += "  ACTIVE: " + adapted
+					desc_text += "  With your guns: " + adapted
 			return {"title": c["name"], "desc": desc_text, "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
 				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": (g.tex("res://assets/cards/hydra.svg") if str(o["id"]) == "hydra" else (g.tex("res://assets/cards/%s.webp" % o["id"]) if str(o["id"]) in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % o["id"]))), "foot": foot,
 				"stack": Effects.stack_preview(g, str(o["id"]), owned_view),
@@ -1383,12 +1385,14 @@ func paint_levelup() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, minf(0.78, g.offer_t * 3.0)))
 	var chest = g.offer_mode == "chest"
 	var head = "TREASURE!" if chest else "LEVEL UP!"
-	if chest:
-		var treasure_icon = g.tex("res://assets/ui/chest.svg")
-		if treasure_icon != null:
-			draw_texture_rect(treasure_icon, Rect2(492, 42, 82, 82), false)
 	var hc = Color("ffd24d") if chest else Color("d6a8ff")
 	var pop = 1.0 + maxf(0.0, 0.3 - g.offer_t) * 2.0
+	if chest:
+		# The chest sits just left of the title, measured, so they never overlap.
+		var treasure_icon = g.tex("res://assets/ui/chest.svg")
+		if treasure_icon != null:
+			var title_w: float = bold.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, int(64 * pop)).x
+			draw_texture_rect(treasure_icon, Rect2(640.0 - title_w * 0.5 - 92.0, 50, 78, 78), false)
 	var wob = sin(g.anim_t * 3.0) * 3.0
 	txt(head, Vector2(640, 96 + wob), int(64 * pop), hc, 1, bold, 8)
 	txt("LEVEL %d  ·  PICK ONE" % g.level if not chest else "A FREE CARD. PICK ONE", Vector2(640, 128), 20, Color.WHITE, 1, bold, 4)
@@ -1409,10 +1413,28 @@ func paint_levelup() -> void:
 		draw_card(r, offer_info(g.offers[i]), hover, eased, i)
 		if appear >= 1.0:
 			buttons.append({"rect": r, "action": "offer%d" % i})
+			offer_tools(r, g.offers[i], i)
 	button(Rect2(130, 608, 220, 52), "HIDE BUILD" if peek else "PEEK BUILD", "toggle_peek", false, 20)
 	button(Rect2(390, 608, 230, 52), "REROLL (%d)" % g.rerolls, "reroll", false, 22, g.rerolls > 0)
 	button(Rect2(660, 608, 230, 52), "SKIP  +%d G" % g.skip_gold(), "skip", false, 22)
 	txt("Tap card to pick   ·   R reroll   ·   X skip" if g.is_touch_active() else "1-%d pick   ·   R reroll   ·   X skip   ·   TAB peek at your build" % n, Vector2(640, 690), 15, Color("9fb8d0"), 1, body, 3)
+
+## LOCK (paid: the card returns at the next level-up) and BANISH (the card
+## never shows up again this run) under a level-up card.
+func offer_tools(r: Rect2, o: Dictionary, i: int) -> void:
+	var y := r.end.y + 6.0
+	var half := (r.size.x - 8.0) * 0.5
+	if bool(o.get("locked", false)):
+		rbox(Rect2(r.position.x, y, r.size.x, 30), Color("ffd24d", 0.85), 10)
+		txt("LOCKED  ·  BACK NEXT LEVEL", Vector2(r.get_center().x, y + 21), 13, Color("0b1224"), 1, bold)
+		return
+	var cost: int = g.lock_cost()
+	button(Rect2(r.position.x, y, half, 30), "LOCK %d G" % cost, "lock_offer_%d" % i, false, 13, g.gold >= cost)
+	if str(o["type"]) == "card":
+		button(Rect2(r.position.x + half + 8.0, y, half, 30), "BANISH (%d)" % g.banishes, "banish_offer_%d" % i, false, 13, g.banishes > 0)
+	if bool(o.get("was_locked", false)):
+		rbox(Rect2(r.position.x + 10, r.position.y - 14, 86, 20), Color("ffd24d"), 8)
+		txt("LOCKED", Vector2(r.position.x + 53, r.position.y + 1), 12, Color("0b1224"), 1, bold)
 
 func paint_replace() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.8))
@@ -1496,6 +1518,8 @@ func paint_arsenal() -> void:
 		if inspected_card_id != "":
 			mp = Vector2(480, 260)
 		draw_card(Rect2(clampf(mp.x + 16, 0, 1020), clampf(mp.y - 150, 10, 300), 250, 390), offer_info(hover_card), true, 1.0, -1)
+	if inspected_card_id != "" and g.owned.has(inspected_card_id) and g.state == "arsenal" and g.arsenal_back != "playing":
+		button(Rect2(496, 600, 250, 44), "SELL ONE  +%d G" % g.sell_price(inspected_card_id), "sell_card_" + inspected_card_id, false, 18)
 	if g.state == "arsenal":
 		button(Rect2(540, 650, 200, 50), "BACK", "arsenal_close", true, 22)
 
@@ -2505,22 +2529,76 @@ func paint_shop() -> void:
 		button(Rect2(24, H - 120, 320, 84), "REROLL %d G" % g.shop_reroll_cost, "shop_reroll", false, 28, g.gold >= g.shop_reroll_cost)
 		button(Rect2(376, H - 120, 320, 84), "LEAVE", "map_continue", true, 34)
 	else:
-		var cw = minf(210.0, (W - 80.0 - (n - 1) * 16.0) / n)
-		var x0 = W * 0.5 - (n * cw + (n - 1) * 16.0) * 0.5
+		# Up to 4 items per row; a bigger shop wraps to a second row.
+		var per_row: int = mini(n, 4)
+		var rows: int = int(ceil(float(n) / 4.0))
+		var cw = minf(290.0 if rows > 1 else 240.0, (W - 80.0 - (per_row - 1) * 16.0) / per_row)
+		var ch: float = 380.0 if rows == 1 else 176.0
+		var top: float = 150.0 if rows == 1 else 152.0
+		var row_step: float = ch + 52.0
 		for i in range(items.size()):
-			var r = Rect2(x0 + i * (cw + 16.0), 140, cw, 380)
+			var row: int = i / 4
+			var in_row: int = mini(4, n - row * 4)
+			var x0 = W * 0.5 - (in_row * cw + (in_row - 1) * 16.0) * 0.5
+			var r = Rect2(x0 + (i % 4) * (cw + 16.0), top + row * row_step, cw, ch)
 			var item = items[i]
-			draw_card(r, shop_item_info(item), r.has_point(g.mouse_screen), 1.0, -1)
+			if rows > 1:
+				shop_tile(r, shop_item_info(item), r.has_point(g.mouse_screen))
+			else:
+				draw_card(r, shop_item_info(item), r.has_point(g.mouse_screen), 1.0, -1)
+			if bool(item.get("locked", false)) and not bool(item["sold"]):
+				rbox(Rect2(r.position.x + 10, r.position.y - 12, 76, 20), Color("ffd24d"), 8)
+				txt("LOCKED", Vector2(r.position.x + 48, r.position.y + 3), 12, Color("0b1224"), 1, bold)
 			if bool(item["sold"]):
 				rbox(r, Color(0, 0, 0, 0.6), 20)
-				txt("SOLD", r.get_center() + Vector2(0, 14), 40, Color("9aabc3"), 1, bold, 4)
+				txt("BANISHED" if bool(item.get("banished", false)) else "SOLD", r.get_center() + Vector2(0, 14), 34, Color("9aabc3"), 1, bold, 4)
 			else:
 				var price = int(item["price"])
-				button(Rect2(r.position.x, r.end.y + 16, cw, 56), "%d G" % price, "shop_buy_%d" % i, true, 26, g.gold >= price)
-		button(Rect2(W * 0.5 - 330, H - 100, 300, 66), "REROLL  %d G" % g.shop_reroll_cost, "shop_reroll", false, 24, g.gold >= g.shop_reroll_cost)
-		button(Rect2(W * 0.5 + 30, H - 100, 300, 66), "LEAVE", "map_continue", true, 30)
+				var by: float = r.end.y + 6.0
+				button(Rect2(r.position.x, by, cw * 0.5 - 3.0, 32), "%d G" % price, "shop_buy_%d" % i, true, 17, g.gold >= price)
+				if not bool(item.get("locked", false)):
+					button(Rect2(r.position.x + cw * 0.5 + 3.0, by, cw * 0.25 - 4.0, 32), "LOCK", "shop_lock_%d" % i, false, 11, g.gold >= g.lock_cost())
+				if str(item.get("kind", "")) == "offer" and str(item["offer"]["type"]) == "card":
+					button(Rect2(r.position.x + cw * 0.75 + 1.0, by, cw * 0.25 - 1.0, 32), "BAN", "shop_banish_%d" % i, false, 11, g.banishes > 0)
+		txt("LOCK %d G: keeps an item for your next shop   ·   BAN: never offered again (%d left)" % [g.lock_cost(), g.banishes], Vector2(W * 0.5, H - 108), 14, Color("9fb8d0"), 1, body, 3)
+		button(Rect2(W * 0.5 - 330, H - 96, 300, 60), "REROLL  %d G" % g.shop_reroll_cost, "shop_reroll", false, 24, g.gold >= g.shop_reroll_cost)
+		button(Rect2(W * 0.5 + 30, H - 96, 300, 60), "LEAVE", "map_continue", true, 30)
 	if g.portrait:
 		icon_button(Vector2(660, 62), 28, "open_arsenal", "bag")
+
+## Compact shop card for the two-row shop: art and title on top, the full
+## description below (shrinking to fit), the stat line at the bottom.
+func shop_tile(r: Rect2, info: Dictionary, hover: bool) -> void:
+	var rar = clampi(int(info["rar"]), 0, 5)
+	var rc: Color = RCOL[rar]
+	if rar >= 2 or hover:
+		rbox(r.grow(5), Color(rc, 0.18 if rar >= 2 else 0.1), 18)
+	rbox(Rect2(r.position + Vector2(0, 6), r.size), Color(0, 0, 0, 0.45), 16)
+	rbox(r, PANEL, 16, rc, 3 if hover else 2)
+	var art_r := Rect2(r.position + Vector2(10, 10), Vector2(66, 66))
+	card_art(art_r, info, rc)
+	var tx: float = art_r.end.x + 10.0
+	var tw: float = r.end.x - tx - 10.0
+	var title := str(info["title"]).to_upper()
+	txt(title, Vector2(tx, r.position.y + 32), fit(title, tw, 20, bold, 12), Color.WHITE, 0, bold, 3)
+	var rl := str(info.get("rarlabel", RARITY[rar]))
+	var cat := rl + "  ·  " + str(info["cat"]).to_upper()
+	if info.has("gun_class"):
+		cat += "  ·  " + str(info["gun_class"])
+	txt(cat, Vector2(tx, r.position.y + 52), fit(cat, tw, 13, bold, 9), rc.lerp(Color.WHITE, 0.3), 0, bold)
+	var foot := str(info.get("foot", ""))
+	if foot == "NEW":
+		txt("NEW!", Vector2(tx, r.position.y + 70), 12, Color("7dff9a"), 0, bold, 2)
+	var rows := pack_rows(str(info.get("stack", "")), r.size.x - 20, 11, bold)
+	var bottom := r.end.y - 8.0 - rows.size() * 14.0
+	var room: float = bottom - (r.position.y + 92.0)
+	var desc := str(info["desc"])
+	var size := 14
+	while size > 10 and count_lines(desc, r.size.x - 20, size, body) * (size + 3) > room:
+		size -= 1
+	wrap_text(desc, r.position.x + 10, r.position.y + 96, r.size.x - 20, size, Color("dbe4f5"), size + 3, body, false)
+	for k in range(rows.size()):
+		txt(str(rows[k]), Vector2(r.get_center().x, bottom + 12 + k * 14.0), fit(str(rows[k]), r.size.x - 16, 11, bold, 9), Color("7dff9a"), 1, bold, 2)
 
 func shop_row(r: Rect2, item: Dictionary, i: int) -> void:
 	portrait_offer_row(r, shop_item_info(item))
@@ -2551,8 +2629,10 @@ func paint_rest() -> void:
 	var y = c.y + (170 if g.portrait else 145)
 	var bw = 560.0 if g.portrait else 520.0
 	var bx = W * 0.5 - bw * 0.5
-	var heal_amt = roundi(float(g.hero["maxhp"]) * 0.4)
-	button(Rect2(bx, y, bw, 78 if g.portrait else 72), "REST: HEAL %d HP" % heal_amt, "rest_heal", true, 30)
+	var heal_amt = roundi(float(g.hero["maxhp"]) * 0.6)
+	var half_w: float = (bw - 12.0) * 0.5
+	button(Rect2(bx, y, half_w, 78 if g.portrait else 72), "REST: HEAL %d" % heal_amt, "rest_heal", true, 24)
+	button(Rect2(bx + half_w + 12.0, y, half_w, 78 if g.portrait else 72), "FORTIFY: +30 MAX HP", "rest_fortify", false, 22)
 	txt("OR TRAIN A GUN (+1 LEVEL)", Vector2(W * 0.5, y + (140 if g.portrait else 119)), 22, Color.WHITE, 1, bold, 3)
 	for i in range(g.guns.size()):
 		var w = g.guns[i]

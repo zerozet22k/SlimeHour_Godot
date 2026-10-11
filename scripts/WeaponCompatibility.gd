@@ -181,125 +181,125 @@ static func card_interaction(g, card_id: String) -> String:
 		match card_id:
 			"extended_mag", "drum_mag", "ammo_belt":
 				if kind == "beam":
-					note = "Heat reserve (max 4.5s), cooling, then beam focus"
+					note = "More heat before overheating, then a stronger beam"
 				elif kind in ["disc", "boomerang"]:
-					note = "Real return slots up to %d; overflow improves recall" % cap(id)
+					note = "Up to %d in the air at once; beyond that they return faster" % cap(id)
 				elif id == "revolver":
-					note = "Exactly 6 chambers; excess becomes capped precision damage"
+					note = "Still 6 shots; the extra becomes bonus damage"
 				else:
-					note = "Capacity max %d; overflow improves %s" % [cap(id), str(OVERFLOW_SPECIALTY.get(id, "weapon handling"))]
+					note = "Holds up to %d; beyond that it improves %s" % [cap(id), str(OVERFLOW_SPECIALTY.get(id, "weapon handling"))]
 			"speed_loader":
 				if kind in ["disc", "boomerang"]:
-					note = "Faster returning blades"
+					note = "Throws come back faster"
 				elif kind == "beam":
-					note = "Faster cooling; at Lv 5, extra beam damage"
+					note = "Cools down faster; at LV5 the beam hits harder"
 				else:
-					note = "Faster reload / fuel refill"
+					note = "Faster reload and refuel"
 			"double_tap", "twin_barrels", "hydra":
 				if kind in ["disc", "boomerang"]:
-					note = "Real return slots / stronger throws, never phantom blades"
+					note = "Stronger throws"
 				elif kind == "flame":
-					note = "Saturated and wider fire cone, not extra bullets"
+					note = "A wider, denser flame cone"
 				elif kind in ["rocket", "grenade", "chicken"]:
-					note = "Up to %d projectiles; overflow is capped damage" % budget(g, w)
+					note = "Up to %d shots; extras add damage instead" % budget(g, w)
 				else:
-					note = "Up to %d attacks per volley; excess scales safely" % budget(g, w)
+					note = "Up to %d shots per volley; extras add damage instead" % budget(g, w)
 			"snake_shot", "wobbly", "spiral_galaxy":
 				if kind == "flame":
-					note = "Flame sheet sways (no snake bullets); piercing widens effective reach"
+					note = "The flame sways; pierce makes it reach farther"
 				elif kind == "beam":
-					note = "Beam sweeps sinusoidally; Snake pierce passes more enemies"
+					note = "The beam sweeps side to side and passes more enemies"
 				elif kind == "rail":
-					note = "Charged rail aim slithers gently; still one piercing charge beam"
+					note = "The rail shot wavers slightly; still one piercing shot"
 				elif kind == "chain":
-					note = "Arc wanders between targets; Snake pierce adds up to 3 chain hops"
+					note = "Lightning wanders and jumps to up to 3 more targets"
 				elif kind in ["disc", "boomerang"]:
-					note = "Outgoing throw snakes; returning path stays direct"
+					note = "Wiggles on the way out, flies straight back"
 				elif kind == "bees":
-					note = "Subtle bee weaving; homing retains priority"
+					note = "Bees weave a little but still chase targets"
 				elif kind in ["rocket", "grenade", "ball", "chicken", "snow", "bubble"]:
-					note = "Controlled heavy-projectile wobble, not broken flight"
+					note = "Heavy shots wobble a little"
 				else:
-					note = "Physical projectile snakes in flight; Snake adds pierce"
+					note = "Shots wiggle in flight and pierce more"
 			"rubber_bullets", "pinball_wizard":
 				if kind == "flame":
-					note = "Reflects weaker sheets at walls; no phantom projectiles"
+					note = "Flames bounce weaker off walls"
 				elif kind in ["beam", "rail"]:
-					note = "Actual reflected beam path, not fake ricochet bullets"
+					note = "The beam really reflects off walls"
 				elif kind == "chain":
-					note = "Electricity redirects through available chain targets"
+					note = "Lightning redirects to more targets"
 				else:
-					note = "Physical wall bounce with limited collision budget"
+					note = "Shots bounce off walls"
 			"muzzle_velocity", "scope":
 				if kind in ["beam", "rail", "chain"]:
-					note = "Projectile speed becomes up to +22% instant-attack reach"
+					note = "Up to +22% reach"
 				elif kind == "flame":
-					note = "Speed moderately extends continuous flame reach"
+					note = "Flames reach a bit farther"
 				else:
-					note = "Faster physical projectile travel"
+					note = "Faster shots"
 			"accelerator":
 				if kind in ["beam", "rail"]:
-					note = "Downrange beam damage ramps, instead of accelerating a bullet"
+					note = "The beam hits harder at long range"
 				elif kind == "chain":
-					note = "Later chain hops retain more power"
+					note = "Later lightning jumps keep more power"
 				elif kind == "flame":
-					note = "Downrange fire gains extra heat"
+					note = "Flames hit harder at the tip"
 				else:
-					note = "Physical projectile accelerates in flight"
+					note = "Shots speed up in flight"
 			"piercing", "drill_bits", "armor_piercing", "ghost_rounds":
 				if kind == "chain":
-					note = "Extra pierce converts into up to +3 chain targets"
+					note = "Pierce becomes up to +3 lightning targets"
 				elif kind == "flame":
-					note = "Extra pierce increases cone reach (up to +18%)"
+					note = "Pierce makes the flame reach up to 18% farther"
 				elif kind in ["beam", "rail"]:
-					note = "Beam passes through additional enemies / surfaces"
+					note = "The beam passes through more enemies"
 				else:
-					note = "Projectile pierces additional targets"
+					note = "Shots pass through more enemies"
 			"ricochet":
 				if kind == "flame":
-					note = "Ricochet card reflects capped heat onto nearby enemies"
+					note = "Some heat jumps to nearby enemies"
 				elif kind in ["beam", "rail"]:
-					note = "Chains to other enemies after impact"
+					note = "Jumps to another enemy after a hit"
 				elif kind == "chain":
-					note = "Additional true electrical chain jumps"
+					note = "More lightning jumps"
 				else:
-					note = "Projectile retargets after hit"
+					note = "Shots bounce to another enemy after a hit"
 			"splinter", "cluster_rounds":
 				if kind == "flame":
-					note = "Transfers embers without spawning phantom bullets"
+					note = "Embers jump to nearby enemies"
 				elif kind in ["beam", "rail"]:
-					note = "Limited weaker impact fragments, not recursive rails"
+					note = "A few weaker fragments on impact"
 				elif kind == "chain":
-					note = "Converts to extra bounded chain branches"
+					note = "Adds extra lightning branches"
 				else:
-					note = "Physical fragments limited by shared budgets"
+					note = "Shots burst into fragments"
 			"return_sender":
 				if kind in ["disc", "boomerang"]:
-					note = "Return is inherent; redundant return card is unavailable"
+					note = "Already returns on its own"
 				elif kind in ["rocket", "grenade", "chicken"]:
-					note = "Returned payload has a weaker blast"
+					note = "The returning shot blasts weaker"
 				elif kind in ["rail", "beam", "chain", "flame"]:
-					note = "Not compatible with nonprojectile weapons"
+					note = "No effect on this gun"
 				else:
-					note = "Projectile returns once, may hit again"
+					note = "Shots fly back once and can hit again"
 			"fan_hammer", "shell_shock", "kazoo":
-				note = "Virtual magazine triggers without reloading" if g.st("infammo") > 0.0 else ("Only activates on real reloads" if kind not in ["beam", "disc", "boomerang"] else "No ordinary reload; works with Infinite Ammo")
+				note = "Triggers even without reloading" if g.st("infammo") > 0.0 else ("Triggers when you reload" if kind not in ["beam", "disc", "boomerang"] else "No ordinary reload; works with Infinite Ammo")
 			"rubber_bullets", "pinball_wizard", "bouncy_castle":
 				if kind == "chain":
-					note = "Wall bounces convert into up to 2 additional lightning jumps"
+					note = "Wall bounces become up to 2 more lightning jumps"
 			"splinter", "cluster_rounds":
 				if kind == "chain":
-					note = "Up to 2 shorter electric forks on each chain"
+					note = "Up to 2 extra lightning forks"
 			"heat_seekers", "smart_rounds":
 				if kind in ["beam", "rail", "chain", "flame"]:
-					note = "Small aim assist within existing attack geometry"
+					note = "A small aim assist"
 				elif kind in ["disc", "boomerang"]:
-					note = "Outward homing only; return path protected"
+					note = "Homes in on the way out, flies straight back"
 				else:
-					note = "Physical projectiles home toward enemies"
+					note = "Shots home in on enemies"
 			"infinite_ammo":
 				if kind in ["disc", "boomerang"]:
-					note = "Still must retrieve returning weapons"
+					note = "You still need to catch your throws"
 				elif kind == "beam":
 					note = "No overheating"
 				else:

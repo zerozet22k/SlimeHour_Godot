@@ -4991,6 +4991,390 @@
       "mods": {},
       "procs": [],
       "on_pick": "levelall"
+    },
+    {
+      "id": "focus_lens",
+      "name": "Focus Lens",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Prism Beam: +35% damage, +2 pierce.",
+      "art": "a glowing crystal lens",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.35,
+        "pierce": 2
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "laser"
+        ]
+      }
+    },
+    {
+      "id": "tesla_capacitor",
+      "name": "Big Capacitor",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Arc Caster: +25% fire rate, +3 chain jumps.",
+      "art": "a crackling capacitor",
+      "mods": {},
+      "wmods": {
+        "rate": 0.25,
+        "rico": 3
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "tesla"
+        ]
+      }
+    },
+    {
+      "id": "afterburner",
+      "name": "Afterburner",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Cinder: +30% damage, +40% fuel.",
+      "art": "a roaring afterburner nozzle",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.3,
+        "mag": 0.4
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "flame"
+        ]
+      }
+    },
+    {
+      "id": "honed_edge",
+      "name": "Honed Edge",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Razor Disc: +40% damage, +25% size.",
+      "art": "a gleaming sharpened disc",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.4,
+        "size": 0.25
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "disc"
+        ]
+      }
+    },
+    {
+      "id": "featherweight",
+      "name": "Featherweight",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Returner: +30% throw speed, +25% damage.",
+      "art": "a feathered boomerang",
+      "mods": {},
+      "wmods": {
+        "speed": 0.3,
+        "dmg": 0.25
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "boomerang"
+        ]
+      }
+    },
+    {
+      "id": "queen_bee",
+      "name": "Queen Bee",
+      "cat": "mastery",
+      "rarity": 2,
+      "max": 1,
+      "desc": "Swarmcaster: +2 bees per shot, +2 pierce.",
+      "art": "a crowned queen bee",
+      "mods": {},
+      "wmods": {
+        "pellets": 2,
+        "pierce": 2
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "bees"
+        ]
+      }
+    },
+    {
+      "id": "heavy_ball",
+      "name": "Heavy Ball",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Impact Cannon: +40% damage, +25% ball size.",
+      "art": "a huge iron cannonball",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.4,
+        "size": 0.25
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "bowling"
+        ]
+      }
+    },
+    {
+      "id": "free_range",
+      "name": "Free Range",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Fowl Play: +3 ricochets, +25% damage.",
+      "art": "chickens running free",
+      "mods": {},
+      "wmods": {
+        "rico": 3,
+        "dmg": 0.25
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "chicken"
+        ]
+      }
+    },
+    {
+      "id": "pressure_valve",
+      "name": "Pressure Valve",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Pressure Pop: +35% damage, +30% fire rate.",
+      "art": "a hissing pressure valve",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.35,
+        "rate": 0.3
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "bubble"
+        ]
+      }
+    },
+    {
+      "id": "tilt",
+      "name": "Tilt",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Ricochet: +3 wall bounces, +20% damage.",
+      "art": "a pinball machine flashing TILT",
+      "mods": {},
+      "wmods": {
+        "bounce": 3,
+        "dmg": 0.2
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "pinball"
+        ]
+      }
+    },
+    {
+      "id": "fletcher",
+      "name": "Fletcher",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Hydra Bow: +35% damage, +30% fire rate.",
+      "art": "a quiver of fletched arrows",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.35,
+        "rate": 0.3
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "splitbow"
+        ]
+      }
+    },
+    {
+      "id": "packed_snow",
+      "name": "Packed Snow",
+      "cat": "mastery",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Frostcaster: +40% damage, +25% snowball size.",
+      "art": "a tightly packed snowball",
+      "mods": {},
+      "wmods": {
+        "dmg": 0.4,
+        "size": 0.25
+      },
+      "procs": [],
+      "req": {
+        "weapon": [
+          "snow"
+        ]
+      }
+    },
+    {
+      "id": "grudge_list",
+      "name": "Grudge List",
+      "cat": "loot",
+      "rarity": 1,
+      "max": 2,
+      "desc": "+2 card banishes. Banish a card from an offer and it never shows up again this run.",
+      "art": "a long list of crossed-out names",
+      "mods": {},
+      "procs": [],
+      "on_pick": "banishes"
+    },
+    {
+      "id": "second_skin",
+      "name": "Second Skin",
+      "cat": "defense",
+      "rarity": 1,
+      "max": 2,
+      "desc": "+1 shield charge and +15 max HP.",
+      "art": "a shimmering protective layer",
+      "mods": {
+        "shield": 1,
+        "maxhp": 15
+      },
+      "procs": []
+    },
+    {
+      "id": "adrenaline_shot",
+      "name": "Adrenaline Shot",
+      "cat": "move",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Perfect dodges give +40% damage for 3s.",
+      "art": "a syringe of adrenaline",
+      "mods": {},
+      "procs": [
+        {
+          "on": "perfect",
+          "do": "buff",
+          "stat": "dmg",
+          "amt": 0.4,
+          "t": 3
+        }
+      ]
+    },
+    {
+      "id": "blood_money",
+      "name": "Blood Money",
+      "cat": "loot",
+      "rarity": 2,
+      "max": 1,
+      "desc": "Killing an elite drops 15 gold and heals 10 HP.",
+      "art": "a bag of bloody coins",
+      "mods": {},
+      "procs": [
+        {
+          "on": "kill",
+          "do": "drop",
+          "kind": "gold",
+          "n": 15,
+          "if": "elite"
+        },
+        {
+          "on": "kill",
+          "do": "heal",
+          "hp": 10,
+          "if": "elite"
+        }
+      ]
+    },
+    {
+      "id": "static_shield",
+      "name": "Static Shield",
+      "cat": "defense",
+      "rarity": 2,
+      "max": 2,
+      "desc": "Getting hit zaps 4 nearby enemies (25 base damage).",
+      "art": "a crackling electric shield",
+      "mods": {},
+      "procs": [
+        {
+          "on": "hurt",
+          "do": "zap",
+          "n": 4,
+          "dmg": 25
+        }
+      ]
+    },
+    {
+      "id": "hot_streak",
+      "name": "Hot Streak",
+      "cat": "chain",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Every 20 kills, +30% fire rate for 4s.",
+      "art": "a burning streak of fire",
+      "mods": {},
+      "procs": [
+        {
+          "on": "kill",
+          "do": "buff",
+          "nth": 20,
+          "stat": "rate",
+          "amt": 0.3,
+          "t": 4
+        }
+      ]
+    },
+    {
+      "id": "field_dressing",
+      "name": "Field Dressing",
+      "cat": "defense",
+      "rarity": 0,
+      "max": 3,
+      "desc": "Leveling up heals 15 HP and gives a shield charge.",
+      "art": "a roll of bandages",
+      "mods": {},
+      "procs": [
+        {
+          "on": "level",
+          "do": "heal",
+          "hp": 15
+        },
+        {
+          "on": "level",
+          "do": "shield",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "id": "scrap_collector",
+      "name": "Scrap Collector",
+      "cat": "loot",
+      "rarity": 0,
+      "max": 3,
+      "desc": "+20% gold and +10% pickup range.",
+      "art": "a cart full of scrap",
+      "mods": {
+        "goldp": 0.2,
+        "magnet": 0.1
+      },
+      "procs": []
     }
   ]
 }

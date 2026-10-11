@@ -1,27 +1,26 @@
 extends SceneTree
+## The shop (two rows, lock / ban) and the campfire -> tools/art_review/shop_preview.png
+## and campfire_preview.png.  Needs a real window:  Godot --path . --script tools/shop_preview.gd
 
 func _initialize() -> void:
-	call_deferred("capture_shop")
+	call_deferred("go")
 
-func capture_shop() -> void:
-	var scene = load("res://scenes/Main.tscn").instantiate()
-	root.add_child(scene)
+func go() -> void:
+	var game = load("res://scenes/Main.tscn").instantiate()
+	root.add_child(game)
 	await process_frame
-	scene.start_run()
-	scene.sector_clear()
-	scene.hero["pos"] = scene.stalls[2]["pos"] + Vector2(0, 50)
-	scene.cam_y = float(scene.hero["pos"].y) - 110.0
-	scene.gold = 100
-	scene.banner_t = 0.0
-	scene.settings["hints"] = false
-	for i in range(5):
+	game.sfx.set_volumes(0.0, 0.0)
+	game.start_run()
+	game.sector = 8
+	game.gold = 900
+	game.open_shop()
+	game.shop_items[1]["locked"] = true
+	for k in range(6):
 		await process_frame
-	var out = "res://tools/art_review/shop_preview.png"
-	var shot = root.get_texture().get_image()
-	if shot == null:
-		printerr("No render texture available")
-		quit(1)
-		return
-	var err = shot.save_png(ProjectSettings.globalize_path(out))
-	print("Shop preview: ", out, " error=", err)
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://tools/art_review/shop_preview.png"))
+	game.state = "rest"
+	game.phase = "rest"
+	for k in range(4):
+		await process_frame
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://tools/art_review/campfire_preview.png"))
 	quit()

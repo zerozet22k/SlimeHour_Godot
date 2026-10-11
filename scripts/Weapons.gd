@@ -166,11 +166,11 @@ static func hand_pos(g, slot: int) -> Vector2:
 	var aim: Vector2 = g.hero["aim"]
 	# Arms reach forward from the shoulders so the guns stick out in front of
 	# the body. A third gun rides a back mount over the shoulders.
-	var side = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
-	var forward = 6.0 if slot == 2 else 12.0
+	var side = [13.0, -13.0, 0.0][clampi(slot, 0, 2)]
+	var forward = 4.0 if slot == 2 else 7.0
 	if "guns" in g and g.guns.size() == 1:
-		# One gun is held two-handed in front of the chest.
-		side = 3.5
+		# One gun is held in front of the chest.
+		side = 5.0
 	return g.hero["pos"] + aim.orthogonal() * side + aim * forward
 
 ## The shot leaves from the drawn gun's own muzzle: the gun is held by its

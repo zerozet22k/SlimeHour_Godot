@@ -30,7 +30,7 @@ func _run() -> void:
 		g.card_by_id[str(c["id"])] = c
 	g.hero = {"pos": Vector2.ZERO, "hp": 100.0, "maxhp": 100.0, "moving": false, "aim": Vector2.RIGHT}
 	check(data.size() == 22 and Compatibility.CAPACITY.size() == 22 and Compatibility.VOLLEY_BUDGET.size() == 22 and Compatibility.OVERFLOW_SPECIALTY.size() == 22, "All 22 weapons define capacity, volley budgets and signature overflow")
-	check(cards.size() == 300, "All 300 cards retained")
+	check(cards.size() >= 300, "All original cards retained")
 	check(int(g.card_by_id["hydra"]["rarity"]) == 3 and int(g.card_by_id["hydra"]["max"]) == 1, "Hydra is one-stack Legendary")
 	check(int(g.card_by_id["return_sender"]["rarity"]) == 3, "Return to Sender is Legendary")
 	for entry in data:

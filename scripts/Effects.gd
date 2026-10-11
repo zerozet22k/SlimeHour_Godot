@@ -18,6 +18,10 @@ static func recalc(g) -> void:
 		if id == "_shop_hp":
 			S["maxhp"] = float(S.get("maxhp", 0.0)) + SHOP_MAXHP * n
 			continue
+		if id == "_camp_hp":
+			# Campfire FORTIFY: +30 max HP each time.
+			S["maxhp"] = float(S.get("maxhp", 0.0)) + 30.0 * n
+			continue
 		var c = g.card_by_id.get(id)
 		if c == null:
 			continue
@@ -217,6 +221,17 @@ static func stack_preview(g, id: String, owned_view: bool = false) -> String:
 	return ""
 
 
+## Removes one stack of a card (selling). Stat cards simply recalculate.
+static func remove_card(g, id: String) -> void:
+	if not g.owned.has(id):
+		return
+	g.owned[id] = int(g.owned[id]) - 1
+	if int(g.owned[id]) <= 0:
+		g.owned.erase(id)
+		g.owned_order.erase(id)
+	g.stats_dirty = true
+	recalc(g)
+
 static func add_card(g, id: String, debug_force: bool = false) -> void:
 	var c = g.card_by_id.get(id)
 	if c == null or (not debug_force and not eligible(g, c)):
@@ -230,6 +245,8 @@ static func add_card(g, id: String, debug_force: bool = false) -> void:
 		"levelall":
 			for w in g.guns:
 				w["lvl"] = mini(5, int(w["lvl"]) + 1)
+		"banishes":
+			g.banishes += 2
 	g.stats_dirty = true
 	recalc(g)
 	if c["mods"].has("shield"):
@@ -634,6 +651,9 @@ static func eligible(g, c: Dictionary) -> bool:
 	var id = str(c["id"])
 	if not g.card_available(id):
 		return false
+	var ban = g.get("banished")
+	if ban != null and ban.has(id):
+		return false
 	var stack_limits = [4, 3, 2, 1, 1, 1]
 	var max_stacks = mini(int(c.get("max", 1)), stack_limits[clampi(int(c["rarity"]), 0, 5)])
 	if int(g.owned.get(id, 0)) >= max_stacks:
@@ -763,6 +783,16 @@ static func roll_offer(g, mode: String) -> Variant:
 static func make_offers(g, mode: String) -> Array:
 	var n = 3 + int(g.st("choices"))
 	var out = []
+	# Locked cards from the last level-up come first (if they still fit).
+	var locked = g.get("locked_offers")
+	if locked != null and mode == "level":
+		for o in locked:
+			if str(o.get("type", "")) == "card" and eligible(g, g.card_by_id[str(o["id"])]):
+				var again: Dictionary = o.duplicate(true)
+				again.erase("locked")
+				again["was_locked"] = true
+				out.append(again)
+		g.locked_offers = []
 	var tries = 0
 	while out.size() < n and tries < 80:
 		tries += 1
@@ -826,13 +856,24 @@ static func make_shop(g) -> Array:
 				up.append(i)
 		if not up.is_empty():
 			items.append({"kind": "offer", "offer": {"type": "gun_up", "slot": up[randi() % up.size()]}, "price": 45 + s * 6})
-	if randf() < 0.6:
-		items.append({"kind": "heal", "price": 24 + s * 4})
-	else:
-		items.append({"kind": "maxhp", "price": 40 + s * 5})
+	# A bigger shop: healing AND a max HP upgrade, plus more card stalls.
+	items.append({"kind": "heal", "price": 24 + s * 4})
+	items.append({"kind": "maxhp", "price": 40 + s * 6})
+	var seen := {}
+	if c1 != null:
+		seen[str(c1["id"])] = true
+	var c3 = random_card(g, 0, 5, g.shop_luck())
+	if c3 != null and not seen.has(str(c3["id"])):
+		seen[str(c3["id"])] = true
+		items.append({"kind": "offer", "offer": {"type": "card", "id": c3["id"]}, "price": card_price(g, int(c3["rarity"]))})
 	var c2 = random_card(g, 1, 5, CHEST_LUCK + g.shop_luck())
-	if c2 != null and (c1 == null or c2["id"] != c1["id"]):
+	if c2 != null and not seen.has(str(c2["id"])):
+		seen[str(c2["id"])] = true
 		items.append({"kind": "offer", "offer": {"type": "card", "id": c2["id"]}, "price": roundi(card_price(g, int(c2["rarity"])) * 1.1)})
+	# Premium stall: rolls with extra luck, priced like it.
+	var c4 = random_card(g, 1, 5, CHEST_LUCK + 4.0 + g.shop_luck())
+	if c4 != null and not seen.has(str(c4["id"])):
+		items.append({"kind": "offer", "offer": {"type": "card", "id": c4["id"]}, "price": roundi(card_price(g, int(c4["rarity"])) * 1.35)})
 	for it in items:
 		it["price"] = maxi(5, roundi(float(it["price"]) * discount))
 	return items

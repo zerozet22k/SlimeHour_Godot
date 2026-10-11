@@ -1140,7 +1140,8 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 			g.spawn_pickup("chest", pos, 1)
 	else:
 		g.spawn_pickup("xp", pos, xp_value)
-		if randf() < 0.14:
+		# Gold from kills thins out in the late game (shops are the sink).
+		if randf() < 0.14 * clampf(1.0 - 0.03 * float(maxi(0, g.sector - 8)), 0.5, 1.0):
 			g.spawn_pickup("gold", pos, 1)
 		if bool(e["elite"]):
 			for i in range(4):
@@ -2358,13 +2359,8 @@ static func explode(g, pos: Vector2, r: float, dmg: float, gen: int, color: Colo
 	g.fx.append({"kind": "blast", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.45 if not big else 0.65, "color": color, "size": r})
 	if g.frame_booms < 12:
 		g.spawn_burst(pos, color, 6 if not big else 14, r * 3.0, 4.0)
-		# A wisp of smoke: small, faint and short, so a busy build never
-		# litters the road with discs that read like enemy projectiles.
-		if g.fx.size() < 200:
-			for i in range(1 if not big else 2):
-				g.fx.append({"kind": "smoke", "pos": pos + Vector2(randf_range(-r, r), randf_range(-r, r)) * 0.3,
-					"vel": Vector2(randf_range(-25, 25), randf_range(-50, -20)), "t": 0.0,
-					"life": randf_range(0.45, 0.7), "color": color, "size": r * randf_range(0.18, 0.26)})
+		# No smoke puffs: translucent discs left behind read like enemy
+		# projectiles, so explosions end cleanly with the fireball.
 		g.add_shake(minf(14.0, r / 14.0))
 		g.sfx.play("boom" if r > 70.0 else "boom_small")
 	if dmg > 0.0:

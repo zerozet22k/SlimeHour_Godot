@@ -59,11 +59,7 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 	var lunge := bash_dir * (sin(clampf(bash, 0.0, 1.0) * PI) * 6.0 if bash >= 0.0 else 0.0)
 	var centre := p + lunge
 	var gk := k / 1.25
-	# Head before the arms: the hands holding the guns must never be hidden.
-	ci.draw_set_transform(centre, 0.0, Vector2.ONE * k)
-	draw_body(ci, id, f, s, c, o)
-	draw_head(ci, id, f, s, c, o)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 	# Where every gun sits and where its hands go.
 	var placed: Array = []
 	for i in range(guns.size()):
@@ -113,8 +109,8 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 		var grip_at: Vector2 = placed[0]["rear"]
 		ci.draw_line(pack, grip_at, Color(Color("baa4ff"), 0.35), 3.0)
 		ci.draw_line(pack, grip_at, Color(Color("8ff8ff"), 0.6 + 0.4 * sin(t * 9.0)), 1.0)
-	for arm in arms:
-		draw_arm(ci, arm[0], arm[1], centre, c, k)
+	# Arms and hands are not drawn: the guns sit close to the body instead,
+	# which reads cleaner at game scale than long sleeves.
 	for i in range(placed.size()):
 		var it: Dictionary = placed[i]
 		if i == 2:
@@ -128,8 +124,12 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 		GunModels.draw(ci, str(gun["id"]), {"t": t, "firing": bool(gun.get("firing", false)),
 			"charge": float(gun.get("charge", 0.0)), "evolved": bool(gun.get("evolved", false))})
 		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	for arm in arms:
-		disc(ci, arm[1], 3.6 * k * 0.8, c["glove"], 1.6)
+	# Guns are held UNDER the runner: body and shoulders, then the head, are
+	# drawn on top so only the barrels poke out.
+	ci.draw_set_transform(centre, 0.0, Vector2.ONE * k)
+	draw_body(ci, id, f, s, c, o)
+	draw_head(ci, id, f, s, c, o)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if bash >= 0.0:
 		draw_bash(ci, id, centre, bash_dir, bash, c, k, t)
 
@@ -406,10 +406,10 @@ static func smear(ci: CanvasItem, p: Vector2, from: float, now: float, r: float,
 ## Screen muzzle for a gun in SLOT, matching Weapons.hand_pos/muzzle_pos.
 static func muzzle_for(centre: Vector2, f: Vector2, k: float, gun_id: String, slot: int, count: int) -> Vector2:
 	var s := f.orthogonal()
-	var side: float = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
+	var side: float = [13.0, -13.0, 0.0][clampi(slot, 0, 2)]
 	if count == 1:
-		side = 3.5
-	var forward := 6.0 if slot == 2 else 12.0
+		side = 5.0
+	var forward := 4.0 if slot == 2 else 7.0
 	return centre + (s * side + f * (forward + GunModels.reach(gun_id))) * (k / 1.25)
 
 ## Character-select model: the runner holding their starting gun.
