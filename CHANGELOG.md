@@ -1,3 +1,11 @@
+## v0.1.75 — Effects that actually look good
+
+- **Real glow:** lasers, beams, sparks, explosion cores, enemy bullets and fire now glow on an additive light layer.
+- **Explosions:** a fireball with a ragged edge, a white-hot flash, a thinning shockwave, flying debris streaks and smoke that drifts up afterwards.
+- **Lightning** forks and flickers with a white-hot core; **lasers** flare at both ends.
+- **Leechling's drain** is a sagging blood stream with droplets flowing into the leech.
+- **Lancer's sweep** cuts a crescent slash; rings are thick shockwaves that thin as they grow.
+
 ## v0.1.74 — Mutants show their attacks
 
 - Mutants now show every tell and effect of their body parent's attack. A Leechling-bodied mutant (like Blood Chaser) draws its wind-up and blood tether; Skitter, Zoomer and Bull bodies keep their ricochet, sprint cap and shove; Riot bodies show their shield, Larry bodies their overheat.

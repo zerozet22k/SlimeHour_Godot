@@ -35,6 +35,106 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	headless = DisplayServer.get_name() == "headless"
 	bake_enemies.call_deferred()
+	# Light pass: drawn additively on top of the world so lasers, sparks,
+	# explosion cores and bullets actually glow.
+	glow = GlowLayer.new()
+	glow.v = self
+	var additive := CanvasItemMaterial.new()
+	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	glow.material = additive
+	add_child(glow)
+
+class GlowLayer extends Node2D:
+	var v
+	func _draw() -> void:
+		v.paint_glow(self)
+
+var glow: Node2D = null
+
+func _process(_delta: float) -> void:
+	if glow != null:
+		glow.queue_redraw()
+
+## Everything in here is ADDED to the colours below it: keep alphas modest.
+func paint_glow(ci: CanvasItem) -> void:
+	if g.hero.is_empty():
+		return
+	for b in g.beams:
+		var a: Vector2 = P(b["a"])
+		var e: Vector2 = P(b["b"])
+		var c: Color = b["color"]
+		var w := float(b["w"])
+		var life := clampf(float(b["t"]) / 0.2, 0.0, 1.0)
+		ci.draw_line(a, e, Color(c, 0.16 * life), w * 6.0)
+		ci.draw_line(a, e, Color(c, 0.32 * life), w * 2.4)
+		ci.draw_circle(e, w * 3.0, Color(c, 0.3 * life))
+		ci.draw_circle(a, w * 2.2, Color(c, 0.25 * life))
+	var bullets := 0
+	for s in g.shots:
+		if bool(s["friendly"]) or bullets > 260:
+			continue
+		var p: Vector2 = P(s["pos"])
+		if p.y < g.view_top - 20.0 or p.y > g.view_bottom + 20.0:
+			continue
+		bullets += 1
+		ci.draw_circle(p, float(s["r"]) * 2.6, Color(s["color"], 0.16))
+	for f in g.fx:
+		var k := float(f["t"]) / maxf(0.001, float(f["life"]))
+		var fp: Vector2 = P(f["pos"])
+		var c2: Color = f["color"]
+		match str(f["kind"]):
+			"blast":
+				var r := float(f["size"])
+				var flash := maxf(0.0, 1.0 - k * 3.0)
+				ci.draw_circle(fp, r * (0.7 + 0.5 * k), Color(c2, 0.28 * (1.0 - k)))
+				ci.draw_circle(fp, r * 0.55, Color(1.0, 0.95, 0.8, 0.55 * flash))
+			"spark":
+				ci.draw_circle(fp, float(f["size"]) * 2.2 * (1.0 - k), Color(c2, 0.35 * (1.0 - k)))
+			"ring":
+				ci.draw_arc(fp, float(f["size"]) * (0.4 + ease_out(k) * 0.8), 0.0, TAU, 40, Color(c2, 0.35 * (1.0 - k)), 10.0 * (1.0 - k) + 2.0, true)
+			"slash":
+				paint_slash(ci, f, fp, k, true)
+			"cinder_flame":
+				ci.draw_circle(fp, float(f["size"]) * 1.3, Color(1.0, 0.45, 0.1, 0.16 * (1.0 - k)))
+	for z in g.zones:
+		if str(z["kind"]) in ["fire", "blaze"] and not z.has("pts"):
+			ci.draw_circle(P(z["pos"]), float(z["r"]) * 0.9, Color(1.0, 0.45, 0.1, 0.10))
+	for e2 in g.enemies:
+		if enemy_has_role(e2, "leech") and float(e2.get("tether_t", 0.0)) > 0.0:
+			ci.draw_line(P(e2["pos"]), P(g.hero["pos"]), Color(1.0, 0.15, 0.35, 0.18), 14.0)
+
+static func ease_out(k: float) -> float:
+	return 1.0 - pow(1.0 - clampf(k, 0.0, 1.0), 3.0)
+
+## A crescent slash: the arc of a sweeping blade, sharp on the leading edge.
+func paint_slash(ci: CanvasItem, f: Dictionary, p: Vector2, k: float, glow_pass: bool) -> void:
+	var dir := float(f["dir"])
+	var r := float(f["size"])
+	var half := float(f.get("arc", 1.1))
+	var sweep := ease_out(minf(1.0, k * 2.2))
+	if sweep < 0.06:
+		return
+	var fade := 1.0 - k
+	var c: Color = f["color"]
+	var pts := PackedVector2Array()
+	var start := dir - half
+	var stop := dir - half + 2.0 * half * sweep
+	var steps := 18
+	for i in range(steps + 1):
+		var a := lerpf(start, stop, float(i) / float(steps))
+		pts.append(p + Vector2.from_angle(a) * r)
+	for i in range(steps, -1, -1):
+		var a2 := lerpf(start, stop, float(i) / float(steps))
+		var thick := 0.22 * sin(PI * float(i) / float(steps))
+		pts.append(p + Vector2.from_angle(a2) * r * (1.0 - thick))
+	if glow_pass:
+		ci.draw_colored_polygon(pts, Color(c, 0.35 * fade))
+	else:
+		ci.draw_colored_polygon(pts, Color(c, 0.55 * fade))
+		var edge := PackedVector2Array()
+		for i in range(steps + 1):
+			edge.append(pts[i])
+		ci.draw_polyline(edge, Color(1, 1, 1, 0.9 * fade), 3.0, true)
 
 func P(world: Vector2) -> Vector2:
 	return g.world_to_screen(world) + shake_off
@@ -1277,6 +1377,25 @@ func paint_boss_links(e: Dictionary, p: Vector2) -> void:
 		elif role == "mirror":
 			draw_line(p, q, Color("bff8ff", 0.35 + 0.15 * sin(g.anim_t * 4.0)), 2.0)
 
+## Leechling's drain: a sagging blood stream from you to it, with droplets
+## flowing toward the leech.
+func paint_blood_tether(from: Vector2, to: Vector2) -> void:
+	var mid := (from + to) * 0.5 + Vector2(0, 26.0 + 6.0 * sin(g.anim_t * 4.0))
+	var pts := PackedVector2Array()
+	for i in range(17):
+		var u := float(i) / 16.0
+		pts.append(from.lerp(mid, u).lerp(mid.lerp(to, u), u))
+	var pulse := 0.75 + 0.25 * sin(g.anim_t * 9.0)
+	draw_polyline(pts, Color(0.35, 0.02, 0.1, 0.8), 9.0, true)
+	draw_polyline(pts, Color(0.9, 0.12, 0.3, 0.85 * pulse), 5.0, true)
+	draw_polyline(pts, Color(1.0, 0.6, 0.7, 0.6), 1.5, true)
+	for k in range(5):
+		var u2 := 1.0 - fmod(g.anim_t * 0.9 + float(k) * 0.2, 1.0)
+		var idx := int(u2 * 16.0)
+		draw_circle(pts[idx], 3.5, Color(1.0, 0.3, 0.45, 0.95))
+		draw_circle(pts[idx] + Vector2(-1, -1), 1.2, Color(1, 1, 1, 0.8))
+	draw_circle(to, 10.0 + 3.0 * pulse, Color(0.9, 0.12, 0.3, 0.25))
+
 ## Persistent enemy hazards are rendered at their TRUE damage radii.
 func paint_identity_hazards() -> void:
 	for h in g.enemy_hazards:
@@ -1350,7 +1469,7 @@ func paint_enemies() -> void:
 					if linked >= 2:
 						break
 		if enemy_has_role(e, "leech") and float(e.get("tether_t", 0.0)) > 0.0:
-			draw_line(p, P(g.hero["pos"]), Color("c86eff", 0.6 + 0.2 * sin(g.anim_t * 10.0)), 3.5)
+			paint_blood_tether(p, P(g.hero["pos"]))
 			var receiver: Dictionary = e.get("siphon_target", {})
 			if not receiver.is_empty() and not bool(receiver.get("dead", false)):
 				draw_line(p, P(receiver["pos"]), Color("c98aff", 0.65), 6.0)
@@ -2768,14 +2887,32 @@ func paint_boss_bullet(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
 			draw_circle(p, vr * 0.5, Color("fffaf0"))
 
 func zigzag(a: Vector2, b: Vector2, c: Color, w: float) -> void:
-	var pts = PackedVector2Array([a])
-	var n = maxi(3, int(a.distance_to(b) / 18.0))
-	var perp = (b - a).normalized().orthogonal()
+	# A jagged bolt that re-forks a few times a second, with a white-hot core
+	# and one or two short side branches.
+	var length := a.distance_to(b)
+	var n := maxi(4, int(length / 16.0))
+	var perp := (b - a).normalized().orthogonal()
+	var seed := int(g.anim_t * 30.0) + int(a.x * 7.0 + b.y * 3.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var pts := PackedVector2Array([a])
+	var amp := clampf(length * 0.06, 4.0, 14.0)
 	for i in range(1, n):
-		pts.append(a.lerp(b, float(i) / n) + perp * randf_range(-7, 7))
+		pts.append(a.lerp(b, float(i) / n) + perp * rng.randf_range(-amp, amp))
 	pts.append(b)
-	draw_polyline(pts, Color(c, 0.35), w * 3.0)
-	draw_polyline(pts, c, w)
+	draw_polyline(pts, Color(c, 0.3), w * 3.2, true)
+	draw_polyline(pts, c, maxf(1.5, w * 1.2), true)
+	draw_polyline(pts, Color(1, 1, 1, 0.9), maxf(1.0, w * 0.45), true)
+	for f in range(2):
+		var from_i := rng.randi_range(1, pts.size() - 2)
+		var start: Vector2 = pts[from_i]
+		var dir := (b - a).normalized().rotated(rng.randf_range(-0.9, 0.9))
+		var fork := PackedVector2Array([start])
+		var q := start
+		for j in range(3):
+			q += dir * rng.randf_range(8.0, 16.0) + perp * rng.randf_range(-5.0, 5.0)
+			fork.append(q)
+		draw_polyline(fork, Color(c, 0.7), maxf(1.0, w * 0.6), true)
 
 func paint_beams() -> void:
 	for b in g.beams:
@@ -2901,14 +3038,46 @@ func paint_fx() -> void:
 			"projectile_vfx":
 				paint_projectile_event(f, p, k)
 			"spark":
-				draw_circle(p, float(f["size"]) * (1.0 - k), Color(c, 1.0 - k))
+				# A hot streak along its flight, not a dot.
+				var sv: Vector2 = f["vel"]
+				var tail_len: float = clampf(sv.length() * 0.035, 2.0, 18.0)
+				var sd: Vector2 = sv.normalized() if sv.length() > 1.0 else Vector2.UP
+				var width: float = float(f["size"]) * (1.0 - k)
+				draw_line(p - sd * tail_len, p, Color(c, 0.85 * (1.0 - k)), maxf(1.0, width), true)
+				draw_circle(p, width * 0.55, Color(1, 1, 0.9, 1.0 - k))
 			"ring":
-				draw_arc(p, float(f["size"]) * (0.4 + k * 0.8), 0, TAU, 32, Color(c, 1.0 - k), 3.0)
+				# A thick shockwave that thins as it expands.
+				var e_k := ease_out(k)
+				var rr = float(f["size"]) * (0.4 + e_k * 0.8)
+				draw_circle(p, rr, Color(c, 0.07 * (1.0 - k)))
+				draw_arc(p, rr, 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), 7.0 * (1.0 - k) + 1.5, true)
+				draw_arc(p, rr * 0.92, 0, TAU, 40, Color(1, 1, 1, 0.5 * (1.0 - k)), 1.5, true)
+			"smoke":
+				var sr = float(f["size"]) * (0.6 + k * 0.9)
+				draw_circle(p, sr, Color(0.16, 0.15, 0.17, 0.3 * (1.0 - k)))
+				draw_circle(p + Vector2(-sr * 0.25, -sr * 0.25), sr * 0.55, Color(0.3, 0.29, 0.32, 0.25 * (1.0 - k)))
+			"slash":
+				paint_slash(self, f, p, k, false)
 			"blast":
-				var r = float(f["size"]) * (0.5 + 0.6 * sqrt(k))
-				draw_circle(p, r, Color(c, 0.35 * (1.0 - k)))
-				draw_circle(p, r * 0.6 * (1.0 - k), Color(1, 0.97, 0.85, 0.8 * (1.0 - k)))
-				draw_arc(p, r, 0, TAU, 40, Color(c.lightened(0.3), 1.0 - k), 4.0)
+				# Fireball with a ragged edge, a white-hot flash, then a thinning
+				# shockwave. Smoke and debris are separate fx.
+				var size_b = float(f["size"])
+				var grow = ease_out(minf(1.0, k * 2.0))
+				var r = size_b * (0.45 + 0.6 * grow)
+				var fade = 1.0 - k
+				var ball := PackedVector2Array()
+				var seed_b = float(f["pos"].x) * 0.13
+				for i in range(20):
+					var th := TAU * float(i) / 20.0
+					var wob := 1.0 + 0.07 * sin(th * 5.0 + seed_b + k * 6.0) + 0.04 * sin(th * 9.0 - seed_b)
+					ball.append(p + Vector2.from_angle(th) * r * wob)
+				draw_colored_polygon(ball, Color(c.darkened(0.15), 0.55 * fade))
+				draw_circle(p, r * 0.72, Color(c.lightened(0.25), 0.6 * fade))
+				draw_circle(p, r * 0.42 * (1.0 - k), Color(1.0, 0.95, 0.75, 0.9 * fade))
+				var flash = maxf(0.0, 1.0 - k * 4.0)
+				if flash > 0.0:
+					draw_circle(p, size_b * 0.5, Color(1, 1, 1, 0.6 * flash))
+				draw_arc(p, size_b * (0.6 + 0.7 * ease_out(k)), 0, TAU, 44, Color(c.lightened(0.4), 0.8 * fade), 5.0 * fade + 1.0, true)
 			"shock":
 				draw_arc(p, float(f["size"]) * k, 0, TAU, 48, Color(c, 1.0 - k), 8.0 * (1.0 - k) + 1.0)
 			"confetti":

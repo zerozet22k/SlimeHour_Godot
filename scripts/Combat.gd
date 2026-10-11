@@ -1785,7 +1785,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						var toward: Vector2 = hero_pos - Vector2(e["pos"])
 						if toward.length_squared() <= 166.0 * 166.0 and (toward.length_squared() < 0.01 or aim.dot(toward.normalized()) >= 0.4067):
 							g.hurt(float(e["dmg"]) * 1.25, e["pos"], "a Lancer's wide spear sweep")
-						g.spawn_ring_fx(e["pos"], Color("c8d5ff"), 76.0)
+						g.fx.append({"kind": "slash", "pos": e["pos"], "vel": Vector2.ZERO, "t": 0.0, "life": 0.32,
+							"color": Color("c8d5ff"), "size": 166.0, "dir": aim.angle(), "arc": 1.15})
 					else:
 						var spear = enemy_fire(g, e, aim, 1, 0.0, 950.0, 9.0)
 						if spear != null:
@@ -2244,9 +2245,15 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 static func explode(g, pos: Vector2, r: float, dmg: float, gen: int, color: Color, opts: Dictionary = {}) -> void:
 	g.frame_booms += 1
 	var big = r > 100.0
-	g.fx.append({"kind": "blast", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.4 if not big else 0.6, "color": color, "size": r})
+	g.fx.append({"kind": "blast", "pos": pos, "vel": Vector2.ZERO, "t": 0.0, "life": 0.45 if not big else 0.65, "color": color, "size": r})
 	if g.frame_booms < 12:
 		g.spawn_burst(pos, color, 10 if not big else 24, r * 3.0, 5.0)
+		# Lingering smoke puffs drift up after the fireball.
+		if g.fx.size() < 600:
+			for i in range(3 if not big else 6):
+				g.fx.append({"kind": "smoke", "pos": pos + Vector2(randf_range(-r, r), randf_range(-r, r)) * 0.35,
+					"vel": Vector2(randf_range(-30, 30), randf_range(-60, -20)), "t": 0.0,
+					"life": randf_range(0.8, 1.3), "color": color, "size": r * randf_range(0.28, 0.45)})
 		g.add_shake(minf(14.0, r / 14.0))
 		g.sfx.play("boom" if r > 70.0 else "boom_small")
 	if dmg > 0.0:
@@ -2861,6 +2868,8 @@ static func update_fx(g, dt: float) -> void:
 			var age = float(f["t"]) / maxf(0.01, float(f["life"]))
 			var wobble = sin(float(f["seed"]) + float(f["t"]) * 25.0)
 			f["pos"] += velocity.normalized().orthogonal() * wobble * 32.0 * dt * (0.3 + age)
+		if f["kind"] == "smoke":
+			f["vel"] = f["vel"] * exp(-1.5 * dt)
 		if f["kind"] in ["spark", "confetti"]:
 			f["vel"] = f["vel"] * exp(-4.0 * dt)
 			if f["kind"] == "confetti":
