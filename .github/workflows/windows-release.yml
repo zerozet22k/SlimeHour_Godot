@@ -34,6 +34,7 @@ on:
       - tools/mutation_progression_test.gd
       - tools/boss_encounter_test.gd
       - tools/boss_fight_test.gd
+      - tools/monster_rework_test.gd
       - tools/projectile_compatibility_test.gd
       - tools/barrel_weapon_test.gd
       - tools/collection_download_test.gd
@@ -130,6 +131,7 @@ jobs:
           timeout 120 ./godot-ci --headless --path . --script tools/mutation_progression_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/boss_encounter_test.gd
           timeout 400 ./godot-ci --headless --path . --script tools/boss_fight_test.gd
+          timeout 120 ./godot-ci --headless --path . --script tools/monster_rework_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/weapon_description_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/cinder_balance_test.gd
           timeout 120 ./godot-ci --headless --path . --script tools/enemy_part_mix_test.gd

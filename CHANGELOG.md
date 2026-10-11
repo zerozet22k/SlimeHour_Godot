@@ -1,3 +1,12 @@
+## v0.1.68 — Real streets, unique boss attacks, gun and monster identities
+
+- **Real streets:** every sector is a proper road cross-section (two-lane street, four-lane road, tree-lined boulevard or wide avenue) with the right number of lanes. The rest of the width is walkable paved pavement with street trees in tree pits, street lights and building fronts. Asphalt has wear, manholes and patches; markings include edge lines, lane dashes, yellow centre lines and arrows. Cross streets have zebra crossings and stop lines. Roadworks only close the kerb lane, and parked cars sit along the kerb.
+- **No repeated boss attacks:** each attack now belongs to one boss. New: Goo Mortar, Boulder Roll and chained Kaiju Rage shockwaves (Chonkzilla); Grave March (Necro-Dad); Jelly Fountain and Bounce House (King Blob); Prism Split (Glass Oracle); Assembly Line (Dread Engine). Boss phases no longer slip back when a boss heals.
+- **Guns with real mechanics:** Deadeye Quickdraw (the first shot after a pause is a sure piercing crit), Cyclone run-and-gun (fires faster while you move) and Rivet Driver caltrops (missed nails stick in the road and slow enemies).
+- **Evolutions do something new** instead of adding stats: ricochet rounds, ricocheting crits, slugs, incendiary rounds, kill refunds, rivet bursts, multiball, shockwave craters, feather darts, minibubbles, frost trails, queen bees, sticky grenades and catch shockwaves.
+- **Every gun sounds and looks different:** its own firing voice and bullet shape.
+- **Monsters you can tell apart:** new silhouettes for Blob, Zoomer, Mini, Mitosis, Spitter, Leechling, Siren, Medic, Skitter and Chonk, each with a mutation part that can combine with any monster. Lil Tick now hops at you; Mitosis splits into halves that re-merge unless you kill both.
+
 ## v0.1.67 — Real streets: two-way roads, boulevards and roadworks
 
 - **Street layouts:** every sector is now a proper street, chosen per sector: two-way roads with a double yellow line and jersey-barrier dividers, boulevards with a tree-lined grass island, split carriageways around a wide park strip, or open multi-lane road. Islands are walkable with crosswalk gaps; their trees and dividers are the obstacles.
