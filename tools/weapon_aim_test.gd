@@ -67,7 +67,7 @@ func _run() -> void:
 		for gun in ["pistol", "shotgun", "sniper", "rail"]:
 			var left_flip = WeaponAim.mirrored_grip(direction, 0)
 			var right_flip = WeaponAim.mirrored_grip(direction, 1)
-			verify(left_flip != right_flip, "opposite hand gun grips mirror: " + gun)
+			verify(left_flip == right_flip and left_flip == (direction.x < 0.0), "both hands hold guns upright: " + gun)
 			for slot in [0, 1, 2]:
 				var mirrored = WeaponAim.mirrored_grip(direction, slot)
 				var rot = WeaponAim.art_rotation_for_mirror(direction, gun, mirrored)

@@ -125,6 +125,8 @@ func _run() -> void:
 	var sapper = specimen(g, "sapper")
 	sapper["cd"] = 0.0
 	Combat.ai(g, sapper, Vector2.DOWN, 260.0, 0.016, false)
+	check(float(sapper.get("sap_wind", 0.0)) > 0.0, "Sapper raises the bomb before throwing")
+	Combat.ai(g, sapper, Vector2.DOWN, 260.0, 0.4, false)
 	check(g.shots.any(func(sh): return bool(sh.get("sticky_bomb", false))), "Sapper throws a sticky bomb")
 	g.enemy_hazards.clear()
 	var mama = specimen(g, "mama")

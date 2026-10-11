@@ -1551,14 +1551,17 @@ class Baker extends Node2D:
 			if key == "#dot":
 				draw_circle(o + Vector2(100, 100), 40.0, Color.WHITE)
 				continue
-			var kind = key.trim_suffix("*")
+			# "@kind" is a portrait with the weapon in hand (cards, Bestiary);
+			# in-game cells leave the hand empty for the live weapon.
+			var portrait = key.begins_with("@")
+			var kind = key.trim_prefix("@").trim_suffix("*")
 			var elite = key.ends_with("*")
 			draw_set_transform(o + Vector2(100, 138), 0.0, Vector2(1.0, 0.35))
 			draw_circle(Vector2.ZERO, 38.0, Color(0, 0, 0, 0.35))
 			draw_set_transform(o + Vector2(100, 108), 0.0, Vector2.ONE)
 			if elite or bool(v.g.enemy_db[kind].get("boss", false)):
 				draw_circle(Vector2.ZERO, 47.0, Color(1.0, 0.82, 0.3, 0.22))
-			v.draw_enemy_body(self, kind, elite, 40.0, Color(str(v.g.enemy_db[kind]["color"])), false)
+			v.draw_enemy_body(self, kind, elite, 40.0, Color(str(v.g.enemy_db[kind]["color"])), false, portrait)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func bake_enemies() -> void:
@@ -1569,6 +1572,8 @@ func bake_enemies() -> void:
 		keys.append(kind)
 		if not bool(g.enemy_db[kind].get("boss", false)):
 			keys.append(kind + "*")
+			if not held_parts_of(kind).is_empty():
+				keys.append("@" + kind)
 	keys.append("#dot")
 	var rows = ceili(keys.size() / float(ATLAS_COLS))
 	var vp = SubViewport.new()
@@ -1592,6 +1597,49 @@ func bake_enemies() -> void:
 		atlas = ImageTexture.create_from_image(img)
 	vp.queue_free()
 	mix_rebake_pending = false
+
+## Held weapons (spear, mortar tube, bomb) of a street monster or a fusion.
+func held_parts_of(kind: String) -> Array:
+	var fusion: Array = g.enemy_db[kind].get("mix", []) if kind.begins_with("mix_") else [kind, kind]
+	if fusion.size() < 2 or not MonsterKit.has(str(fusion[0])) or not MonsterKit.has(str(fusion[1])):
+		return []
+	return MonsterKit.held_parts(str(fusion[0]), str(fusion[1]))
+
+## Portrait cell (weapon in hand) when there is one, else the plain cell.
+func portrait_key(kind: String) -> String:
+	return "@" + kind if atlas_cell.has("@" + kind) else kind
+
+## Draws the held weapon live so it aims, winds up, swings and is thrown.
+func paint_held(e: Dictionary, p: Vector2, r: float) -> void:
+	var kind := str(e["kind"])
+	var held := held_parts_of(kind)
+	if held.is_empty():
+		return
+	var skin: String = str(g.enemy_db[kind]["mix"][1]) if kind.begins_with("mix_") else kind
+	var t := float(e["t"])
+	var wind := float(e.get("wind", 0.0))
+	var aim: Vector2 = Vector2(g.hero["pos"]) - Vector2(e["pos"])
+	var pose := {"t": t}
+	if wind > 0.0 and enemy_has_role(e, "lancer"):
+		var attack := str(e.get("lancer_attack", "spear"))
+		pose["attack"] = attack
+		pose["wind"] = clampf(1.0 - wind / (0.6 if attack == "sweep" else 0.55), 0.0, 1.0)
+		aim = Vector2(e.get("lock", g.hero["pos"])) - Vector2(e["pos"])
+	elif float(e.get("sap_wind", 0.0)) > 0.0:
+		pose["wind"] = clampf(1.0 - float(e["sap_wind"]) / 0.35, 0.0, 1.0)
+	var since_throw := t - float(e.get("throw_at", -99.0))
+	pose["gone"] = clampf((since_throw - 0.5) / 0.5, 0.0, 1.0)
+	var since_swing := t - float(e.get("swing_at", -99.0))
+	if since_swing < 0.58:
+		pose["swing"] = since_swing / 0.32
+		pose["swing_dir"] = float(e.get("swing_dir", aim.angle()))
+	var since_fire := t - float(e.get("fire_at", -99.0))
+	if since_fire < 0.4:
+		pose["recoil"] = 1.0 - since_fire / 0.4
+	draw_set_transform(p, 0.0, Vector2.ONE)
+	for part in held:
+		MonsterKit.draw_held(self, str(part), skin, r, aim, pose)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	if bool(e.get("boss", false)) and BossFight.is_boss_kind(str(e["kind"])):
@@ -1728,8 +1776,10 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		if base_kind != kind:
 			# Until its fusion sprite is baked, draw the fusion live.
 			draw_set_transform(p, 0.0, Vector2.ONE)
-			draw_enemy_body(self, kind, bool(e["elite"]), r, Color(str(g.enemy_db[kind]["color"])), false)
+			draw_enemy_body(self, kind, bool(e["elite"]), r, Color(str(g.enemy_db[kind]["color"])), false, false)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if not spinning:
+		paint_held(e, p, r)
 	draw_status(e, p, r)
 
 ## Bosses are drawn live: they animate, react to phases and wind up visibly.
@@ -1773,7 +1823,7 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 	draw_set_transform(p + Vector2(0, r * 0.75), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * 0.95, Color(0, 0, 0, 0.35))
 	draw_set_transform(p, 0.0, Vector2.ONE)
-	draw_enemy_body(self, kind, bool(e["elite"]), r, e["color"], float(e["flash"]) > 0.0)
+	draw_enemy_body(self, kind, bool(e["elite"]), r, e["color"], float(e["flash"]) > 0.0, false)
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
 	if str(parts.get("face", "")) != "visor":
@@ -1782,6 +1832,7 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 	else:
 		draw_rect(Rect2(-r * 0.2, -r * 0.18 - 2, r * 0.4, 4), Color("ff3a5a"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	paint_held(e, p, r)
 	draw_status(e, p, r)
 
 ## Second-parent inheritance draws one appendage/outer-body detail only.
@@ -1920,7 +1971,7 @@ func draw_modular_gear(ci: CanvasItem, parts: Dictionary, r: float) -> void:
 
 ## Everything about an enemy that does not move: body, props, eye whites, mouth, crown.
 ## Drawn on any canvas (ci) so it can be baked; centre is the current transform origin.
-func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: Color, flash: bool) -> void:
+func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: Color, flash: bool, held: bool = true) -> void:
 	if BossFight.is_boss_kind(kind):
 		# Portrait pose for atlases and the Bestiary (scaled to fit a cell).
 		BossModels.draw(ci, kind, r * 0.82, {"t": 0.6, "flash": flash})
@@ -1929,7 +1980,7 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 	if fusion.size() >= 2 and MonsterKit.has(str(fusion[0])) and MonsterKit.has(str(fusion[1])):
 		# Street monsters and true fusions: body of the first parent wearing
 		# the second parent's skin, face and decorations.
-		MonsterKit.draw(ci, str(fusion[0]), str(fusion[1]), r, flash)
+		MonsterKit.draw(ci, str(fusion[0]), str(fusion[1]), r, flash, held)
 		if elite:
 			var crown_y = -r - 4.0
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.5, crown_y + 4), Vector2(-r * 0.55, crown_y - 10), Vector2(-r * 0.25, crown_y - 3),
@@ -2655,6 +2706,27 @@ func paint_shots() -> void:
 			"enemy":
 				if bool(s.get("acid_trail", false)):
 					paint_acid_glob(s, p, d, r)
+					continue
+				if bool(s.get("spear", false)):
+					# The Lancer's actual spear in flight, with a speed streak.
+					draw_line(p - d * 70.0, p - d * 22.0, Color("c8d5ff", 0.35), 6.0)
+					var side: Vector2 = d.orthogonal()
+					draw_line(p - d * 26.0, p + d * 10.0, Color("140d17"), 5.0, true)
+					draw_line(p - d * 26.0, p + d * 10.0, Color("9a6a3c"), 2.6, true)
+					var blade := PackedVector2Array([p + d * 26.0, p + d * 13.0 + side * 6.0, p + d * 6.0, p + d * 13.0 - side * 6.0])
+					draw_colored_polygon(blade, Color("e8ecff"))
+					blade.append(blade[0])
+					draw_polyline(blade, Color("140d17"), 1.6, true)
+					continue
+				if bool(s.get("sticky_bomb", false)):
+					# Spinning bomb with a lit fuse.
+					var spin: float = float(s.get("t", 0.0)) * 12.0 + g.anim_t * 6.0
+					draw_circle(p, r + 3.0, Color("140d17"))
+					draw_circle(p, r + 1.0, Color("2a2c35"))
+					draw_arc(p, r * 0.75, spin, spin + 2.3, 10, Color("ff7a46"), 2.5)
+					var fuse: Vector2 = p + Vector2.from_angle(spin - 1.2) * (r + 5.0)
+					draw_line(p + Vector2.from_angle(spin - 1.2) * r, fuse, Color("c8a060"), 2.0)
+					draw_circle(fuse, 3.0 + sin(g.anim_t * 30.0), Color("ffd24d"))
 					continue
 				var enemy_color: Color = s["color"]
 				draw_circle(p, r + 5, Color(enemy_color, 0.25))

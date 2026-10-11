@@ -1764,8 +1764,12 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 		"sapper":
 			# Sticky bomber: lobs a bomb that sticks to YOU. Dash or bash to
 			# shake it off before it blows; a miss lands as a ground bomb.
-			if float(e["cd"]) <= 0.0 and dist < 430.0 and dist > 110.0:
-				e["cd"] = 4.6 if not g.hard_mode else 3.8
+			# The bomb goes up over its head for a beat, then gets lobbed.
+			if float(e.get("sap_wind", 0.0)) > 0.0:
+				e["sap_wind"] = maxf(0.0, float(e["sap_wind"]) - dt)
+				if float(e["sap_wind"]) > 0.0:
+					return Vector2.ZERO
+				e["throw_at"] = float(e["t"])
 				var aim_at: Vector2 = hero_pos + Vector2(g.hero.get("vel", Vector2.ZERO)) * 0.3
 				var bomb = enemy_fire(g, e, (aim_at - Vector2(e["pos"])).normalized(), 1, 0.0, 330.0, 8.0)
 				if bomb != null:
@@ -1774,6 +1778,11 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					bomb["life"] = clampf(Vector2(e["pos"]).distance_to(aim_at) / 330.0 + 0.2, 0.4, 1.6)
 					bomb["color"] = Color("ff7a46")
 				e["squash"] = 0.5
+				return Vector2.ZERO
+			if float(e["cd"]) <= 0.0 and dist < 430.0 and dist > 110.0:
+				e["cd"] = 4.6 if not g.hard_mode else 3.8
+				e["sap_wind"] = 0.35
+				return Vector2.ZERO
 			return dir if dist > 325.0 else (-dir if dist < 190.0 else dir.orthogonal() * 0.4)
 		"lancer":
 			# Distinct hybrid fighter: close-range sweeping melee, long-range thrown spear.
@@ -1790,12 +1799,16 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 							g.hurt(float(e["dmg"]) * 1.25, e["pos"], "a Lancer's wide spear sweep")
 						g.fx.append({"kind": "slash", "pos": e["pos"], "vel": Vector2.ZERO, "t": 0.0, "life": 0.32,
 							"color": Color("c8d5ff"), "size": 166.0, "dir": aim.angle(), "arc": 1.15})
+						e["swing_at"] = float(e["t"])
+						e["swing_dir"] = aim.angle()
 					else:
 						var spear = enemy_fire(g, e, aim, 1, 0.0, 950.0, 9.0)
 						if spear != null:
 							spear["pierce"] = 3
 							spear["dmg"] = float(e["dmg"]) * 1.15
 							spear["life"] = 1.8
+							spear["spear"] = true
+						e["throw_at"] = float(e["t"])
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and dist < 610.0:
 				if dist <= 240.0:
@@ -1989,6 +2002,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					var delay: float = 1.0 + float(salvo_i) * 0.32
 					g.delayed.append({"t": delay, "life": delay, "fn": "mortar", "pos": impact, "tele": 72.0, "dmg": float(e["dmg"]) * 0.72})
 				g.sfx.play("thunk")
+				e["fire_at"] = float(e["t"])
 			return -dir * 0.8 if dist < 360.0 else (dir if dist > 470.0 else dir.orthogonal() * 0.4)
 		"totem":
 			return Vector2.ZERO

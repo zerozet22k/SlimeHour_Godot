@@ -2598,7 +2598,7 @@ var _mob_tex: Dictionary = {}
 ## Portrait cut from the baked enemy atlas, usable anywhere a card expects art.
 func mob_tex(kind: String) -> Texture2D:
 	var v = g.visuals
-	var preview = str(g.enemy_db[kind].get("mix", [kind])[0])
+	var preview = v.portrait_key(kind if v.atlas_cell.has(kind) else str(g.enemy_db[kind].get("mix", [kind])[0]))
 	if v.atlas == null or not v.atlas_cell.has(preview):
 		return null
 	if not _mob_tex.has(kind):
@@ -2627,7 +2627,7 @@ func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 	var v = g.visuals
 	var description: Dictionary = g.enemy_db.get(kind, {})
 	var pair: Array = description.get("mix", [])
-	var preview = kind if v.atlas_cell.has(kind) or pair.is_empty() else str(pair[0])
+	var preview = v.portrait_key(kind if v.atlas_cell.has(kind) or pair.is_empty() else str(pair[0]))
 	if v.atlas != null and v.atlas_cell.has(preview):
 		var size = minf(r.size.x, r.size.y)
 		var dst = Rect2(r.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))

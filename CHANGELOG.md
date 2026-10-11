@@ -1,3 +1,11 @@
+## v0.1.77 — Monsters use their weapons, guns follow your cursor
+
+- **Lancer actually uses its lance:** it holds the spear at its side, pulls it back and up to throw (glint before release), and its hand is empty until a new spear appears. For the close sweep it cocks the spear back and swings it through the slash. The thrown shot is a real spear in flight.
+- **Mortar** aims its tube at you and kicks back with a puff of smoke when it fires.
+- **Sapper** raises its bomb overhead for a moment before lobbing it, then its hand is empty for a bit. The bomb in the air spins with a lit fuse.
+- Mutants holding these weapons animate the same way.
+- **Your guns:** with auto aim and nothing in range, your guns now follow the cursor instead of freezing. Both guns now converge on the target, and the off-hand gun is no longer drawn upside down. Guns are held at the shoulders instead of across your face.
+
 ## v0.1.76 — Spitter acid globs
 
 - Spitter's shot is now a wobbling acid glob lobbed through the air over its ground shadow (the shadow marks where it really is), dripping as it flies and splashing into a poison puddle where it lands.

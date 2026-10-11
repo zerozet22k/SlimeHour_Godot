@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.76"
+const GAME_VERSION = "v0.1.77"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -462,7 +462,8 @@ func _process(delta: float) -> void:
 		cam_x = lerpf(cam_x, target_x, 1.0 - exp(-7.0 * cdt))
 		# Camera follow changes world coordinates beneath a fixed screen cursor.
 		# Reproject after camera motion so the crosshair and weapon targeting agree.
-		if state == "playing" and settings["aim"] == "mouse" and aim_touch_id == -1 and not is_touch_active():
+		# Auto aim also falls back to this point when nothing is in range.
+		if state == "playing" and aim_touch_id == -1 and not is_touch_active():
 			mouse_world = screen_to_world(aim_screen)
 	shake = maxf(0.0, shake - delta * 30.0)
 	banner_t = maxf(0.0, banner_t - delta)
@@ -939,10 +940,22 @@ func move_hero(dt: float) -> void:
 			h["shield"] = int(h["shield"]) + 1
 	# Aim
 	var aim = h["aim"]
+	# World point the guns converge on (null = shoot straight along the aim).
+	h["aim_point"] = null
 	if settings["aim"] == "auto" or autotest != "":
 		var t = nearest_enemy(h["pos"], 620.0)
 		if t != null:
 			aim = (t["pos"] - h["pos"]).normalized()
+			h["aim_point"] = t["pos"]
+		elif autotest == "" and is_touch_active():
+			if touch_aim_dir.length_squared() > 0.01:
+				aim = touch_aim_dir
+		elif autotest == "":
+			# Nothing to lock onto: the guns follow the cursor instead of freezing.
+			var free: Vector2 = mouse_world - h["pos"]
+			if free.length_squared() > 64.0:
+				aim = free.normalized()
+				h["aim_point"] = mouse_world
 	elif is_touch_active():
 		if touch_aim_dir.length_squared() > 0.01:
 			aim = touch_aim_dir

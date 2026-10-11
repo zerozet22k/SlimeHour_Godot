@@ -148,8 +148,10 @@ static func reload_time(g, w: Dictionary) -> float:
 
 static func hand_pos(g, slot: int) -> Vector2:
 	var aim: Vector2 = g.hero["aim"]
-	var side = [11.0, -11.0, 0.0][clampi(slot, 0, 2)]
-	var back = -6.0 if slot == 2 else 0.0
+	# Hands sit at the shoulders, slightly forward, so the guns stick out past
+	# the body instead of lying across the face. A third gun is held up front.
+	var side = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
+	var back = 17.0 if slot == 2 else 5.0
 	return g.hero["pos"] + aim.orthogonal() * side + aim * back
 
 ## All guns share a single origin contract for the sprite and the projectile.
@@ -163,6 +165,10 @@ static func aim_for_slot(g, slot: int) -> Vector2:
 	if str(g.settings.get("aim", "auto")) == "mouse" and g.autotest == "" and not g.is_touch_active():
 		var target: Vector2 = g.screen_to_world(g.aim_screen)
 		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), target)
+	elif g.hero.get("aim_point") != null:
+		# Auto aim: both hands converge on the locked enemy (or the free cursor)
+		# instead of firing two parallel lines past a close target.
+		base = WeaponAim.shot_direction(base, muzzle_pos(g, slot), g.hero["aim_point"])
 	# Homing has no physical bullet to steer on cone/hitscan weapons. Convert
 	# it to a SMALL capped aim correction toward a target already near the reticle.
 	if not g.has_method("st") or g.st("homing") <= 0.0 or slot >= g.guns.size():

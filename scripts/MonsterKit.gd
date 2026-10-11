@@ -78,9 +78,17 @@ static func parts_for(body_kind: String, skin_kind: String) -> Array:
 			taken[str(g[1])] = true
 	return result
 
+## Weapons a monster holds in its hand. The game draws them live (never baked
+## into the atlas) so they aim, wind up, swing and leave the hand when thrown.
+const HELD = ["spear", "mortar_tube", "bomb_pack"]
+
+static func held_parts(body_kind: String, skin_kind: String) -> Array:
+	return parts_for(body_kind, skin_kind).filter(func(part): return part in HELD)
+
 ## Draws BODY's silhouette, eyes and main part wearing SKIN's colours,
-## pattern, mouth and the skin's parts that fit.
-static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float, flash: bool = false) -> void:
+## pattern, mouth and the skin's parts that fit. HELD=false leaves the hand
+## empty so the caller can draw the weapon live with draw_held().
+static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float, flash: bool = false, held: bool = true) -> void:
 	var b: Dictionary = SPECS.get(body_kind, SPECS["blob"])
 	var s: Dictionary = SPECS.get(skin_kind, b)
 	var body := Color.WHITE if flash else Color(str(s["body"]))
@@ -94,10 +102,144 @@ static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float,
 	silhouette(ci, shape, r, body, dark)
 	pattern(ci, str(s["pattern"]), shape, r, body, dark, accent)
 	for part in parts:
-		if not part in BEHIND:
+		if not part in BEHIND and not part in HELD:
 			signature(ci, part, r, body, dark, accent, shape)
 	eyes(ci, str(b["eyes"]), r)
 	mouth(ci, str(s["mouth"]) if str(s["mouth"]) != "" else str(b["mouth"]), r, body, dark, accent)
+	if held:
+		for part in parts:
+			if part in HELD:
+				draw_held(ci, part, skin_kind, r, Vector2(0.55, 0.83))
+
+# ------------------------------------------------------------------ held weapons
+## One held weapon around the body centre. AIM points at the target. POSE
+## keys (all optional): wind 0..1 wind-up, attack "spear"/"sweep",
+## gone 0..1 (0 = just thrown, 1 = back in hand), swing 0..1 sweep then
+## 1..1.8 recovery with swing_dir its centre angle, recoil 0..1, t time.
+static func draw_held(ci: CanvasItem, part: String, skin_kind: String, r: float, aim: Vector2, pose: Dictionary = {}) -> void:
+	var s: Dictionary = SPECS.get(skin_kind, SPECS["blob"])
+	var body := Color(str(s["body"]))
+	var dark := Color(str(s["dark"]))
+	var accent := Color(str(s["accent"]))
+	if aim.length_squared() < 0.01:
+		aim = Vector2(0.55, 0.83)
+	aim = aim.normalized()
+	var sd := 1.0 if aim.x >= 0.0 else -1.0
+	match part:
+		"spear":
+			held_spear(ci, r, aim, sd, body, accent, pose)
+		"mortar_tube":
+			held_mortar(ci, r, aim, sd, dark, accent, pose)
+		"bomb_pack":
+			held_bomb(ci, r, sd, body, pose)
+
+static func held_hand(ci: CanvasItem, at: Vector2, r: float, body: Color) -> void:
+	ci.draw_circle(at, r * 0.2, INK)
+	ci.draw_circle(at, r * 0.14, body.lightened(0.1))
+
+static func held_spear(ci: CanvasItem, r: float, aim: Vector2, sd: float, body: Color, accent: Color, pose: Dictionary) -> void:
+	var a := clampf(float(pose.get("gone", 1.0)), 0.0, 1.0)
+	var wind := float(pose.get("wind", 0.0))
+	var swing := float(pose.get("swing", -1.0))
+	# Idle: held upright at the side, tipped toward the target.
+	var idle_dir := (aim + Vector2(0, -1.6)).normalized()
+	var idle_hand := Vector2(r * 0.82 * sd, r * 0.22)
+	var dir := idle_dir
+	var hand := idle_hand
+	var reach := 1.0
+	if swing >= 0.0:
+		var centre := float(pose.get("swing_dir", aim.angle()))
+		# Same timing as the slash effect: the blade leads the crescent.
+		var sweep := 1.0 - pow(1.0 - minf(1.0, swing * 2.2), 3.0)
+		var swept := Vector2.from_angle(centre - 1.15 + 2.3 * sweep)
+		dir = swept
+		hand = swept * r * 0.7
+		reach = 1.3
+		if swing > 1.0:
+			var back := clampf((swing - 1.0) / 0.8, 0.0, 1.0)
+			dir = swept.lerp(idle_dir, back).normalized()
+			hand = hand.lerp(idle_hand, back)
+			reach = lerpf(1.3, 1.0, back)
+	elif wind > 0.0 and str(pose.get("attack", "spear")) == "sweep":
+		# Cocked back to the start of the arc.
+		var cock := Vector2.from_angle(aim.angle() - 1.15 - 0.5 * wind)
+		dir = idle_dir.lerp(cock, minf(1.0, wind * 2.0)).normalized()
+		hand = idle_hand.lerp(cock * r * 0.7, minf(1.0, wind * 2.0))
+	elif wind > 0.0:
+		# Javelin throw: point at the target, pull back and up, then release.
+		dir = idle_dir.lerp(aim, minf(1.0, wind * 1.6)).normalized()
+		hand = idle_hand.lerp(-aim * r * 0.55 + Vector2(0, -r * 0.5), ease(wind, 0.6))
+	if a <= 0.0:
+		held_hand(ci, hand, r, body)
+		return
+	var butt := hand - dir * r * 0.95
+	var head := hand + dir * r * 1.5 * reach
+	var side := dir.orthogonal()
+	ci.draw_line(butt, head, Color(INK, a), r * 0.2, true)
+	ci.draw_line(butt, head, Color(Color("9a6a3c"), a), r * 0.11, true)
+	ci.draw_line(butt + side * r * 0.02, head + side * r * 0.02, Color(1, 1, 1, 0.25 * a), r * 0.03)
+	# Leaf blade with a midrib and a ribbon in the skin's accent colour.
+	var blade := PackedVector2Array([head + dir * r * 0.75, head + dir * r * 0.18 + side * r * 0.24,
+		head - dir * r * 0.08, head + dir * r * 0.18 - side * r * 0.24])
+	ci.draw_colored_polygon(blade, Color(Color("e8ecff"), a))
+	var outline := blade.duplicate()
+	outline.append(blade[0])
+	ci.draw_polyline(outline, Color(INK, a), 1.6, true)
+	ci.draw_line(head, head + dir * r * 0.6, Color(accent, 0.8 * a), 1.4)
+	var knot := head - dir * r * 0.1
+	var flutter := sin(float(pose.get("t", 0.0)) * 9.0) * r * 0.12
+	ci.draw_line(knot, knot + Vector2(0, r * 0.42) - dir * r * 0.2 + side * flutter, Color(accent, a), r * 0.13, true)
+	held_hand(ci, hand, r, body)
+	if wind > 0.7 and str(pose.get("attack", "spear")) != "sweep":
+		var glint := (wind - 0.7) / 0.3
+		var shine := head + dir * r * 0.55
+		ci.draw_line(shine - side * r * 0.4 * glint, shine + side * r * 0.4 * glint, Color(1, 1, 1, 0.9), 2.0)
+		ci.draw_line(shine - dir * r * 0.4 * glint, shine + dir * r * 0.4 * glint, Color(1, 1, 1, 0.9), 2.0)
+
+static func held_mortar(ci: CanvasItem, r: float, aim: Vector2, sd: float, dark: Color, accent: Color, pose: Dictionary) -> void:
+	var kick := clampf(float(pose.get("recoil", 0.0)), 0.0, 1.0)
+	# High-angle launcher on the shoulder, leaning toward the target.
+	var dir := (aim * 0.55 + Vector2(0, -1.0)).normalized()
+	var side := dir.orthogonal()
+	var pivot := Vector2(r * 0.42 * sd, -r * 0.3)
+	for leg in [-1.0, 1.0]:
+		ci.draw_line(pivot, pivot + Vector2(leg * r * 0.38, r * 0.5), INK, r * 0.11, true)
+	var base := pivot - dir * r * (0.25 + 0.4 * kick * kick)
+	var muzzle := base + dir * r * 1.35
+	ci.draw_line(base, muzzle, INK, r * 0.66, true)
+	ci.draw_line(base, muzzle, accent, r * 0.48, true)
+	ci.draw_line(base + side * r * 0.12, muzzle + side * r * 0.12, accent.lightened(0.3), r * 0.1)
+	for band in [0.3, 0.95]:
+		var c: Vector2 = base + dir * r * float(band)
+		ci.draw_line(c - side * r * 0.3, c + side * r * 0.3, dark, r * 0.12)
+	ci.draw_circle(base, r * 0.3, INK)
+	ci.draw_circle(base, r * 0.22, dark)
+	ci.draw_circle(muzzle, r * 0.33, INK)
+	ci.draw_circle(muzzle, r * 0.22, Color("17140e"))
+	if kick > 0.0:
+		var puff := 1.0 - kick
+		ci.draw_circle(muzzle + dir * r * (0.35 + puff * 0.8), r * (0.28 + puff * 0.45), Color(0.86, 0.83, 0.76, 0.55 * kick))
+		ci.draw_circle(muzzle + dir * r * 0.2, r * 0.32 * kick, Color(1.0, 0.82, 0.4, kick))
+
+static func held_bomb(ci: CanvasItem, r: float, sd: float, body: Color, pose: Dictionary) -> void:
+	var back := clampf(float(pose.get("gone", 1.0)), 0.0, 1.0)
+	var wind := clampf(float(pose.get("wind", 0.0)), 0.0, 1.0)
+	var hand := Vector2(r * 0.85 * sd, r * 0.3).lerp(Vector2(r * 0.2 * sd, -r * 1.3), ease(wind, 0.5))
+	if back <= 0.0:
+		held_hand(ci, hand, r, body)
+		return
+	var br := r * 0.36 * (0.4 + 0.6 * back)
+	ci.draw_circle(hand, br + 2.0, INK)
+	ci.draw_circle(hand, br, Color("2a2c35"))
+	ci.draw_arc(hand, br * 0.72, 0.4, 2.7, 10, Color("ff7a46"), br * 0.24)
+	ci.draw_circle(hand + Vector2(-0.38, -0.38) * br, br * 0.26, Color(1, 1, 1, 0.35))
+	var cap := hand + Vector2(br * 0.35, -br * 0.85)
+	var tip := cap + Vector2(br * 0.35, -br * 0.4)
+	ci.draw_line(cap, tip, Color("c8a060"), 2.0)
+	var flick := 0.5 + 0.5 * sin(float(pose.get("t", 0.0)) * 30.0)
+	ci.draw_circle(tip, br * (0.22 + 0.1 * flick + 0.25 * wind), Color("ffd24d"))
+	ci.draw_circle(tip, br * 0.1, Color.WHITE)
+	held_hand(ci, hand + Vector2(-sd * br * 0.6, br * 0.55), r, body)
 
 # ------------------------------------------------------------------ silhouettes
 static func silhouette(ci: CanvasItem, shape: String, r: float, body: Color, dark: Color) -> void:
@@ -203,19 +345,10 @@ static func signature(ci: CanvasItem, sig: String, r: float, body: Color, dark: 
 			ci.draw_arc(Vector2(0, r * 0.42), r * 0.4, 0.0, TAU, 20, dark, 2.0, true)
 			for side in [-1.0, 1.0]:
 				ci.draw_circle(Vector2(side * r * 0.14, r * 0.45), r * 0.07, INK)
-		"mortar_tube":
-			ci.draw_line(Vector2(r * 0.2, -r * 0.3), Vector2(r * 0.85, -r * 1.25), INK, r * 0.55)
-			ci.draw_line(Vector2(r * 0.2, -r * 0.3), Vector2(r * 0.8, -r * 1.15), dark.lightened(0.15), r * 0.38)
 		"gold_sack":
 			ci.draw_circle(Vector2(r * 0.7, r * 0.25), r * 0.6, Color("8a6a20"))
 			ci.draw_circle(Vector2(r * 0.7, r * 0.25), r * 0.48, Color("c8a040"))
 			ci.draw_circle(Vector2(r * 0.85, r * 0.1), r * 0.15, Color("ffd24d"))
-		"bomb_pack":
-			ci.draw_circle(Vector2(r * 0.85, r * 0.35), r * 0.32, Color("1d1f26"))
-			ci.draw_circle(Vector2(r * 0.85, r * 0.05), r * 0.08, Color("ff3b3b"))
-		"spear":
-			ci.draw_line(Vector2(r * 0.4, r * 0.9), Vector2(r * 1.35, -r * 1.5), Color("e4e8ff"), 4.0)
-			poly(ci, [Vector2(r * 1.35, -r * 1.55), Vector2(r * 1.0, -r * 0.9), Vector2(r * 1.7, -r * 0.9)], accent, INK, 1.5)
 		"worm_tail":
 			for k in range(3):
 				var c := Vector2(0, r * (0.95 + k * 0.45))

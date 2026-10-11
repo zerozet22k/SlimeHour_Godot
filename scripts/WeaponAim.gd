@@ -25,10 +25,10 @@ static func shot_direction(body_aim: Vector2, muzzle_point: Vector2, target: Vec
 static func is_mirrored(direction: Vector2) -> bool:
 	return direction.x < 0.0
 
-## Gun silhouettes are mirrored per hand, independent of the world-facing
-## direction. The rear off-hand grip is opposite the primary hand.
+## Every hand holds its gun upright: the art only flips when the gun points
+## left, so no gun is ever drawn upside down.
 static func mirrored_grip(direction: Vector2, slot: int) -> bool:
-	return is_mirrored(direction) != (slot == 1)
+	return is_mirrored(direction)
 
 static func art_rotation_for_mirror(direction: Vector2, weapon_id: String, mirrored: bool) -> float:
 	var correction = deg_to_rad(float(ART_ANGLE_DEG.get(weapon_id, 0.0)))
