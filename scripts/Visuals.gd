@@ -148,28 +148,47 @@ func paint_road() -> void:
 		draw_rect(Rect2(left, by + 18, right - left, 4), Color("ffd24d"))
 		text_c("NO WAY BACK", Vector2(640 - g.cam_x, by + 52), 22, Color(1, 0.82, 0.3, 0.9), 4)
 
-## Building fronts beyond the pavement, lit windows in the biome's colours.
+## Houses along both edges: roofs seen from above with ridges, chimneys,
+## a lit window and a front step onto the pavement.
 func paint_city_blocks(b: Dictionary, left: float, right: float, top: float, bottom: float) -> void:
-	var block := 260.0
-	var first := int(floor(wy(top) / block)) - 1
-	var last := int(ceil(wy(bottom) / block)) + 1
+	var lot := 230.0
+	var first := int(floor(wy(top) / lot)) - 1
+	var last := int(ceil(wy(bottom) / lot)) + 1
+	var roofs := [Color("5a3a3a"), Color("3d4a5c"), Color("4a5a3a"), Color("5c4a2e"), Color("463a5c")]
 	for side in [-1, 1]:
 		var inner: float = left if side < 0 else right
 		var outer: float = g.landscape_left - 10.0 if side < 0 else g.landscape_left + g.landscape_width + 10.0
 		if (side < 0 and inner <= outer) or (side > 0 and inner >= outer):
 			continue
+		var x0: float = minf(inner, outer)
+		var w: float = absf(outer - inner)
+		# Back gardens / the block behind the houses.
+		draw_rect(Rect2(x0, top, w, bottom - top), Color(b["bg"]).lerp(Color("1e3a24"), 0.35))
 		for k in range(first, last + 1):
-			var y0: float = sy(float(k) * block) + 10.0
-			var x0: float = minf(inner, outer)
-			var w: float = absf(outer - inner)
-			var shade: float = 0.04 + hash2(k, side) * 0.05
-			draw_rect(Rect2(x0, y0, w, block - 20.0), Color(b["bg"]).lightened(shade))
-			draw_rect(Rect2((inner - 6.0) if side < 0 else inner, y0, 6.0, block - 20.0), Color(b["bg"]).lightened(shade + 0.1))
-			for wi in range(6):
-				var lit: bool = hash2(k * 7 + wi, side * 3) > 0.55
-				var wx: float = (inner - 30.0 - float(wi % 3) * 30.0) if side < 0 else (inner + 16.0 + float(wi % 3) * 30.0)
-				var wyy: float = y0 + 24.0 + float(wi / 3) * 90.0
-				draw_rect(Rect2(wx, wyy, 14.0, 24.0), Color(b["deco"], 0.55) if lit else Color(0, 0, 0, 0.35))
+			var y0: float = sy(float(k) * lot) + 14.0
+			var h: float = lot - 28.0
+			var roof: Color = roofs[int(hash2(k, side) * 5.0) % 5]
+			var depth: float = minf(w, 150.0)
+			var hx: float = inner - depth if side < 0 else inner
+			# Footprint and two roof slopes with a ridge.
+			draw_rect(Rect2(hx - 3.0, y0 - 3.0, depth + 6.0, h + 6.0), Color(0.05, 0.04, 0.06))
+			draw_rect(Rect2(hx, y0, depth, h * 0.5), roof.lightened(0.12))
+			draw_rect(Rect2(hx, y0 + h * 0.5, depth, h * 0.5), roof.darkened(0.15))
+			draw_line(Vector2(hx, y0 + h * 0.5), Vector2(hx + depth, y0 + h * 0.5), roof.lightened(0.3), 3.0)
+			var tile_y := y0 + 12.0
+			while tile_y < y0 + h - 6.0:
+				draw_line(Vector2(hx, tile_y), Vector2(hx + depth, tile_y), Color(0, 0, 0, 0.12), 1.0)
+				tile_y += 14.0
+			# Chimney and a glowing window on the street side.
+			var cx_ch: float = hx + depth * (0.3 + hash2(k * 3, side) * 0.4)
+			draw_rect(Rect2(cx_ch - 7.0, y0 + h * 0.2, 14.0, 14.0), Color("4a3a36"))
+			draw_rect(Rect2(cx_ch - 5.0, y0 + h * 0.2 + 2.0, 10.0, 4.0), Color(0, 0, 0, 0.5))
+			var street_x: float = inner - 6.0 if side < 0 else inner
+			if hash2(k * 7, side) > 0.35:
+				draw_rect(Rect2(street_x, y0 + h * 0.25, 6.0, 18.0), Color(b["deco"], 0.8))
+			# Door and step onto the pavement.
+			draw_rect(Rect2(street_x, y0 + h * 0.62, 6.0, 22.0), Color("8a5a36"))
+			draw_rect(Rect2((inner if side < 0 else inner - 12.0), y0 + h * 0.6, 12.0, 26.0), Color(0.55, 0.56, 0.6))
 
 ## Walkable pavement: paving slabs with seams, anchored to the world.
 func paint_pavement(b: Dictionary, x0: float, x1: float, top: float, bottom: float) -> void:
@@ -1042,22 +1061,9 @@ func paint_telegraphs() -> void:
 			elif e["kind"] == "spitter":
 				# Its acid is slow (~240 px/s) and easy to watch, so no aim line: only the body cue.
 				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, Color("a2ff83", 0.80), 2.5)
-			elif enemy_has_role(e, "mirror"):
-				var dest = P(e.get("lock", g.hero["pos"]))
-				var central = (dest - p).normalized()
-				for bend in [-0.23, 0.0, 0.23]:
-					draw_line(p, p + central.rotated(bend) * minf(520.0, p.distance_to(dest) + 60.0),
-						Color("72f3ff", 0.35 + 0.23 * sin(g.anim_t * 13.0)), 2.0)
-				draw_arc(p, 31.0, 0, TAU, 28, Color("aafaff"), 3.0)
-			elif e["kind"] == "burrower":
-				var dest = P(e.get("lock", g.hero["pos"]))
-				var burrow = e["kind"] == "burrower"
-				var shade = Color("ffe2a3") if burrow else Color("cba0ff")
-				var radius = 66.0 if burrow else 70.0
-				draw_circle(dest, radius, Color(shade, 0.10))
-				draw_arc(dest, radius, 0, TAU, 36, Color(shade, 0.9), 3.5)
-				draw_circle(p, float(e["r"]) * 1.15, Color(shade, 0.18))
-				draw_line(p, dest, Color(shade, 0.38), 2.0)
+			elif enemy_has_role(e, "riot"):
+				# Shield bash wind-up: the shield glows and leans forward.
+				draw_arc(p + Vector2(e["aim"]) * float(e["r"]), float(e["r"]) * 0.9, Vector2(e["aim"]).angle() - 1.0, Vector2(e["aim"]).angle() + 1.0, 14, Color("c8d8ff", 0.85), 4.0, true)
 
 ## Energy barriers at both ends of a locked boss arena.
 func paint_boss_arena() -> void:
@@ -1284,12 +1290,9 @@ func paint_identity_hazards() -> void:
 				draw_circle(p, 10.0, Color("33242a"))
 				draw_circle(p, 4.0, Color("ff704e") if armed else Color("a9dafa"))
 			"egg":
-				draw_circle(p, r + 3.0, Color("7dffcf", 0.18))
-				draw_arc(p, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - float(h["life"]) / float(h["max_life"])), 30, Color("a9ffee"), 3.0)
-				draw_circle(p, r * 0.7, Color("caffeb"))
+				paint_mama_egg(p, r, 1.0 - clampf(float(h["life"]) / float(h["max_life"]), 0.0, 1.0), float(h["hp"]) / 28.0)
 			"acid":
-				draw_circle(p, r, Color("a3ff65", 0.22))
-				draw_arc(p, r, 0, TAU, 20, Color("8adf5a", 0.55), 2.0)
+				paint_poison_patch(p, r, float(h["pos"].x) * 0.37, clampf(float(h["life"]) / 0.6, 0.0, 1.0))
 			"acid_trail":
 				# One uninterrupted toxic ribbon. Exact collision width, no rows of circles.
 				if h.has("pts"):
@@ -1325,14 +1328,11 @@ func paint_enemies() -> void:
 		if bool(e["boss"]):
 			paint_boss_links(e, p)
 		if bool(e.get("burrowing", false)) and not bool(e["boss"]):
-			# Actual underground phase: render the entrance crater, not the
-			# same standing slime. The destination and tunnel are shown above.
-			draw_circle(p, r + 4.0, Color("312920", 0.8))
-			draw_arc(p, r + 8.0, 0, TAU, 24, Color("e4b873", 0.8), 2.5)
+			paint_burrow_mound(e, p, r)
 			continue
 		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
-			draw_circle(p, r + 3.0, Color("652e28"))
-			draw_circle(p, r * 0.72, Color("ffbc69"))
+			var total := 1.55 if g.hard_mode else 1.8
+			paint_phoenix_egg(p, r, 1.0 - clampf(float(e["rebirth_t"]) / total, 0.0, 1.0))
 		else:
 			draw_enemy(e, p, r)
 		# Real slime-wall links, only around visible threatening packs.
@@ -1368,9 +1368,7 @@ func paint_enemies() -> void:
 		if enemy_has_role(e, "ashwing") and float(e.get("rebirth_t", 0.0)) > 0.0:
 			var progress = 1.0 - float(e["rebirth_t"]) / (1.55 if g.hard_mode else 1.8)
 			progress = clampf(progress, 0.0, 1.0)
-			draw_circle(p, r * (0.7 + progress * 0.35), Color(1.0, 0.35, 0.06, 0.25))
-			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80"), 4.0)
-			text_c("BREAK EGG OR IT REBIRTHS", p + Vector2(0, -r - 32.0), 10, Color("ffdf80"), 2)
+			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80", 0.8), 3.0, true)
 		elif e["kind"] == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
 			draw_arc(p, r + 10.0, 0, TAU, 28, Color("ffcf8a"), 4.0)
 			text_c("OVERHEATED", p + Vector2(0, -r - 28.0), 11, Color("ffe5a4"), 2)
@@ -1382,11 +1380,14 @@ func paint_enemies() -> void:
 					draw_arc(p, r + 7.0, -PI * 0.5, -PI * 0.5 + TAU * minf(1.0, float(e["treat_t"]) / 1.15), 24, Color("83ffac"), 3.0)
 		elif enemy_has_role(e, "siren"):
 			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
-		elif enemy_has_role(e, "mirror") and float(e.get("wind", 0.0)) > 0.0:
-			draw_arc(p, r + 9.0, 0, TAU, 24, Color("aafaff"), 3.0)
-		elif e["kind"] == "burrower" and float(e.get("emerge_t", 0.0)) > 0.0:
-			draw_arc(p, 66.0, 0, TAU, 48, Color("ffe2a3", 0.9), 3.0)
-			draw_circle(p, 66.0, Color("ffe2a3", 0.12))
+		elif e["kind"] == "burrower" and float(e.get("exposed_t", 0.0)) > 0.0:
+			for k in range(3):
+				var th: float = g.anim_t * 4.0 + TAU * float(k) / 3.0
+				draw_circle(p + Vector2(cos(th) * r * 0.8, -r - 6.0 + sin(th) * 4.0), 3.0, Color("ffe07f"))
+		elif enemy_has_role(e, "skitter") and float(e.get("dizzy_t", 0.0)) > 0.0:
+			for k in range(3):
+				var th2: float = g.anim_t * 5.0 + TAU * float(k) / 3.0
+				draw_circle(p + Vector2(cos(th2) * r * 0.9, -r - 6.0 + sin(th2) * 4.0), 3.0, Color("ffe07f"))
 		if e.has("affix"):
 			text_c(" · ".join(e["affix"]), p + Vector2(0, -r - 20), 11, Color(1, 0.82, 0.3, 0.85), 2)
 		elif enemy_has_role(e, "totem"):
@@ -1584,7 +1585,7 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 				draw_texture_rect_region(atlas, Rect2(ep + off - Vector2(pr, pr), Vector2(pr, pr) * 2.0), dot, pc)
 			if float(e["charm"]) > 0.0:
 				heart(ep + Vector2(0, -1), eye_r * 0.6, Color("ff3a8a"))
-	if kind == "riot":
+	if kind == "riot" and float(e.get("shield_hp", 1.0)) > 0.0:
 		var aim: Vector2 = e["aim"]
 		var sp = p + aim * (r + 4)
 		var perp = aim.orthogonal()
@@ -2221,7 +2222,79 @@ func paint_hero() -> void:
 			draw_line(m + d * k * 0.45, m + d * k * 1.15, Color("5ef6ff"), w)
 		draw_rect(Rect2(m - Vector2(1.5, 1.5), Vector2(3, 3)), Color("ff4655"))
 
+## A Burrower tunnelling: a moving dirt mound; when it stops it shakes and
+## cracks for a moment before it erupts.
+func paint_burrow_mound(e: Dictionary, p: Vector2, r: float) -> void:
+	var rumble: bool = float(e.get("rumble_t", 0.0)) > 0.0
+	var shake := Vector2(sin(g.anim_t * 60.0), cos(g.anim_t * 53.0)) * (3.0 if rumble else 0.0)
+	draw_set_transform(p + shake + Vector2(0, r * 0.4), 0.0, Vector2(1.0, 0.6))
+	draw_circle(Vector2.ZERO, r * 1.15, Color("3a2a1c"))
+	draw_circle(Vector2(0, -r * 0.2), r * 0.95, Color("7a5f40"))
+	draw_circle(Vector2(-r * 0.3, -r * 0.45), r * 0.3, Color("9c7a52"))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if rumble:
+		var k: float = 1.0 - float(e["rumble_t"]) / 0.55
+		for i in range(5):
+			var a := TAU * float(i) / 5.0 + 0.4
+			draw_line(p + Vector2.from_angle(a) * r * 0.5, p + Vector2.from_angle(a) * r * (0.9 + k * 1.6), Color("e4b873", 0.8), 2.5)
+		draw_arc(p, 56.0, 0.0, TAU, 40, Color("e4b873", 0.25 + 0.45 * k), 2.0, true)
+
+## Mama Blob's egg: speckled, wobbling harder and cracking as it nears hatching.
+func paint_mama_egg(p: Vector2, r: float, ready: float, health: float) -> void:
+	var wob: float = sin(g.anim_t * (6.0 + ready * 18.0)) * ready * 0.25
+	draw_set_transform(p + Vector2(3, 6), 0.0, Vector2(1.0, 0.45))
+	draw_circle(Vector2.ZERO, r * 0.8, Color(0, 0, 0, 0.3))
+	draw_set_transform(p, wob, Vector2(0.85, 1.05))
+	draw_circle(Vector2.ZERO, r + 2.0, Color("4a2638"))
+	draw_circle(Vector2.ZERO, r, Color("ffd9e6"))
+	draw_circle(Vector2(-r * 0.3, -r * 0.35), r * 0.28, Color(1, 1, 1, 0.7))
+	for i in range(5):
+		var sp := Vector2(sin(float(i) * 2.7) * r * 0.55, cos(float(i) * 1.9) * r * 0.55)
+		draw_circle(sp, r * 0.12, Color("ff8bb8"))
+	if ready > 0.5:
+		var crack := PackedVector2Array([Vector2(-r * 0.6, -r * 0.1), Vector2(-r * 0.2, r * 0.15), Vector2(r * 0.1, -r * 0.15), Vector2(r * 0.55, r * 0.1)])
+		draw_polyline(crack, Color("4a2638"), 2.0, true)
+	if ready > 0.8:
+		draw_polyline(PackedVector2Array([Vector2(r * 0.1, -r * 0.15), Vector2(r * 0.2, -r * 0.6)]), Color("4a2638"), 2.0, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if health < 1.0:
+		draw_arc(p, r + 6.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(health, 0.0, 1.0), 24, Color(1, 1, 1, 0.6), 2.0, true)
+
+## Ashwing's phoenix egg: dark shell with glowing cracks and licking flames.
+func paint_phoenix_egg(p: Vector2, r: float, ready: float) -> void:
+	var glow := 0.5 + 0.5 * sin(g.anim_t * (5.0 + ready * 14.0))
+	for k in range(3):
+		draw_circle(p, r * (1.3 + k * 0.25), Color(1.0, 0.45, 0.1, 0.06 + 0.05 * ready * glow))
+	for i in range(5):
+		var a := -PI * 0.5 + (float(i) - 2.0) * 0.45
+		var flick := 0.7 + 0.3 * sin(g.anim_t * 14.0 + i)
+		var base := p + Vector2.from_angle(a) * r * 0.75
+		draw_colored_polygon(PackedVector2Array([base + Vector2.from_angle(a + PI * 0.5) * 5.0, base + Vector2.from_angle(a) * r * 0.6 * flick, base - Vector2.from_angle(a + PI * 0.5) * 5.0]), Color(1.0, 0.55, 0.15, 0.85))
+	draw_set_transform(p, 0.0, Vector2(0.82, 1.05))
+	draw_circle(Vector2.ZERO, r + 2.0, Color("2a0f0a"))
+	draw_circle(Vector2.ZERO, r, Color("6b2418"))
+	draw_circle(Vector2(-r * 0.3, -r * 0.35), r * 0.25, Color(1, 0.7, 0.5, 0.35))
+	var hot := Color(1.0, 0.75, 0.3, 0.5 + 0.5 * glow)
+	draw_polyline(PackedVector2Array([Vector2(-r * 0.5, -r * 0.6), Vector2(-r * 0.1, -r * 0.2), Vector2(-r * 0.35, r * 0.25), Vector2(0, r * 0.7)]), hot, 2.5, true)
+	if ready > 0.4:
+		draw_polyline(PackedVector2Array([Vector2(r * 0.55, -r * 0.4), Vector2(r * 0.15, 0), Vector2(r * 0.4, r * 0.45)]), hot, 2.5, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## A Sapper's sticky bomb on the player: blinking faster as it counts down.
+func paint_sticky_bomb() -> void:
+	if g.hero.is_empty() or not g.hero.has("sticky_bomb"):
+		return
+	var bomb: Dictionary = g.hero["sticky_bomb"]
+	var p := P(Vector2(g.hero["pos"]) + Vector2(10, -14))
+	var left: float = clampf(float(bomb["t"]) / 2.2, 0.0, 1.0)
+	draw_circle(p, 9.0, Color("1d1f26"))
+	draw_circle(p + Vector2(-2, -2), 3.0, Color("6b7080"))
+	var blink := fmod(g.anim_t * (3.0 + (1.0 - left) * 14.0), 1.0) < 0.5
+	draw_circle(p + Vector2(0, -9), 3.0, Color("ff3b3b") if blink else Color("5a1414"))
+	draw_arc(P(g.hero["pos"]), 24.0, -PI * 0.5, -PI * 0.5 + TAU * left, 28, Color("ff7a46", 0.9), 3.0, true)
+
 func paint_orbitals() -> void:
+	paint_sticky_bomb()
 	var n = int(g.st("orbit")) + g.temp_orbitals.size()
 	var hp: Vector2 = g.hero["pos"]
 	if n > 0:

@@ -75,6 +75,7 @@ static func status_color(s: String) -> Color:
 # ================================================================= step
 static func step(g, dt: float) -> void:
 	var t0 = Time.get_ticks_usec()
+	update_sticky_bomb(g, dt)
 	update_delayed(g, dt)
 	EnemyIdentity.update_hazards(g, dt)
 	var t1 = Time.get_ticks_usec()
@@ -453,6 +454,10 @@ static func expire(g, s: Dictionary) -> void:
 	if not s["friendly"]:
 		if s.has("bh"):
 			BossFight.on_bullet_expire(g, s)
+		if bool(s.get("sticky_bomb", false)):
+			schedule_boss_blast(g, s["pos"], 60.0, float(s["dmg"]), 0.9, "ff7a46")
+		if bool(s.get("acid_trail", false)):
+			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15)
 		return
 	WeaponSignatures.on_expire(g, s)
 	match kind:
@@ -552,9 +557,72 @@ static func collide_enemies(g, s: Dictionary) -> void:
 					best = e
 		if best == null:
 			return
+		if guard_shot(g, s, best, a.lerp(b, best_t)):
+			return
 		on_hit(g, s, best, a.lerp(b, best_t))
 		if bool(s["dead"]):
 			return
+
+## A Sapper's sticky bomb counts down on the player. Dashing or bashing
+## shakes it off onto the ground, where it still goes off a moment later.
+static func update_sticky_bomb(g, dt: float) -> void:
+	if g.hero.is_empty() or not g.hero.has("sticky_bomb"):
+		return
+	var bomb: Dictionary = g.hero["sticky_bomb"]
+	if float(g.hero.get("dash_t", 0.0)) > 0.0 or float(g.hero.get("bash_t", 0.0)) > 0.0:
+		g.hero.erase("sticky_bomb")
+		schedule_boss_blast(g, g.hero["pos"] - Vector2(g.hero.get("aim", Vector2.UP)) * 30.0, 60.0, float(bomb["dmg"]), 0.55, "ff7a46")
+		g.say(g.hero["pos"] + Vector2(0, -40), "SHOOK IT OFF", Color("ffd9b0"), 18)
+		return
+	bomb["t"] = float(bomb["t"]) - dt
+	if float(bomb["t"]) <= 0.0:
+		g.hero.erase("sticky_bomb")
+		explode(g, g.hero["pos"], 70.0, 0.0, 9, Color("ff7a46"))
+		g.hurt(float(bomb["dmg"]) * 1.5, g.hero["pos"], "a Sapper's sticky bomb")
+
+## Mirror Mimics reflect a shot straight back at you; a Riot's shield stops
+## shots from the front (even piercing ones) until the shield breaks.
+static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool:
+	var kind = str(s["kind"])
+	if kind in ["disc", "boomerang", "flame", "car", "saw", "bee", "bubble"]:
+		return false
+	if float(e["stun"]) > 0.0 or float(e["frozen"]) > 0.0:
+		return false
+	if has_role(g, e, "mirror") and float(e.get("mirror_cd", 0.0)) <= 0.0:
+		e["mirror_cd"] = 1.1
+		var back: Vector2 = (Vector2(g.hero["pos"]) - impact).normalized()
+		s["friendly"] = false
+		s["kind"] = "enemy"
+		s["speed"] = clampf(float(s["speed"]), 380.0, 700.0)
+		s["vel"] = back * float(s["speed"])
+		s["dmg"] = minf(float(s["dmg"]), float(e["dmg"]) * 1.6)
+		s["r"] = clampf(float(s["r"]), 4.0, 8.0)
+		for key in ["homing", "wave", "curve"]:
+			s[key] = 0.0
+		for key in ["pierce", "bounce", "rico", "split"]:
+			s[key] = 0
+		s["flags"] = {}
+		s["hit"] = {}
+		s["life"] = 2.0
+		s["color"] = Color("82e9ef")
+		s["vfx_style"] = "enemy"
+		s["src"] = "a Mirror Mimic reflection"
+		e["flash"] = 0.12
+		g.spawn_ring_fx(impact, Color("bff8ff"), 26.0)
+		g.sfx.play("block")
+		return true
+	if has_role(g, e, "riot") and g.st("ap") <= 0.0 and float(e.get("shield_hp", float(e["max_hp"]) * 0.8)) > 0.0:
+		var heading: Vector2 = Vector2(s["vel"]).normalized()
+		if heading.dot(e["aim"]) < -0.35:
+			e["shield_hp"] = float(e.get("shield_hp", float(e["max_hp"]) * 0.8)) - float(s["dmg"])
+			s["dead"] = true
+			g.spawn_burst(impact, Color("c8d8ff"), 4, 160.0, 3.0)
+			if float(e["shield_hp"]) <= 0.0:
+				e["stun"] = maxf(float(e["stun"]), 1.0)
+				g.say(Vector2(e["pos"]) + Vector2(0, -float(e["r"]) - 18.0), "SHIELD BROKEN", Color("c8d8ff"), 18)
+				g.sfx.play("bonk")
+			return true
+	return false
 
 static func on_hit(g, s: Dictionary, e: Dictionary, impact: Vector2) -> void:
 	var kind = str(s["kind"])
@@ -704,6 +772,13 @@ static func collide_hero(g, s: Dictionary) -> void:
 		if float(g.hero["dash_window"]) > 0.0:
 			g.perfect_dodge()
 		return
+	if bool(s.get("sticky_bomb", false)):
+		if not g.hero.has("sticky_bomb"):
+			g.hero["sticky_bomb"] = {"t": 2.2, "dmg": float(s["dmg"])}
+			g.say(g.hero["pos"] + Vector2(0, -40), "STICKY BOMB! DASH!", Color("ffb07a"), 20)
+			g.sfx.play("boss_warn")
+		s["dead"] = true
+		return
 	if randf() < g.st("reflect"):
 		s["friendly"] = true
 		s["vel"] = -s["vel"] * 1.3
@@ -738,7 +813,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 	var dir: Vector2 = ctx.get("dir", Vector2.ZERO)
 	var aoe = bool(ctx.get("aoe", false))
 	var gen = int(ctx.get("gen", 0))
-	if has_role(g, e, "riot") and g.st("ap") <= 0.0 and dir != Vector2.ZERO and not aoe and float(e["stun"]) <= 0.0:
+	if has_role(g, e, "riot") and g.st("ap") <= 0.0 and dir != Vector2.ZERO and not aoe and float(e["stun"]) <= 0.0 and float(e.get("shield_hp", 1.0)) > 0.0:
 		if dir.dot(e["aim"]) < -0.35:
 			dmg *= 0.15
 			if randf() < 0.15:
@@ -860,6 +935,8 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 		return
 	if str(e["kind"]) == "chonk" and float(e.get("recover", 0.0)) > 0.0:
 		amount *= 1.5
+	if float(e.get("exposed_t", 0.0)) > 0.0 or float(e.get("dizzy_t", 0.0)) > 0.0:
+		amount *= 1.5
 	if float(e.get("siphon_empowered_t", 0.0)) > 0.0:
 		amount *= 0.62 # Empowered ally resists bullets and AoE while linked.
 	if str(e["kind"]) == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
@@ -871,25 +948,6 @@ static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary)
 	amount = totem_protected_damage(g, e, amount)
 	amount *= boss_identity_damage_factor(g, e)
 	e["hp"] = float(e["hp"]) - amount
-	# Mirror Mimic copies one incoming weapon shot as a delayed, dodgeable countershot.
-	# It still takes the full hit; there is no instant damage reflection.
-	var mirror_state: Dictionary = e.get("mix_state_mirror", e)
-	if has_role(g, e, "mirror") and float(e["hp"]) > 0.0 and ctx.get("shot") != null and float(mirror_state.get("cd", 0.0)) <= 0.0 and float(mirror_state.get("wind", 0.0)) <= 0.0 and float(e["charm"]) <= 0.0:
-		# The mimic reacts to pressure quickly, but its counterfire is fully
-		# warned and cannot deflect the incoming damage itself.
-		e["wind"] = 0.70
-		e["cd"] = 2.9
-		e["lock"] = g.hero["pos"] + g.hero["vel"] * 0.25
-		e["mirror_kind"] = str(ctx["shot"].get("kind", "bullet"))
-		e["mirror_curve"] = float(ctx["shot"].get("curve", 0.0))
-		e["mirror_wave"] = float(ctx["shot"].get("wave", 0.0))
-		e["mirror_shots"] = mini(3, maxi(1, int(ctx["shot"].get("split", 0)) + 1))
-		if str(e["kind"]).begins_with("mix_"):
-			mirror_state["wind"] = e["wind"]
-			mirror_state["cd"] = e["cd"]
-			mirror_state["lock"] = e["lock"]
-			e["mix_state_mirror"] = mirror_state
-		g.spawn_ring_fx(e["pos"], Color("82e9ef"), 30.0)
 	e["flash"] = 0.09
 	e["squash"] = maxf(float(e["squash"]), 0.25 if crit else 0.14)
 	g.damage_dealt += amount
@@ -1437,12 +1495,13 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e["dead"]):
 			continue
 		e["vel"] = e["vel"].lerp(desired * float(e["speed"]) * speed_mul, 1.0 - exp(-8.0 * dt))
-		if disabled or bool(e.get("burrowing", false)) or bool(e.get("minion_static", false)):
+		if disabled or (bool(e.get("burrowing", false)) and bool(e["boss"])) or bool(e.get("minion_static", false)):
 			e["vel"] = Vector2.ZERO
 		if bool(e.get("burrowing", false)) or bool(e.get("minion_static", false)):
 			e["kb"] = Vector2.ZERO
 		if float(e["charge"]) > 0.0 and not disabled:
-			e["vel"] = e["cdir"] * 560.0
+			e["vel"] = e["cdir"] * (640.0 if str(e["kind"]) == "skitter" else 560.0)
+		e["dizzy_t"] = maxf(0.0, float(e.get("dizzy_t", 0.0)) - dt)
 		if float(e.get("sprint_t", 0.0)) > 0.0 and not disabled:
 			e["vel"] *= 1.85
 		# Late-run scaling, HASTED elites, and Siren auras can multiply sprint
@@ -1477,11 +1536,27 @@ static func update_enemies(g, dt: float) -> void:
 			var bounded: Vector2 = skitter_dash_bound(e["pos"], hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
 			var edge_hit: bool = bounded.distance_squared_to(e["pos"]) > 0.25 or absf(bounded.x) >= g.road_half - float(e["r"]) - 0.5
 			e["pos"] = bounded
-			if edge_hit or e["pos"].distance_squared_to(before_obstacle_push) > 0.25:
-				e["charge"] = 0.0
-				e["stun"] = maxf(float(e["stun"]), 0.65)
-				e["vel"] = Vector2.ZERO
-				e["wind"] = 0.0
+			var pushed: Vector2 = Vector2(e["pos"]) - before_obstacle_push
+			if edge_hit or pushed.length_squared() > 0.25:
+				# Ricochet: reflect off the wall or prop it hit, up to 3 times,
+				# then it is dizzy and takes extra damage.
+				var normal := Vector2.ZERO
+				if absf(float(e["pos"].x)) >= g.road_half - float(e["r"]) - 0.5:
+					normal = Vector2(-signf(float(e["pos"].x)), 0.0)
+				elif pushed.length_squared() > 0.25:
+					normal = pushed.normalized()
+				else:
+					normal = Vector2(0.0, -signf(Vector2(e["cdir"]).y))
+				e["cdir"] = Vector2(e["cdir"]).bounce(normal).normalized()
+				e["bounces"] = int(e.get("bounces", 0)) + 1
+				g.spawn_ring_fx(e["pos"], Color("83eaff"), 22.0)
+				g.sfx.play("bonk")
+				if int(e["bounces"]) >= 3:
+					e["charge"] = 0.0
+					e["stun"] = maxf(float(e["stun"]), 1.4)
+					e["dizzy_t"] = 1.4
+					e["vel"] = Vector2.ZERO
+					e["wind"] = 0.0
 		if str(e["kind"]) == "bull" and float(e["charge"]) > 0.0:
 			EnemyIdentity.bull_push(g, e, dt)
 		# Separation + bowling collisions
@@ -1742,8 +1817,9 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					# Lock direction once, then overshoot rather than tracking the player.
-					e["charge"] = 2.5
+					# Lock direction once, then ricochet around rather than tracking.
+					e["charge"] = 2.4
+					e["bounces"] = 0
 					e["cdir"] = (e["lock"] - e["pos"]).normalized()
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and dist > 80.0 and dist < 300.0:
@@ -1753,11 +1829,17 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				return Vector2.ZERO
 			return (dir * 0.7 + dir.orthogonal() * sin(float(e["t"]) * 7.0 + float(e["phase"])) * 0.95).normalized()
 		"sapper":
-			# Visible persistent proximity mine, not Mortar's timed artillery.
-			if float(e["cd"]) <= 0.0 and dist < 450.0:
-				e["cd"] = 4.8 if not g.hard_mode else 3.8
-				var mine_pos: Vector2 = hero_pos + g.hero["vel"] * 0.28
-				EnemyIdentity.place(g, "mine", mine_pos, 31.0, float(e["dmg"]) * 1.35, 10.0, 0.95)
+			# Sticky bomber: lobs a bomb that sticks to YOU. Dash or bash to
+			# shake it off before it blows; a miss lands as a ground bomb.
+			if float(e["cd"]) <= 0.0 and dist < 430.0 and dist > 110.0:
+				e["cd"] = 4.6 if not g.hard_mode else 3.8
+				var aim_at: Vector2 = hero_pos + Vector2(g.hero.get("vel", Vector2.ZERO)) * 0.3
+				var bomb = enemy_fire(g, e, (aim_at - Vector2(e["pos"])).normalized(), 1, 0.0, 330.0, 8.0)
+				if bomb != null:
+					bomb["sticky_bomb"] = true
+					bomb["dmg"] = float(e["dmg"]) * 1.4
+					bomb["life"] = clampf(Vector2(e["pos"]).distance_to(aim_at) / 330.0 + 0.2, 0.4, 1.6)
+					bomb["color"] = Color("ff7a46")
 				e["squash"] = 0.5
 			return dir if dist > 325.0 else (-dir if dist < 190.0 else dir.orthogonal() * 0.4)
 		"lancer":
@@ -1775,7 +1857,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 							g.hurt(float(e["dmg"]) * 1.25, e["pos"], "a Lancer's wide spear sweep")
 						g.spawn_ring_fx(e["pos"], Color("c8d5ff"), 76.0)
 					else:
-						var spear = enemy_fire(g, e, aim, 1, 0.0, 585.0, 9.0)
+						var spear = enemy_fire(g, e, aim, 1, 0.0, 950.0, 9.0)
 						if spear != null:
 							spear["pierce"] = 3
 							spear["dmg"] = float(e["dmg"]) * 1.15
@@ -1788,8 +1870,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["wind"] = 0.60
 				else:
 					e["lancer_attack"] = "spear"
-					e["cd"] = 3.25 if not g.hard_mode else 2.65
-					e["wind"] = 0.78
+					e["cd"] = 3.0 if not g.hard_mode else 2.45
+					e["wind"] = 0.55
 				e["lock"] = hero_pos + g.hero["vel"] * (0.10 if dist <= 240.0 else 0.31)
 				return Vector2.ZERO
 			return dir if dist > 170.0 else -dir * 0.25
@@ -1842,58 +1924,65 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 			# A twitchy chaser that must be killed twice, with a long visible pause.
 			return (dir + dir.orthogonal() * sin(float(e["t"]) * 4.0 + float(e["phase"])) * 0.3).normalized()
 		"mirror":
-			# No default shotgun: only copied shots in response to player damage.
-			if float(e["wind"]) > 0.0:
-				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					var aim: Vector2 = (Vector2(e.get("lock", hero_pos)) - e["pos"]).normalized()
-					var copied_kind: String = str(e.get("mirror_kind", "bullet"))
-					var count = mini(3, int(e.get("mirror_shots", 1)))
-					for k in range(count):
-						var arc: float = (float(k) - float(count - 1) * 0.5) * 0.12
-						shot(g, e["pos"], aim.rotated(arc), float(e["dmg"]) * 0.66,
-							{"friendly": false, "kind": "enemy", "speed": 355.0,
-							"life": 2.4, "r": 7.0 if copied_kind in ["rocket", "grenade", "egg"] else 4.0,
-							"curve": float(e.get("mirror_curve", 0.0)) * 0.65,
-							"wave": minf(10.0, float(e.get("mirror_wave", 0.0))),
-							"color": Color("82e9ef"), "src": "a Mirror Mimic copy"})
-				return Vector2.ZERO
+			# Mirror Mimic reflects shots on contact (see reflect_shot); it
+			# keeps its distance and strafes so you have to angle around it.
+			e["mirror_cd"] = maxf(0.0, float(e.get("mirror_cd", 0.0)) - dt)
+			if dist < 200.0:
+				return -dir * 0.6 + dir.orthogonal() * 0.6
 			return (dir * 0.5 + dir.orthogonal() * sin(float(e["t"]) * 3.8 + float(e["phase"])) * 0.95).normalized()
-		"burrower":
-			# A real two-stage underground trap, not Blinky's teleport:
-			# the emerging crater and the collapsing tunnel are separate warnings.
-			if float(e.get("emerge_t", 0.0)) > 0.0:
-				e["emerge_t"] = maxf(0.0, float(e["emerge_t"]) - dt)
-				return Vector2.ZERO
+		"riot":
+			# Shield bash: a short wind-up, then a shove that knocks you back.
+			if float(e.get("bash_t", 0.0)) > 0.0:
+				e["bash_t"] = float(e["bash_t"]) - dt
+				if e["pos"].distance_to(hero_pos) < float(e["r"]) + 20.0 and not bool(e.get("bash_hit", false)):
+					e["bash_hit"] = true
+					if g.hurt(float(e["dmg"]) * 1.1, e["pos"], "a Riot shield bash"):
+						g.hero["push"] = Vector2(g.hero.get("push", Vector2.ZERO)) + Vector2(e["cdir"]) * 620.0
+				return Vector2(e["cdir"]) * 4.2
 			if float(e["wind"]) > 0.0:
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0:
-					var entrance: Vector2 = e.get("tunnel_start", e["pos"])
-					var exit: Vector2 = e.get("lock", e["pos"])
-					e["pos"] = exit
+					e["bash_t"] = 0.28
+					e["bash_hit"] = false
+					e["cdir"] = dir
+				return Vector2.ZERO
+			if float(e.get("shield_hp", 1.0)) > 0.0 and float(e["cd"]) <= 0.0 and dist < 120.0:
+				e["cd"] = 2.6
+				e["wind"] = 0.42
+				return Vector2.ZERO
+			return dir
+		"burrower":
+			# Tunnels as a visible dirt mound, rumbles briefly under you, then
+			# erupts and stays exposed. No fissure lines or long warnings.
+			if float(e.get("exposed_t", 0.0)) > 0.0:
+				e["exposed_t"] = maxf(0.0, float(e["exposed_t"]) - dt)
+				return Vector2.ZERO
+			if float(e.get("rumble_t", 0.0)) > 0.0:
+				e["rumble_t"] = maxf(0.0, float(e["rumble_t"]) - dt)
+				if float(e["rumble_t"]) <= 0.0:
 					e["burrowing"] = false
-					e["kb"] = Vector2.ZERO
-					e["vel"] = Vector2.ZERO
-					e["emerge_t"] = 0.62
-					g.spawn_ring_fx(exit, Color("ffe2a3"), 55.0)
-					if g.delayed.size() < 140:
-						schedule_boss_blast(g, exit, 55.0, float(e["dmg"]) * 0.70, 0.68, "e7a75b")
-						schedule_boss_line(g, entrance, exit, 22.0, float(e["dmg"]) * 0.88, 1.12, "d2ab69")
-					EnemyIdentity.place_line(g, entrance, exit, 18.0, float(e["dmg"]) * 0.30, 3.1)
+					e["exposed_t"] = 1.8
+					e["cd"] = 3.2 if not g.hard_mode else 2.6
+					g.spawn_ring_fx(e["pos"], Color("e4b873"), 58.0)
+					g.spawn_burst(e["pos"], Color("8a6d4a"), 10, 200.0, 4.0)
+					g.add_shake(5.0)
 					g.sfx.play("thunk")
+					if hero_pos.distance_to(e["pos"]) <= 56.0 + 11.0:
+						if g.hurt(float(e["dmg"]) * 1.2, e["pos"], "a Burrower eruption"):
+							g.hero["push"] = Vector2(g.hero.get("push", Vector2.ZERO)) + (hero_pos - Vector2(e["pos"])).normalized() * 420.0
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist > 115.0 and dist < 610.0:
-				e["cd"] = 3.85 if not g.hard_mode else 3.1
-				e["wind"] = 0.98
-				e["tunnel_start"] = e["pos"]
+			if bool(e.get("burrowing", false)):
+				e["dig_t"] = float(e.get("dig_t", 0.0)) + dt
+				if dist < 34.0 or float(e["dig_t"]) > 2.6:
+					e["rumble_t"] = 0.55
+					return Vector2.ZERO
+				return dir * 1.9
+			if float(e["cd"]) <= 0.0 and dist > 90.0:
 				e["burrowing"] = true
-				var target: Vector2 = hero_pos + g.hero["vel"] * 0.33
-				target += Vector2(randf_range(-24.0, 24.0), randf_range(-12.0, 12.0))
-				target.x = clampf(target.x, -g.road_half + float(e["r"]) + 14.0, g.road_half - float(e["r"]) - 14.0)
-				e["lock"] = target
-				g.spawn_ring_fx(e["pos"], Color("c8a66e"), 25.0)
+				e["dig_t"] = 0.0
+				g.spawn_burst(e["pos"], Color("8a6d4a"), 6, 120.0, 3.0)
 				return Vector2.ZERO
-			return (dir * 0.88 + dir.orthogonal() * sin(float(e["t"]) * 1.8) * 0.20).normalized()
+			return dir * 0.6
 		"siren":
 			# Command window synchronizes rushers; no buffing bosses.
 			if float(e["cd"]) <= 0.0:
@@ -2049,6 +2138,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						stream["acid_trail"] = true
 						stream["trail_anchor"] = stream["pos"]
 						stream["trail_dmg"] = float(e["dmg"])
+						stream["life"] = clampf(Vector2(lock).distance_to(e["pos"]) / 245.0, 0.45, 2.4)
 					if g.sector >= 6:
 						for side in [-1.0, 1.0]:
 							var hook = enemy_fire(g, e, aim.rotated(side * 0.31), 1, 0.0, 225.0, 5.5)

@@ -1536,6 +1536,10 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		e["affix"] = pool.slice(0, 1 + int(sector >= 13) + int(sector >= 20))
 		if e["affix"].has("HASTED"):
 			e["speed"] = float(e["speed"]) * 1.6
+	if not is_boss and float(d["hp"]) <= 60.0:
+		e["hp"] = float(e["hp"]) * 1.1
+		e["max_hp"] = e["hp"]
+		e["dmg"] = float(e["dmg"]) * 1.1
 	enemies.append(e)
 	# Totem shields apply immediately—even before the next AI simulation tick.
 	# Keep this cache coherent when Debug Lab or summons spawn support units.

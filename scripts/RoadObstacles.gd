@@ -18,6 +18,8 @@ static func camera_x(hero_x: float, road_half: float, canvas_width: float) -> fl
 ## Layouts pick which parts exist; extra width becomes more lanes and parts,
 ## never a giant empty pavement.
 const LANE_W = 115.0
+## Trees only collide at the trunk, so you can always walk around them.
+const TREE_R = 14.0
 const GUTTER = 12.0
 const BIKE_W = 52.0
 const PARK_W = 80.0
@@ -124,14 +126,14 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 	while y > top:
 		for side in [-1.0, 1.0]:
 			if rng.randf() < 0.9:
-				place(result, "tree", Vector2(side * tree_x, y), 29.0, -1.0)
+				place(result, "tree", Vector2(side * tree_x, y), TREE_R, -1.0)
 		y -= 230.0
 	# Planted centre islands.
 	if island > 0.0 and not boss:
 		y = first - 120.0
 		while y > top:
 			if not in_island_gap(y, start_y):
-				place(result, "tree", Vector2(0.0, y), 29.0, -1.0)
+				place(result, "tree", Vector2(0.0, y), TREE_R, -1.0)
 			y -= 240.0
 	# Roadworks close the kerb-side lane on multi-lane roads: sawhorses across
 	# both ends, a cone taper on the approach and cones along the lane marking.

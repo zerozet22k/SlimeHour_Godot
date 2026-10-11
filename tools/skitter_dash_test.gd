@@ -29,7 +29,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var source = FileAccess.get_file_as_string("res://scripts/Combat.gd")
-	check(source.contains('e["charge"] = 2.5'), "Skitter dash lasts beyond a short lunge")
+	check(source.contains('e["charge"] = 2.4') and source.contains('e["bounces"]'), "Skitter ricochets off walls and props during a long dash")
 	check(source.contains('e["cdir"] = (e["lock"] - e["pos"]).normalized()'), "Skitter locks its direction before dashing")
 	check(source.contains("RoadObstacles.resolve_movement(before_dash_move"), "Skitter uses swept obstacle collision")
 	var hero = Vector2(100, 0)
