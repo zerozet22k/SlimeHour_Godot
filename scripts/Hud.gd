@@ -2627,7 +2627,7 @@ func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 	var v = g.visuals
 	var description: Dictionary = g.enemy_db.get(kind, {})
 	var pair: Array = description.get("mix", [])
-	var preview = str(pair[0]) if not pair.is_empty() else kind
+	var preview = kind if v.atlas_cell.has(kind) or pair.is_empty() else str(pair[0])
 	if v.atlas != null and v.atlas_cell.has(preview):
 		var size = minf(r.size.x, r.size.y)
 		var dst = Rect2(r.get_center() - Vector2(size, size) * 0.5, Vector2(size, size))
@@ -2635,11 +2635,7 @@ func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 		var accent = Color(str(description["color"]))
 		draw_circle(dst.get_center() + Vector2(0, size * 0.18), size * 0.42, Color(0, 0, 0, 0.35 * a))
 		draw_circle(dst.get_center() + Vector2(0, -size * 0.04), size * 0.37, Color(accent, 0.11 * a))
-		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(50, 50), Vector2(100, 100)), Color(1, 1, 1, a))
-		if pair.size() == 2:
-			var second = Color(str(g.enemy_db[str(pair[1])]["color"]))
-			v.MutationParts.draw_received(self, str(pair[0]), str(pair[1]), v.MutationKit.payload_index(kind, str(pair[1])),
-				dst.get_center() + Vector2(0, size * 0.08), size * 0.3, Color(second, a), g.anim_t)
+		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(36, 36), Vector2(128, 128)), Color(1, 1, 1, a))
 		var face = str(description.get("look", {}).get("face", ""))
 		if face != "visor" and kind not in ["heli", "necro", "totem", "riot"]:
 			for side in [-1.0, 1.0]:

@@ -1,3 +1,9 @@
+## v0.1.72 — True fusion mutations
+
+- Street monsters are now built from layers. The **body parent** gives the silhouette, its own anatomy (Spitter's neck and bulb, Bull's horns, Tick's legs, Ashwing's wings, Kaboomba's fuse...) and its eyes. The **other parent** gives its colours, surface pattern, mouth and decorations (Kaboomba's black skin, red grin and bomb spikes; Riot's armour; Leechling's sucker mouth...).
+- A mutation is a true fusion of the two, baked into its own sprite in game and in the Mutation Book: Phoenix Bomb is an Ashwing in Kaboomba's black, grinning, spiked skin; Bulwark Ram is a horned Bull in Riot armour.
+- Mutation Book portraits no longer crop off wings and legs.
+
 ## v0.1.71 — Mutations built from body parts
 
 - Every monster's base model now **gives two parts** (one for each augment it can pass on: Kaboomba's lit fuse or bomb spikes, Larry's laser lens or heat vents, Medic's nurse cap or cross pack...) and **receives one part** in a fixed slot on its own body (on its head, side or underneath).

@@ -10,6 +10,7 @@ const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const MonsterModels = preload("res://scripts/MonsterModels.gd")
 const MutationKit = preload("res://scripts/MutationKit.gd")
 const MutationParts = preload("res://scripts/MutationParts.gd")
+const MonsterKit = preload("res://scripts/MonsterKit.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -1417,6 +1418,7 @@ func enemy_has_role(e: Dictionary, role: String) -> bool:
 	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
 
 var atlas: Texture2D = null
+var mix_rebake_pending := false
 var atlas_cell: Dictionary = {}
 
 class Baker extends Node2D:
@@ -1469,6 +1471,7 @@ func bake_enemies() -> void:
 			atlas_cell[keys[i]] = Rect2((i % ATLAS_COLS) * CELL, int(i / ATLAS_COLS) * CELL, CELL, CELL)
 		atlas = ImageTexture.create_from_image(img)
 	vp.queue_free()
+	mix_rebake_pending = false
 
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	if bool(e.get("boss", false)) and BossFight.is_boss_kind(str(e["kind"])):
@@ -1492,6 +1495,12 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	var mixed = kind.begins_with("mix_")
 	var parents: Array = g.enemy_db[kind].get("mix", []) if mixed else []
 	var base_kind = str(parents[0]) if not parents.is_empty() else kind
+	if mixed and atlas_cell.has(kind):
+		base_kind = kind
+	elif mixed and not mix_rebake_pending and atlas != null:
+		# A mutant first seen mid-run: bake its fusion sprite once.
+		mix_rebake_pending = true
+		bake_enemies()
 	var src = atlas_cell.get(base_kind + ("*" if bool(e["elite"]) else ""))
 	if atlas == null or src == null:
 		draw_enemy_live(e, p, r)
@@ -1596,9 +1605,11 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	if mixed and parents.size() >= 2:
 		# Inherit one ANATOMICAL feature from the second parent. Do not
 		# paste eyes, masks, lips or a complete second face onto the base.
-		# The giver's part, plugged into the body parent's receiving slot.
-		var secondary = Color(str(g.enemy_db[str(parents[1])]["color"]))
-		MutationParts.draw_received(self, str(parents[0]), str(parents[1]), MutationKit.payload_index(kind, str(parents[1])), p, r, secondary, g.anim_t + float(e["phase"]))
+		if base_kind != kind:
+			# Until its fusion sprite is baked, draw the fusion live.
+			draw_set_transform(p, 0.0, Vector2.ONE)
+			draw_enemy_body(self, kind, bool(e["elite"]), r, Color(str(g.enemy_db[kind]["color"])), false)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_status(e, p, r)
 
 ## Bosses are drawn live: they animate, react to phases and wind up visibly.
@@ -1642,13 +1653,7 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 	draw_set_transform(p + Vector2(0, r * 0.75), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, r * 0.95, Color(0, 0, 0, 0.35))
 	draw_set_transform(p, 0.0, Vector2.ONE)
-	var mixed = kind.begins_with("mix_") and g.enemy_db[kind].has("mix")
-	var parent = str(g.enemy_db[kind]["mix"][0]) if mixed else kind
-	var parent_color = Color(str(g.enemy_db[parent]["color"])) if mixed else e["color"]
-	draw_enemy_body(self, parent, bool(e["elite"]), r, parent_color, float(e["flash"]) > 0.0)
-	if mixed:
-		var secondary = Color(str(g.enemy_db[str(g.enemy_db[kind]["mix"][1])]["color"]))
-		draw_hybrid_trait(self, Vector2.ZERO, r, str(e.get("hybrid_trait", parts.get("trait", "ears"))), secondary, int(parts.get("variant", 0)))
+	draw_enemy_body(self, kind, bool(e["elite"]), r, e["color"], float(e["flash"]) > 0.0)
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
 	if str(parts.get("face", "")) != "visor":
@@ -1799,6 +1804,16 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 	if BossFight.is_boss_kind(kind):
 		# Portrait pose for atlases and the Bestiary (scaled to fit a cell).
 		BossModels.draw(ci, kind, r * 0.82, {"t": 0.6, "flash": flash})
+		return
+	var fusion: Array = g.enemy_db[kind].get("mix", []) if kind.begins_with("mix_") else [kind, kind]
+	if fusion.size() >= 2 and MonsterKit.has(str(fusion[0])) and MonsterKit.has(str(fusion[1])):
+		# Street monsters and true fusions: body of the first parent wearing
+		# the second parent's skin, face and decorations.
+		MonsterKit.draw(ci, str(fusion[0]), str(fusion[1]), r, flash)
+		if elite:
+			var crown_y = -r - 4.0
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.5, crown_y + 4), Vector2(-r * 0.55, crown_y - 10), Vector2(-r * 0.25, crown_y - 3),
+				Vector2(0, crown_y - 13), Vector2(r * 0.25, crown_y - 3), Vector2(r * 0.55, crown_y - 10), Vector2(r * 0.5, crown_y + 4)]), Color("ffd24d"))
 		return
 	var body = Color.WHITE if flash else col
 	var dark = col.darkened(0.45)
