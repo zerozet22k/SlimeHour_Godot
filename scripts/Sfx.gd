@@ -50,7 +50,30 @@ func set_volumes(s: float, m: float) -> void:
 	music_volume = m
 	update_music_volumes()
 
-func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
+## Each gun has its own firing voice: a clip plus a base pitch, so guns that
+## share a projectile style still sound different.
+const GUN_VOICE = {
+	"pistol": ["vfx_pea", 1.0], "revolver": ["vfx_sniper", 0.7], "shotgun": ["vfx_shotgun", 1.0],
+	"smg": ["vfx_rapid", 1.28], "minigun": ["vfx_rapid", 0.78], "sniper": ["vfx_sniper", 1.05],
+	"nailgun": ["vfx_heavy_fire", 1.5], "pinball": ["vfx_pinball", 1.0], "bowling": ["vfx_heavy_fire", 0.62],
+	"splitbow": ["vfx_pierce_hit", 1.2], "chicken": ["vfx_rocket", 1.35], "grenade": ["vfx_rocket", 0.85],
+	"snow": ["vfx_ice_fire", 1.0], "bubble": ["vfx_water", 1.0], "bees": ["vfx_toxic_fire", 1.3],
+}
+
+func play_gun(gun: String, style: String, pattern: String = "") -> void:
+	if not GUN_VOICE.has(gun) or pattern != "":
+		play_projectile("fire", style, pattern)
+		return
+	if sfx_volume <= 0.01:
+		return
+	var now = Time.get_ticks_msec() * 0.001
+	if now - float(last_projectile_event.get("fire", -100.0)) < float(PROJECTILE_EVENT_GAP.get("fire", 0.09)):
+		return
+	last_projectile_event["fire"] = now
+	var voice: Array = GUN_VOICE[gun]
+	play(str(voice[0]), 0.05, 0.72, float(voice[1]))
+
+func play(name: String, pitch_jitter = 0.08, vol = 1.0, pitch = 1.0) -> void:
 	if sfx_volume <= 0.01 or not streams.has(name):
 		return
 	var now = Time.get_ticks_msec() / 1000.0
@@ -71,7 +94,7 @@ func play(name: String, pitch_jitter = 0.08, vol = 1.0) -> void:
 		return
 	last_play[name] = now
 	free.stream = streams[name]
-	free.pitch_scale = randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
+	free.pitch_scale = float(pitch) * randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
 	free.volume_db = linear_to_db(maxf(0.0001, sfx_volume * vol * 0.6 / sqrt(1.0 + active * 0.35)))
 	free.play()
 

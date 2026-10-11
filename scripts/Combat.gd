@@ -382,6 +382,8 @@ static func update_shots(g, dt: float) -> void:
 		if absf(p.y - hero_pos.y) > 1000.0:
 			s["dead"] = true
 			continue
+		if bool(s["friendly"]) and s["flags"].has("frost_trail"):
+			WeaponSignatures.frost_trail(g, s)
 		if not bool(s["friendly"]) and bool(s.get("acid_trail", false)):
 			EnemyIdentity.extend_acid(g, s, 13.0, float(s.get("trail_dmg", s["dmg"])) * 0.30, 2.8)
 		if not g.obstacles.is_empty():
@@ -452,6 +454,7 @@ static func expire(g, s: Dictionary) -> void:
 		if s.has("bh"):
 			BossFight.on_bullet_expire(g, s)
 		return
+	WeaponSignatures.on_expire(g, s)
 	match kind:
 		"grenade", "egg", "rocket", "chicken":
 			var r = float(s["blast"]) if float(s["blast"]) > 0.0 else 60.0
@@ -2497,6 +2500,9 @@ static func update_zones(g, dt: float) -> void:
 					apply_status(g, e, "poison", 1.0)
 				"ice":
 					apply_status(g, e, "freeze", 18.0)
+				"nails":
+					e["slow"] = maxf(float(e["slow"]), 0.6)
+					dot(g, e, float(z.get("dmg", 2.0)), Color("d8d2c4"))
 				"oil":
 					e["slow"] = maxf(float(e["slow"]), 0.5)
 					if float(e["burn"]) > 0.0:

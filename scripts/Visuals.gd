@@ -417,7 +417,17 @@ func paint_ground() -> void:
 			"poison":
 				paint_poison_patch(p, r, float(z.get("seed", 0.0)), fade)
 			"ice":
-				paint_ice_patch(p, r, float(z.get("seed", 0.0)), fade)
+				if z.has("pts"):
+					paint_ice_ribbon(z, fade)
+				else:
+					paint_ice_patch(p, r, float(z.get("seed", 0.0)), fade)
+			"nails":
+				var sd := float(z.get("seed", 0.0))
+				for k in range(3):
+					var a := Vector2.from_angle(sd + float(k) * 2.1)
+					var q := p + a * 6.0
+					draw_line(q - a.orthogonal() * 6.0, q + a.orthogonal() * 6.0, Color(0.78, 0.8, 0.84, fade), 2.0)
+					draw_circle(q - a.orthogonal() * 6.0, 2.0, Color(0.55, 0.57, 0.62, fade))
 			"oil":
 				draw_circle(p, r, Color(0.05, 0.03, 0.08, 0.7 * fade))
 				draw_arc(p + Vector2(-r * 0.3, -r * 0.2), r * 0.3, 3.5, 5.0, 8, Color(0.6, 0.4, 1.0, 0.4 * fade), 2.0)
@@ -548,6 +558,23 @@ func paint_ice_patch(p: Vector2, r: float, seed: float, fade: float) -> void:
 		var a := Color(1, 1, 1, tw * fade)
 		draw_line(sp - Vector2(4, 0), sp + Vector2(4, 0), a, 1.5)
 		draw_line(sp - Vector2(0, 4), sp + Vector2(0, 4), a, 1.5)
+
+## Frostcaster's ice trail: one pale ribbon with a bright edge.
+func paint_ice_ribbon(z: Dictionary, fade: float) -> void:
+	var pts: Array = z["pts"]
+	if pts.size() < 2:
+		return
+	var ages := Trails.ages(z, g.run_time, float(z["life"]))
+	var screen := PackedVector2Array()
+	var body := PackedColorArray()
+	var core := PackedColorArray()
+	for i in range(pts.size()):
+		screen.append(P(pts[i]))
+		var live := (1.0 - ages[i]) * fade
+		body.append(Color(0.72, 0.95, 1.0, 0.3 * live))
+		core.append(Color(1, 1, 1, 0.45 * live))
+	draw_polyline_colors(screen, body, float(z["r"]) * 2.0, true)
+	draw_polyline_colors(screen, core, 3.0, true)
 
 ## Enemy acid: one ribbon with rim and veins, evaporating from its tail.
 func paint_acid_ribbon(h: Dictionary) -> void:
@@ -2457,6 +2484,8 @@ func paint_shots() -> void:
 				draw_circle(p + Vector2(8 * flip, -22), 3, Color("ff3a3a"))
 				draw_circle(p + Vector2(36 * flip, -6), 5, Color("fff27a"))
 			_:
+				if bool(s["friendly"]) and paint_gun_bullet(s, p, d, r, c):
+					continue
 				var tail = p - d * (10.0 + r * 2.5)
 				if shot_index % trail_stride == 0:
 					draw_line(tail, p, Color(c, 0.26), r * 1.6)
@@ -2469,6 +2498,47 @@ func paint_shots() -> void:
 					draw_texture_rect_region(atlas, Rect2(p - Vector2.ONE * r, Vector2.ONE * r * 2.0), dot_rect, tint)
 				else:
 					draw_circle(p, r, Color(1.0, 1.0, 1.0, 0.7) if s["flags"].has("big") else c.lightened(0.3))
+
+## Bullet guns each get their own projectile silhouette. Returns false for
+## guns that keep the shared batched dot.
+func paint_gun_bullet(s: Dictionary, p: Vector2, d: Vector2, r: float, c: Color) -> bool:
+	var n := d.orthogonal()
+	match str(s["src"]):
+		"revolver":
+			# Heavy brass slug with a hot trail.
+			draw_line(p - d * 22.0, p, Color(c, 0.35), r * 2.2)
+			draw_colored_polygon(PackedVector2Array([p + d * r * 2.2, p + n * r * 1.1, p - d * r * 1.6 + n * r * 1.1, p - d * r * 1.6 - n * r * 1.1, p - n * r * 1.1]), Color("ffcf5a"))
+			draw_line(p - d * r, p + d * r * 1.4, Color("fff3c4"), 1.5)
+		"smg":
+			# Thin electric streak.
+			draw_line(p - d * 18.0, p, Color(c, 0.5), 2.0)
+			draw_line(p - d * 6.0, p + d * 3.0, Color("e8fbff"), 2.5)
+		"minigun":
+			draw_line(p - d * 14.0, p + d * 2.0, Color("ffd36b", 0.85), 3.5)
+			draw_line(p - d * 5.0, p + d * 3.0, Color("fff6d8"), 2.0)
+		"sniper":
+			# Long white needle.
+			draw_line(p - d * 46.0, p, Color(c, 0.3), 3.0)
+			draw_line(p - d * 16.0, p + d * 6.0, Color("ffffff"), 2.0)
+		"nailgun":
+			# A nail: shaft plus a flat head.
+			draw_line(p - d * 9.0, p + d * 7.0, Color("c9ccd4"), 2.5)
+			draw_line(p - d * 9.0 - n * 4.0, p - d * 9.0 + n * 4.0, Color("8a8f9c"), 3.0)
+			draw_line(p + d * 7.0, p + d * 10.0, Color("e8eaf0"), 1.5)
+		"pinball":
+			# Chrome ball with a highlight.
+			draw_circle(p, r + 1.5, Color(0.1, 0.1, 0.12))
+			draw_circle(p, r, Color("c9ced8"))
+			draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.38, Color.WHITE)
+		"shotgun":
+			if not s["flags"].has("slug"):
+				return false
+			draw_line(p - d * 20.0, p, Color(c, 0.35), r * 1.8)
+			draw_circle(p, r, Color("ffd08a"))
+			draw_circle(p, r * 0.5, Color("fff3d8"))
+		_:
+			return false
+	return true
 
 ## Danmaku-style boss bullets: dark rim for contrast on any ground, a bright
 ## body and a white core. The drawn size is a little larger than the hitbox.

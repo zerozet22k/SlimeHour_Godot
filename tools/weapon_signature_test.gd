@@ -66,7 +66,12 @@ func _run() -> void:
 	var ordinary_pellets = Weapons.base_opts(g, regular_shotgun, g.weapon_db["shotgun"])
 	regular_shotgun["evolved"] = true
 	var breachmaster = Weapons.base_opts(g, regular_shotgun, g.weapon_db["shotgun"])
-	check(float(breachmaster["knock"]) > float(ordinary_pellets["knock"]), "Breachmaster visibly improves point-blank impact")
+	check(str(Weapons.EVOLUTION_DESCRIPTIONS["shotgun"]).contains("slug") and breachmaster["kind"] == ordinary_pellets["kind"],
+		"Breachmaster adds a periodic piercing slug instead of a stat bump")
+	var deadeye = Weapons.new_gun(g, "revolver")
+	deadeye["quickdraw"] = true
+	var quick = Weapons.base_opts(g, deadeye, g.weapon_db["revolver"])
+	check(float(quick["crit"]) >= 1.0 and quick["flags"].has("quickdraw"), "Deadeye Quickdraw makes the first shot after a pause a sure crit")
 	var rocket_upgrade = Weapons.new_gun(g, "rocket")
 	rocket_upgrade["evolved"] = true
 	check(Weapons.base_opts(g, rocket_upgrade, g.weapon_db["rocket"])["flags"].has("fire_puddle"), "Payload Zero ignites ground on impact")

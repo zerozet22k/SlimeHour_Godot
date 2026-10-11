@@ -3,7 +3,40 @@ extends RefCounted
 ## These are gameplay reactions, not the same explosion, extra bullets or ricochet with a different tint.
 ## Run via Combat hooks; every area effect is bounded to prevent proc storms.
 
+static var _combat = null
+
+static func C():
+	if _combat == null:
+		_combat = load("res://scripts/Combat.gd")
+	return _combat
+
+## Evolution reactions: one mechanic per evolved gun.
+static func evolved_hit(g, s: Dictionary, e: Dictionary, pos: Vector2) -> void:
+	var flags: Dictionary = s["flags"]
+	if flags.has("ricochet_round") and not flags.has("ricochet_done"):
+		flags["ricochet_done"] = true
+		C().zap(g, pos, 2, float(s["dmg"]) * 0.8, 2, e)
+	if flags.has("incendiary"):
+		g.add_zone("fire", pos, 30.0, 1.6)
+	if flags.has("last_word") and bool(e["dead"]) and int(flags.get("last_word_n", 0)) < 3:
+		flags["last_word_n"] = int(flags.get("last_word_n", 0)) + 1
+		s["dmg"] = float(s["dmg"]) * 1.5
+		var gun = s.get("gun")
+		if gun != null:
+			gun["ammo"] = mini(int(gun["mag_max"]), int(gun["ammo"]) + 1)
+		g.say(pos + Vector2(0, -24), "+1", Color("e5bcff"), 18)
+	if flags.has("rivet_burst") and not bool(e["dead"]):
+		e["rivets"] = int(e.get("rivets", 0)) + 1
+		if int(e["rivets"]) >= 5:
+			e["rivets"] = 0
+			C().fragments(g, pos, 5, float(s["dmg"]) * 1.2, "ring", Vector2.UP, 2, e, false, Color("f2dbad"))
+			g.spawn_ring_fx(pos, Color("f2dbad"), 30.0)
+	if flags.has("queen") and not flags.has("queen_done"):
+		flags["queen_done"] = true
+		C().add_bees(g, pos, 2, float(s["dmg"]) * 0.7, 2)
+
 static func projectile_hit(g, s: Dictionary, e: Dictionary, pos: Vector2) -> void:
+	evolved_hit(g, s, e, pos)
 	if bool(e["dead"]) and str(s["src"]) != "sniper":
 		return
 	var flags: Dictionary = s["flags"]
@@ -111,6 +144,23 @@ static func projectile_hit(g, s: Dictionary, e: Dictionary, pos: Vector2) -> voi
 
 static func critical_hit(g, e: Dictionary, ctx: Dictionary) -> void:
 	var s = ctx.get("shot")
+	if s != null and s["flags"].has("ricochet_crit") and not s["flags"].has("ricochet_child"):
+		# Deadeye Prime: the crit ricochets into the nearest other enemy.
+		var best = null
+		var best_d = 320.0 * 320.0
+		for other in g.enemies_near(e["pos"], 320.0):
+			if other == e or bool(other["dead"]):
+				continue
+			var d2: float = Vector2(other["pos"]).distance_squared_to(e["pos"])
+			if d2 < best_d:
+				best_d = d2
+				best = other
+		if best != null:
+			var dir: Vector2 = (Vector2(best["pos"]) - Vector2(e["pos"])).normalized()
+			C().shot(g, Vector2(e["pos"]) + dir * (float(e["r"]) + 4.0), dir, float(s["base_dmg"]),
+				{"friendly": true, "kind": "bullet", "speed": 1300.0, "life": 0.4, "r": 4.5, "crit": 1.0,
+				"color": Color("ffe36b"), "src": "revolver", "flags": {"ricochet_child": true}, "gen": 2})
+			g.beams.append({"a": e["pos"], "b": best["pos"], "t": 0.1, "w": 2.0, "color": Color("ffe36b")})
 	if s != null and str(ctx.get("src", "")) == "revolver" and s["flags"].has("duelist"):
 		e["stun"] = maxf(float(e["stun"]), 0.15 if bool(e["boss"]) else 0.9)
 		g.spawn_ring_fx(e["pos"], Color("ffe9a6"), 36.0)
@@ -129,6 +179,15 @@ static func wall_bounce(g, s: Dictionary) -> void:
 					s["life"] = maxf(float(s["life"]), 0.5)
 					g.spawn_ring_fx(s["pos"], Color("b5ff6b"), 40.0)
 		"pinball":
+			if flags.has("multiball_split") and int(flags.get("splits", 0)) < 2:
+				flags["splits"] = int(flags.get("splits", 0)) + 1
+				var child_flags: Dictionary = flags.duplicate()
+				child_flags["splits"] = 2
+				var v: Vector2 = Vector2(s["vel"]).rotated(0.45 * (1.0 if randf() < 0.5 else -1.0))
+				C().shot(g, s["pos"], v.normalized(), float(s["dmg"]) * 0.8,
+					{"friendly": true, "kind": str(s["kind"]), "speed": float(s["speed"]), "life": maxf(0.4, float(s["life"])),
+					"r": float(s["r"]), "bounce": maxi(1, int(s["bounce"])), "color": s["color"], "src": "pinball",
+					"flags": child_flags, "gen": 2, "gun": s.get("gun")})
 			if flags.has("perfect_bank"):
 				flags["bank_charge"] = mini(3, int(flags.get("bank_charge", 0)) + 1)
 				g.spawn_ring_fx(s["pos"], Color("ff9df0"), 18.0 + 12.0 * int(flags["bank_charge"]))
@@ -173,6 +232,8 @@ static func disc_recall(g, s: Dictionary, dt: float) -> void:
 		g.spawn_ring_fx(s["pos"], Color("7dffb2"), 85.0)
 
 static func return_catch(g, s: Dictionary, caught: bool) -> void:
+	if caught and s["flags"].has("catch_wave"):
+		C().shockwave(g, g.hero["pos"], 130.0, float(s["base_dmg"]) * 0.6, 320.0, 2)
 	var w = s.get("gun")
 	if w == null or str(s["src"]) != "boomerang" or not s["flags"].has("momentum_catch") or not bool(s["flags"].get("owner", false)):
 		return
@@ -181,6 +242,37 @@ static func return_catch(g, s: Dictionary, caught: bool) -> void:
 		g.spawn_ring_fx(g.hero["pos"], Color("ffcf6b"), 26.0 + 8.0 * int(w["catch_streak"]))
 	else:
 		w["catch_streak"] = 0
+
+## Shots that end without hitting anything (range out or road wall).
+static func on_expire(g, s: Dictionary) -> void:
+	var flags: Dictionary = s["flags"]
+	var pos: Vector2 = s["pos"]
+	match str(s["src"]):
+		"nailgun":
+			# Missed nails stick in the road as caltrops that slow and nick enemies.
+			var nails := 0
+			for z in g.zones:
+				if str(z["kind"]) == "nails":
+					nails += 1
+			if nails < 24:
+				g.add_zone("nails", pos, 18.0, 5.0, {"dmg": float(s["base_dmg"]) * 0.25})
+		"bowling":
+			if flags.has("crater"):
+				C().shockwave(g, pos, 110.0, float(s["base_dmg"]) * 0.5, 280.0, 2)
+		"chicken":
+			if flags.has("feathers"):
+				C().fragments(g, pos, 4, float(s["base_dmg"]) * 0.35, "ring", Vector2.UP, 2, null, false, Color("fff076"))
+
+## Frostcaster evolution: a snowball paints one continuous ice ribbon.
+static func frost_trail(g, s: Dictionary) -> void:
+	var z = s.get("frost_z")
+	var Tr = load("res://scripts/Trails.gd")
+	if z == null or not g.zones.has(z):
+		z = g.add_zone("ice", s["pos"], 22.0, 1.6, {"pts": [], "born": []})
+		Tr.start(z, s["pos"], g.run_time)
+		s["frost_z"] = z
+	Tr.extend(z, s["pos"], g.run_time)
+	z["t"] = z["life"]
 
 static func flame_death(g, e: Dictionary, pos: Vector2) -> void:
 	if float(e["burn"]) <= 0.0:
