@@ -109,7 +109,7 @@ func _run() -> void:
 	# Mutants show and use their body parent's attacks (tells, tethers, dashes).
 	var visual_src := FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	var combat_src := FileAccess.get_file_as_string("res://scripts/Combat.gd")
-	check(visual_src.contains('enemy_has_role(e, "leech") and float(e.get("tether_t"') and not visual_src.contains('e["kind"] == "leech"'), "A Leech-bodied mutant draws its blood tether")
+	check((visual_src.contains('enemy_has_role(e, "leech") and float(e.get("tether_t"') or visual_src.contains('body == "leech" and float(e.get("tether_t"')) and visual_src.contains('var body: String = MutationKit.primary(g, str(e["kind"]))') and not visual_src.contains('e["kind"] == "leech"'), "A Leech-bodied mutant draws its blood tether")
 	check(combat_src.contains('var body_kind: String = MutationKit.primary') and not combat_src.contains('str(e["kind"]) == "skitter"'), "Mutants move with their body parent's dash and ricochet")
 	if errors > 0:
 		push_error("%d monster checks failed" % errors)

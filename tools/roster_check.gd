@@ -66,11 +66,11 @@ func _test() -> void:
 	var capped_budget: int = game.budget_for(25)
 	var capped_rush: int = game.rush_size()
 	check(capped_budget + capped_rush < 500, "Late Normal crowd stops below 500 total enemies per sector")
-	check(game.enemy_cap() == 150 and game.sector_spawn_rate(1.0) <= 15.001, "Late Normal live enemies and spawn throughput are capped")
+	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Late Normal live enemies and spawn throughput are capped")
 	check(is_equal_approx(game.late_enemy_hp_multiplier(25), 1.25), "Late Normal substitutes up to 25 percent regular HP")
 	game.sector = 40
 	check(game.budget_for(40) == capped_budget and game.rush_size() == capped_rush, "Crowd budget and rush remain flat after sector 25")
-	check(game.enemy_cap() == 150 and game.sector_spawn_rate(1.0) <= 15.001, "Sector 40 cannot restore unlimited spawn density")
+	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Sector 40 cannot restore unlimited spawn density")
 	var normal_mob = game.spawn_enemy("blob", game.hero["pos"] + Vector2(0, -280), false, false)
 	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
 	var boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)

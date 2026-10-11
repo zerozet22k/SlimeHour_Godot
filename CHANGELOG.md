@@ -1,3 +1,18 @@
+## v0.1.84 — Much smoother, and the late game is fun again
+
+- **Big frame-rate boost in crowded fights.** In the same heavy test fight, frames went from 8 fps to about 45 fps. Typical busy fights now run at 70-90 fps.
+  - Circles (eyes, shadows, sparks, puddles, bubbles) now batch into a few draw calls instead of one call each.
+  - Monster bodies are drawn in one batch, then their extras on top.
+  - Obstacle checks only look at nearby trees and cars, not the whole street.
+  - Crowd separation searches a smaller area.
+  - Mutant body lookups are cached, and lost-monster checks run less often.
+  - Spitter acid is far cheaper: at most 14 acid trails at once, simpler globs, and cached puddle shapes.
+  - Effects and floating numbers have tighter limits.
+- **The late game is fun again.** Past sector 12, monster health now grows steadily instead of exploding: about 19% less at sector 15 (Necro Dad) and 42% less by sector 20. Fewer monsters are alive at once (at most 105-115 from sector 13, down from 135-150) and tougher individually.
+- **No more card cap.** You could only hold 32 cards. That limit is gone (each card still has its own stack limit).
+- **Mystery crates never come up empty.** If no card fits your build, one of your guns levels up instead. If every gun is maxed, you get gold that scales with the roll plus a 25% heal.
+- **Your mouse stays yours.** Mouse aim no longer captures or locks the cursor. It is only hidden over the game, where the crosshair replaces it.
+
 ## v0.1.83 — No more running away
 
 - **Outrunning monsters no longer clears a sector.** Before, any monster that fell far behind you was silently deleted and counted as killed. Now a left-behind sector monster comes back just off-screen, usually ahead of you, so you have to deal with it.

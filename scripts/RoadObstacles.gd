@@ -205,6 +205,31 @@ static func resolve_movement(previous: Vector2, target: Vector2, radius: float, 
 		end = previous + move * maxf(0.0, earliest - 0.015)
 	return push_circle(end, radius, obstacles)
 
+## Obstacles bucketed by road height, rebuilt once per frame, so an enemy or a
+## bullet only checks the few obstacles near it instead of the whole street.
+const BUCKET := 128.0
+
+static func build_index(obstacles: Array) -> Dictionary:
+	var idx := {}
+	for obstacle in obstacles:
+		var k := floori(float(obstacle["pos"].y) / BUCKET)
+		if idx.has(k):
+			idx[k].append(obstacle)
+		else:
+			idx[k] = [obstacle]
+	return idx
+
+## Obstacles whose centre is within REACH (plus the largest obstacle size) of Y.
+static func near(idx: Dictionary, y: float, reach: float) -> Array:
+	var out: Array = []
+	var k0 := floori((y - reach - 90.0) / BUCKET)
+	var k1 := floori((y + reach + 90.0) / BUCKET)
+	for k in range(k0, k1 + 1):
+		var arr = idx.get(k)
+		if arr != null:
+			out.append_array(arr)
+	return out
+
 static func push_circle(pos: Vector2, radius: float, obstacles: Array) -> Vector2:
 	var result = pos
 	for obstacle in obstacles:

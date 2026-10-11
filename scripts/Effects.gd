@@ -631,8 +631,6 @@ static func missing_sources(g, c: Dictionary) -> Array:
 
 static func eligible(g, c: Dictionary) -> bool:
 	var id = str(c["id"])
-	if card_count(g) >= 32:
-		return false
 	if not g.card_available(id):
 		return false
 	var stack_limits = [4, 3, 2, 1, 1, 1]

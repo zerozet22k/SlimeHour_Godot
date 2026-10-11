@@ -62,6 +62,9 @@ static func parents(g, kind: String) -> Array:
 	return g.enemy_db[kind].get("mix", [])
 
 static func primary(g, kind: String) -> String:
+	# Fast path: ordinary monsters are their own body.
+	if not kind.begins_with("mix_"):
+		return kind
 	var p := parents(g, kind)
 	return str(p[0]) if not p.is_empty() else kind
 

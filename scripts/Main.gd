@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.83"
+const GAME_VERSION = "v0.1.84"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -30,7 +30,7 @@ func landscape_rect() -> Rect2:
 	return Rect2(landscape_left, 0.0, landscape_width, 720.0)
 const SECTOR_LEN = 4800.0
 const HERO_SCREEN_Y = 470.0
-const MAX_ENEMIES = 200
+const MAX_ENEMIES = 160
 const MAX_SHOTS = 500
 const MAX_SHOTS_LIMIT = 500
 ## Clear this sector to win; the run can continue after it (every sector is then a boss).
@@ -233,6 +233,10 @@ var turret_t = 0.0
 var hive_t = 0.0
 var stats_dirty = true
 var prof: Dictionary = {}
+var obstacle_index: Dictionary = {}
+var acid_trails := 0
+## Fine-grained benchmark timing (PERF_DRAW=1 only).
+var perf_detail := OS.get_environment("PERF_DRAW") != ""
 
 @onready var visuals = $Visuals
 @onready var hud = $Hud
@@ -418,26 +422,19 @@ func _process(delta: float) -> void:
 	bash_btn_pos = Vector2(450, ui_height - 221.0) if portrait else Vector2(1000, 560)
 	bash_btn_r = 51.0
 	var m = hud.get_local_mouse_position()
-	var captured = state == "playing" and not debug_panel_open and settings["aim"] == "mouse" and not is_touch_active() and autotest == ""
-	var mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
+	# Mouse aim never captures or confines the cursor: it is only hidden over
+	# the game (the crosshair replaces it) and can always leave the window.
+	var hide_cursor = state == "playing" and not debug_panel_open and settings["aim"] == "mouse" and not is_touch_active() and autotest == ""
+	var mouse_mode = Input.MOUSE_MODE_HIDDEN if hide_cursor else Input.MOUSE_MODE_VISIBLE
 	if Input.mouse_mode != mouse_mode:
-		if not captured and aim_mouse_active:
-			# Hand the OS cursor back where the crosshair was.
-			Input.mouse_mode = mouse_mode
-			get_viewport().warp_mouse(hud.get_global_transform_with_canvas() * aim_screen)
-			m = aim_screen
-		else:
-			Input.mouse_mode = mouse_mode
-	if captured and aim_mouse_active:
-		m = aim_screen
+		Input.mouse_mode = mouse_mode
 	if m.distance_squared_to(mouse_screen) > 4.0:
 		mouse_moved_t = 0.0
 	mouse_moved_t += delta
 	if aim_touch_id == -1 and not is_touch_active():
 		if state == "playing" and settings["aim"] == "mouse":
-			if not aim_mouse_active:
-				aim_screen = m
-				aim_mouse_active = true
+			aim_screen = m
+			aim_mouse_active = true
 			mouse_world = screen_to_world(aim_screen)
 		else:
 			aim_mouse_active = false
@@ -565,6 +562,7 @@ func _physics_process(delta: float) -> void:
 	prof["weapons"] = float(prof.get("weapons", 0.0)) + (t2 - t1)
 	prof["combat"] = float(prof.get("combat", 0.0)) + (t3 - t2)
 	prof["tick+pickups"] = float(prof.get("tick+pickups", 0.0)) + (t4 - t3)
+	prof["steps"] = float(prof.get("steps", 0.0)) + 1000.0
 	update_director(dt)
 	update_texts(dt)
 	if state != "playing":
@@ -698,6 +696,12 @@ func enemy_scale() -> float:
 		return 1.0 + 0.07 * float(maxi(0, sector - 1))
 	# A smooth ramp keeps the first boss meaningful without an HP jump in 9-12.
 	var scale = 1.28 * (1.0 + 0.12 * m + 0.03 * m * m + 0.0005 * m * m * m)
+	if sector > 12:
+		# After sector 12 the curve turns linear (+11% of the sector-12 value
+		# per sector) instead of cubic, so the road past Necro Dad stays fun.
+		var m12 := 7.0
+		var at12 := 1.28 * (1.0 + 0.12 * m12 + 0.03 * m12 * m12 + 0.0005 * m12 * m12 * m12)
+		scale = at12 * (1.0 + 0.11 * float(sector - 12))
 	if sector > WIN_SECTOR:
 		scale *= pow(1.35, float(mini(sector - WIN_SECTOR, 20)))
 	return scale
@@ -713,17 +717,18 @@ func crowd_ramp(s: int = -1) -> float:
 func enemy_cap() -> int:
 	if sector <= 5:
 		return 22 + (sector - 1) * 14
+	# Quality over quantity: fewer, tougher monsters keep fights readable and
+	# the frame rate high in the late game.
 	match sector:
-		7: return 100
-		8: return 105
-		9: return 108
-		10: return 110
-		11: return 115
-		12: return 135
-	if sector >= 13:
-		var normal_cap: int = mini(150, 135 + 2 * (sector - 12))
-		return mini(MAX_ENEMIES, int(ceil(float(normal_cap) * (1.15 if hard_mode else 1.0))))
-	return mini(MAX_ENEMIES, 80 + (sector - 5) * 20)
+		6: return 90
+		7: return 92
+		8: return 95
+		9: return 96
+		10: return 98
+		11: return 100
+		12: return 105
+	var normal_cap: int = mini(115, 105 + (sector - 12))
+	return mini(MAX_ENEMIES, int(ceil(float(normal_cap) * (1.15 if hard_mode else 1.0))))
 
 ## A gentle durability substitution for the capped late-game population.
 ## This does NOT affect bosses (which already have their own HP scaling).
@@ -2056,12 +2061,26 @@ func hurt_pct(p: float) -> void:
 	sfx.play("hurt")
 
 func event_card(rarity: int) -> String:
-	return take_card_msg(Effects.card_of_rarity(self, rarity, 0, 5))
+	return take_card_msg(Effects.card_of_rarity(self, rarity, 0, 5), rarity)
 
-func take_card_msg(c) -> String:
+## A card reward never comes up empty. With no card left that fits (full
+## build, or the rest still locked), a gun levels up instead; with every gun
+## maxed, the reward becomes gold that scales with the roll, plus a heal.
+func take_card_msg(c, rarity: int = 1) -> String:
 	if c == null:
-		gold += 25
-		return "Nothing fits your build. +25 gold instead."
+		var open: Array = []
+		for w in guns:
+			if int(w["lvl"]) < 5:
+				open.append(w)
+		if not open.is_empty():
+			var w = open[randi() % open.size()]
+			w["lvl"] = int(w["lvl"]) + 1
+			stats_dirty = true
+			return "No card fits your build, so your %s levels up to LV%d." % [Weapons.display_name(self, w), int(w["lvl"])]
+		var bonus: int = [30, 50, 80, 120, 160, 200][clampi(rarity, 0, 5)]
+		gold += bonus
+		heal(float(hero["maxhp"]) * 0.25)
+		return "Your build is maxed out. +%d gold and a 25%% heal instead." % bonus
 	Effects.add_card(self, str(c["id"]))
 	return "You got %s (%s)." % [str(c["name"]), ["Common", "Rare", "Epic", "Legendary", "Mythic", "Ascendant"][int(c["rarity"])]]
 
@@ -2548,12 +2567,12 @@ func flash_screen(c: Color, t: float) -> void:
 	flash_t = t
 
 func say(pos: Vector2, t: String, c: Color = Color.WHITE, size: int = 22) -> void:
-	if texts.size() > 90:
+	if texts.size() > 48:
 		texts.remove_at(0)
 	texts.append({"pos": pos, "text": t, "color": c, "size": size, "t": 0.0, "life": 1.1, "vel": Vector2(randf_range(-20, 20), -70)})
 
 func dot_number(pos: Vector2, amount: float, color: Color, label: String) -> void:
-	if not bool(settings.get("numbers", true)) or amount <= 0.0 or texts.size() >= 68:
+	if not bool(settings.get("numbers", true)) or amount <= 0.0 or texts.size() >= 40:
 		return
 	var amount_text = "%0.1f" % amount if amount < 10.0 else str(roundi(amount))
 	texts.append({"pos": pos + Vector2(randf_range(-11, 11), -17), "text": label + " " + amount_text,
@@ -2582,9 +2601,9 @@ func update_texts(dt: float) -> void:
 func spawn_burst(pos: Vector2, c: Color, n: int, speed = 200.0, size = 4.0) -> void:
 	if not bool(settings["particles"]):
 		n = mini(n, 2)
-	if fx.size() > 650:
+	if fx.size() > 240:
 		n = mini(n, 1)
-		if fx.size() > 900:
+		if fx.size() > 340:
 			return
 	for i in range(n):
 		var a = randf() * TAU

@@ -19,11 +19,16 @@ static func place_line(g, a: Vector2, b: Vector2, width: float, damage: float, d
 
 ## A Spitter shot paints ONE growing ribbon instead of a chain of segments.
 ## The ribbon evaporates from its tail `duration` seconds after each part lands.
+## Live acid trails at once. Extra globs still splash a puddle where they
+## land; a screen full of Spitters cannot paint the whole road.
+const MAX_ACID_TRAILS := 14
+
 static func extend_acid(g, s: Dictionary, width: float, damage: float, duration: float) -> void:
 	var h = s.get("trail_h")
 	if h == null or bool(h.get("gone", false)):
-		if g.enemy_hazards.size() >= CAP:
+		if g.enemy_hazards.size() >= CAP or g.acid_trails >= MAX_ACID_TRAILS:
 			return
+		g.acid_trails += 1
 		h = {"kind": "acid_trail", "r": width, "dmg": damage, "life": duration,
 			"max_life": duration, "arm": 0.08, "hp": 0.0, "hurt_t": 0.0, "trail_life": duration}
 		Trails.start(h, s["last"], g.run_time)
@@ -33,6 +38,11 @@ static func extend_acid(g, s: Dictionary, width: float, damage: float, duration:
 	h["life"] = duration
 
 static func update_hazards(g, dt: float) -> void:
+	var trails := 0
+	for h in g.enemy_hazards:
+		if str(h["kind"]) == "acid_trail":
+			trails += 1
+	g.acid_trails = trails
 	for i in range(g.enemy_hazards.size() - 1, -1, -1):
 		var h: Dictionary = g.enemy_hazards[i]
 		h["life"] = float(h["life"]) - dt
@@ -51,7 +61,9 @@ static func update_hazards(g, dt: float) -> void:
 		var hero: Vector2 = g.hero["pos"]
 		var inside = false
 		if h.has("pts"):
-			inside = Trails.dist2(h, hero) <= pow(float(h["r"]) + 11.0, 2.0)
+			# A trail is at most ~600px long behind its head: skip far ones cheaply.
+			if hero.distance_squared_to(h["pos"]) < 700.0 * 700.0:
+				inside = Trails.dist2(h, hero) <= pow(float(h["r"]) + 11.0, 2.0)
 		elif str(h["kind"]) in ["fissure", "acid_trail"]:
 			var nearest = Geometry2D.get_closest_point_to_segment(hero, h["a"], h["b"])
 			inside = hero.distance_squared_to(nearest) <= pow(float(h["r"]) + 11.0, 2.0)

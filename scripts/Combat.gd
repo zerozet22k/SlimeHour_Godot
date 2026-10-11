@@ -28,6 +28,7 @@ static func build_grid(g) -> void:
 		else:
 			grid[k] = [e]
 	g.grid = grid
+	g.obstacle_index = RoadObstacles.build_index(g.obstacles)
 
 static func query(g, p: Vector2, r: float) -> Array:
 	var out = []
@@ -36,6 +37,22 @@ static func query(g, p: Vector2, r: float) -> Array:
 	var x1 = floori((p.x + m) / CELL)
 	var y0 = floori((p.y - m) / CELL)
 	var y1 = floori((p.y + m) / CELL)
+	for cx in range(x0, x1 + 1):
+		for cy in range(y0, y1 + 1):
+			var arr = g.grid.get(Vector2i(cx, cy))
+			if arr != null:
+				out.append_array(arr)
+	return out
+
+## Neighbours for crowd separation: only cells that can hold a monster
+## touching this one (no extra 70px search margin), so 2x2-3x3 cells instead
+## of 4x4 per monster per step.
+static func query_touching(g, p: Vector2, reach: float) -> Array:
+	var out = []
+	var x0 = floori((p.x - reach) / CELL)
+	var x1 = floori((p.x + reach) / CELL)
+	var y0 = floori((p.y - reach) / CELL)
+	var y1 = floori((p.y + reach) / CELL)
 	for cx in range(x0, x1 + 1):
 		for cy in range(y0, y1 + 1):
 			var arr = g.grid.get(Vector2i(cx, cy))
@@ -393,9 +410,11 @@ static func update_shots(g, dt: float) -> void:
 		if not bool(s["friendly"]) and bool(s.get("acid_trail", false)) and not bool(s.get("no_trail", false)):
 			EnemyIdentity.extend_acid(g, s, 13.0, float(s.get("trail_dmg", s["dmg"])) * 0.30, 2.8)
 		if not g.obstacles.is_empty():
-			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), g.obstacles)
+			var mid_y: float = (float(s["last"].y) + float(s["pos"].y)) * 0.5
+			var local_obstacles: Array = RoadObstacles.near(g.obstacle_index, mid_y, absf(float(s["pos"].y) - float(s["last"].y)) * 0.5 + float(s["r"]))
+			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), local_obstacles)
 			if obstacle_idx >= 0:
-				var hazard: Dictionary = g.obstacles[obstacle_idx]
+				var hazard: Dictionary = local_obstacles[obstacle_idx]
 				# Destructible car wrecks and barriers take full projectile damage.
 				if bool(s["friendly"]) and float(hazard["hp"]) > 0.0:
 					hazard["hp"] = float(hazard["hp"]) - float(s["dmg"])
@@ -1417,8 +1436,10 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e["dead"]):
 			continue
 		# Mutants move and attack as their body parent.
+		var p_iter := Time.get_ticks_usec() if g.perf_detail else 0
 		var body_kind: String = MutationKit.primary(g, str(e["kind"]))
-		if reap_unreachable(g, e, hero_pos, dt):
+		# Lost-monster checks run every 4th step per monster (staggered by id).
+		if (int(e["id"]) + g.sim_step) % 4 == 0 and reap_unreachable(g, e, hero_pos, dt * 4.0):
 			continue
 		e["t"] = float(e["t"]) + dt
 		e["recover"] = maxf(0.0, float(e.get("recover", 0.0)) - dt)
@@ -1442,6 +1463,9 @@ static func update_enemies(g, dt: float) -> void:
 		e["flash"] = maxf(0.0, float(e["flash"]) - dt)
 		e["squash"] = maxf(0.0, float(e["squash"]) - dt * 1.5)
 		e["spawn"] = minf(1.0, float(e["spawn"]) + dt * 3.0)
+		if g.perf_detail:
+			g.prof["e.head"] = float(g.prof.get("e.head", 0.0)) + float(Time.get_ticks_usec() - p_iter)
+			p_iter = Time.get_ticks_usec()
 		# ---- statuses (ticks 4x per second)
 		e["tick"] = float(e["tick"]) - dt
 		if float(e["tick"]) <= 0.0:
@@ -1515,7 +1539,7 @@ static func update_enemies(g, dt: float) -> void:
 		var dir = to_t / dist if dist > 0.1 else Vector2.DOWN
 		# Riot's directional shield turns slowly enough that circling it
 		# actually exposes its weak back; other enemies still track quickly.
-		var turn_rate = 1.6 if has_role(g, e, "riot") else 6.0
+		var turn_rate = 1.6 if body_kind == "riot" else 6.0
 		e["aim"] = e["aim"].lerp(dir, minf(1.0, dt * turn_rate)).normalized()
 		var desired = Vector2.ZERO
 		if bool(e["boss"]) and BossFight.is_boss_kind(str(e["kind"])):
@@ -1531,7 +1555,13 @@ static func update_enemies(g, dt: float) -> void:
 			desired = BossFight.minion_move(g, e, dir)
 		elif not disabled:
 			var mut_start: int = g.delayed.size()
+			if g.perf_detail:
+				g.prof["e.status_to_ai"] = float(g.prof.get("e.status_to_ai", 0.0)) + float(Time.get_ticks_usec() - p_iter)
+			var pa := Time.get_ticks_usec() if g.perf_detail else 0
 			desired = ai(g, e, dir, dist, dt, charmed)
+			if g.perf_detail:
+				g.prof["ai." + body_kind] = float(g.prof.get("ai." + body_kind, 0.0)) + float(Time.get_ticks_usec() - pa)
+				p_iter = Time.get_ticks_usec()
 			if e.has("mut_of"):
 				for k in range(mut_start, g.delayed.size()):
 					var item: Dictionary = g.delayed[k]
@@ -1570,11 +1600,12 @@ static func update_enemies(g, dt: float) -> void:
 		# Dense trees, medians and parked traffic block monsters as well.
 		var before_obstacle_push: Vector2 = e["pos"]
 		if not g.obstacles.is_empty():
+			var local_obs: Array = RoadObstacles.near(g.obstacle_index, float(e["pos"].y), float(e["r"]) + absf(float(e["pos"].y) - before_dash_move.y))
 			if skitter_dashing:
 				# Sweep the dash to prevent tunneling through thin obstacles.
-				e["pos"] = RoadObstacles.resolve_movement(before_dash_move, e["pos"], float(e["r"]), g.obstacles)
-			else:
-				e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), g.obstacles)
+				e["pos"] = RoadObstacles.resolve_movement(before_dash_move, e["pos"], float(e["r"]), local_obs)
+			elif not local_obs.is_empty():
+				e["pos"] = RoadObstacles.push_circle(e["pos"], float(e["r"]), local_obs)
 		# A Skitter may overshoot the player but cannot cross the sector's
 		# rear barrier or disappear a whole screen beyond the playable route.
 		if skitter_dashing:
@@ -1607,7 +1638,10 @@ static func update_enemies(g, dt: float) -> void:
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
 		# Crowd separation runs for half the crowd each step (alternating); flung enemies always check.
-		var neigh = query(g, e["pos"], float(e["r"]) + 30.0) if not BossFight.contact_safe(e) and (flung or (int(e["id"]) + g.sim_step) % 2 == 0) else []
+		if g.perf_detail:
+			g.prof["e.ai_to_sep"] = float(g.prof.get("e.ai_to_sep", 0.0)) + float(Time.get_ticks_usec() - p_iter)
+		var ps := Time.get_ticks_usec() if g.perf_detail else 0
+		var neigh = query_touching(g, e["pos"], float(e["r"]) + 46.0) if not BossFight.contact_safe(e) and (flung or (int(e["id"]) + g.sim_step) % 2 == 0) else []
 		var checked = 0
 		for o in neigh:
 			if o == e or bool(o["dead"]):
@@ -1637,6 +1671,9 @@ static func update_enemies(g, dt: float) -> void:
 					if randf() < 0.18:
 						g.say(o["pos"] + Vector2(0, -20), "BONK", Color("ffe14d"), 18)
 						g.sfx.play("bonk")
+		if g.perf_detail:
+			g.prof["sep"] = float(g.prof.get("sep", 0.0)) + float(Time.get_ticks_usec() - ps)
+			p_iter = Time.get_ticks_usec()
 		# Crowd separation also moves bodies; clamp AFTER pushing so Skitters
 		# cannot leave the road through another monster's collision response.
 		var side: float = maxf(0.0, g.road_half - float(e["r"]))
@@ -1671,7 +1708,7 @@ static func update_enemies(g, dt: float) -> void:
 				# kill() must see a live enemy or it silently returns without a fuse.
 				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
-			if has_role(g, e, "tick"):
+			if body_kind == "tick":
 				# Ticks latch on instead of bumping: they slow you and drain until you dash.
 				if not bool(e.get("latched", false)):
 					e["latched"] = true
@@ -1683,7 +1720,7 @@ static func update_enemies(g, dt: float) -> void:
 			var contact_hurt = g.hurt(contact_dmg, e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"]))
 			if contact_hurt and e.has("mut_of"):
 				MutationKit.on_attack(g, e, hero_pos, true)
-			if contact_hurt and has_role(g, e, "leech"):
+			if contact_hurt and body_kind == "leech":
 				var stolen = minf(float(e["max_hp"]) * 0.12, float(e["dmg"]) * 1.5)
 				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + stolen)
 				g.spawn_ring_fx(e["pos"], Color("a783ff"), 22.0)
@@ -1696,6 +1733,8 @@ static func update_enemies(g, dt: float) -> void:
 			e["thorn_cd"] = float(e["thorn_cd"]) - dt
 		if g.state != "playing":
 			return
+		if g.perf_detail:
+			g.prof["e.tail"] = float(g.prof.get("e.tail", 0.0)) + float(Time.get_ticks_usec() - p_iter)
 		# Enemies left far behind come back into play (see recall_straggler);
 		# only extras that do not count toward the sector are cleaned up.
 		if e["pos"].y > hero_pos.y + 900.0 and not bool(e["boss"]):
@@ -2898,7 +2937,11 @@ static func update_barrels(g, dt: float) -> void:
 		if barrel["pos"].y > g.hero["pos"].y + 900.0:
 			g.barrels.remove_at(i)
 
+const FX_BUDGET := 360
+
 static func update_fx(g, dt: float) -> void:
+	if g.fx.size() > FX_BUDGET:
+		g.fx = g.fx.slice(g.fx.size() - FX_BUDGET)
 	for i in range(g.fx.size() - 1, -1, -1):
 		var f = g.fx[i]
 		f["t"] = float(f["t"]) + dt

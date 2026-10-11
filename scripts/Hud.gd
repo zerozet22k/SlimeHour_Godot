@@ -309,6 +309,12 @@ func collection_scrollbar(r: Rect2, total: int, cols: int, rows: int) -> void:
 
 # ================================================================= main draw
 func _draw() -> void:
+	var prof_t0 := Time.get_ticks_usec()
+	draw_hud()
+	if g.perf_detail:
+		g.prof["d.hud"] = float(g.prof.get("d.hud", 0.0)) + float(Time.get_ticks_usec() - prof_t0)
+
+func draw_hud() -> void:
 	RCOL[5] = Color.from_hsv(fmod(g.anim_t * 0.3, 1.0), 0.6, 1.0)
 	buttons.clear()
 	hover_card = null
