@@ -69,6 +69,43 @@ func _run() -> void:
 		check(not EnemyMixes.FEATURES[species].is_empty(), species + " has inheritable mutation parts")
 	for part in ["nozzle", "fuse", "sucker", "megaphone", "cross"]:
 		check(EnemyMixes.TRAIT_NAMES.has(part), part + " has a mutation name")
+	# Mutations: body parent delivers, second parent supplies the payload.
+	var Mixes = load("res://scripts/EnemyMixes.gd")
+	var MK = load("res://scripts/MutationKit.gd")
+	for species in Mixes.FEATURES:
+		check(MK.GIVES.has(species), species + " gives a mutation payload")
+	g.enemies.clear()
+	g.delayed.clear()
+	var ids := {}
+	for pair in [["nurse", "larry", "laser"], ["nurse", "kaboomba", "explode"]]:
+		var n := 0
+		var id: String = ""
+		while true:
+			id = "mix_" + pair[0] + "_t" + str(n) + "_" + pair[1]
+			if MK.payload_for(id, pair[1]) == pair[2]:
+				break
+			n += 1
+		var base: Dictionary = g.enemy_db[pair[0]].duplicate(true)
+		base["id"] = id
+		base["mix"] = [pair[0], pair[1]]
+		base["name"] = "test"
+		g.enemy_db[id] = base
+		ids[pair[1]] = id
+	# Pin the augment for a deterministic check.
+	var medic = g.spawn_enemy(ids["larry"], Vector2(0, -200), false, false)
+	medic["mut_pulse_t"] = 0.0
+	Combat.ai(g, medic, Vector2.DOWN, 200.0, 0.016, false)
+	check(g.delayed.filter(func(d): return str(d.get("fn", "")) == "boss_line").size() == 6, "Medic body + laser pulses a 6-way laser star")
+	check(MK.display_name(g, ids["larry"]).ends_with(" Medic"), "Mutant is named for its augment and body")
+	var seen_augments := {}
+	for k in range(40):
+		seen_augments[MK.payload_for("mix_x" + str(k), "larry")] = true
+	check(seen_augments.size() == 2, "A giver passes on either of its two augments depending on the mutation")
+	g.delayed.clear()
+	var bomber = g.spawn_enemy(ids["kaboomba"], Vector2(0, -200), false, false)
+	bomber["mut_pulse_t"] = 0.0
+	Combat.ai(g, bomber, Vector2.DOWN, 200.0, 0.016, false)
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "mut_pulse" and str(d.get("payload", "")) == "explode"), "Medic body + Kaboomba pulses a warned explosion")
 	if errors > 0:
 		push_error("%d monster checks failed" % errors)
 		quit(1)

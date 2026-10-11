@@ -8,6 +8,7 @@ const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
 const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
 const BossFight = preload("res://scripts/BossFight.gd")
 const Trails = preload("res://scripts/Trails.gd")
+const MutationKit = preload("res://scripts/MutationKit.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
@@ -168,7 +169,8 @@ static func update_delayed(g, dt: float) -> void:
 				ProjectileVfx.boss_impact(g, item["pos"], "boss_ember" if str(item.get("color", "")) == "ff9944" else "boss_void", radius)
 				g.sfx.play_projectile("boss_impact")
 				if not bool(item.get("marker", false)) and g.hero["pos"].distance_to(item["pos"]) <= radius + 11.0:
-					g.hurt(float(item["dmg"]), item["pos"], str(item.get("src", "a boss attack")))
+					if g.hurt(float(item["dmg"]), item["pos"], str(item.get("src", "a boss attack"))) and item.has("src_enemy") and item["fn"] == "boss_blast":
+						MutationKit.on_attack(g, item["src_enemy"], g.hero["pos"], true)
 				BossFight.on_blast(g, item)
 			"blink_slash":
 				# Departure-to-arrival hitbox exactly matches the rift warning.
@@ -190,7 +192,8 @@ static func update_delayed(g, dt: float) -> void:
 				g.spawn_ring_fx((a + b) * 0.5, col, w * 2.0)
 				g.sfx.play_projectile("boss_impact")
 				if seg_dist2(a, b, g.hero["pos"]) <= pow(w + 11.0, 2.0):
-					g.hurt(float(item["dmg"]), (a + b) * 0.5, str(item.get("src", "a boss lane attack")))
+					if g.hurt(float(item["dmg"]), (a + b) * 0.5, str(item.get("src", "a boss lane attack"))) and item.has("src_enemy"):
+						MutationKit.on_attack(g, item["src_enemy"], g.hero["pos"], true)
 			"elite_boom":
 				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
@@ -200,6 +203,8 @@ static func update_delayed(g, dt: float) -> void:
 			_:
 				if str(item["fn"]).begins_with("bf_"):
 					BossFight.resolve(g, item)
+				elif str(item["fn"]) == "mut_pulse":
+					MutationKit.resolve(g, item)
 
 # ================================================================= projectiles
 static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Variant:
@@ -458,6 +463,8 @@ static func expire(g, s: Dictionary) -> void:
 			schedule_boss_blast(g, s["pos"], 60.0, float(s["dmg"]), 0.9, "ff7a46")
 		if bool(s.get("acid_trail", false)):
 			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15)
+		if s.has("mut_src"):
+			MutationKit.on_attack(g, s["mut_src"], s["pos"], false)
 		return
 	WeaponSignatures.on_expire(g, s)
 	match kind:
@@ -792,6 +799,8 @@ static func collide_hero(g, s: Dictionary) -> void:
 		return
 	if g.hurt(float(s["dmg"]), s["pos"], str(s["src"]) if str(s["src"]) != "" else "a stray bullet"):
 		s["dead"] = true
+		if s.has("mut_src"):
+			MutationKit.on_attack(g, s["mut_src"], s["pos"], true)
 
 # ================================================================= hitting
 static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
@@ -1074,7 +1083,7 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	g.combo += 1
 	g.combo_t = 2.6
 	g.best_combo = maxi(g.best_combo, g.combo)
-	var kind = str(e["kind"])
+	var kind = MutationKit.primary(g, str(e["kind"]))
 	# Loot
 	var xp_value = int(e["xp"]) * (5 if bool(e["elite"]) else 1)
 	if e.has("affix"):
@@ -1357,7 +1366,7 @@ static func reap_unreachable(g, e: Dictionary, hero_pos: Vector2, dt: float) -> 
 
 static func has_role(g, e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
-	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
+	return kind == role or (kind.begins_with("mix_") and str(g.enemy_db[kind]["mix"][0]) == role)
 
 static func update_enemies(g, dt: float) -> void:
 	var hero_pos: Vector2 = g.hero["pos"]
@@ -1491,7 +1500,13 @@ static func update_enemies(g, dt: float) -> void:
 		elif e.has("minion_owner") and BossFight.minion_move(g, e, dir) != null:
 			desired = BossFight.minion_move(g, e, dir)
 		elif not disabled:
+			var mut_start: int = g.delayed.size()
 			desired = ai(g, e, dir, dist, dt, charmed)
+			if e.has("mut_of"):
+				for k in range(mut_start, g.delayed.size()):
+					var item: Dictionary = g.delayed[k]
+					if not item.has("src_enemy") and not bool(item.get("mut_payload", false)):
+						item["src_enemy"] = e
 		if bool(e["dead"]):
 			continue
 		e["vel"] = e["vel"].lerp(desired * float(e["speed"]) * speed_mul, 1.0 - exp(-8.0 * dt))
@@ -1636,6 +1651,8 @@ static func update_enemies(g, dt: float) -> void:
 				continue
 			var contact_dmg = float(e["dmg"]) * (1.35 if float(e.get("siphon_empowered_t", 0.0)) > 0.0 else 1.0)
 			var contact_hurt = g.hurt(contact_dmg, e["pos"], "a " + str(g.enemy_db[e["kind"]]["name"]))
+			if contact_hurt and e.has("mut_of"):
+				MutationKit.on_attack(g, e, hero_pos, true)
 			if contact_hurt and has_role(g, e, "leech"):
 				var stolen = minf(float(e["max_hp"]) * 0.12, float(e["dmg"]) * 1.5)
 				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + stolen)
@@ -1701,108 +1718,19 @@ static func mitosis_half_ai(g, e: Dictionary, dir: Vector2, dt: float) -> Vector
 		return to.normalized() * 1.3
 	return (dir * 0.6 + to.normalized() * 0.5).normalized()
 
-## Authored mutations have one signature behavior instead of simply running
-## the full A and B enemy brains together. Their body part is inherited for
-## appearance, but the attack must remain legible, warned and bounded.
-static func mutation_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
-	var style = str(g.enemy_db[str(e["kind"])].get("fusion_style", ""))
-	var target: Vector2 = g.hero["pos"]
-	e["cd"] = float(e["cd"]) - dt
-	if charmed:
-		return dir
-	var hard_factor = 0.80 if g.hard_mode else 1.0
-	match style:
-		"flank":
-			if float(e.get("charge", 0.0)) > 0.0:
-				e["charge"] = maxf(0.0, float(e["charge"]) - dt)
-				return Vector2.ZERO
-			if float(e.get("wind", 0.0)) > 0.0:
-				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					e["charge"] = 0.24
-					e["cdir"] = (e.get("lock", target) - e["pos"]).normalized()
-				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 500.0:
-				e["cd"] = 3.9 * hard_factor
-				e["wind"] = 0.69
-				e["lock"] = target + g.hero["vel"] * 0.26
-				return Vector2.ZERO
-			return (dir * 0.72 + dir.orthogonal() * sin(float(e["t"]) * 3.6) * 0.75).normalized()
-		"mine":
-			if float(e["cd"]) <= 0.0 and dist < 650.0:
-				e["cd"] = 3.65 * hard_factor
-				if g.delayed.size() < 125:
-					var impact = target + g.hero["vel"] * 0.32
-					impact.x = clampf(impact.x, -g.road_half + 35.0, g.road_half - 35.0)
-					schedule_boss_blast(g, impact, 49.0, float(e["dmg"]) * 0.83, 1.18, "f2ad6b")
-			return (dir * 0.45 + dir.orthogonal() * sin(float(e["t"]) * 2.1) * 0.85).normalized()
-		"echo":
-			if float(e.get("wind", 0.0)) > 0.0:
-				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
-				if float(e["wind"]) <= 0.0:
-					var aim = (e.get("lock", target) - e["pos"]).normalized()
-					if aim.length_squared() < 0.05:
-						aim = dir
-					enemy_fire(g, e, aim, 3 if not g.hard_mode else 5,
-						0.42 if not g.hard_mode else 0.68, 285.0, 5.2)
-				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 620.0:
-				e["cd"] = 3.7 * hard_factor
-				e["wind"] = 0.79
-				e["lock"] = target + g.hero["vel"] * 0.30
-				return Vector2.ZERO
-			return dir * 0.68
-		"brood":
-			if float(e["cd"]) <= 0.0 and dist < 600.0:
-				e["cd"] = 5.8 * hard_factor
-				var count = 2 if g.hard_mode else 1
-				for k in range(count):
-					if g.enemies.size() >= g.enemy_cap():
-						break
-					var spawn_pos: Vector2 = e["pos"] + Vector2(40.0 if k == 0 else -40.0, 30.0)
-					var child = g.spawn_enemy("mini", spawn_pos, false, false)
-					child["summon"] = true
-				g.spawn_ring_fx(e["pos"], Color("c58dff"), 56.0)
-			return dir * 0.55
-	return dir
-
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
 	if bool(e.get("half", false)):
 		return mitosis_half_ai(g, e, dir, dt)
 	if kind.begins_with("mix_"):
-		if str(g.enemy_db[kind].get("fusion_style", "")) != "":
-			return mutation_ai(g, e, dir, dist, dt, charmed)
-		# Legacy already-discovered cross-product hybrids keep their original
-		# behavior for backward-compatible saves and Debug Lab.
-		var pair: Array = g.enemy_db[kind]["mix"]
-		var motion = Vector2.ZERO
-		var shown_wind = 0.0
-		var shown_lock: Vector2 = g.hero["pos"]
-		for part in pair:
-			var state_key = "mix_state_" + str(part)
-			var state: Dictionary = e.get(state_key, {})
-			if state.is_empty():
-				e["cd"] = randf_range(0.5, 2.0)
-				e["wind"] = 0.0
-				e["charge"] = 0.0
-			for key in ["cd", "wind", "charge", "cdir", "lock", "tele"]:
-				if state.has(key):
-					e[key] = state[key]
-			e["kind"] = str(part)
-			motion += ai(g, e, dir, dist, dt, charmed)
-			state = {}
-			for key in ["cd", "wind", "charge", "cdir", "lock", "tele"]:
-				if e.has(key):
-					state[key] = e[key]
-			e[state_key] = state
-			if float(e.get("wind", 0.0)) > shown_wind:
-				shown_wind = float(e["wind"])
-				shown_lock = e.get("lock", g.hero["pos"])
+		# A mutant fights as its body parent; every attack carries the other
+		# parent's payload (MutationKit). One coherent ability, not two AIs.
+		e["mut_of"] = kind
+		MutationKit.tick(g, e, dt)
+		e["kind"] = MutationKit.primary(g, kind)
+		var motion: Vector2 = ai(g, e, dir, dist, dt, charmed)
 		e["kind"] = kind
-		e["wind"] = shown_wind
-		e["lock"] = shown_lock
-		return (motion / float(pair.size())).normalized()
+		return motion
 	e["cd"] = float(e["cd"]) - dt
 	if charmed:
 		return dir
@@ -2288,7 +2216,11 @@ static func larry_beam(g, e: Dictionary, dir: Vector2) -> void:
 		e["laser_sound_cd"] = 0.58
 	e["laser_sound_cd"] = float(e.get("laser_sound_cd", 0.0)) - 0.13
 	if seg_dist2(a, b, g.hero["pos"]) < pow(12.0 + 11.0, 2):
-		g.hurt(float(e["dmg"]) * 0.52, e["pos"], "Laser Larry")
+		if g.hurt(float(e["dmg"]) * 0.52, e["pos"], "Laser Larry") and e.has("mut_of"):
+			MutationKit.on_attack(g, e, g.hero["pos"], true)
+	elif e.has("mut_of") and MutationKit.payload_of(g, e) in MutationKit.SUPPORT:
+		# A support payload rides the beam onto the monsters it passes.
+		MutationKit.on_attack(g, e, b, false)
 
 static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, speed: float, r: float = 6.0) -> Variant:
 	var last = null
@@ -2302,6 +2234,8 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 			"vfx_style": boss_style, "src": "a " + str(g.enemy_db[e["kind"]]["name"]) + "'s shot"})
 		if k == 0 and last != null and boss_style.begins_with("boss_"):
 			g.sfx.play_projectile("boss_fire", boss_style)
+		if last != null and e.has("mut_of"):
+			last["mut_src"] = e
 	return last
 
 # ================================================================= area effects

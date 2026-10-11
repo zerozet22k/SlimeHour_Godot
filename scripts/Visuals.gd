@@ -982,7 +982,7 @@ func paint_telegraphs() -> void:
 			pos = tgt["pos"]
 		var p = P(pos)
 		var r = float(d["tele"])
-		if fn in ["boss_blast", "elite_boom"]:
+		if fn in ["boss_blast", "elite_boom", "mut_pulse"]:
 			danger_circle(p, r, k, warning_color, d)
 			continue
 		draw_circle(p, r, Color(warning_color, 0.035 + 0.075 * k))

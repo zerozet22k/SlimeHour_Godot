@@ -1,3 +1,12 @@
+## v0.1.69 — Full-width streets, reworked monsters and real mutations
+
+- **Streets fill the screen** with real proportions: traffic lanes, bike lane, parking lane, kerb, grass verge with trees and pavement, with houses along the edges. Trees only collide at the trunk so you never get stuck, and only stand in the verge. Street lights no longer look like targets.
+- **Mirror Mimic** reflects your shots straight back at you. **Riot**'s shield stops frontal shots until it breaks, and it shield-bashes up close. **Lancer** spears are fast.
+- **Burrower** tunnels as a dirt mound, rumbles briefly under you and erupts, then stays exposed. No more fissure lines.
+- **Sapper** throws sticky bombs that latch onto you; dash or bash to shake them off. **Skitter** ricochets off walls and props, then gets dizzy. **Spitter** acid leaves a poison trail and pools where it lands.
+- Modelled **Mama Blob** and **Ashwing** eggs. Small monsters have 10% more health and damage.
+- **Mutations feel like one monster:** the body parent attacks the way it always does, and every attack carries an augment from the other parent (heal, explode, poison, laser, sticky bomb, drain and more). Each species can pass on one of two augments depending on the mutation. Monsters that never attack deliver it as a warned pulse; line augments like lasers fire as a 6-way star.
+
 ## v0.1.68 — Real streets, unique boss attacks, gun and monster identities
 
 - **Real streets:** every sector is a proper road cross-section (two-lane street, four-lane road, tree-lined boulevard or wide avenue) with the right number of lanes. The rest of the width is walkable paved pavement with street trees in tree pits, street lights and building fronts. Asphalt has wear, manholes and patches; markings include edge lines, lane dashes, yellow centre lines and arrows. Cross streets have zebra crossings and stop lines. Roadworks only close the kerb lane, and parked cars sit along the kerb.

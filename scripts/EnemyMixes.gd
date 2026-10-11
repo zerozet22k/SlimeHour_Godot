@@ -5,6 +5,7 @@ extends RefCounted
 
 ## Hybrid inheritance is anatomical, NOT a second complete monster face.
 ## Every second parent supplies one recognizable peripheral body feature.
+const MutationKit = preload("res://scripts/MutationKit.gd")
 const RETIRED = [] # Medic and Laser Larry are active normal monster species.
 const FEATURES = {
 	"blob": ["cheeks", "tail"], "zoomer": ["fins", "tail"],
@@ -81,7 +82,7 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	var ca = Color(str(first["color"]))
 	var cb = Color(str(second["color"]))
 	db[id] = {
-		"id": id, "name": str(TRAIT_NAMES.get(feature, "Mutated")) + " " + str(first["name"]),
+		"id": id, "name": str(MutationKit.PAYLOAD_NAMES.get(MutationKit.payload_for(id, secondary), "Mutated")) + " " + str(first["name"]),
 		"hp": (float(first["hp"]) + float(second["hp"])) * 0.71,
 		"speed": (float(first["speed"]) + float(second["speed"])) * 0.5,
 		"dmg": maxf(float(first["dmg"]), float(second["dmg"])),
