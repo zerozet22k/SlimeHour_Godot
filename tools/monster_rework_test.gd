@@ -106,6 +106,11 @@ func _run() -> void:
 	bomber["mut_pulse_t"] = 0.0
 	Combat.ai(g, bomber, Vector2.DOWN, 200.0, 0.016, false)
 	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "mut_pulse" and str(d.get("payload", "")) == "explode"), "Medic body + Kaboomba pulses a warned explosion")
+	# Mutants show and use their body parent's attacks (tells, tethers, dashes).
+	var visual_src := FileAccess.get_file_as_string("res://scripts/Visuals.gd")
+	var combat_src := FileAccess.get_file_as_string("res://scripts/Combat.gd")
+	check(visual_src.contains('enemy_has_role(e, "leech") and float(e.get("tether_t"') and not visual_src.contains('e["kind"] == "leech"'), "A Leech-bodied mutant draws its blood tether")
+	check(combat_src.contains('var body_kind: String = MutationKit.primary') and not combat_src.contains('str(e["kind"]) == "skitter"'), "Mutants move with their body parent's dash and ricochet")
 	if errors > 0:
 		push_error("%d monster checks failed" % errors)
 		quit(1)

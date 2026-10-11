@@ -1045,8 +1045,8 @@ func paint_telegraphs() -> void:
 			elif e.has("tele") and enemy_has_role(e, "chonk"):
 				draw_arc(p, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
 				draw_circle(p, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
-			elif enemy_has_role(e, "bull") or e["kind"] in ["zoomer", "skitter"]:
-				var color = Color("83eaff") if e["kind"] == "skitter" else Color(1, 0.6, 0.2)
+			elif enemy_has_role(e, "bull") or enemy_has_role(e, "zoomer") or enemy_has_role(e, "skitter"):
+				var color = Color("83eaff") if enemy_has_role(e, "skitter") else Color(1, 0.6, 0.2)
 				draw_line(p, P(g.hero["pos"]), Color(color, 0.45), 5.0)
 			elif enemy_has_role(e, "blinky"):
 				var depart: Vector2 = P(e.get("rift_origin", e["pos"]))
@@ -1055,13 +1055,13 @@ func paint_telegraphs() -> void:
 				# This preview is the exact dash slash segment, not a player prediction.
 				draw_line(depart, arrive, Color("b88bff", 0.21), 30.0)
 				draw_line(depart, arrive, Color("ebd5ff", 0.83), 2.5)
-			elif e["kind"] == "leech":
+			elif enemy_has_role(e, "leech"):
 				var drain_to = P(e.get("lock", g.hero["pos"]))
 				var pulse = 0.34 + 0.26 * sin(g.anim_t * 14.0)
 				draw_line(p, drain_to, Color(0.84, 0.34, 1.0, pulse), 4.5)
 				draw_arc(drain_to, 27.0, 0, TAU, 30, Color("d9a3ff", 0.80), 3.0)
 				draw_arc(p, float(e["r"]) + 8.0, 0, TAU, 24, Color("d9a3ff", 0.90), 3.5)
-			elif e["kind"] == "spitter":
+			elif enemy_has_role(e, "spitter"):
 				# Its acid is slow (~240 px/s) and easy to watch, so no aim line: only the body cue.
 				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, Color("a2ff83", 0.80), 2.5)
 			elif enemy_has_role(e, "riot"):
@@ -1349,7 +1349,7 @@ func paint_enemies() -> void:
 					linked += 1
 					if linked >= 2:
 						break
-		if e["kind"] == "leech" and float(e.get("tether_t", 0.0)) > 0.0:
+		if enemy_has_role(e, "leech") and float(e.get("tether_t", 0.0)) > 0.0:
 			draw_line(p, P(g.hero["pos"]), Color("c86eff", 0.6 + 0.2 * sin(g.anim_t * 10.0)), 3.5)
 			var receiver: Dictionary = e.get("siphon_target", {})
 			if not receiver.is_empty() and not bool(receiver.get("dead", false)):
@@ -1372,10 +1372,10 @@ func paint_enemies() -> void:
 			var progress = 1.0 - float(e["rebirth_t"]) / (1.55 if g.hard_mode else 1.8)
 			progress = clampf(progress, 0.0, 1.0)
 			draw_arc(p, r + 9.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 32, Color("ffdf80", 0.8), 3.0, true)
-		elif e["kind"] == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
+		elif enemy_has_role(e, "larry") and float(e.get("overheat_t", 0.0)) > 0.0:
 			draw_arc(p, r + 10.0, 0, TAU, 28, Color("ffcf8a"), 4.0)
 			text_c("OVERHEATED", p + Vector2(0, -r - 28.0), 11, Color("ffe5a4"), 2)
-		elif e["kind"] == "nurse" and e.get("patient") != null:
+		elif enemy_has_role(e, "nurse") and e.get("patient") != null:
 			var patient = e["patient"]
 			if not bool(patient.get("dead", false)):
 				draw_line(p, P(patient["pos"]), Color("83efbb", 0.65), 2.5)
@@ -1383,7 +1383,7 @@ func paint_enemies() -> void:
 					draw_arc(p, r + 7.0, -PI * 0.5, -PI * 0.5 + TAU * minf(1.0, float(e["treat_t"]) / 1.15), 24, Color("83ffac"), 3.0)
 		elif enemy_has_role(e, "siren"):
 			draw_arc(p, 180.0, 0, TAU, 64, Color(0.95, 0.54, 0.85, 0.22), 2.0)
-		elif e["kind"] == "burrower" and float(e.get("exposed_t", 0.0)) > 0.0:
+		elif enemy_has_role(e, "burrower") and float(e.get("exposed_t", 0.0)) > 0.0:
 			for k in range(3):
 				var th: float = g.anim_t * 4.0 + TAU * float(k) / 3.0
 				draw_circle(p + Vector2(cos(th) * r * 0.8, -r - 6.0 + sin(th) * 4.0), 3.0, Color("ffe07f"))
@@ -1415,7 +1415,8 @@ const ATLAS_COLS = 8
 ## crowd is drawn as plain textured quads that the GPU batches together.
 func enemy_has_role(e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
-	return kind == role or (kind.begins_with("mix_") and g.enemy_db[kind]["mix"].has(role))
+	# A mutant shows its body parent's attacks and tells.
+	return kind == role or (kind.begins_with("mix_") and str(g.enemy_db[kind]["mix"][0]) == role)
 
 var atlas: Texture2D = null
 var mix_rebake_pending := false
@@ -1526,7 +1527,7 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		p.y -= 10.0 + sin(g.anim_t * 4.0) * 4.0
 	var k = r / BAKE_R
 	var col: Color = e["color"]
-	if kind == "zoomer" or kind == "mini":
+	if enemy_has_role(e, "zoomer") or enemy_has_role(e, "mini"):
 		var back = -e["vel"].normalized() if e["vel"].length() > 5 else Vector2.DOWN
 		for j in range(3):
 			draw_line(p + back.rotated(0.4 * (j - 1)) * r, p + back.rotated(0.4 * (j - 1)) * (r + 10 + j * 3), Color(col, 0.5), 2.0)
@@ -1573,7 +1574,7 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 		var a = g.anim_t * 25.0
 		draw_line(p + Vector2.from_angle(a) * r * 1.6, p + Vector2.from_angle(a + PI) * r * 1.6, Color(0.9, 0.9, 1.0, 0.6), 5.0)
 		draw_line(p + Vector2.from_angle(a + PI * 0.5) * r * 1.6, p + Vector2.from_angle(a + PI * 1.5) * r * 1.6, Color(0.9, 0.9, 1.0, 0.6), 5.0)
-	elif kind == "kaboomba":
+	elif enemy_has_role(e, "kaboomba"):
 		draw_circle(p + Vector2(5, -r - 10), 3.5 + sin(g.anim_t * 30.0) * 1.5, Color("ffd24d"))
 	var look: Vector2 = e["aim"]
 	var eye_r = maxf(3.5, r * 0.3)
@@ -1596,7 +1597,7 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 				draw_texture_rect_region(atlas, Rect2(ep + off - Vector2(pr, pr), Vector2(pr, pr) * 2.0), dot, pc)
 			if float(e["charm"]) > 0.0:
 				heart(ep + Vector2(0, -1), eye_r * 0.6, Color("ff3a8a"))
-	if kind == "riot" and float(e.get("shield_hp", 1.0)) > 0.0:
+	if enemy_has_role(e, "riot") and float(e.get("shield_hp", 1.0)) > 0.0:
 		var aim: Vector2 = e["aim"]
 		var sp = p + aim * (r + 4)
 		var perp = aim.orthogonal()

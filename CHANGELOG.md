@@ -1,3 +1,7 @@
+## v0.1.74 — Mutants show their attacks
+
+- Mutants now show every tell and effect of their body parent's attack. A Leechling-bodied mutant (like Blood Chaser) draws its wind-up and blood tether; Skitter, Zoomer and Bull bodies keep their ricochet, sprint cap and shove; Riot bodies show their shield, Larry bodies their overheat.
+
 ## v0.1.73 — Better fusions
 
 - Every species now has a **main part** it always keeps as a body (Spitter's neck, Ashwing's wings, Sapper's bomb pack, Siren's fin ears, Mama's egg pack...) and **parts it gives**, each with a slot (top, hand, legs, wings, head, tail, spikes, back).

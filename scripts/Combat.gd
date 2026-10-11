@@ -942,13 +942,13 @@ static func boss_identity_damage_factor(g, e: Dictionary) -> float:
 static func damage(g, e: Dictionary, amount: float, crit: bool, ctx: Dictionary) -> void:
 	if bool(e["dead"]) or float(e.get("rebirth_t", 0.0)) > 0.0:
 		return
-	if str(e["kind"]) == "chonk" and float(e.get("recover", 0.0)) > 0.0:
+	if has_role(g, e, "chonk") and float(e.get("recover", 0.0)) > 0.0:
 		amount *= 1.5
 	if float(e.get("exposed_t", 0.0)) > 0.0 or float(e.get("dizzy_t", 0.0)) > 0.0:
 		amount *= 1.5
 	if float(e.get("siphon_empowered_t", 0.0)) > 0.0:
 		amount *= 0.62 # Empowered ally resists bullets and AoE while linked.
-	if str(e["kind"]) == "larry" and float(e.get("overheat_t", 0.0)) > 0.0:
+	if has_role(g, e, "larry") and float(e.get("overheat_t", 0.0)) > 0.0:
 		amount *= 1.65
 	# Armored elites shrug off 40%. A nearby Hype Totem halves incoming
 	# damage; the SAME helper protects against DOT, never just direct bullets.
@@ -1388,6 +1388,8 @@ static func update_enemies(g, dt: float) -> void:
 		var e = g.enemies[idx]
 		if bool(e["dead"]):
 			continue
+		# Mutants move and attack as their body parent.
+		var body_kind: String = MutationKit.primary(g, str(e["kind"]))
 		if reap_unreachable(g, e, hero_pos, dt):
 			continue
 		e["t"] = float(e["t"]) + dt
@@ -1464,7 +1466,7 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e.get("siren_haste", 0.0)) > 0.0:
 			e["siren_haste"] = maxf(0.0, float(e["siren_haste"]) - dt)
 			speed_mul *= 1.22
-			if str(e["kind"]) in ["blob", "mini", "zoomer", "skitter"]:
+			if body_kind in ["blob", "mini", "zoomer", "skitter"]:
 				speed_mul *= 1.13
 		if float(e["slow"]) > 0.0:
 			speed_mul *= 0.55
@@ -1515,15 +1517,15 @@ static func update_enemies(g, dt: float) -> void:
 		if bool(e.get("burrowing", false)) or bool(e.get("minion_static", false)):
 			e["kb"] = Vector2.ZERO
 		if float(e["charge"]) > 0.0 and not disabled:
-			e["vel"] = e["cdir"] * (640.0 if str(e["kind"]) == "skitter" else 560.0)
+			e["vel"] = e["cdir"] * (640.0 if body_kind == "skitter" else 560.0)
 		e["dizzy_t"] = maxf(0.0, float(e.get("dizzy_t", 0.0)) - dt)
 		if float(e.get("sprint_t", 0.0)) > 0.0 and not disabled:
 			e["vel"] *= 1.85
 		# Late-run scaling, HASTED elites, and Siren auras can multiply sprint
 		# velocity. Zoomer stays quick without suddenly crossing a whole screen.
-		if str(e["kind"]) == "zoomer":
+		if body_kind == "zoomer":
 			e["vel"] = zoomer_speed_limit(e["vel"], g.hard_mode)
-		var skitter_dashing = str(e["kind"]) == "skitter" and float(e["charge"]) > 0.0 and not disabled
+		var skitter_dashing = body_kind == "skitter" and float(e["charge"]) > 0.0 and not disabled
 		var before_dash_move: Vector2 = e["pos"]
 		e["pos"] += (e["vel"] + e["kb"]) * dt
 		var kb_len = e["kb"].length()
@@ -1572,7 +1574,7 @@ static func update_enemies(g, dt: float) -> void:
 					e["dizzy_t"] = 1.4
 					e["vel"] = Vector2.ZERO
 					e["wind"] = 0.0
-		if str(e["kind"]) == "bull" and float(e["charge"]) > 0.0:
+		if body_kind == "bull" and float(e["charge"]) > 0.0:
 			EnemyIdentity.bull_push(g, e, dt)
 		# Separation + bowling collisions
 		var flung = float(e["flung"]) > 0.0 and kb_len > 260.0 or float(e["charge"]) > 0.0
@@ -1612,9 +1614,9 @@ static func update_enemies(g, dt: float) -> void:
 		var side: float = maxf(0.0, g.road_half - float(e["r"]))
 		var corrected: Vector2 = e["pos"]
 		corrected.x = clampf(corrected.x, -side, side)
-		if str(e["kind"]) == "skitter":
+		if body_kind == "skitter":
 			corrected = skitter_dash_bound(corrected, hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
-		elif str(e["kind"]) == "zoomer":
+		elif body_kind == "zoomer":
 			var in_area: Vector2 = zoomer_play_area(corrected, hero_pos.y, g.back_limit(), g.road_half, float(e["r"]))
 			var edge: bool = in_area.distance_squared_to(corrected) > 0.25 or absf(in_area.x) >= side - 0.5 or in_area.y <= hero_pos.y - 759.5 or in_area.y >= g.back_limit() - float(e["r"]) - 0.5
 			corrected = in_area
@@ -1637,7 +1639,7 @@ static func update_enemies(g, dt: float) -> void:
 					e["cd"] = 0.5
 					damage(g, target_enemy, float(e["dmg"]) * 2.0 + 10.0 * ss, false, {"gen": 1, "pos": target_enemy["pos"]})
 		elif not disabled and not BossFight.contact_safe(e) and e["pos"].distance_to(hero_pos) < float(e["r"]) + hero_r and float(e["dmg"]) > 0.0:
-			if e["kind"] == "kaboomba":
+			if body_kind == "kaboomba":
 				# kill() must see a live enemy or it silently returns without a fuse.
 				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
