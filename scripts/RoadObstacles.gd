@@ -19,8 +19,11 @@ static func camera_x(hero_x: float, road_half: float, canvas_width: float) -> fl
 ##   split     two carriageways around a wide planted park strip
 ## Islands are walkable grass with crosswalk gaps; only the props on them block.
 const ISLAND_HALF = {"open": 0.0, "two_way": 8.0, "boulevard": 62.0, "split": 135.0}
-const GAP_EVERY = 760.0
-const GAP_SIZE = 170.0
+## Cross streets: a junction every CROSS_EVERY, CROSS_W tall. Centre islands
+## open at junctions and nothing is ever parked inside one.
+const CROSS_EVERY = 1350.0
+const CROSS_W = 210.0
+const CROSS_FIRST = 1050.0
 
 static func layout_for(sector: int, half: float, boss: bool = false) -> String:
 	if sector <= 1 or boss:
@@ -30,10 +33,26 @@ static func layout_for(sector: int, half: float, boss: bool = false) -> String:
 	rng.seed = int(5113 + sector * 7717)
 	return str(kinds[(sector + rng.randi()) % kinds.size()])
 
-## True when y (world) is inside a crosswalk opening of the centre island.
+## World y of every junction centre in a sector.
+static func crossings(start_y: float, length: float) -> Array:
+	var out: Array = []
+	var y: float = start_y - CROSS_FIRST
+	while y > start_y - length + 500.0:
+		out.append(y)
+		y -= CROSS_EVERY
+	return out
+
+## Distance-to-junction test used by the islands, props and markings.
+static func in_junction(y: float, start_y: float, pad: float = 0.0) -> bool:
+	var d: float = start_y - CROSS_FIRST - y
+	if d < -CROSS_W * 0.5 - pad:
+		return false
+	var k: float = roundf(d / CROSS_EVERY)
+	return absf(d - k * CROSS_EVERY) <= CROSS_W * 0.5 + pad
+
+## Centre islands open at junctions.
 static func in_island_gap(y: float, start_y: float) -> bool:
-	var d: float = fposmod(start_y - 300.0 - y, GAP_EVERY)
-	return d < GAP_SIZE
+	return in_junction(y, start_y, 72.0)
 
 static func generate(sector: int, half: float, start_y: float, length: float, boss: bool = false) -> Array:
 	var rng = RandomNumberGenerator.new()
@@ -101,7 +120,8 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 			var in_lane: bool = rng.randf() < 0.35
 			var cx: float = side2 * (rng.randf_range(island + 120.0, half - 160.0) if in_lane else half - 125.0)
 			place(result, "car", Vector2(cx, cy), 43.0, 110.0 + sector * 5.0)
-	return result
+	# Junctions stay clear for cross traffic.
+	return result.filter(func(o): return not in_junction(float(o["pos"].y), start_y, float(o["radius"]) + 85.0))
 
 ## Adds an obstacle unless it would overlap one already placed.
 static func place(result: Array, kind: String, pos: Vector2, radius: float, hp: float) -> void:
