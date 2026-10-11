@@ -2635,15 +2635,11 @@ func enemy_icon(kind: String, r: Rect2, a: float = 1.0) -> void:
 		var accent = Color(str(description["color"]))
 		draw_circle(dst.get_center() + Vector2(0, size * 0.18), size * 0.42, Color(0, 0, 0, 0.35 * a))
 		draw_circle(dst.get_center() + Vector2(0, -size * 0.04), size * 0.37, Color(accent, 0.11 * a))
-		var body_tint := Color(1, 1, 1, a)
-		if pair.size() == 2:
-			body_tint *= Color.WHITE.lerp(Color(str(g.enemy_db[str(pair[1])]["color"])).lightened(0.25), 0.32)
-		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(50, 50), Vector2(100, 100)), body_tint)
+		draw_texture_rect_region(v.atlas, dst, Rect2(src.position + Vector2(50, 50), Vector2(100, 100)), Color(1, 1, 1, a))
 		if pair.size() == 2:
 			var second = Color(str(g.enemy_db[str(pair[1])]["color"]))
-			v.MonsterModels.markings(self, dst.get_center() + Vector2(0, size * 0.04), size * 0.3, Color(second, a), posmod(kind.hash(), 5))
-			v.MonsterModels.augment(self, dst.get_center() + Vector2(0, size * 0.04), size * 0.3,
-				v.MutationKit.payload_for(kind, str(pair[1])), Color(second, a), g.anim_t)
+			v.MutationParts.draw_received(self, str(pair[0]), str(pair[1]), v.MutationKit.payload_index(kind, str(pair[1])),
+				dst.get_center() + Vector2(0, size * 0.08), size * 0.3, Color(second, a), g.anim_t)
 		var face = str(description.get("look", {}).get("face", ""))
 		if face != "visor" and kind not in ["heli", "necro", "totem", "riot"]:
 			for side in [-1.0, 1.0]:

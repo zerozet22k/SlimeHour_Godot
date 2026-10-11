@@ -1,3 +1,8 @@
+## v0.1.71 — Mutations built from body parts
+
+- Every monster's base model now **gives two parts** (one for each augment it can pass on: Kaboomba's lit fuse or bomb spikes, Larry's laser lens or heat vents, Medic's nurse cap or cross pack...) and **receives one part** in a fixed slot on its own body (on its head, side or underneath).
+- A mutation is the body parent's model with the giver's part plugged into that slot, so you can see both parents and what its attacks carry at a glance. Replaces the colour spots and emblem badges from v0.1.70.
+
 ## v0.1.70 — Mutations you can read at a glance
 
 - **Mutation art:** a mutant keeps its body parent's silhouette, wears patches of the other parent's colour, and shows an emblem of the augment its attacks carry: a red laser lens, a green heal cross, a lit fuse, poison drips, a guard hex, lightning, a sticky bomb and more. The same look is used in game and in the Mutation Book.

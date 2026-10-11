@@ -66,6 +66,10 @@ static func primary(g, kind: String) -> String:
 	return str(p[0]) if not p.is_empty() else kind
 
 ## The augment a giver passes on in this particular mutation.
+static func payload_index(kind: String, giver: String) -> int:
+	var options: Array = GIVES.get(giver, [])
+	return 0 if options.is_empty() else posmod(kind.hash() >> 3, options.size())
+
 static func payload_for(kind: String, giver: String) -> String:
 	var options: Array = GIVES.get(giver, [])
 	if options.is_empty():
