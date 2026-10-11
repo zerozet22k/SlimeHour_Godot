@@ -1063,10 +1063,22 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	# Kind-specific deaths
 	match "mitosis" if has_role(g, e, "mitosis") else kind:
 		"mitosis":
+			# Splits into two halves that crawl back together and re-merge
+			# unless both die first. Freeze, shock or overkill stops the split.
 			var suppressed = float(e.get("frozen", 0.0)) > 0.0 or float(e.get("shock", 0.0)) > 0.0 or overkill > float(e["max_hp"]) * 0.35
-			for k in range(0 if suppressed else 2):
-				var m = g.spawn_enemy("mini", pos + Vector2(randf_range(-14, 14), randf_range(-14, 14)), false, false)
-				m["kb"] = Vector2.from_angle(randf() * TAU) * 220.0
+			if not suppressed and not bool(e.get("half", false)) and g.enemies.size() < g.MAX_ENEMIES:
+				var away := Vector2.from_angle(randf() * TAU)
+				for k in range(2):
+					var m = g.spawn_enemy("mitosis", pos + away * (12.0 if k == 0 else -12.0), false, false)
+					m["half"] = true
+					m["pair_id"] = int(e["id"])
+					m["merge_t"] = 2.6
+					m["r"] = float(m["r"]) * 0.65
+					m["hp"] = float(e["max_hp"]) * 0.35
+					m["max_hp"] = m["hp"]
+					m["kb"] = away * (240.0 if k == 0 else -240.0)
+					m["summon"] = true
+				g.say(pos + Vector2(0, -20), "SPLIT!", Color("8fffe0"), 18)
 		"kaboomba":
 			# Keep a visible, armed body after death instead of vanishing or exploding instantly.
 			g.delayed.append(kaboomba_fuse(pos, float(e["dmg"])))
@@ -1589,6 +1601,31 @@ static func schedule_boss_line(g, a: Vector2, b: Vector2, width: float, dmg: flo
 	g.delayed.append({"fn": "boss_line", "pos": (a + b) * 0.5, "a": a, "b": b,
 		"tele": width, "t": t, "life": t, "dmg": dmg, "color": color})
 
+## Mitosis halves crawl toward each other and fuse back into a whole cell.
+static func mitosis_half_ai(g, e: Dictionary, dir: Vector2, dt: float) -> Vector2:
+	e["merge_t"] = float(e.get("merge_t", 0.0)) - dt
+	var partner = null
+	for other in g.enemies:
+		if other != e and not bool(other["dead"]) and bool(other.get("half", false)) and int(other.get("pair_id", -1)) == int(e.get("pair_id", -2)):
+			partner = other
+			break
+	if partner == null:
+		return dir
+	var to: Vector2 = Vector2(partner["pos"]) - Vector2(e["pos"])
+	if float(e["merge_t"]) <= 0.0 and to.length() < float(e["r"]) + float(partner["r"]) + 4.0 and int(e["id"]) < int(partner["id"]):
+		partner["dead"] = true
+		e["half"] = false
+		e["r"] = float(g.enemy_db["mitosis"]["r"])
+		e["max_hp"] = float(e["max_hp"]) / 0.35 * 0.7
+		e["hp"] = float(e["max_hp"])
+		e["squash"] = 0.8
+		g.spawn_ring_fx(e["pos"], Color("8fffe0"), 40.0)
+		g.say(Vector2(e["pos"]) + Vector2(0, -24), "MERGED!", Color("8fffe0"), 18)
+		return Vector2.ZERO
+	if float(e["merge_t"]) <= 0.0:
+		return to.normalized() * 1.3
+	return (dir * 0.6 + to.normalized() * 0.5).normalized()
+
 ## Authored mutations have one signature behavior instead of simply running
 ## the full A and B enemy brains together. Their body part is inherited for
 ## appearance, but the attack must remain legible, warned and bounded.
@@ -1656,6 +1693,8 @@ static func mutation_ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, 
 
 static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: bool) -> Vector2:
 	var kind = str(e["kind"])
+	if bool(e.get("half", false)):
+		return mitosis_half_ai(g, e, dir, dt)
 	if kind.begins_with("mix_"):
 		if str(g.enemy_db[kind].get("fusion_style", "")) != "":
 			return mutation_ai(g, e, dir, dist, dt, charmed)
@@ -1982,7 +2021,18 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["pos"] = hero_pos + e.get("latch_off", Vector2.ZERO)
 				e["kb"] = Vector2.ZERO
 				return Vector2.ZERO
-			return dir
+			# Ticks hop: crouch for a beat, then leap at where you are heading.
+			e["hop_t"] = float(e.get("hop_t", randf_range(0.2, 0.7))) - dt
+			if float(e.get("hop_air", 0.0)) > 0.0:
+				e["hop_air"] = float(e["hop_air"]) - dt
+				return Vector2(e.get("hop_dir", dir)) * 3.2
+			if float(e["hop_t"]) <= 0.0:
+				e["hop_t"] = 0.75 if not g.hard_mode else 0.6
+				e["hop_air"] = 0.32
+				var lead_at: Vector2 = hero_pos + Vector2(g.hero.get("vel", Vector2.ZERO)) * 0.3
+				e["hop_dir"] = (lead_at - Vector2(e["pos"])).normalized()
+				e["squash"] = 0.6
+			return Vector2.ZERO
 		"spitter":
 			# Spitters launch curving acid hooks around the player's flank,
 			# not Mirror's reflective frontal shotgun. Lock the aim on wind-up.

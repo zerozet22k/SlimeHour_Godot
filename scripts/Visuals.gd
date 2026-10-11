@@ -7,6 +7,7 @@ const BossFight = preload("res://scripts/BossFight.gd")
 const BossModels = preload("res://scripts/BossModels.gd")
 const Trails = preload("res://scripts/Trails.gd")
 const RoadObstacles = preload("res://scripts/RoadObstacles.gd")
+const MonsterModels = preload("res://scripts/MonsterModels.gd")
 const WeaponAim = preload("res://scripts/WeaponAim.gd")
 
 
@@ -1570,6 +1571,8 @@ func draw_enemy_live(e: Dictionary, p: Vector2, r: float) -> void:
 ## The first parent's complete face remains intact. 19 choices are enough to
 ## give sector-40 combinations recognizable silhouettes without N*N sprites.
 func draw_hybrid_trait(ci: CanvasItem, c: Vector2, r: float, feature_name: String, accent: Color, feature_variant: int = 0) -> void:
+	if MonsterModels.part(ci, c, r, feature_name, accent):
+		return
 	var shade = accent.darkened(0.43)
 	match feature_name:
 		"ears":
@@ -1708,14 +1711,17 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 	var body = Color.WHITE if flash else col
 	var dark = col.darkened(0.45)
 	var parts: Dictionary = g.enemy_db[kind].get("look", {})
-	var slime = kind in ["blob", "zoomer", "chonk", "spitter", "mitosis", "mini", "mama", "chonkzilla", "kingblob", "ashwing"]
+	var custom = MonsterModels.has(kind)
+	var slime = not custom and kind in ["blob", "zoomer", "chonk", "spitter", "mitosis", "mini", "mama", "chonkzilla", "kingblob", "ashwing"]
+	if custom:
+		MonsterModels.draw(ci, kind, r, body, dark)
 	if slime:
 		for k in range(5):
 			var a = TAU * float(k) / 5.0
 			var lobe = Vector2(cos(a) * r * 0.62, sin(a) * r * 0.58)
 			ci.draw_circle(lobe, r * (0.43 if k % 2 == 0 else 0.36), dark)
 			ci.draw_circle(lobe + Vector2(0, -2), r * (0.39 if k % 2 == 0 else 0.32), body)
-	match kind:
+	match ("" if custom else kind):
 		"coilqueen":
 			for k in range(6):
 				var angle = float(k) * TAU / 6.0
@@ -1808,7 +1814,9 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 				var lx = (-1.0 if k < 3 else 1.0)
 				var ly = (k % 3 - 1) * r * 0.55
 				ci.draw_line(Vector2(lx * r * 0.5, ly), Vector2(lx * r * 1.45, ly + r * 0.35), Color("24331c"), 2.5)
-	match kind:
+	match ("#custom" if custom else kind):
+		"#custom":
+			pass
 		"mirror":
 			ci.draw_circle(Vector2.ZERO, r * 0.7, Color("1c6680"))
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.65, 0), Vector2(0, -r * 0.88), Vector2(r * 0.65, 0), Vector2(0, r * 0.85)]), body)
@@ -1897,7 +1905,7 @@ func draw_enemy_body(ci: CanvasItem, kind: String, elite: bool, r: float, col: C
 	else:
 		for ep in ([Vector2(0, ey)] if kind == "necro" else [Vector2(-r * 0.36, ey), Vector2(r * 0.36, ey)]):
 			ci.draw_circle(ep, eye_r, Color.WHITE)
-	match kind:
+	match ("" if custom else kind):
 		"ashwing":
 			ci.draw_circle(Vector2(0, r * 0.42), r * 0.2, Color("6d291c"))
 			ci.draw_line(Vector2(-r * 0.43, r * 0.34), Vector2(r * 0.38, r * 0.34), Color("ffe19c"), 2.3)

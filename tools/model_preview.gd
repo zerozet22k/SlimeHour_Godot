@@ -11,9 +11,9 @@ func capture() -> void:
 	game.enemies.clear()
 	game.guns.clear()
 	game.hero["aim"] = Vector2.DOWN
-	var ids = ["blob", "zoomer", "chonk", "spitter", "kaboomba", "mitosis", "mini", "riot", "bull", "nurse", "larry", "mama", "goblin", "chonkzilla", "heli", "necro", "kingblob"]
+	var ids = ["blob", "zoomer", "chonk", "spitter", "kaboomba", "mitosis", "mini", "riot", "bull", "mama", "mortar", "totem", "blinky", "tick", "goblin", "ashwing", "mirror", "burrower", "siren", "skitter", "sapper", "lancer", "leech", "nurse", "larry"]
 	for i in range(ids.size()):
-		var pos = Vector2(-365 + (i % 6) * 145, game.cam_y - 235 + floori(float(i) / 6.0) * 195)
+		var pos = Vector2(-460 + (i % 7) * 150, game.cam_y - 250 + floori(float(i) / 7.0) * 135)
 		var e = game.spawn_enemy(ids[i], pos)
 		e["vel"] = Vector2(1, 0)
 		e["aim"] = Vector2.DOWN

@@ -7,19 +7,19 @@ extends RefCounted
 ## Every second parent supplies one recognizable peripheral body feature.
 const RETIRED = [] # Medic and Laser Larry are active normal monster species.
 const FEATURES = {
-	"blob": ["cheeks", "tail"], "zoomer": ["ears", "tail"],
-	"chonk": ["shell", "cheeks"], "spitter": ["antennae", "spikes"],
-	"kaboomba": ["spikes", "tail"], "mitosis": ["buds", "cheeks"],
+	"blob": ["cheeks", "tail"], "zoomer": ["fins", "tail"],
+	"chonk": ["shell", "cheeks"], "spitter": ["nozzle", "antennae"],
+	"kaboomba": ["fuse", "spikes"], "mitosis": ["buds", "cheeks"],
 	"mini": ["ears", "buds"], "riot": ["armor", "shoulders"],
 	"bull": ["horns", "ears"], "mama": ["crest", "buds"],
 	"mortar": ["helmet", "shoulders"], "totem": ["crown", "spikes"],
 	"blinky": ["tail", "crest"], "tick": ["legs", "antennae"],
 	"goblin": ["ears", "crest"], "ashwing": ["wings", "crest"],
 	"mirror": ["crystal", "spikes"], "burrower": ["claws", "ears"],
-	"siren": ["fins", "antennae"], "skitter": ["legs", "antennae"],
+	"siren": ["megaphone", "fins"], "skitter": ["legs", "antennae"],
 	"sapper": ["armor", "helmet"], "lancer": ["horns", "claws"],
-	"leech": ["tentacles", "tail"],
-	"nurse": ["cap", "antennae"], "larry": ["laser_lens", "spikes"]
+	"leech": ["sucker", "tentacles"],
+	"nurse": ["cross", "cap"], "larry": ["laser_lens", "spikes"]
 }
 const TRAIT_NAMES = {
 	"horns": "Horned", "ears": "Long-Eared", "antennae": "Whiskered",
@@ -28,7 +28,8 @@ const TRAIT_NAMES = {
 	"armor": "Armored", "shoulders": "Shouldered", "crest": "Crested",
 	"helmet": "Helmeted", "crown": "Crowned", "legs": "Spider-Legged",
 	"crystal": "Crystal-Spined", "claws": "Clawed", "fins": "Finned",
-	"tentacles": "Tentacled", "cap": "Capped", "laser_lens": "Laser-Eyed"
+	"tentacles": "Tentacled", "cap": "Capped", "laser_lens": "Laser-Eyed",
+	"nozzle": "Spouting", "fuse": "Fused", "sucker": "Sucking", "megaphone": "Loudmouth", "cross": "Medic"
 }
 
 static func retired(id: String) -> bool:
