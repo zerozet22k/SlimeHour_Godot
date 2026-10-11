@@ -1,3 +1,12 @@
+## v0.1.80 — Hands on the gun, every mob its own colour
+
+- **Hands fixed:** the head no longer covers the hands holding the guns. A single gun is held in front of the chest with both hands on it, instead of off to one side with an arm crossing the face.
+- **Portraits:** each runner holds their starting gun across the chest in the middle of the portrait.
+- **Every street mob now has its own colour:**
+  - Mirror (pale glass blue) and Skitter (teal) no longer share one, and Riot (navy) is clearly apart from Totem (bright blue).
+  - Larry, Chonk, Siren, Ashwing, Goblin, Sapper, Burrower, Bull, Tick, Mini, Nurse, Lancer and Leech were also moved apart.
+  - Mutations pick up the new colours automatically.
+
 ## v0.1.79 — Five real runners
 
 - **Five distinct characters**, each with their own model that turns with your aim:

@@ -59,8 +59,10 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 	var lunge := bash_dir * (sin(clampf(bash, 0.0, 1.0) * PI) * 6.0 if bash >= 0.0 else 0.0)
 	var centre := p + lunge
 	var gk := k / 1.25
+	# Head before the arms: the hands holding the guns must never be hidden.
 	ci.draw_set_transform(centre, 0.0, Vector2.ONE * k)
 	draw_body(ci, id, f, s, c, o)
+	draw_head(ci, id, f, s, c, o)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Where every gun sits and where its hands go.
 	var placed: Array = []
@@ -126,9 +128,6 @@ static func draw_rig(ci: CanvasItem, id: String, p: Vector2, f: Vector2, k: floa
 		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	for arm in arms:
 		disc(ci, arm[1], 3.6 * k * 0.8, c["glove"], 1.6)
-	ci.draw_set_transform(centre, 0.0, Vector2.ONE * k)
-	draw_head(ci, id, f, s, c, o)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if bash >= 0.0:
 		draw_bash(ci, id, centre, bash_dir, bash, c, k, t)
 
@@ -407,7 +406,7 @@ static func muzzle_for(centre: Vector2, f: Vector2, k: float, gun_id: String, sl
 	var s := f.orthogonal()
 	var side: float = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
 	if count == 1:
-		side = 11.0
+		side = 3.5
 	var forward := 6.0 if slot == 2 else 12.0
 	return centre + (s * side + f * (forward + GunModels.reach(gun_id))) * (k / 1.25)
 
@@ -590,3 +589,34 @@ static func bust_coil(ci: CanvasItem, hy: float, trim: Color, hat: Color, t: flo
 	for k in range(3):
 		ci.draw_circle(Vector2(-4 + k * 4.0, 10 + hy), 1.1, Color(trim, 0.6))
 	ci.draw_arc(Vector2(0, -2 + hy), 21.0, PI + 0.4, TAU - 0.4, 16, Color(Color("baa4ff"), 0.7), 1.6)
+
+## Bust portrait holding the starting gun across the chest, in the middle of
+## the frame: trigger hand on the grip, support hand on the foregrip (Ace
+## keeps it one-handed, tipped up like a gunslinger).
+static func bust_with_gun(ci: CanvasItem, id: String, gun_id: String, c: Vector2, size: float, t: float) -> void:
+	bust(ci, id, c, size, t)
+	var u := size / 100.0
+	var length := float(GunModels.LENGTH.get(gun_id, 20.0))
+	var gs := (34.0 + length * 0.6) / length * u * 0.95
+	var ang := -0.55 if id == "ace" else -0.18
+	var dir := Vector2.from_angle(ang)
+	var mid := c + Vector2(2.0 * u, 30.0 * u + sin(t * 2.2) * 0.8 * u)
+	var muzzle := mid + dir * length * gs * 0.5
+	ci.draw_set_transform(muzzle, ang, Vector2.ONE * gs)
+	GunModels.draw(ci, gun_id, {"t": t})
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var glove := Color(str(PALETTES.get(id, PALETTES["scout"])["glove"]))
+	var sleeve := Color(str(PALETTES.get(id, PALETTES["scout"])["sleeve"]))
+	var g2: Array = GunModels.grips(gun_id)
+	var g0: Vector2 = g2[0]
+	var hands: Array = [muzzle + g0.rotated(ang) * gs]
+	if id != "ace":
+		var g1: Vector2 = g2[1] if g2[1] != null else g0 + Vector2(2.0, 3.5)
+		hands.append(muzzle + g1.rotated(ang) * gs)
+	for i in range(hands.size()):
+		var hand: Vector2 = hands[i]
+		# Forearm rising from the bottom of the frame to the hand.
+		var from := hand + Vector2(-7.0 * u if i == 0 else 5.0 * u, 18.0 * u)
+		ci.draw_line(from, hand, INK, 7.5 * u)
+		ci.draw_line(from, hand, sleeve, 5.0 * u)
+		disc(ci, hand, 3.6 * u, glove, 1.6 * u)

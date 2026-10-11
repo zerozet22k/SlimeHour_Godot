@@ -154,8 +154,8 @@ static func hand_pos(g, slot: int) -> Vector2:
 	var side = [16.0, -16.0, 0.0][clampi(slot, 0, 2)]
 	var forward = 6.0 if slot == 2 else 12.0
 	if "guns" in g and g.guns.size() == 1:
-		# One gun is held two-handed, closer to the middle.
-		side = 11.0
+		# One gun is held two-handed in front of the chest.
+		side = 3.5
 	return g.hero["pos"] + aim.orthogonal() * side + aim * forward
 
 ## The shot leaves from the drawn gun's own muzzle: the gun is held by its

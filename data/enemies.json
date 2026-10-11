@@ -30,7 +30,7 @@
     "r": 30,
     "xp": 5,
     "mass": 4,
-    "color": "e86a8a"
+    "color": "c0507a"
   },
   {
     "id": "spitter",
@@ -75,7 +75,7 @@
     "r": 11,
     "xp": 1,
     "mass": 0.6,
-    "color": "7dffcf"
+    "color": "3fcf9a"
   },
   {
     "id": "riot",
@@ -86,7 +86,7 @@
     "r": 20,
     "xp": 3,
     "mass": 2.5,
-    "color": "8fb0ff"
+    "color": "3b4fd8"
   },
   {
     "id": "bull",
@@ -97,7 +97,7 @@
     "r": 24,
     "xp": 4,
     "mass": 3,
-    "color": "ff9157"
+    "color": "6b6f7f"
   },
   {
     "id": "mama",
@@ -138,7 +138,7 @@
     "r": 21,
     "xp": 6,
     "mass": 60,
-    "color": "7ad1ff"
+    "color": "2e8fff"
   },
   {
     "id": "blinky",
@@ -160,7 +160,7 @@
     "r": 10,
     "xp": 2,
     "mass": 0.4,
-    "color": "9dff6b"
+    "color": "4fd93a"
   },
   {
     "id": "goblin",
@@ -171,7 +171,7 @@
     "r": 14,
     "xp": 3,
     "mass": 0.8,
-    "color": "ffd24d"
+    "color": "ffe83a"
   },
   {
     "id": "ashwing",
@@ -182,7 +182,7 @@
     "r": 17,
     "xp": 2,
     "mass": 1,
-    "color": "ff9d59"
+    "color": "ff7a1f"
   },
   {
     "id": "mirror",
@@ -193,7 +193,7 @@
     "r": 17,
     "xp": 3,
     "mass": 1.15,
-    "color": "82e9ef"
+    "color": "9fd4e6"
   },
   {
     "id": "burrower",
@@ -204,7 +204,7 @@
     "r": 18,
     "xp": 4,
     "mass": 1.5,
-    "color": "c8a66e"
+    "color": "8b5e3c"
   },
   {
     "id": "siren",
@@ -215,7 +215,7 @@
     "r": 18,
     "xp": 4,
     "mass": 1.3,
-    "color": "f194da"
+    "color": "e63fd6"
   },
   {
     "id": "skitter",
@@ -226,7 +226,7 @@
     "r": 12,
     "xp": 2,
     "mass": 0.65,
-    "color": "63dbff",
+    "color": "36f0e0",
     "look": {
       "body": "round",
       "face": "normal",
@@ -242,7 +242,7 @@
     "r": 18,
     "xp": 4,
     "mass": 1.5,
-    "color": "ffbb61",
+    "color": "c9a227",
     "look": {
       "body": "round",
       "face": "visor",
@@ -260,7 +260,7 @@
     "r": 17,
     "xp": 4,
     "mass": 1.3,
-    "color": "bfc7ff",
+    "color": "8d97c7",
     "look": {
       "body": "round",
       "face": "visor",
@@ -276,7 +276,7 @@
     "r": 14,
     "xp": 3,
     "mass": 0.9,
-    "color": "a783ff",
+    "color": "7a3fd1",
     "look": {
       "body": "round",
       "face": "normal",
@@ -292,7 +292,7 @@
     "r": 16,
     "xp": 3,
     "mass": 0.9,
-    "color": "9af0cd",
+    "color": "f4f7ff",
     "look": {
       "body": "round",
       "face": "normal",
@@ -310,7 +310,7 @@
     "r": 20,
     "xp": 5,
     "mass": 1.7,
-    "color": "f35a8a",
+    "color": "ff3b4e",
     "range": 950,
     "look": {
       "body": "round",
