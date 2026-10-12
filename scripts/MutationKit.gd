@@ -1,12 +1,13 @@
 extends RefCounted
 const FusionGenome = preload("res://scripts/FusionGenome.gd")
-## Mutations fuse their parents' signature powers into ONE combined move
-## (see "fusion moves" below and data/fusion.json). The body decides WHAT
-## the move does, the other parent HOW it is delivered:
+## Mutations fight with a behavior graft (FusionGenome): the body keeps its
+## own AI and inherits one real mechanic from the other parent.
+## On the HARD ROAD they ALSO charge a combined signature move built from
+## both parents' powers ("fusion moves" below, data/fusion.json). The body
+## decides WHAT the move does, the other parent HOW it is delivered:
 ##   Laser Larry body + Medic  -> lasers spun out all round it
 ##   Medic body + Laser Larry  -> healing lasers shot into its friends
 ##   Laser Larry body + Mirror -> points hang round you, each fires a laser
-## Between moves a mutant fights like its body parent.
 
 ## What each species lends to a fusion comes from data/enemies.json:
 ## "gives" (its own signature power, e.g. Lancer: spear) and "pulse" (bodies
@@ -152,9 +153,14 @@ static func move_name(g, kind: String) -> String:
 static func tick(g, e: Dictionary, dt: float) -> void:
 	if not str(e["kind"]).begins_with("mix_"):
 		return
-	# All live fusions use behavior grafts. The old effect/shape interpreter is
-	# kept below for historic save migration but is never invoked by live AI.
+	# Every fusion fights with its behavior graft (FusionGenome).
 	FusionGenome.tick(g, e, dt)
+	# HARD ROAD: on top of the graft, the mutant also charges a combined
+	# SIGNATURE MOVE built from both parents (data/fusion.json, below).
+	if g.hard_mode:
+		e["mut_move_t"] = float(e.get("mut_move_t", 2.2)) - dt
+		if float(e["mut_move_t"]) <= 0.0 and Vector2(e["pos"]).distance_to(g.hero["pos"]) < 640.0:
+			signature_move(g, e)
 
 static func on_attack(g, e, pos: Vector2, hit_player: bool) -> void:
 	if e == null or bool(e.get("dead", false)) or not is_mutant(g, e):
@@ -162,6 +168,9 @@ static func on_attack(g, e, pos: Vector2, hit_player: bool) -> void:
 	if float(e.get("graft_cd", 2.3)) <= 0.55:
 		e["graft_cd"] = 0.0
 		FusionGenome.cast(g, e)
+	# Hard: the body's attack sets the signature move off once nearly ready.
+	if g.hard_mode and float(e.get("mut_move_t", 2.2)) <= 1.2:
+		signature_move(g, e)
 
 ## The body attacked without a projectile (a dash, a slam, a sweep...).
 static func strike(g, e: Dictionary) -> void:
@@ -184,8 +193,26 @@ static func _c(e: Dictionary, fallback: String) -> String:
 
 static func fusion_move(g, e: Dictionary) -> void:
 	# Kaboomba contact and other explicit signature triggers use the same
-	# graft as every other parent; never force a legacy starburst.
+	# graft as every other parent; on Hard the signature move goes too.
 	FusionGenome.cast(g, e)
+	if g.hard_mode:
+		signature_move(g, e)
+
+## Hard-only combined move: the body decides WHAT it does, the other parent
+## HOW it is delivered, all in the mutant's own colour, with a callout.
+static func signature_move(g, e: Dictionary) -> void:
+	var sigs := signatures(g, mut_kind(e))
+	e["mut_col"] = move_color(g, mut_kind(e))
+	e["mut_move_t"] = MOVE_CD * 0.8
+	if sigs.is_empty() or g.delayed.size() >= 110:
+		return
+	e["mut_budget"] = 2
+	var before: int = g.delayed.size()
+	launch(g, e, sigs)
+	for k in range(before, g.delayed.size()):
+		g.delayed[k]["mut_payload"] = true
+		g.delayed[k]["mut_col"] = str(e["mut_col"])
+	g.say(Vector2(e["pos"]) + Vector2(0, -float(e["r"]) - 28.0), move_name_for(sigs) + "!", Color(str(e["mut_col"])), 16)
 
 static func friends(g, e: Dictionary, n: int) -> Array:
 	var near: Array = []

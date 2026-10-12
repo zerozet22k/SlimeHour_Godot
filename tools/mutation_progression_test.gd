@@ -34,6 +34,10 @@ func _run() -> void:
 	g.sector = 1
 	g.introduce_mutations()
 	check(g.run_mutations_unlocked.is_empty(), "No early mutation introduction")
+	g.sector = 40
+	g.introduce_mutations()
+	check(g.run_mutations_unlocked.is_empty(), "Normal road never unlocks mutations (Hard road only)")
+	g.hard_mode = true
 	g.sector = 25
 	g.introduce_mutations()
 	check(g.run_mutation_pairs.size() == 18 and g.run_mutations_unlocked.size() == 2,
@@ -47,13 +51,13 @@ func _run() -> void:
 		check(Mixes.compatible_pair(str(pair[0]), str(pair[1])), "Generated pair is compatible")
 	g.sector = 28
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 4, "Normal gains only two ordered mutants at sector 28")
+	check(g.run_mutations_unlocked.size() == 4, "Hard gains two ordered mutants per recipe by sector 28")
 	g.sector = 40
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 12, "Sector 40 has six procedural recipes, not all 18")
+	check(g.run_mutations_unlocked.size() == 16, "Sector 40 has eight procedural recipes, not all 18")
 	var active := g.active_mutation_ids()
-	check(active.size() == 4 and active.has(Mixes.id_for(str(g.run_mutation_pairs[5][0]), str(g.run_mutation_pairs[5][1]))),
-		"Normal limits a sector to two active recipes with the newest present")
+	check(active.size() == 6 and active.has(Mixes.id_for(str(g.run_mutation_pairs[7][0]), str(g.run_mutation_pairs[7][1]))),
+		"Hard limits a sector to three active recipes with the newest present")
 	g.mutation_spawn_sector = 40
 	g.mutation_sector_spawns = g.mutation_sector_limit()
 	var blocked := true
@@ -62,12 +66,12 @@ func _run() -> void:
 			blocked = false
 	check(blocked, "Sector budget blocks further mutation spawning")
 	g.mutation_sector_spawns = 0
-	g.enemies = [{"kind": active[0], "dead": false}, {"kind": active[1], "dead": false}]
+	g.enemies = [{"kind": active[0], "dead": false}, {"kind": active[1], "dead": false}, {"kind": active[2], "dead": false}]
 	blocked = true
 	for i in range(100):
 		if str(g.pick_enemy()).begins_with("mix_"):
 			blocked = false
-	check(blocked, "Two living mutations block more on Normal")
+	check(blocked, "Three living mutations block more on Hard")
 	g.enemies.clear()
 	var hits := 0
 	for i in range(500):
@@ -75,17 +79,12 @@ func _run() -> void:
 		if chosen.begins_with("mix_"):
 			hits += 1
 			check(active.has(chosen), "Only active mutation recipes appear")
-	check(hits >= 15 and hits <= 90, "Normal respects fusion encounter chance rather than replacing parent spawns")
+	check(hits >= 100 and hits <= 260, "Hard respects fusion encounter chance rather than replacing parent spawns")
 	g.sector = 1
 	g.run_mutations_unlocked.clear()
 	g.run_mutation_pairs.clear()
 	check(not g.mutation_is_unlocked(first_id) and g.mutation_is_discovered(Mixes.recipe_id(0)),
 		"Fresh runs relock combinations but retain old discovery records")
-	g.hard_mode = true
-	g.sector = 40
-	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 16 and g.active_mutation_ids().size() == 6,
-		"Hard activates three of its eight unlocked compatible pairs")
 	check(g.mutation_live_limit() == 3 and g.mutation_sector_limit() == 10,
 		"Hard retains its mutation caps")
 	g.free()

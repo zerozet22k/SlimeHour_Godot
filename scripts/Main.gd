@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.105"
+const GAME_VERSION = "v0.1.106"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -882,7 +882,8 @@ func generate_run_mutation_pairs() -> void:
 					break
 
 func introduce_mutations() -> void:
-	if sector < EnemyMixes.FIRST_FUSION_SECTOR:
+	# Mutations are a HARD ROAD feature: Normal runs never unlock or spawn them.
+	if not hard_mode or sector < EnemyMixes.FIRST_FUSION_SECTOR:
 		return
 	generate_run_mutation_pairs()
 	var count: int = mini(run_mutation_pairs.size(), EnemyMixes.unlock_count(sector, hard_mode))

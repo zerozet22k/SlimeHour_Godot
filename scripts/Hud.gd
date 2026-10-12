@@ -2146,7 +2146,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 				r.position.x + 32, r.position.y + 220, r.size.x - 64, 19,
 				Color("c9e8de"), 27, body, false, 5)
 		else:
-			txt("NORMAL  SECTOR %d" % int(recipe["normal_sector"]),
+			txt("HARD ROAD ONLY",
 				Vector2(r.get_center().x, r.position.y + 184), 20, Color("e1d4aa"), 1, bold)
 			txt("HARD  SECTOR %d" % int(recipe["hard_sector"]),
 				Vector2(r.get_center().x, r.position.y + 225), 20, Color("ffb29a"), 1, bold)

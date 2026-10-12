@@ -1,3 +1,12 @@
+## v0.1.106 — Mutations are a Hard Road feature
+
+- **Mutations now only appear on the Hard Road.** Normal runs never unlock or spawn them. The Mutation Book marks locked entries "HARD ROAD ONLY".
+- **On the Hard Road, mutants also fire a signature move.** They keep their behavior graft and also charge a combined move built from both parents. The body decides what the move does and the other parent decides how it's delivered, e.g. Prism Beam or Mend Beam.
+  - The mutant calls out the move's name.
+  - The whole move uses the mutant's own colour.
+  - It fires about every 3.4 seconds, or early with the body's attack.
+- Bestiary mutation entries name each mutant's signature move.
+
 ## v0.1.105 — Preserve zero-damage bodies with functional offensive grafts
 
 - Totem and Gold Goblin body kits remain non-contact-damaging, even when they inherit an offensive donor mechanic.
