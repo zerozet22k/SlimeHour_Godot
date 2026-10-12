@@ -1,3 +1,17 @@
+## v0.1.117 — Area-wide boss attacks, tougher early bosses, boss benchmark
+
+- **Boss attacks reach the whole area:**
+  - Boss bullets live long enough to cross the full road. Rings and spirals no longer fizzle out halfway.
+  - **Chonkzilla's Belly Roll** rolls wall to wall, bouncing off the road edges 3–5 times. Before, it stopped mid-road.
+  - **Quake Slam, Kaiju Rage and King Blob's Belly Flop** send shockwave bands out to the far edge of the road.
+  - **Goo Mortar** lands globs all over the road, not just around you.
+  - **Boulders** roll the full width.
+- **Early bosses are tougher:** +50% HP for bosses up to sector 15, tapering off by sector 25. Bots with typical builds killed the Sky Reaper in 15–65s and Chonkzilla in 35–110s.
+- **Fixed:** Chonkzilla's Belly Roll could get stuck at the arena edge and flood 1,500+ bullets.
+- **New: boss benchmark.** Bots with typical builds for each boss's sector fight every boss, dodging like an average player, with no invulnerability. It reports kill times, wins and deaths, HP lost and peak bullets.
+  - Run `run_boss_benchmark.bat` for the live scoreboard and summary table.
+  - Run `run_boss_benchmark.bat watch` to watch the bots fight in a window.
+
 ## v0.1.116 — Bosses overhaul, two new bosses, UI pass
 
 **Bosses**

@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.116"
+const GAME_VERSION = "v0.1.117"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -730,6 +730,9 @@ func midgame_relief(s: int = -1) -> float:
 		12: return 0.86
 		13: return 0.94
 	return 1.0
+
+static func early_boss_bonus(s: int) -> float:
+	return 1.0 + 0.5 * clampf(float(25 - s) / 10.0, 0.0, 1.0)
 
 func enemy_scale() -> float:
 	var m = float(maxi(0, sector - 5))
@@ -1718,6 +1721,9 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		# Bosses are big fights: 3.5x HP, plus 8% more per sector after 12 so
 		# late bosses keep pace with a grown build.
 		hp *= 3.5 * (1.0 + 0.08 * float(maxi(0, sector - 12)))
+		# Benchmarked: early bosses melted in 15-60s. They get +50% HP up to
+		# sector 15, tapering to none by sector 25.
+		hp *= early_boss_bonus(sector)
 	elif kind != "goblin":
 		hp *= late_enemy_hp_multiplier(sector)
 	serial += 1

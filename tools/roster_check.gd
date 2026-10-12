@@ -78,11 +78,11 @@ func _test() -> void:
 	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
 	var boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
 	# The endgame multiplier only activates AFTER WIN_SECTOR, not before.
-	var boss_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(maxi(0, game.sector - 12)))
+	var boss_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(maxi(0, game.sector - 12))) * game.early_boss_bonus(game.sector)
 	check(is_equal_approx(float(boss["max_hp"]), boss_expected), "Bosses use their own HP multiplier, not the crowd one")
 	game.sector = game.WIN_SECTOR + 1
 	var endgame_boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
-	var endgame_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(game.sector - 12)) * 1.8
+	var endgame_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(game.sector - 12)) * game.early_boss_bonus(game.sector) * 1.8
 	check(is_equal_approx(float(endgame_boss["max_hp"]), endgame_expected), "Post-victory bosses add their endgame multiplier")
 	game.sector = 40
 	game.hard_mode = true

@@ -44,3 +44,6 @@ Godot_v*.exe
 /SlimeHour.pck
 /release_manifest.json
 
+
+# Local boss benchmark results
+tools/benchmarks/

@@ -216,6 +216,24 @@ static func arena(g) -> Dictionary:
 	return {"cx": 0.0, "half": half, "y": hero.y, "top": minf(hero.y - 300.0, cy - view_half + 30.0), "bottom": maxf(hero.y + 200.0, cy + view_half - 20.0),
 		"left": -half, "right": half}
 
+## Corner-to-corner size of the arena: how far a pattern must reach.
+static func span(g) -> float:
+	var a: Dictionary = arena(g)
+	return Vector2(2.0 * float(a["half"]), float(a["bottom"]) - float(a["top"])).length()
+
+## Expanding shockwave bands from `pos` out to the far edge of the arena.
+static func shockwaves(g, e: Dictionary, pos: Vector2, first: float, step_time: float, dmg_scale: float) -> void:
+	var a: Dictionary = arena(g)
+	var far := 0.0
+	for c in [Vector2(float(a["left"]), float(a["top"])), Vector2(float(a["right"]), float(a["top"])), Vector2(float(a["left"]), float(a["bottom"])), Vector2(float(a["right"]), float(a["bottom"]))]:
+		far = maxf(far, pos.distance_to(c))
+	var inner := 110.0
+	var k := 0
+	while inner < far:
+		event(g, e, "bf_ring", pos, first + step_time * float(k), {"inner": inner, "outer": inner + 60.0, "dmg": float(e["dmg"]) * dmg_scale})
+		inner += 170.0
+		k += 1
+
 static func lead(g, seconds: float) -> Vector2:
 	var p: Vector2 = g.hero["pos"] + Vector2(g.hero.get("vel", Vector2.ZERO)) * seconds
 	var a: Dictionary = arena(g)
@@ -268,7 +286,7 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 		speed *= speed_scale(g)
 		BossTides.echo_bullet(g, e, pos, dir, speed, o)
 	var s = C().shot(g, pos, dir, float(e["dmg"]) * float(o.get("dmg", 0.3)),
-		{"friendly": false, "kind": "bossbullet", "speed": speed, "life": float(o.get("life", 5.0)),
+		{"friendly": false, "kind": "bossbullet", "speed": speed, "life": float(o.get("life", maxf(5.0, span(g) / maxf(60.0, speed)))),
 		"r": float(o.get("r", 5.0)), "color": color, "bounce": int(o.get("bounce", 0)),
 		"src": src(g, e)})
 	if s == null:
@@ -861,10 +879,15 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 				var off: float = randf() * TAU
 				ring(g, e, e["pos"], n, 175.0, off, {"r": 5.5}, INF, 0.0, 30.0)
 				ring(g, e, e["pos"], n, 120.0, off + PI / float(n), {"r": 5.5, "color": alt}, INF, 0.0, 30.0)
+				if stage >= 1:
+					shockwaves(g, e, e["pos"], 0.6, 0.38, 0.5)
 		"goo_mortar":
 			# Lobbed globs arc through the air and splash where they land.
 			for _i in range(every(e, "lob", 0.42, dt)):
+				e["bf_k"] = int(e["bf_k"]) + 1
 				var land: Vector2 = lead(g, 0.4) + Vector2(randf_range(-150.0, 150.0), randf_range(-110.0, 110.0))
+				if int(e["bf_k"]) % 2 == 0:
+					land = Vector2(randf_range(float(a["left"]) + 30.0, float(a["right"]) - 30.0), randf_range(float(a["top"]) + 30.0, float(a["bottom"]) - 30.0))
 				var flight := 1.05
 				var grav := Vector2(0.0, 520.0)
 				var v0: Vector2 = (land - me) / flight - grav * flight * 0.5
@@ -887,8 +910,7 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 				leap(g, e, lead(g, 0.3), 0.62, 100.0, 0.8)
 			if update_leap(g, e, dt):
 				ring(g, e, e["pos"], 20, 190.0, randf() * TAU, {"r": 5.5, "color": alt}, INF, 0.0, 30.0)
-				event(g, e, "bf_ring", e["pos"], 0.55, {"inner": 140.0, "outer": 200.0, "dmg": float(e["dmg"]) * 0.6})
-				event(g, e, "bf_ring", e["pos"], 0.95, {"inner": 270.0, "outer": 335.0, "dmg": float(e["dmg"]) * 0.6})
+				shockwaves(g, e, e["pos"], 0.5, 0.32, 0.6)
 				e["bf_t"] = maxf(float(e["bf_t"]), 1.0 if int(e["bf_k"]) >= 3 else 0.2)
 		# ---------------------------------------------------------- HELI
 		"strafe_run":
@@ -974,6 +996,8 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 						{"r": 6.0, "shape": "big" if k == 0 else "orb", "color": col if k != 1 else alt}, INF, 0.0, 40.0)
 				for side in [-1.0, 1.0]:
 					spawn_minion(g, e, "blob", Vector2(e["pos"]) + Vector2(side * (float(e["r"]) + 50.0), 20.0), "fragment", 0.8, false)
+				if stage >= 1:
+					shockwaves(g, e, e["pos"], 0.55, 0.35, 0.5)
 		"jelly_fountain":
 			# Jelly sprays up out of the crown and rains back down.
 			for _i in range(every(e, "spray", 0.07, dt)):
@@ -1198,25 +1222,33 @@ static func roll_step(g, e: Dictionary, stage: int, T: float, dt: float) -> void
 		var d: Vector2 = (Vector2(e["bf_lock"]) - Vector2(e["pos"])).normalized()
 		if d.length_squared() < 0.01:
 			d = Vector2.DOWN
-		e["bf_roll_v"] = d * 560.0
-		e["bf_len"] = 1.3 * float(rolls)
+		e["bf_roll_v"] = d * 640.0
+		e["bf_bounces"] = 3 + stage
+		e["bf_len"] = 7.0
 		e["bf_t"] = float(e["bf_len"]) - T
 	var a: Dictionary = arena(g)
 	var v: Vector2 = e["bf_roll_v"]
 	var p: Vector2 = Vector2(e["pos"]) + v * dt
 	var r: float = float(e["r"])
 	var bounced := false
-	if p.x < float(a["left"]) + r - 30.0 or p.x > float(a["right"]) - r + 30.0:
+	# Bounce only when heading OUT of the arena (a boss that starts outside the
+	# edge must roll back in, not flip every frame and spray rings).
+	if (p.x < float(a["left"]) + r - 30.0 and v.x < 0.0) or (p.x > float(a["right"]) - r + 30.0 and v.x > 0.0):
 		v.x = -v.x
 		bounced = true
-	if p.y < float(a["top"]) - 80.0 or p.y > float(a["bottom"]) + 30.0:
+	if (p.y < float(a["top"]) - 80.0 and v.y < 0.0) or (p.y > float(a["bottom"]) + 30.0 and v.y > 0.0):
 		v.y = -v.y
 		bounced = true
 	if bounced:
 		p = Vector2(e["pos"])
 		g.add_shake(8.0)
-		ring(g, e, p, 12, 160.0, randf() * TAU, {"r": 5.5}, INF, 0.0, r * 0.6)
-		g.sfx.play("bonk")
+		e["bf_bounces"] = int(e.get("bf_bounces", 3)) - 1
+		if int(e["bf_bounces"]) <= 0:
+			e["bf_t"] = minf(float(e["bf_t"]), 0.35)
+		if float(e.get("bf_bounce_cd", 0.0)) <= float(e["t"]):
+			e["bf_bounce_cd"] = float(e["t"]) + 0.25
+			ring(g, e, p, 12, 160.0, randf() * TAU, {"r": 5.5}, INF, 0.0, r * 0.6)
+			g.sfx.play("bonk")
 	e["bf_roll_v"] = v
 	e["pos"] = p
 	e["bf_spin"] = float(e.get("bf_spin", 0.0)) + dt * 9.0
@@ -1225,10 +1257,10 @@ static func roll_step(g, e: Dictionary, stage: int, T: float, dt: float) -> void
 		for s in [-1.0, 1.0]:
 			fire(g, e, p + side * s * r * 0.6, side * s, 70.0, {"accel": 70.0, "max": 200.0, "r": 5.0,
 				"color": Color(PALETTE_ALT["chonkzilla"])})
-	# Second roll re-aims at the player.
-	if rolls == 2 and int(e["bf_k"]) == 0 and T >= 1.3:
+	# Halfway through its bounces it re-aims at the player.
+	if int(e["bf_k"]) == 0 and int(e.get("bf_bounces", 3)) <= 1 + stage / 2:
 		e["bf_k"] = 1
-		e["bf_roll_v"] = aim_from(g, p) * 560.0
+		e["bf_roll_v"] = aim_from(g, p) * 640.0
 	if float(e["bf_t"]) <= dt:
 		e.erase("bf_roll_v")
 		e["bf_dizzy"] = 1.8
@@ -1390,7 +1422,7 @@ static func resolve(g, item: Dictionary) -> void:
 			g.spawn_ring_fx(pos, Color(PALETTE["glassoracle"]), 30.0)
 		"bf_boulder":
 			var dir: float = float(item["dir"])
-			fire(g, boss, pos, Vector2(dir, 0.0), 300.0, {"shape": "boulder", "r": 24.0, "dmg": 0.7, "life": 4.5})
+			fire(g, boss, pos, Vector2(dir, 0.0), 300.0, {"shape": "boulder", "r": 24.0, "dmg": 0.7, "life": maxf(4.5, (2.0 * float(arena(g)["half"]) + 200.0) / 300.0)})
 			g.add_shake(4.0)
 		"bf_ring":
 			var dist: float = Vector2(g.hero["pos"]).distance_to(pos)

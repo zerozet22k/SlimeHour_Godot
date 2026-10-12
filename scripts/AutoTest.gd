@@ -46,6 +46,8 @@ func _ready() -> void:
 		g.start_run()
 
 static func move_dir(g) -> Vector2:
+	if str(g.autotest) == "bench":
+		return dodge_dir(g)
 	var hp: Vector2 = g.hero["pos"]
 	var dir = Vector2(sin(g.run_time * 0.7) * 0.6, -0.8)
 	for e in g.enemies_near(hp, 140.0):
@@ -55,6 +57,65 @@ static func move_dir(g) -> Vector2:
 	if g.run_time > 1.0 and fmod(g.run_time, 2.3) < 0.02:
 		g.try_dash()
 	return dir.normalized()
+
+## Boss-benchmark bot: an average player. Steps out of warned zones, slips
+## sideways past bullets heading at it, keeps ~260px from the boss, stays on
+## the road, and dashes when a bullet is about to land.
+static func dodge_dir(g) -> Vector2:
+	var hp: Vector2 = g.hero["pos"]
+	var push := Vector2.ZERO
+	var danger := false
+	for s in g.shots:
+		if bool(s["friendly"]) or bool(s.get("dead", false)):
+			continue
+		var off: Vector2 = hp - Vector2(s["pos"])
+		var d := off.length()
+		if d > 150.0 or d < 0.1:
+			continue
+		var vel: Vector2 = Vector2(s.get("vel", Vector2.ZERO))
+		if vel.length_squared() > 1.0 and vel.normalized().dot(off / d) < 0.2:
+			continue # moving away
+		var side: Vector2 = vel.orthogonal().normalized() if vel.length_squared() > 1.0 else off / d
+		if side.dot(off) < 0.0:
+			side = -side
+		push += (side * 1.4 + off / d) * (1.0 - d / 150.0)
+		if d < 40.0:
+			danger = true
+	for w in g.delayed:
+		if not w.has("tele"):
+			continue
+		var r: float = float(w["tele"]) + 16.0
+		if str(w.get("fn", "")) in ["boss_line", "blink_slash"]:
+			var a: Vector2 = w["a"]
+			var b: Vector2 = w["b"]
+			var ab := b - a
+			var t := clampf((hp - a).dot(ab) / maxf(1.0, ab.length_squared()), 0.0, 1.0)
+			var near: Vector2 = a + ab * t
+			if hp.distance_to(near) < r:
+				push += (hp - near).normalized() * 2.0
+		elif hp.distance_to(Vector2(w["pos"])) < r:
+			push += (hp - Vector2(w["pos"])).normalized() * 2.0
+	var boss = null
+	for e in g.enemies:
+		if bool(e["boss"]) and not bool(e["dead"]):
+			boss = e
+			break
+	if boss != null:
+		var to: Vector2 = Vector2(boss["pos"]) - hp
+		var dist := to.length()
+		push += to.normalized() * clampf((dist - 260.0) / 200.0, -1.0, 1.0) * 0.5
+		push += to.normalized().orthogonal() * sin(float(g.run_time) * 0.6) * 0.35
+	for e in g.enemies_near(hp, 110.0):
+		if not bool(e["boss"]):
+			push += (hp - Vector2(e["pos"])).normalized() * 0.8
+	var half: float = float(g.road_half) - 40.0
+	if hp.x > half:
+		push.x -= 1.5
+	elif hp.x < -half:
+		push.x += 1.5
+	if danger:
+		g.try_dash()
+	return push.normalized() if push.length() > 0.05 else Vector2.ZERO
 
 func _process(delta: float) -> void:
 	frames += 1
