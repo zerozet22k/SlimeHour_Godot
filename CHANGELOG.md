@@ -1,3 +1,9 @@
+## v0.1.121 — Gentler boss hits, Leechling bind fix
+
+- **Boss damage −20%.** A basic boss bullet takes about 4.4% of your max HP (was 5.4%) and a big blast about 12%. Hard mode still hits 25% harder.
+- **Leechling:** binding no longer hurts right away. The tether binds first and the first drain lands on its next tick (0.42s), like the rest.
+- The boss intro reads just "PREPARE TO DODGE".
+
 ## v0.1.120 — Bosses no longer one-shot you
 
 - **Boss damage now follows your level, not the sector.** A basic boss bullet takes about 5% of the max HP you'd have at your level, and a big blast about 15%. Hard mode hits 25% harder.

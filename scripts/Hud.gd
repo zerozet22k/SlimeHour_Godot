@@ -550,7 +550,7 @@ func paint_boss_cinematic() -> void:
 	draw_rect(Rect2(0, y + band - 4.0, width, 4), Color("ff4d6a", 0.86 * reveal))
 	txt("THREAT DETECTED", Vector2(center, y - 35.0), 24 if g.portrait else 27, Color("ffadbc", reveal), 1, bold, 4)
 	txt(name, Vector2(center, y + 20.0), fit(name, width - 65.0, 53 if g.portrait else 73), Color(1, 1, 1, reveal), 1, bold, 7)
-	var hint = "PREPARE TO DODGE  //  FULL ARENA ATTACKS"
+	var hint = "PREPARE TO DODGE"
 	txt(hint, Vector2(center, y + 54.0), fit(hint, width - 45.0, 19), Color("ffd278", reveal), 1, bold, 3)
 	var fill = clampf(progress, 0.0, 1.0)
 	draw_rect(Rect2(0, height - 14.0, width * fill, 14.0), Color("ff4d6a"))

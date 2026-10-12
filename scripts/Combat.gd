@@ -2152,7 +2152,8 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["wind"] = maxf(0.0, float(e["wind"]) - dt)
 				if float(e["wind"]) <= 0.0 and leech_link_can_reach(dist, false) and not EnemyIdentity.covered(g, e["pos"], hero_pos):
 					e["tether_t"] = 3.4 if not g.hard_mode else 4.2
-					e["tether_tick"] = 0.1
+					# Bind first; the first drain lands on the next full tick.
+					e["tether_tick"] = 0.42
 				return Vector2.ZERO
 			if float(e["cd"]) <= 0.0 and leech_link_can_reach(dist, false) and dist > 95.0:
 				e["cd"] = 5.0 if not g.hard_mode else 4.0
