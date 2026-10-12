@@ -173,8 +173,8 @@ static func resolve_strike(g, item: Dictionary) -> void:
 static func move_color(g, kind: String) -> String:
 	var p := parents(g, kind)
 	var MK = load("res://scripts/MonsterKit.gd")
-	if p.size() >= 2 and MK.SPECS.has(str(p[1])):
-		return str(MK.SPECS[str(p[1])]["body"])
+	if p.size() >= 2 and MK.SPECS.has(str(p[0])):
+		return str(MK.SPECS[str(p[0])]["body"])
 	return str(g.enemy_db.get(kind, {}).get("color", "ffffff"))
 
 static func _c(e: Dictionary, fallback: String) -> String:
@@ -334,7 +334,9 @@ static func launch(g, e: Dictionary, sigs: Array) -> void:
 		if pt[2] != null:
 			item["from"] = pt[2]
 		if support:
-			item["link"] = from
+			item["support"] = true
+			if str(p["lender"]) == "laser":
+				item["link"] = from
 		g.delayed.append(item)
 
 static func resolve_anchor(g, item: Dictionary) -> void:
@@ -346,6 +348,8 @@ static func resolve_anchor(g, item: Dictionary) -> void:
 	var col := Color(str(item.get("color", "ffffff")))
 	if item.has("link"):
 		g.beams.append({"a": item["link"], "b": pos, "t": 0.3, "w": 7.0, "color": col, "zig": false})
+	elif bool(item.get("support", false)):
+		g.spawn_ring_fx(pos, col, 24.0)
 	g.spawn_ring_fx(pos, col, 26.0)
 	var before: int = g.delayed.size()
 	apply_effect(g, src, pos, str(item.get("effect", "")), false, float(item.get("k", 1.0)))
@@ -409,7 +413,7 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				var bd := Vector2.from_angle(TAU * float(b) / float(bombs) + randf() * 0.6)
 				C.schedule_boss_blast(g, pos + bd * 105.0 * maxf(k, 0.6), 46.0 * maxf(k, 0.7), dmg * 0.5, 0.95, _c(e, "ffa04d"))
 		"poison":
-			EI.place(g, "acid", pos, maxf(46.0, 92.0 * k), dmg * 0.3, 4.5, 0.15)
+			EI.place(g, "acid", pos, maxf(46.0, 92.0 * k), dmg * 0.3, 4.5, 0.15, _c(e, ""))
 		"laser":
 			if pos.distance_to(hero) > 140.0:
 				# From a far anchor: a beam straight through where you stand.
@@ -454,7 +458,10 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 		"hatch":
 			if int(e.get("mut_budget", 2)) > 0:
 				e["mut_budget"] = int(e.get("mut_budget", 2)) - 1
+				var hazards_before: int = g.enemy_hazards.size()
 				EI.place(g, "egg", pos, 18.0, 0.0, 3.0, 0.0)
+				if e.has("mut_col") and g.enemy_hazards.size() > hazards_before:
+					g.enemy_hazards[-1]["mut_col"] = str(e["mut_col"])
 		"shell":
 			for b in range(maxi(1, roundi(3.0 * k))):
 				C.schedule_boss_blast(g, hero + Vector2(randf_range(-70, 70), randf_range(-70, 70)), 54.0, dmg * 0.6, 0.9 + 0.25 * b, _c(e, "f2ad6b"))
@@ -470,7 +477,7 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				g.say(hero + Vector2(0, -30), "-%d GOLD" % taken, Color("ffd24d"), 16)
 		"fire":
 			C.schedule_boss_blast(g, pos, maxf(40.0, 60.0 * k), dmg * 0.6, 0.4, _c(e, "ff2a2e"))
-			EI.place(g, "fire", pos, maxf(48.0, 100.0 * k), dmg * 0.25, 2.6, 0.5)
+			EI.place(g, "fire", pos, maxf(48.0, 100.0 * k), dmg * 0.25, 2.6, 0.5, _c(e, ""))
 		"shards":
 			# Mirror shards bounce out in every direction.
 			var count := maxi(5, roundi(8.0 * k))
@@ -485,7 +492,7 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				C.schedule_boss_blast(g, hero, 56.0, dmg * 0.7, 0.95, _c(e, "e4b873"))
 		"sticky":
 			if not g.hero.has("sticky_bomb"):
-				g.hero["sticky_bomb"] = {"t": 2.2, "dmg": dmg * 1.2}
+				g.hero["sticky_bomb"] = {"t": 2.2, "dmg": dmg * 1.2, "color": _c(e, "ff7a46")}
 				g.say(hero + Vector2(0, -40), "STICKY BOMB! DASH!", Color("ffb07a"), 18)
 		"spear":
 			# Piercing spears: a starburst alone, a fan at you from an anchor.

@@ -176,11 +176,11 @@ static func update_delayed(g, dt: float) -> void:
 			"potato":
 				potato_hop(g, item)
 			"mortar":
-				explode(g, item["pos"], 72.0, 0.0, 9, Color("ffb84d"))
+				explode(g, item["pos"], 72.0, 0.0, 9, Color(str(item.get("color", "ffb84d"))))
 				if g.hero["pos"].distance_to(item["pos"]) < 72.0 + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a Mortar Mike shell")
 			"kaboomba_boom":
-				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]))
+				kaboom(g, item["pos"], float(item["tele"]), float(item["dmg"]), Color(str(item.get("color", "ff5a4a"))))
 			"boss_gravity":
 				g.spawn_ring_fx(item["pos"], Color("a18aff"), float(item["tele"]))
 			"boss_blast":
@@ -217,7 +217,7 @@ static func update_delayed(g, dt: float) -> void:
 					if g.hurt(float(item["dmg"]), (a + b) * 0.5, str(item.get("src", "a boss lane attack"))) and item.has("src_enemy"):
 						MutationKit.on_attack(g, item["src_enemy"], g.hero["pos"], true)
 			"elite_boom":
-				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color("ff5a4a"))
+				explode(g, item["pos"], float(item["tele"]), 0.0, 9, Color(str(item.get("color", "ff5a4a"))))
 				if g.hero["pos"].distance_to(item["pos"]) < float(item["tele"]) + 11.0:
 					g.hurt(float(item["dmg"]), item["pos"], "a Volatile elite")
 			"payload_vacuum":
@@ -508,12 +508,13 @@ static func expire(g, s: Dictionary) -> void:
 		if s.has("bh"):
 			BossFight.on_bullet_expire(g, s)
 		if bool(s.get("sticky_bomb", false)):
-			schedule_boss_blast(g, s["pos"], 60.0, float(s["dmg"]), 0.9, "ff7a46")
+			schedule_boss_blast(g, s["pos"], 60.0, float(s["dmg"]), 0.9, Color(s["color"]).to_html(false))
 		if bool(s.get("acid_trail", false)):
-			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15)
+			var acid_col := str(s["mut_src"].get("mut_col", "")) if s.has("mut_src") else ""
+			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15, acid_col)
 			# Splash: droplets and a ring as the glob hits the road.
-			g.spawn_burst(s["pos"], Color(0.95, 0.12, 0.16), 9, 170.0, 4.5)
-			g.spawn_ring_fx(s["pos"], Color(1.0, 0.62, 0.55), 40.0)
+			g.spawn_burst(s["pos"], Color(acid_col) if acid_col != "" else Color(0.95, 0.12, 0.16), 9, 170.0, 4.5)
+			g.spawn_ring_fx(s["pos"], Color(acid_col) if acid_col != "" else Color(1.0, 0.62, 0.55), 40.0)
 		if s.has("mut_src"):
 			MutationKit.on_attack(g, s["mut_src"], s["pos"], false)
 		return
@@ -629,13 +630,13 @@ static func update_sticky_bomb(g, dt: float) -> void:
 	var bomb: Dictionary = g.hero["sticky_bomb"]
 	if float(g.hero.get("dash_t", 0.0)) > 0.0 or float(g.hero.get("bash_t", 0.0)) > 0.0:
 		g.hero.erase("sticky_bomb")
-		schedule_boss_blast(g, g.hero["pos"] - Vector2(g.hero.get("aim", Vector2.UP)) * 30.0, 60.0, float(bomb["dmg"]), 0.55, "ff7a46")
+		schedule_boss_blast(g, g.hero["pos"] - Vector2(g.hero.get("aim", Vector2.UP)) * 30.0, 60.0, float(bomb["dmg"]), 0.55, str(bomb.get("color", "ff7a46")))
 		g.say(g.hero["pos"] + Vector2(0, -40), "SHOOK IT OFF", Color("ffd9b0"), 18)
 		return
 	bomb["t"] = float(bomb["t"]) - dt
 	if float(bomb["t"]) <= 0.0:
 		g.hero.erase("sticky_bomb")
-		explode(g, g.hero["pos"], 70.0, 0.0, 9, Color("ff7a46"))
+		explode(g, g.hero["pos"], 70.0, 0.0, 9, Color(str(bomb.get("color", "ff7a46"))))
 		g.hurt(float(bomb["dmg"]) * 1.5, g.hero["pos"], "a Sapper's sticky bomb")
 
 ## Mirror Mimics reflect a shot straight back at you; a Riot's shield stops
@@ -837,7 +838,7 @@ static func collide_hero(g, s: Dictionary) -> void:
 		return
 	if bool(s.get("sticky_bomb", false)):
 		if not g.hero.has("sticky_bomb"):
-			g.hero["sticky_bomb"] = {"t": 2.2, "dmg": float(s["dmg"])}
+			g.hero["sticky_bomb"] = {"t": 2.2, "dmg": float(s["dmg"]), "color": Color(s["color"]).to_html(false)}
 			g.say(g.hero["pos"] + Vector2(0, -40), "STICKY BOMB! DASH!", Color("ffb07a"), 20)
 			g.sfx.play("boss_warn")
 		s["dead"] = true
@@ -1144,7 +1145,11 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 	var xp_value = int(e["xp"]) * (5 if bool(e["elite"]) else 1)
 	if e.has("affix"):
 		if e["affix"].has("VOLATILE"):
-			g.delayed.append({"t": 0.9, "life": 0.9, "fn": "elite_boom", "pos": pos, "tele": 120.0, "dmg": float(e["dmg"]) * 1.5})
+			var boom := {"t": 0.9, "life": 0.9, "fn": "elite_boom", "pos": pos, "tele": 120.0, "dmg": float(e["dmg"]) * 1.5}
+			if e.has("mut_col"):
+				boom["color"] = str(e["mut_col"])
+				boom["mut_col"] = str(e["mut_col"])
+			g.delayed.append(boom)
 		if e["affix"].has("SPLITTER") and g.enemies.size() < g.MAX_ENEMIES:
 			for k in range(3):
 				var m = g.spawn_enemy("mini", pos + Vector2.from_angle(k * TAU / 3.0) * 20.0, false, false)
@@ -1218,7 +1223,11 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 				g.say(pos + Vector2(0, -20), "SPLIT!", Color("8fffe0"), 18)
 		"kaboomba":
 			# Keep a visible, armed body after death instead of vanishing or exploding instantly.
-			g.delayed.append(kaboomba_fuse(pos, float(e["dmg"])))
+			var fuse := kaboomba_fuse(pos, float(e["dmg"]))
+			if e.has("mut_col"):
+				fuse["color"] = str(e["mut_col"])
+				fuse["mut_col"] = str(e["mut_col"])
+			g.delayed.append(fuse)
 		"kingblob":
 			if int(e["gen"]) < 2:
 				for k in range(2):
@@ -1290,9 +1299,9 @@ static func bash_in_arc(origin: Vector2, forward: Vector2, target: Vector2, radi
 		return false
 	return forward.normalized().dot(delta / dist) >= cos(deg_to_rad(72.0))
 
-static func kaboom(g, pos: Vector2, r: float, dmg: float) -> void:
+static func kaboom(g, pos: Vector2, r: float, dmg: float, color: Color = Color("ff5a4a")) -> void:
 	# Kaboombas hurt you AND their friends. Lure them in.
-	explode(g, pos, r, dmg * 2.0, 1, Color("ff5a4a"))
+	explode(g, pos, r, dmg * 2.0, 1, color)
 	if g.hero["pos"].distance_to(pos) < r + 10.0:
 		g.hurt(dmg, pos, "a Kaboomba")
 	for other in query(g, pos, r + 45.0):
@@ -2170,7 +2179,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						break
 					var impact: Vector2 = lead + side * (float(salvo_i) - 0.5) * 94.0
 					var delay: float = 1.0 + float(salvo_i) * 0.32
-					g.delayed.append({"t": delay, "life": delay, "fn": "mortar", "pos": impact, "tele": 72.0, "dmg": float(e["dmg"]) * 0.72})
+					g.delayed.append({"t": delay, "life": delay, "fn": "mortar", "pos": impact, "tele": 72.0, "dmg": float(e["dmg"]) * 0.72, "color": "ffb84d"})
 				g.sfx.play("thunk")
 				e["fire_at"] = float(e["t"])
 			return -dir * 0.8 if dist < 360.0 else (dir if dist > 470.0 else dir.orthogonal() * 0.4)
@@ -2356,7 +2365,10 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 				e["cd"] = 5.0
 				for k in range(2):
 					var egg_pos: Vector2 = e["pos"] + Vector2(-24.0 if k == 0 else 24.0, 10.0)
+					var hazards_before: int = g.enemy_hazards.size()
 					EnemyIdentity.place(g, "egg", egg_pos, 18.0, 0.0, 3.0 if not g.hard_mode else 2.2, 0.0)
+					if e.has("mut_col") and g.enemy_hazards.size() > hazards_before:
+						g.enemy_hazards[-1]["mut_col"] = str(e["mut_col"])
 				e["squash"] = 0.5
 			return dir
 		"goblin":

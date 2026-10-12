@@ -3,13 +3,16 @@ extends RefCounted
 const CAP = 84
 const Trails = preload("res://scripts/Trails.gd")
 
-static func place(g, kind: String, pos: Vector2, radius: float, damage: float, life: float, arm: float) -> void:
+static func place(g, kind: String, pos: Vector2, radius: float, damage: float, life: float, arm: float, mut_col: String = "") -> void:
 	if g.enemy_hazards.size() >= CAP:
 		return
 	pos.x = clampf(pos.x, -g.road_half + radius + 12.0, g.road_half - radius - 12.0)
-	g.enemy_hazards.append({"kind": kind, "pos": pos, "r": radius, "dmg": damage,
+	var hazard := {"kind": kind, "pos": pos, "r": radius, "dmg": damage,
 		"life": life, "max_life": life, "arm": arm,
-		"hp": 18.0 if kind == "mine" else (28.0 if kind == "egg" else 0.0), "hurt_t": 0.0})
+		"hp": 18.0 if kind == "mine" else (28.0 if kind == "egg" else 0.0), "hurt_t": 0.0}
+	if mut_col != "":
+		hazard["mut_col"] = mut_col
+	g.enemy_hazards.append(hazard)
 
 static func place_line(g, a: Vector2, b: Vector2, width: float, damage: float, duration: float, kind: String = "fissure", arm_time: float = 0.5) -> void:
 	if g.enemy_hazards.size() < CAP:
@@ -31,6 +34,8 @@ static func extend_acid(g, s: Dictionary, width: float, damage: float, duration:
 		g.acid_trails += 1
 		h = {"kind": "acid_trail", "r": width, "dmg": damage, "life": duration,
 			"max_life": duration, "arm": 0.08, "hp": 0.0, "hurt_t": 0.0, "trail_life": duration}
+		if s.has("mut_src"):
+			h["mut_col"] = str(s["mut_src"].get("mut_col", ""))
 		Trails.start(h, s["last"], g.run_time)
 		g.enemy_hazards.append(h)
 		s["trail_h"] = h

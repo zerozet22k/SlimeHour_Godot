@@ -91,9 +91,9 @@ static func held_parts(body_kind: String, skin_kind: String) -> Array:
 static func draw(ci: CanvasItem, body_kind: String, skin_kind: String, r: float, flash: bool = false, held: bool = true) -> void:
 	var b: Dictionary = SPECS.get(body_kind, SPECS["blob"])
 	var s: Dictionary = SPECS.get(skin_kind, b)
-	var body := Color.WHITE if flash else Color(str(s["body"]))
-	var dark := Color(str(s["dark"]))
-	var accent := Color(str(s["accent"]))
+	var body := Color.WHITE if flash else Color(str(b["body"]))
+	var dark := Color(str(b["dark"]))
+	var accent := Color(str(b["accent"]))
 	var shape := str(b["shape"])
 	var parts := parts_for(body_kind, skin_kind)
 	for part in parts:

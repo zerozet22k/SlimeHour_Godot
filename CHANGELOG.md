@@ -1,3 +1,9 @@
+## v0.1.98 — Mutation body color and parent attacks
+
+- The first parent now supplies every mutation's main body color, held weapon color, warnings, projectiles, explosions, and delayed effects.
+- Mortar shells, Burrower mounds and eruptions, Mama eggs, Sapper sticky bombs, Spitter acid, and mutation fire keep that color through their full lifetimes.
+- Mini, Mama, and other non-laser parents no longer draw generic laser beams for support effects. Laser beams belong to Laser Larry combinations.
+
 ## v0.1.97 — Two sides to every mutation
 
 - Each authored fusion can now appear in both parent orders. The first parent supplies the body and its attack; the second supplies the delivery shape and inherited parts. Both versions unlock together and appear separately in the Mutation Book.

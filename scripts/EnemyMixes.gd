@@ -7,6 +7,7 @@ extends RefCounted
 ## Hybrid inheritance is anatomical, NOT a second complete monster face.
 ## Every second parent supplies one recognizable peripheral body feature.
 const MutationKit = preload("res://scripts/MutationKit.gd")
+const MonsterKit = preload("res://scripts/MonsterKit.gd")
 const RETIRED = [] # Medic and Laser Larry are active normal monster species.
 const FEATURES = {
 	"blob": ["cheeks", "tail"], "zoomer": ["fins", "tail"],
@@ -72,8 +73,7 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	# Distinct pairs get stable signature parts, while spawned members can
 	# display other parts inherited from the SAME secondary archetype.
 	var feature = str(options[posmod(id.hash(), options.size())])
-	var ca = Color(str(first["color"]))
-	var cb = Color(str(second["color"]))
+	var ca = Color(str(MonsterKit.SPECS[primary]["body"])) if MonsterKit.SPECS.has(primary) else Color(str(first["color"]))
 	db[id] = {
 		"id": id, "name": str(MutationKit.PAYLOAD_NAMES.get(MutationKit.payload_for(id, secondary), "Mutated")) + " " + str(first["name"]),
 		"hp": (float(first["hp"]) + float(second["hp"])) * 0.71,
@@ -82,7 +82,7 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 		"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
 		"xp": maxi(int(first["xp"]), int(second["xp"])) + 2,
 		"mass": maxf(float(first["mass"]), float(second["mass"])),
-		"color": ca.lerp(cb, 0.43).to_html(false), "mix": [primary, secondary],
+		"color": ca.to_html(false), "mix": [primary, secondary],
 		"look": {"body": one.get("body", "round"), "face": one.get("face", "normal"),
 			"second_color": str(second["color"]), "gear": one.get("gear", []).duplicate(),
 			"trait": feature, "trait_options": options.duplicate(),

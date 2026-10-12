@@ -111,6 +111,16 @@ func _run() -> void:
 	var combat_src := FileAccess.get_file_as_string("res://scripts/Combat.gd")
 	check((visual_src.contains('enemy_has_role(e, "leech") and float(e.get("tether_t"') or visual_src.contains('body == "leech" and float(e.get("tether_t"')) and visual_src.contains('var body: String = MutationKit.acting(g, e)') and not visual_src.contains('e["kind"] == "leech"'), "A Leech-bodied mutant draws its blood tether")
 	check(combat_src.contains('var body_kind: String = MutationKit.acting(g, e)') and not combat_src.contains('str(e["kind"]) == "skitter"'), "Mutants move with the parent they are acting as (dash, ricochet)")
+	# Unrelated parents must never acquire Larry's laser beam presentation.
+	for pair in [["mini", "mama"], ["mama", "mini"], ["mortar", "mini"]]:
+		g.delayed.clear()
+		var variant = g.spawn_enemy(EnemyMixes.ensure(g.enemy_db, pair[0], pair[1]), Vector2(0, -200), false, false)
+		MK.fusion_move(g, variant)
+		check(g.delayed.all(func(d): return str(d.get("line_style", "")) != "beam" and not d.has("link")), str(pair) + " does not borrow a laser")
+		if str(pair[0]) == "mama":
+			g.enemy_hazards.clear()
+			MK.apply_effect(g, variant, Vector2.ZERO, "hatch", false, 1.0)
+			check(not g.enemy_hazards.is_empty() and str(g.enemy_hazards[-1].get("mut_col", "")) == str(variant["mut_col"]), "Mama's egg inherits the mutation color")
 	if errors > 0:
 		push_error("%d monster checks failed" % errors)
 		quit(1)
