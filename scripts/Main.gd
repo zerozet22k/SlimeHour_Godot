@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.104"
+const GAME_VERSION = "v0.1.105"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1689,6 +1689,13 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		e["hp"] = float(e["hp"]) * 1.1
 		e["max_hp"] = e["hp"]
 		e["dmg"] = float(e["dmg"]) * 1.1
+	if kind.begins_with("mix_"):
+		var body_damage: float = float(d["dmg"])
+		var graft_base: float = float(d.get("graft_dmg", body_damage))
+		var graft_scale: float = float(e["dmg"]) / body_damage if body_damage > 0.0 else (
+			early_ease(0.65) * (1.0 + float(sector - 1) * 0.07) *
+			(1.0 + 0.014 * float(late * late)) * midgame_relief() * (1.4 if hard_mode else 1.0))
+		e["graft_dmg"] = graft_base * graft_scale
 	enemies.append(e)
 	# Totem shields apply immediately—even before the next AI simulation tick.
 	# Keep this cache coherent when Debug Lab or summons spawn support units.

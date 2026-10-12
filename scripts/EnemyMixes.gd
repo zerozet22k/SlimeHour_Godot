@@ -80,6 +80,9 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 		"hp": float(first["hp"]) * 1.22,
 		"speed": float(first["speed"]) * (1.0 + minf(0.10, float(second["speed"]) * 0.0004)),
 		"dmg": float(first["dmg"]) * 1.10,
+		# A stationary Totem or Gold Goblin retains zero body-contact
+		# damage; an inherited offensive graft still needs its own damage.
+		"graft_dmg": maxf(float(first["dmg"]) * 1.10, maxf(4.0, float(second["dmg"]) * 0.5)),
 		"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
 		"xp": maxi(int(first["xp"]), int(second["xp"])) + 2,
 		"mass": maxf(float(first["mass"]), float(second["mass"])),

@@ -91,7 +91,7 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 			e["exposed_t"] = 1.2
 			g.spawn_ring_fx(e["pos"], Color(str(e.get("mut_col", "c29e77"))), 68.0)
 			if Vector2(e["pos"]).distance_to(g.hero["pos"]) < 65.0:
-				g.hurt(float(e["dmg"]) * 0.65, e["pos"], "a tunnel ambush")
+				g.hurt(float(e.get("graft_dmg", e["dmg"])) * 0.65, e["pos"], "a tunnel ambush")
 	if float(e.get("graft_orbit_t", 0.0)) > 0.0:
 		e["graft_orbit_t"] = maxf(0.0, float(e["graft_orbit_t"]) - dt)
 	if float(e.get("graft_ward_t", 0.0)) > 0.0:
@@ -115,7 +115,7 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 			if float(e["graft_link_tick"]) <= 0.0:
 				e["graft_link_tick"] = 0.55
 				var EI = load("res://scripts/EnemyIdentity.gd")
-				if not EI.covered(g, e["pos"], g.hero["pos"]) and g.hurt(float(e["dmg"]) * 0.18, e["pos"], "a fused blood conduit"):
+				if not EI.covered(g, e["pos"], g.hero["pos"]) and g.hurt(float(e.get("graft_dmg", e["dmg"])) * 0.18, e["pos"], "a fused blood conduit"):
 					e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.025)
 					g.beams.append({"a": e["pos"], "b": g.hero["pos"], "t": 0.15, "w": 2.5, "color": Color("ad80ea"), "zig": false})
 	if id in ["phoenix_egg", "reflect_shot"]:
@@ -203,7 +203,7 @@ static func resolve(g, item: Dictionary) -> void:
 	var origin: Vector2 = e["pos"]
 	var hero: Vector2 = g.hero["pos"]
 	var dir: Vector2 = (hero - origin).normalized() if hero.distance_to(origin) > 0.5 else Vector2.DOWN
-	var dmg: float = float(e["dmg"])
+	var dmg: float = float(e.get("graft_dmg", e["dmg"]))
 	var col: String = str(item.get("color", "cdd3ff"))
 	match module:
 		"pack_link":

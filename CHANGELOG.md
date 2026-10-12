@@ -1,3 +1,10 @@
+## v0.1.105 — Preserve zero-damage bodies with functional offensive grafts
+
+- Totem and Gold Goblin body kits remain non-contact-damaging, even when they inherit an offensive donor mechanic.
+- Added separate, scaled `graft_dmg`: inherited spear, artillery, ambush and blood-link abilities carry bounded power without changing the receiver's normal contact attack.
+- Audit regressions assert both ordered cases. No special pair combat logic or changes to the 25-species graft data.
+- Retains the continuous Spitter ribbon, procedural per-run fusion selection, reactive/interruptible behaviors and encounter budgets from v0.1.104.
+
 ## v0.1.104 — Continuous inherited acid and full-monster CI gate
 
 - Make Spitter inheritance one continuous acid ribbon with a matching segment collision zone rather than three circular ground patches. It reuses the normal Spitter trail renderer and coloring.

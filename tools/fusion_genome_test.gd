@@ -44,6 +44,14 @@ func _run() -> void:
 			check(is_equal_approx(float(db[id]["dmg"]), float(db[str(body)]["dmg"]) * 1.10),
 				"Body parent retains its attack foundation")
 			combinations += 1
+	var ward_lancer: String = Mixes.ensure(db, "totem", "lancer")
+	check(ward_lancer != "" and is_zero_approx(float(db[ward_lancer]["dmg"]))
+		and float(db[ward_lancer].get("graft_dmg", 0.0)) > 0.0,
+		"Totem stays non-contact while its inherited piercing attack deals damage")
+	var thief_mortar: String = Mixes.ensure(db, "goblin", "mortar")
+	check(thief_mortar != "" and is_zero_approx(float(db[thief_mortar]["dmg"]))
+		and float(db[thief_mortar].get("graft_dmg", 0.0)) > 0.0,
+		"Goblin keeps zero contact damage but can inherit an actual artillery attack")
 	check(traits.size() == 25, "Distinct donor kits; Zoomer, Mini and Skitter no longer share rush")
 	check(combinations >= 450 and combinations < 600, "Most ordered combinations work without pair-specific branches")
 	var g = Main.new()
