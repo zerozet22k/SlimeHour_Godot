@@ -218,9 +218,12 @@ static func resolve(g, item: Dictionary) -> void:
 			C.schedule_boss_blast(g, origin, 115.0, dmg * 0.52, 0.48, col)
 			e["recover"] = maxf(float(e.get("recover", 0.0)), 0.7)
 		"acid_track":
+			# One real continuous hostile acid ribbon, not a dotted chain of
+			# three circles. The renderer and hitbox both use the same segment.
 			var from := origin - dir * 75.0
-			for i in range(3):
-				EI.place(g, "acid", from + dir * float(i) * 48.0, 27.0, dmg * 0.18, 2.1, 0.0, col)
+			EI.place_line(g, from, origin + dir * 96.0, 27.0, dmg * 0.18, 2.1, "acid_trail", 0.08)
+			if not g.enemy_hazards.is_empty() and str(g.enemy_hazards[-1].get("kind", "")) == "acid_trail":
+				g.enemy_hazards[-1]["mut_col"] = col
 		"death_fuse":
 			# One bomb per activation, with a clear warning and no bomblet cascade.
 			C.schedule_boss_blast(g, origin, 85.0, dmg * 0.8, 0.9, col)

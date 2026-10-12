@@ -68,6 +68,16 @@ func _run() -> void:
 				"One triggered graft event for " + module)
 		triggers += 1
 	check(triggers == 25, "All 25 donor kits have a compatible test carrier")
+	# Spitter donor paints one real line hazard; it must not regress to
+	# three disconnected circular poison patches.
+	var acid_id := Mixes.ensure(g.enemy_db, "lancer", "spitter")
+	var acid_e := {"id": 99, "kind": acid_id, "mut_of": acid_id, "pos": Vector2(100, 50),
+		"r": 18.0, "dmg": 10.0, "dead": false}
+	g.enemy_hazards.clear()
+	Genome.resolve(g, {"src_enemy": acid_e, "module":"acid_track", "color":"9aff77"})
+	check(g.enemy_hazards.size() == 1 and str(g.enemy_hazards[0].get("kind", "")) == "acid_trail"
+		and g.enemy_hazards[0].has("a") and g.enemy_hazards[0].has("b"),
+		"Spitter inheritance is one continuous ribbon-shaped hazard")
 	g.free()
 	print("FUSION GENOME: ", "PASS" if failures == 0 else str(failures) + " failures",
 		" / ", combinations, " valid directed pairings")

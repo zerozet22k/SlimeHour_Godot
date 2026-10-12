@@ -1,3 +1,10 @@
+## v0.1.104 — Continuous inherited acid and full-monster CI gate
+
+- Make Spitter inheritance one continuous acid ribbon with a matching segment collision zone rather than three circular ground patches. It reuses the normal Spitter trail renderer and coloring.
+- Verify this exact behavior in the genome regression suite.
+- Add the full monster-rework regression to the fast enemy identity workflow, so obsolete expectations or broken inherited behavior are caught before the slower Windows packaging.
+- All pair selection and effect generation remain generic; no hardcoded pair combat cases.
+
 ## v0.1.103 — Full-release regression and mutation metadata fix
 
 - Replace obsolete combat regression expectations that demanded ten radiating healing lasers and explosion fans from old effect/shape mutations. Verify the new Medic triage graft on Laser Larry and Kaboomba without generic spamming.
