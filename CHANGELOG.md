@@ -1,3 +1,17 @@
+## v0.1.118 — Grave Lord, Sky Reaper and Glass Oracle hit harder
+
+Benchmark bots lost about 107% HP against Chonkzilla but only 11% against the Grave Lord, so the soft bosses now hunt you the way Chonkzilla does.
+
+- **Grave Lord:**
+  - **New Grave Hands** burst out of the ground where you're heading, during Skull Waltz and Death Bloom.
+  - Skull Waltz has 4–6 faster spiral arms.
+  - Soul Harvest closes 3–5 tighter rings around you.
+  - Grave March sweeps back the other way from phase 2.
+  - Wards fire 3-skull homing fans more often but heal it about half as fast.
+  - Bots now lose about 98% HP on Normal (was 11%).
+- **Sky Reaper:** strafing runs also bomb where you're running, and Missile Salvo fans are wider.
+- **Glass Oracle:** mirrors fire more often, and Echo Volley bursts shards along your recent path.
+
 ## v0.1.117 — Area-wide boss attacks, tougher early bosses, boss benchmark
 
 - **Boss attacks reach the whole area:**

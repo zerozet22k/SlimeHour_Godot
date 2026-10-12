@@ -580,20 +580,20 @@ static func update_minions(g, e: Dictionary, dt: float) -> void:
 		"necro":
 			var wards: Array = minions(g, e, "ward")
 			if not wards.is_empty() and float(e["hp"]) < float(e["max_hp"]):
-				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.0045 * wards.size() * dt)
+				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.0022 * wards.size() * dt)
 			for ward in wards:
 				ward["ward_t"] = float(ward.get("ward_t", randf_range(0.8, 2.0))) - dt
 				if float(ward["ward_t"]) <= 0.0 and not calm:
-					ward["ward_t"] = 2.8
-					fire(g, e, ward["pos"], aim_from(g, ward["pos"]), 165.0,
-						{"shape": "skull", "r": 6.0, "homing": 0.7, "homing_t": 1.4, "life": 4.0})
+					ward["ward_t"] = 1.8
+					fan(g, e, ward["pos"], aim_from(g, ward["pos"]), 3, 0.5, 175.0,
+						{"shape": "skull", "r": 6.0, "homing": 0.7, "homing_t": 1.2, "life": 4.5})
 		"glassoracle":
 			var mirrors: Array = minions(g, e, "mirror")
 			for i in range(mirrors.size()):
 				var node: Dictionary = mirrors[i]
 				node["ward_t"] = float(node.get("ward_t", 1.6 + i * 0.7)) - dt
 				if float(node["ward_t"]) <= 0.0 and not calm:
-					node["ward_t"] = 3.2
+					node["ward_t"] = 2.2
 					var from: Vector2 = node["pos"]
 					var to: Vector2 = from + aim_from(g, from) * 820.0
 					line(g, e, from, to, 13.0, 0.95, 0.5, {"source": node})
@@ -693,8 +693,13 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 				var idx: int = c if going > 0.0 else cols2 - 1 - c
 				var gx: float = float(a["left"]) + (idx + 0.5) * cw
 				line(g, e, Vector2(gx, float(a["top"]) - 40.0), Vector2(gx, float(a["bottom"]) + 40.0),
-					cw * 0.5 - 4.0, 1.1 + c * 0.3, 0.6, {"grave": true})
-			e["bf_len"] = 1.1 + cols2 * 0.3 + 0.4
+					cw * 0.5 - 4.0, 1.0 + c * 0.22, 0.6, {"grave": true})
+				if stage >= 1:
+					# The second wave sweeps back the other way.
+					var back: float = float(a["left"]) + (float(cols2 - 1 - idx) + 0.5) * cw
+					line(g, e, Vector2(back, float(a["top"]) - 40.0), Vector2(back, float(a["bottom"]) + 40.0),
+						cw * 0.5 - 4.0, 1.0 + cols2 * 0.22 + 0.5 + c * 0.22, 0.6, {"grave": true})
+			e["bf_len"] = 1.0 + cols2 * 0.22 * (2.0 if stage >= 1 else 1.0) + (0.9 if stage >= 1 else 0.4)
 		"kaiju_rage":
 			e["bf_len"] = 3.0
 		"boulder_roll":
@@ -923,9 +928,12 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 			for _i in range(every(e, "bomb", 0.3, dt, 0.15)):
 				var drop := Vector2(me.x + going * 50.0, hero.y + randf_range(-70.0, 70.0))
 				circle(g, e, drop, 54.0, 0.9, 0.6, {"bomb": true})
+			for _i in range(every(e, "hunt", 0.7, dt, 0.4)):
+				# Bombs also hunt where you are running to.
+				circle(g, e, lead(g, 0.8), 60.0, 0.85, 0.6, {"bomb": true, "burst": 6})
 		"missile_salvo":
 			for _i in range(every(e, "fan", 0.9, dt, 0.25)):
-				fan(g, e, me, aim_from(g, me), 5, 0.7, 260.0, {"shape": "rice", "r": 4.5})
+				fan(g, e, me, aim_from(g, me), 7, 0.9, 270.0, {"shape": "rice", "r": 4.5})
 		"minigun_sweep":
 			var sweeps: int = 1 if stage < 2 else 2
 			var dur: float = float(e["bf_len"])
@@ -952,7 +960,9 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 				circle(g, e, lead(g, 0.5), 60.0, 0.95, 0.6, {"bomb": true})
 		# ---------------------------------------------------------- NECRO
 		"skull_waltz":
-			var arms2: int = 3 + mini(stage, 1)
+			var arms2: int = 4 + stage
+			for _i in range(every(e, "hand", 0.55 - 0.08 * stage, dt, 0.3)):
+				grave_hand(g, e, stage)
 			for _i in range(every(e, "a", 0.12, dt)):
 				e["bf_ang"] = float(e["bf_ang"]) + 0.19
 				e["bf_ang2"] = float(e["bf_ang2"]) - 0.19
@@ -960,15 +970,15 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					var off3: float = TAU * float(arm) / float(arms2)
 					var d6 := Vector2.from_angle(float(e["bf_ang"]) + off3)
 					var d7 := Vector2.from_angle(float(e["bf_ang2"]) + off3 + 0.3)
-					fire(g, e, me + d6 * 30.0, d6, 115.0, {"accel": 55.0, "max": 235.0, "shape": "skull", "r": 6.0})
-					fire(g, e, me + d7 * 30.0, d7, 115.0, {"accel": 55.0, "max": 235.0, "r": 5.0, "color": alt})
+					fire(g, e, me + d6 * 30.0, d6, 135.0, {"accel": 70.0, "max": 270.0, "shape": "skull", "r": 6.0})
+					fire(g, e, me + d7 * 30.0, d7, 135.0, {"accel": 70.0, "max": 270.0, "r": 5.0, "color": alt})
 		"soul_harvest":
-			var waves3: int = 2 + (1 if stage >= 2 else 0)
-			for _i in range(every(e, "wave", 1.2, dt)):
+			var waves3: int = 3 + stage
+			for _i in range(every(e, "wave", 0.85, dt)):
 				if int(e["bf_k"]) >= waves3:
 					break
 				e["bf_k"] = int(e["bf_k"]) + 1
-				soul_ring(g, e, hero, 22, 265.0, 3)
+				soul_ring(g, e, hero, 28, 250.0 - 20.0 * float(e["bf_k"]), 3)
 		"raise_wards", "grave_march", "hall_of_mirrors", "web_lattice", "piston_bank", "boulder_roll":
 			# The setpiece is already on the ground; keep light aimed pressure.
 			for _i in range(every(e, "poke", 0.85, dt, 0.5)):
@@ -981,8 +991,10 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					var d8 := Vector2.from_angle(off4 + TAU * float(i) / 10.0)
 					fire(g, e, me + d8 * 26.0, d8, 160.0, {"r": 5.0, "color": col if int(e["bf_k"]) % 2 == 0 else alt,
 						"shape": "skull" if i % 5 == 0 else "orb"})
-			for _i in range(every(e, "harvest", 1.7, dt, 0.8)):
-				soul_ring(g, e, hero, 16, 235.0, 3)
+			for _i in range(every(e, "harvest", 1.5, dt, 0.8)):
+				soul_ring(g, e, hero, 22, 235.0, 3)
+			for _i in range(every(e, "hand", 0.6, dt, 0.4)):
+				grave_hand(g, e, stage)
 		# ---------------------------------------------------------- KING BLOB
 		"royal_slam":
 			var flops: int = 1 + (1 if stage >= 2 else 0)
@@ -1098,7 +1110,11 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					{"shape": "shard", "r": 5.0, "stop_t": 0.4, "aim_t": 1.15, "aim_speed": 300.0, "life": 4.0})
 		"echo_volley":
 			for _i in range(every(e, "fan", 0.9, dt, 0.4)):
-				fan(g, e, me, aim_from(g, me), 4, 0.5, 230.0, {"shape": "shard", "r": 5.0})
+				fan(g, e, me, aim_from(g, me), 6, 0.7, 240.0, {"shape": "shard", "r": 5.0})
+			for _i in range(every(e, "past", 0.45, dt, 0.3)):
+				var hist2: Array = e["bf_hist"]
+				var past: Vector2 = hist2[maxi(0, hist2.size() - 4)] if not hist2.is_empty() else hero
+				circle(g, e, past, 60.0, 0.6, 0.6, {"burst": 8, "burst_shape": "shard"})
 		"prism_split":
 			# Big prisms fly out, then shatter twice into widening fans.
 			for _i in range(every(e, "prism", 0.5, dt)):
@@ -1205,6 +1221,11 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					{"shape": "flame", "r": 6.5, "life": 0.75, "dmg": 0.2, "color": alt})
 
 ## Souls appear on a circle around the player, hang for a beat, then converge.
+## Grave Lord: a hand bursts out of the ground where you are heading.
+static func grave_hand(g, e: Dictionary, stage: int) -> void:
+	var at: Vector2 = lead(g, 0.7) + Vector2(randf_range(-70.0, 70.0), randf_range(-55.0, 55.0))
+	circle(g, e, at, 58.0, 0.75, 0.65, {"burst": 6 + 2 * stage, "burst_shape": "skull"})
+
 static func soul_ring(g, e: Dictionary, center: Vector2, count: int, radius: float, gap: int) -> void:
 	var start: int = randi() % count
 	var off: float = randf() * TAU
