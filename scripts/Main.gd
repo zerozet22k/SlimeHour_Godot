@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.109"
+const GAME_VERSION = "v0.1.110"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -56,6 +56,7 @@ var best = {"sector": 0, "kills": 0, "level": 0}
 var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
 ## Encounter unlocks are PER RUN. Bestiary kills remain persistent, but never grant spawn access.
 var run_mutations_unlocked: Dictionary = {}
+var hard_donors: Dictionary = {}
 var run_mutation_pairs: Array = [] # Procedural, never a fixed authored recipe sequence.
 # Strong fusion abilities are special encounters, not default replacements for
 # their normal parent species. Both directions of a pair share one active slot.
@@ -612,6 +613,7 @@ func start_run() -> void:
 	# Reset all mutation introductions even if the player reached sector 40
 	# or discovered every recipe in a previous run.
 	run_mutations_unlocked.clear()
+	hard_donors.clear()
 	run_mutation_pairs.clear()
 	mutation_spawn_sector = -1
 	mutation_sector_spawns = 0
@@ -1606,6 +1608,28 @@ func hard_road() -> bool:
 func insane_mutants() -> bool:
 	return hard_mode and hard_road()
 
+## Hard mode: turn a rolled species into a mutation with a compatible donor
+## from the monsters already met this run ("" if no donor fits). Each body
+## keeps at most HARD_DONORS donors per run, so a run has ~50 mutant kinds
+## (each new kind re-bakes the sprite atlas; hundreds would stutter).
+const HARD_DONORS := 2
+func hard_mutant_for(body: String) -> String:
+	var donors: Array = hard_donors.get(body, [])
+	if donors.size() < HARD_DONORS:
+		var fresh: Array = []
+		for other in available_enemies(sector):
+			if str(other) != body and not donors.has(str(other)) and enemy_db.has(other) and EnemyMixes.compatible_body(body, str(other)):
+				fresh.append(str(other))
+		if not fresh.is_empty():
+			donors.append(str(fresh[randi() % fresh.size()]))
+			hard_donors[body] = donors
+	if donors.is_empty():
+		return ""
+	var id := EnemyMixes.ensure(enemy_db, body, str(donors[randi() % donors.size()]))
+	if id != "":
+		run_mutations_unlocked[id] = true
+	return id
+
 func sync_mutation_sector() -> void:
 	if mutation_spawn_sector != sector:
 		mutation_spawn_sector = sector
@@ -1638,6 +1662,12 @@ func pick_enemy() -> String:
 	# accidentally ignoring encounter_chance() and flooding fights with mutants.
 	# Now the chance applies to the whole spawn roll, and any failed gate
 	# leaves a legitimate normal monster alive in the roster.
+	# HARD MODE: every monster is a mutation, from sector 1. The species the
+	# roll picked is the body; a random species that has already appeared
+	# donates its graft. (Elite/Hell roads make them insane.)
+	if hard_mode:
+		var mutant := hard_mutant_for(chosen)
+		return mutant if mutant != "" else chosen
 	sync_mutation_sector()
 	# Where mutations roam:   NORMAL mode -> only on hard roads (Elite/Hell).
 	#                        HARD mode   -> every road; on hard roads they are
@@ -1670,7 +1700,7 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	var is_elite = false
 	if elite == null:
 		var base_elite = (0.02 + mini(sector, 20) * 0.005 + maxi(0, sector - 20) * 0.003) * (1.4 if hard_mode else 1.0)
-		is_elite = not is_boss and kind != "goblin" and not kind.begins_with("mix_") and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0)) * midgame_relief()
+		is_elite = not is_boss and kind != "goblin" and (hard_mode or not kind.begins_with("mix_")) and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0)) * midgame_relief()
 	else:
 		is_elite = bool(elite)
 	# Enemy HP follows enemy_scale(); it grows a little toward the end of each sector.

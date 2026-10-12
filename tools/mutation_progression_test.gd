@@ -76,6 +76,16 @@ func _run() -> void:
 	var active := g.active_mutation_ids()
 	check(active.size() == 6 and active.has(Mixes.id_for(str(g.run_mutation_pairs[7][0]), str(g.run_mutation_pairs[7][1]))),
 		"Hard limits a sector to three active recipes with the newest present")
+	# Hard mode: every spawn is a mutation, no recipe/encounter gating.
+	var all_mutants := true
+	for i in range(200):
+		if not str(g.pick_enemy()).begins_with("mix_"):
+			all_mutants = false
+	check(all_mutants, "Hard mode: every monster is a mutation")
+	# The recipe caps below govern Normal mode on Elite/Hell roads.
+	g.hard_mode = false
+	g.route = {"name": "HELL LANE", "hard": true}
+	active = g.active_mutation_ids()
 	g.mutation_spawn_sector = 40
 	g.mutation_sector_spawns = g.mutation_sector_limit()
 	var blocked := true
@@ -84,12 +94,12 @@ func _run() -> void:
 			blocked = false
 	check(blocked, "Sector budget blocks further mutation spawning")
 	g.mutation_sector_spawns = 0
-	g.enemies = [{"kind": active[0], "dead": false}, {"kind": active[1], "dead": false}, {"kind": active[2], "dead": false}]
+	g.enemies = [{"kind": active[0], "dead": false}, {"kind": active[1], "dead": false}]
 	blocked = true
 	for i in range(100):
 		if str(g.pick_enemy()).begins_with("mix_"):
 			blocked = false
-	check(blocked, "Three living mutations block more on Hard")
+	check(blocked, "Two living mutations block more on Normal hard roads")
 	g.enemies.clear()
 	var hits := 0
 	for i in range(500):
@@ -97,14 +107,14 @@ func _run() -> void:
 		if chosen.begins_with("mix_"):
 			hits += 1
 			check(active.has(chosen), "Only active mutation recipes appear")
-	check(hits >= 100 and hits <= 260, "Hard respects fusion encounter chance rather than replacing parent spawns")
+	check(hits >= 15 and hits <= 90, "Normal hard roads respect fusion encounter chance")
 	g.sector = 1
 	g.run_mutations_unlocked.clear()
 	g.run_mutation_pairs.clear()
 	check(not g.mutation_is_unlocked(first_id) and g.mutation_is_discovered(Mixes.recipe_id(0)),
 		"Fresh runs relock combinations but retain old discovery records")
-	check(g.mutation_live_limit() == 3 and g.mutation_sector_limit() == 10,
-		"Hard retains its mutation caps")
+	check(g.mutation_live_limit() == 2 and g.mutation_sector_limit() == 5,
+		"Normal hard roads keep their mutation caps")
 	g.free()
 	print("PROCEDURAL MUTATION PROGRESSION: ", "PASS" if failures == 0 else str(failures) + " failures")
 	quit(1 if failures else 0)

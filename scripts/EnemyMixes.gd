@@ -246,5 +246,9 @@ static func run_candidates(db: Dictionary, roster: Array) -> Array:
 				out.append([a, b])
 	return out
 
+## One direction: can `body` carry `donor`'s graft?
+static func compatible_body(body: String, donor: String) -> bool:
+	return FusionGenome.compatible(body, donor)
+
 static func compatible_pair(a: String, b: String) -> bool:
 	return FusionGenome.compatible(a, b) and FusionGenome.compatible(b, a)

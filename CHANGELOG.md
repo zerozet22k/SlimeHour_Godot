@@ -1,3 +1,11 @@
+## v0.1.110 — Hard mode is all mutants
+
+- **In Hard mode every monster is a mutation, from sector 1.** Each rolled species becomes the body, and a species you've already met donates its graft. There's no sector-25 wait and no 3-alive cap. Bosses stay bosses.
+- On Elite and Hell roads in Hard mode the mutants are insane: they also fire their signature move.
+- Mutants can be elites in Hard mode.
+- Each species gets at most 2 donors per Hard run, about 50 mutant kinds per run. That keeps runs varied without hundreds of sprite rebakes.
+- Normal mode is unchanged: no mutations on normal roads, and a few capped mutations on Elite and Hell roads from sector 25.
+
 ## v0.1.109 — Status effect balance
 
 Numbers are per second on a 1000 HP elite with one card and a pistol (about 48 DPS of its own):
