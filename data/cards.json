@@ -1474,7 +1474,7 @@
       "cat": "element",
       "rarity": 0,
       "max": 3,
-      "desc": "35% chance to set enemies on fire.",
+      "desc": "35% chance to set enemies on fire: a short, fierce 2s burn.",
       "art": "a flaming bullet",
       "mods": {
         "burn": 0.35
@@ -1513,7 +1513,7 @@
       "cat": "element",
       "rarity": 0,
       "max": 3,
-      "desc": "40% chance to poison. Poison stacks up to 12.",
+      "desc": "40% chance to poison. Poison stacks up to 12, lasts 8s and fades slowly.",
       "art": "a dripping venom bullet",
       "mods": {
         "poison": 0.4
@@ -1526,7 +1526,7 @@
       "cat": "element",
       "rarity": 0,
       "max": 3,
-      "desc": "35% chance to cause bleeding.",
+      "desc": "35% chance to cause bleeding (up to 8 stacks). Bleeding enemies take double while moving.",
       "art": "a serrated blade bullet",
       "mods": {
         "bleed": 0.35

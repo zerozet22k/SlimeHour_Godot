@@ -1,3 +1,12 @@
+## v0.1.112 — Each status has its own role
+
+Numbers are per second on a 1000 HP elite with one card and a pistol (about 48 DPS of its own):
+
+- **Burn: short and fierce.** One 2s stack with the most damage per second, ~30/s right away. Keep hitting to keep it alight.
+- **Poison: long and creeping.** Stacks to 12 and lasts 8s, reaching ~27/s at the cap after ~8s. When the timer runs out it loses half its stacks every 2s instead of vanishing, so it keeps ticking after you stop hitting.
+- **Bleed: punishes movement.** Stacks to 8 (was 10): ~21/s standing, ~42/s while the enemy moves. Since enemies are almost always moving, it was the strongest status at ~64/s.
+- Incendiary, Venom and Serrated describe their new behavior.
+
 ## v0.1.111 — Smaller, linear crowds; Hard mode fields fewer
 
 - **Crowds grow in a straight line:** 40 monsters in sector 1, +4 per sector, topping out at 160 from sector 31. The rush wave adds a third on top. A sector is now 53 monsters at sector 1, 101 at 10, 154 at 20 and 213 from 31 on. Before, it was about 200 by sector 8 and 265 by sector 25.

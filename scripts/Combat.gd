@@ -1075,17 +1075,19 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 	var bonus = 1.0
 	match kind:
 		"burn":
-			# One stack that is easy to keep up: ~12/s + 0.5% max HP/s.
-			base = 3.0
-			hp_ratio = 0.0012
+			# SHORT AND FIERCE: one 2s stack, the most damage per second
+			# (~24/s + 0.8% max HP/s). Keep hitting to keep it alight.
+			base = 6.0
+			hp_ratio = 0.002
 			bonus = maxf(0.0, 1.0 + g.st("burnpow"))
 		"poison":
-			base = 0.45 * stacks
+			# LONG AND CREEPING: weaker per second, but stacks and lingers.
+			base = 0.35 * stacks
 			hp_ratio = 0.00022 * stacks
 			bonus = maxf(0.0, 1.0 + g.st("poisonpow"))
 		"bleed":
 			var movement = 2.0 if moving else 1.0
-			base = 0.55 * stacks * movement
+			base = 0.4 * stacks * movement
 			hp_ratio = 0.00025 * stacks * movement
 			bonus = maxf(0.0, 1.0 + g.st("bleedpow"))
 		"shock":
@@ -1346,7 +1348,7 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 	var ss = g.sector_scale()
 	match s:
 		"burn":
-			e["burn"] = maxf(float(e["burn"]), 3.0 * dur)
+			e["burn"] = maxf(float(e["burn"]), 2.0 * dur)
 			if (float(e["chill"]) > 0.0 or float(e["frozen"]) > 0.0) and g.st("steam") > 0.0:
 				e["chill"] = 0.0
 				e["frozen"] = 0.0
@@ -1385,9 +1387,10 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			# Every hit refreshes the timer, so stacks never fall off: the cap is
 			# what keeps poison in line with bleed (12 stacks ~ 22/s + 1% max HP/s).
 			e["poison"] = minf(POISON_CAP, float(e["poison"]) + 1.0)
-			e["poison_t"] = 4.0 * dur
+			e["poison_t"] = 8.0 * dur
 		"bleed":
-			e["bleed"] = minf(10.0, float(e["bleed"]) + 1.0)
+			# PUNISHES MOVEMENT: up to 8 stacks, double damage while it moves.
+			e["bleed"] = minf(8.0, float(e["bleed"]) + 1.0)
 			e["bleed_t"] = 4.0 * dur
 			if g.st("hemorrhage") > 0.0 and float(e["bleed"]) >= 5.0:
 				var burst = 9.0 * ss * float(e["bleed"]) * (1.0 + g.st("bleedpow"))
@@ -1605,7 +1608,9 @@ static func update_enemies(g, dt: float) -> void:
 			if float(e["poison"]) > 0.0:
 				e["poison_t"] = float(e.get("poison_t", 0.0)) - sdt
 				if float(e["poison_t"]) <= 0.0:
-					e["poison"] = 0.0
+					# Poison fades instead of vanishing: half the stacks every 2s.
+					e["poison"] = floorf(float(e["poison"]) * 0.5)
+					e["poison_t"] = 2.0
 			if float(e["bleed"]) > 0.0:
 				e["bleed_t"] = float(e.get("bleed_t", 0.0)) - sdt
 				if float(e["bleed_t"]) <= 0.0:
