@@ -1,3 +1,10 @@
+## v0.1.120 — Bosses no longer one-shot you
+
+- **Boss damage now follows your level, not the sector.** A basic boss bullet takes about 5% of the max HP you'd have at your level, and a big blast about 15%. Hard mode hits 25% harder.
+- **Why:** enemy damage grew with the square of the sector, so late bosses landed only about 2 hits a fight, each taking 60–128% of your HP. Benchmark bots dodged them 81–94% of the time and still died to one or two hits.
+- **Result:** in the benchmark, every boss now lands 5–11% HP per hit, and the late bosses need 11–27 hits to wear you down. Dodging decides the fight.
+- **Boss benchmark:** the summary also shows hits per minute, compared with Chonkzilla.
+
 ## v0.1.119 — Every boss hunts you; tides you have to run for
 
 - **Every tide works like Chonkzilla's shockwave ring:**

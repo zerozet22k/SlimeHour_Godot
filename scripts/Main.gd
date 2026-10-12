@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.119"
+const GAME_VERSION = "v0.1.120"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -732,6 +732,11 @@ func midgame_relief(s: int = -1) -> float:
 		12: return 0.86
 		13: return 0.94
 	return 1.0
+
+## A boss's "dmg" stat: bullets deal 0.3x of it, blasts 0.6-0.9x.
+func boss_hit_basis() -> float:
+	var level_hp: float = 130.0 + 22.0 * float(maxi(0, growth_levels()))
+	return level_hp * 0.18 * (1.25 if hard_mode else 1.0)
 
 static func early_boss_bonus(s: int) -> float:
 	return 1.0 + 0.5 * clampf(float(25 - s) / 10.0, 0.0, 1.0)
@@ -1767,6 +1772,11 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 			early_ease(0.65) * (1.0 + float(sector - 1) * 0.07) *
 			(1.0 + 0.014 * float(late * late)) * midgame_relief() * (1.4 if hard_mode else 1.0))
 		e["graft_dmg"] = graft_base * graft_scale
+	if is_boss:
+		# Boss hits are sized to the max HP you have at this level, not to the
+		# sector: a basic bullet ~5% of it, a big blast ~15%. Difficulty comes
+		# from how much there is to dodge, not from one-shots.
+		e["dmg"] = boss_hit_basis()
 	enemies.append(e)
 	# Totem shields apply immediately—even before the next AI simulation tick.
 	# Keep this cache coherent when Debug Lab or summons spawn support units.

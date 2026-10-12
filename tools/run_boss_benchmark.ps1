@@ -68,11 +68,18 @@ $summary = $rows | Group-Object mode, boss | ForEach-Object {
     "Avg HP lost %" = [math]::Round((($g | ForEach-Object { [double]$_.hp_lost_pct }) | Measure-Object -Average).Average)
     "Peak bullets" = (($g | ForEach-Object { [int]$_.peak_bullets }) | Measure-Object -Maximum).Maximum
     "Hits" = [math]::Round((($g | ForEach-Object { [double]$_.hits }) | Measure-Object -Average).Average)
+    # Damage-free difficulty: how often the boss lands a hit. Many small hits = hard to dodge.
+    "Hits/min" = [math]::Round((($g | ForEach-Object { [double]$_.hits / [math]::Max(1.0, [double]$_.seconds / 60.0) }) | Measure-Object -Average).Average, 1)
     "HP per hit %" = [math]::Round((($g | ForEach-Object { [double]$_.avg_hit_pct }) | Measure-Object -Average).Average, 1)
     "Dodges" = [math]::Round((($g | ForEach-Object { [double]$_.dodges }) | Measure-Object -Average).Average)
     "Dodge rate %" = [math]::Round((($g | ForEach-Object { [double]$_.dodge_rate }) | Measure-Object -Average).Average)
   }
 } | Sort-Object Mode, Sector
+# Hits/min next to Chonkzilla's, per mode: the dodge difficulty compared with the reference boss.
+foreach ($row in $summary) {
+  $ref = $summary | Where-Object { $_.Mode -eq $row.Mode -and $_.Boss -eq "chonkzilla" } | Select-Object -First 1
+  $row | Add-Member -NotePropertyName "vs Chonkzilla" -NotePropertyValue $(if ($ref -and $ref."Hits/min" -gt 0) { "{0:N1}x" -f ($row."Hits/min" / $ref."Hits/min") } else { "-" })
+}
 $table = $summary | Format-Table -AutoSize | Out-String -Width 200
 $table | Set-Content (Join-Path $outDir "summary-$stamp.txt")
 Write-Host $table
