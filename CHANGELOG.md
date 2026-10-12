@@ -1,3 +1,13 @@
+## v0.1.94 — Mutants are really both parents
+
+- **Mutations fight as both halves.** A mutant spends about 6 seconds fighting as its body parent, flashes, then about 4 seconds using its other parent's attacks, and so on. For example, Tunnel Harpoon burrows and erupts like a Burrower, then switches to Lancer spear throws and sweeps. Before, mutants played almost exactly like their body parent.
+- Every attack still carries the other parent's augment.
+- Bestiary entries for mutations explain the switch.
+- **F3 Debug Lab:**
+  - Mutations list both parents, e.g. "Tunnel Harpoon (Burrower + Lancer)".
+  - The spawn notice says which parent is the body.
+  - In debug runs, every mutant shows a small "AS LANCER" / "AS BURROWER" label, so you can check it is acting correctly.
+
 ## v0.1.93 — Uncapped boss bullets, Monster Eyes option
 
 - **Bullets are not capped:** the per-boss bullet limit is gone and enemy bullets no longer share your shot budget, so dense late patterns always fire in full. Monsters stay capped.

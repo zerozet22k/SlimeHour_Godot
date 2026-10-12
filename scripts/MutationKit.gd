@@ -61,6 +61,15 @@ static func parents(g, kind: String) -> Array:
 		return []
 	return g.enemy_db[kind].get("mix", [])
 
+## The parent a mutant is fighting as right now. Mutants switch between
+## their body parent and their other parent (see Combat.ai), so both halves
+## of the fusion really show up in a fight.
+static func acting(g, e: Dictionary) -> String:
+	var kind := str(e["kind"])
+	if not kind.begins_with("mix_"):
+		return kind
+	return str(e.get("mut_acting", primary(g, kind)))
+
 static func primary(g, kind: String) -> String:
 	# Fast path: ordinary monsters are their own body.
 	if not kind.begins_with("mix_"):

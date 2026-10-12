@@ -1444,7 +1444,33 @@ static func recall_straggler(g, e: Dictionary) -> bool:
 
 static func has_role(g, e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
-	return kind == role or (kind.begins_with("mix_") and str(g.enemy_db[kind]["mix"][0]) == role)
+	return kind == role or (kind.begins_with("mix_") and MutationKit.acting(g, e) == role)
+
+## Swaps which parent a mutant fights as. Waits for any attack in progress to
+## finish, then clears that parent's half-done states so nothing gets stuck
+## (a burrowed mole surfaces before it starts throwing spears).
+static func mutant_switch(g, e: Dictionary, kind: String, dt: float) -> void:
+	var parents: Array = MutationKit.parents(g, kind)
+	if parents.size() < 2:
+		return
+	e["mut_phase_t"] = float(e.get("mut_phase_t", 5.0 + randf() * 2.0)) - dt
+	if float(e["mut_phase_t"]) > 0.0:
+		return
+	if float(e.get("wind", 0.0)) > 0.0 or float(e.get("charge", 0.0)) > 0.0 or float(e.get("laser_t", 0.0)) > 0.0 \
+			or float(e.get("rumble_t", 0.0)) > 0.0 or float(e.get("hop_air", 0.0)) > 0.0:
+		return
+	var body := str(parents[0])
+	var to_giver := str(e.get("mut_acting", body)) == body
+	e["mut_acting"] = str(parents[1]) if to_giver else body
+	e["mut_phase_t"] = 4.0 if to_giver else 6.0
+	if bool(e.get("burrowing", false)):
+		e["burrowing"] = false
+		g.spawn_burst(e["pos"], Color("c8a66e"), 10, 220.0, 4.0)
+	for key in ["exposed_t", "tether_t", "dizzy_t", "sprint_t"]:
+		e[key] = 0.0
+	e["latched"] = false
+	e["cd"] = minf(float(e.get("cd", 0.0)), 0.5)
+	g.spawn_ring_fx(e["pos"], Color(str(g.enemy_db[kind].get("color", "ffffff"))), float(e["r"]) + 22.0)
 
 static func update_enemies(g, dt: float) -> void:
 	var hero_pos: Vector2 = g.hero["pos"]
@@ -1468,7 +1494,7 @@ static func update_enemies(g, dt: float) -> void:
 			continue
 		# Mutants move and attack as their body parent.
 		var p_iter := Time.get_ticks_usec() if g.perf_detail else 0
-		var body_kind: String = MutationKit.primary(g, str(e["kind"]))
+		var body_kind: String = MutationKit.acting(g, e)
 		# Lost-monster checks run every 4th step per monster (staggered by id).
 		if (int(e["id"]) + g.sim_step) % 4 == 0 and reap_unreachable(g, e, hero_pos, dt * 4.0):
 			continue
@@ -1845,11 +1871,13 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 	if bool(e.get("half", false)):
 		return mitosis_half_ai(g, e, dir, dt)
 	if kind.begins_with("mix_"):
-		# A mutant fights as its body parent; every attack carries the other
-		# parent's payload (MutationKit). One coherent ability, not two AIs.
+		# A mutant is BOTH parents: ~6s fighting as its body parent, then ~4s
+		# with the other parent's attacks, switching only between attacks.
+		# Every attack also carries the other parent's payload (MutationKit).
 		e["mut_of"] = kind
 		MutationKit.tick(g, e, dt)
-		e["kind"] = MutationKit.primary(g, kind)
+		mutant_switch(g, e, kind, dt)
+		e["kind"] = MutationKit.acting(g, e)
 		var motion: Vector2 = ai(g, e, dir, dist, dt, charmed)
 		e["kind"] = kind
 		return motion

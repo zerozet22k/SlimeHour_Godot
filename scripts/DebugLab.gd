@@ -3,6 +3,7 @@ const Effects = preload("res://scripts/Effects.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Bestiary = preload("res://scripts/Bestiary.gd")
+const MutationKit = preload("res://scripts/MutationKit.gd")
 ## A developer sandbox. This is intentionally not a profile progression system:
 ## first opening the lab snapshots persistent progress and disables disk saves.
 ## Leaving to the menu restores the original profile/records and clears the sandbox.
@@ -166,6 +167,9 @@ static func spawn(g, id: String, elite: bool = false) -> bool:
 	var pos: Vector2 = g.hero["pos"] + Vector2(x, -distance)
 	g.spawn_enemy(id, pos, bool(g.enemy_db[id].get("boss", false)), elite)
 	g.debug_notice = "SPAWNED: " + str(g.enemy_db[id]["name"])
+	if id.begins_with("mix_"):
+		var pair: Array = g.enemy_db[id].get("mix", [])
+		g.debug_notice += "  (%s body, %s attacks)" % [str(pair[0]).to_upper(), str(pair[1]).to_upper()]
 	return true
 
 static func items(g, tab: String, category: String = "ALL", query: String = "") -> Array:
@@ -211,9 +215,11 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 				if seen.has(id) or not g.enemy_db.has(str(recipe["a"])) or not g.enemy_db.has(str(recipe["b"])):
 					continue
 				var notes: Array = Bestiary.info(id)
+				var pair: Array = MutationKit.parents_for_id(id)
 				result.append({
-					"id": id, "label": str(recipe["name"]), "category": "MUTATIONS",
-					"detail": str(notes[0]),
+					"id": id, "label": "%s  (%s + %s)" % [str(recipe["name"]), str(pair[0]).capitalize(), str(pair[1]).capitalize()],
+					"category": "MUTATIONS",
+					"detail": "Body: %s · switches to %s attacks · %s" % [str(pair[0]).capitalize(), str(pair[1]).capitalize(), str(notes[0])],
 					"search_extra": "%s %s %s %s %s %s" % [recipe["a"], recipe["b"], recipe["style"], notes[0], notes[1], notes[2]]
 				})
 	var needle = query.strip_edges().to_lower()

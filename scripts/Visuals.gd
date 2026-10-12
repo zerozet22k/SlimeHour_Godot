@@ -1609,7 +1609,7 @@ func paint_enemies() -> void:
 	for e in g.enemies:
 		if bool(e["dead"]):
 			continue
-		var body: String = MutationKit.primary(g, str(e["kind"]))
+		var body: String = MutationKit.acting(g, e)
 		var p1 = P(e["pos"])
 		var r1 = float(e["r"])
 		if p1.y < g.view_top - r1 - 60.0 or p1.y > g.view_bottom + r1 + 60.0:
@@ -1626,7 +1626,7 @@ func paint_enemies() -> void:
 	for e in g.enemies:
 		if bool(e["dead"]):
 			continue
-		var body: String = MutationKit.primary(g, str(e["kind"]))
+		var body: String = MutationKit.acting(g, e)
 		var p = P(e["pos"])
 		var r = float(e["r"])
 		if p.y < g.view_top - r - 60.0 or p.y > g.view_bottom + r + 60.0:
@@ -1697,6 +1697,9 @@ func paint_enemies() -> void:
 			for k in range(3):
 				var th2: float = g.anim_t * 5.0 + TAU * float(k) / 3.0
 				dot(p + Vector2(cos(th2) * r * 0.9, -r - 6.0 + sin(th2) * 4.0), 3.0, Color("ffe07f"))
+		# Debug runs label every mutant with the parent it is acting as.
+		if g.debug_session and str(e["kind"]).begins_with("mix_"):
+			text_c("AS " + body.to_upper(), p + Vector2(0, -r - 34), 12, Color("8ff2ff"), 2)
 		# Elite affix labels only near you: a screen full of them is unreadable
 		# and expensive.
 		if e.has("affix") and Vector2(e["pos"]).distance_squared_to(g.hero["pos"]) < 280.0 * 280.0:
@@ -1726,7 +1729,7 @@ const ATLAS_COLS = 8
 func enemy_has_role(e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
 	# A mutant shows its body parent's attacks and tells.
-	return kind == role or (kind.begins_with("mix_") and str(g.enemy_db[kind]["mix"][0]) == role)
+	return kind == role or (kind.begins_with("mix_") and MutationKit.acting(g, e) == role)
 
 var atlas: Texture2D = null
 var mix_rebake_pending := false
@@ -1869,7 +1872,7 @@ var enemy_pass := 0
 func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 	var bodies := enemy_pass != 2
 	var extras := enemy_pass != 1
-	var body: String = MutationKit.primary(g, str(e["kind"]))
+	var body: String = MutationKit.acting(g, e)
 	if bool(e.get("boss", false)) and BossFight.is_boss_kind(str(e["kind"])):
 		if bodies:
 			draw_boss(e, p, r)
