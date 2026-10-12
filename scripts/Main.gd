@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.106"
+const GAME_VERSION = "v0.1.107"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -696,10 +696,22 @@ func start_run() -> void:
 	begin_sector()
 	sfx.play("level")
 
+## EVERY level gives a card. Levels 2-4 come quickly; after that each level
+## costs the XP of two old "half" levels, so a run earns the same number of
+## cards as before, just one per level instead of every other level.
 func xp_for(l: int) -> int:
-	# Quick first levels, then steep parabolic/cubic curve that prevents card bloat.
+	if l <= 3:
+		return base_xp_for(l)
+	return base_xp_for(2 * l - 4) + base_xp_for(2 * l - 3)
+
+## The original quick-then-steep curve the card pace is measured against.
+static func base_xp_for(l: int) -> int:
 	var m = float(l - 1)
 	return int(8 + m * 14 + 6.0 * pow(m, 2.0) + 0.6 * pow(m, 3.0))
+
+## Levels in the old two-per-card pacing; max HP still grows at that rate.
+func growth_levels() -> int:
+	return level - 1 if level <= 4 else 2 * level - 5
 
 ## Player-side scaling: guns, card procs, statuses and allies all grow by this per sector.
 func sector_scale() -> float:
@@ -882,8 +894,7 @@ func generate_run_mutation_pairs() -> void:
 					break
 
 func introduce_mutations() -> void:
-	# Mutations are a HARD ROAD feature: Normal runs never unlock or spawn them.
-	if not hard_mode or sector < EnemyMixes.FIRST_FUSION_SECTOR:
+	if sector < EnemyMixes.FIRST_FUSION_SECTOR:
 		return
 	generate_run_mutation_pairs()
 	var count: int = mini(run_mutation_pairs.size(), EnemyMixes.unlock_count(sector, hard_mode))
@@ -1587,6 +1598,14 @@ func mutation_alive_count() -> int:
 			count += 1
 	return count
 
+## Elite and Hell roads are the hard roads.
+func hard_road() -> bool:
+	return bool(route.get("hard", false))
+
+## Hard mode on a hard road: mutants are insane (graft + signature move).
+func insane_mutants() -> bool:
+	return hard_mode and hard_road()
+
 func sync_mutation_sector() -> void:
 	if mutation_spawn_sector != sector:
 		mutation_spawn_sector = sector
@@ -1620,6 +1639,11 @@ func pick_enemy() -> String:
 	# Now the chance applies to the whole spawn roll, and any failed gate
 	# leaves a legitimate normal monster alive in the roster.
 	sync_mutation_sector()
+	# Where mutations roam:   NORMAL mode -> only on hard roads (Elite/Hell).
+	#                        HARD mode   -> every road; on hard roads they are
+	#                        INSANE (they also fire a signature move).
+	if not hard_mode and not hard_road():
+		return chosen
 	if mutation_sector_spawns >= mutation_sector_limit():
 		return chosen
 	if EnemyMixes.encounter_chance(sector, hard_mode) <= 0.0:
@@ -1805,8 +1829,8 @@ func sector_clear() -> void:
 ## One column per sector. Every 5th sector is a single boss node; past WIN_SECTOR, every sector is.
 const NODE_INFO = {
 	"fight": {"name": "FIGHT", "desc": "A normal stretch of road.", "color": "5bead8"},
-	"elite": {"name": "ELITE ROAD", "desc": "Many more elites. +30% gold and a treasure chest at the end.", "color": "ffb84d"},
-	"hell": {"name": "HELL LANE", "desc": "60% more enemies that hit 20% harder. +80% EXP and a treasure chest at the end.", "color": "ff5a6a"},
+	"elite": {"name": "ELITE ROAD", "desc": "Many more elites. +30% gold and a treasure chest at the end. From sector 25 mutations roam here (insane ones in Hard mode).", "color": "ffb84d"},
+	"hell": {"name": "HELL LANE", "desc": "60% more enemies that hit 20% harder. +80% EXP and a treasure chest at the end. From sector 25 mutations roam here (insane ones in Hard mode).", "color": "ff5a6a"},
 	"shop": {"name": "SHOP", "desc": "Buy cards, guns and healing. Better stock after Elite or Hell roads. No fight.", "color": "ffd24d"},
 	"rest": {"name": "CAMPFIRE", "desc": "Heal 40% of max HP, or train a gun one level. No fight.", "color": "7dff9a"},
 	"treasure": {"name": "TREASURE", "desc": "Pick a free card, Rare or better. No fight.", "color": "c58cff"},
@@ -1972,9 +1996,9 @@ func start_node_fight(t: String) -> void:
 		route_risk += 1
 	match t:
 		"elite":
-			route = {"name": "ELITE ROAD", "elites": 3.0, "gold": 1.3, "clear_chest": 1}
+			route = {"name": "ELITE ROAD", "elites": 3.0, "gold": 1.3, "clear_chest": 1, "hard": true}
 		"hell":
-			route = {"name": "HELL LANE", "spawns": 1.6, "xpmul": 1.8, "taken": 1.2, "clear_chest": 1}
+			route = {"name": "HELL LANE", "spawns": 1.6, "xpmul": 1.8, "taken": 1.2, "clear_chest": 1, "hard": true}
 		"boss":
 			route = {"name": "BOSS ROAD"}
 		_:
@@ -2733,8 +2757,7 @@ func gain_xp(amount: float) -> void:
 		xp_need = xp_for(level)
 		# Each level raises max HP (see Effects.recalc); the new HP comes filled.
 		stats_dirty = true
-		if level <= 4 or level % 2 == 0:
-			pending_levels += 1
+		pending_levels += 1
 		levelup_delay = 0.35
 		say(hero["pos"] + Vector2(0, -60), "LEVEL UP!", Color("d6a8ff"), 34)
 		spawn_ring_fx(hero["pos"], Color("d6a8ff"), 90.0)

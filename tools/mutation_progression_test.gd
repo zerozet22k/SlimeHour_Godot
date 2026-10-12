@@ -36,8 +36,26 @@ func _run() -> void:
 	check(g.run_mutations_unlocked.is_empty(), "No early mutation introduction")
 	g.sector = 40
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.is_empty(), "Normal road never unlocks mutations (Hard road only)")
+	check(not g.run_mutations_unlocked.is_empty(), "Normal mode still unlocks mutations")
+	g.route = {"name": "HIGHWAY"}
+	var highway_mix := false
+	for i in range(400):
+		if str(g.pick_enemy()).begins_with("mix_"):
+			highway_mix = true
+	check(not highway_mix, "Normal mode: no mutations on normal roads")
+	g.route = {"name": "HELL LANE", "hard": true}
+	var hell_mix := false
+	for i in range(400):
+		if str(g.pick_enemy()).begins_with("mix_"):
+			hell_mix = true
+	check(hell_mix and not g.insane_mutants(), "Normal mode: hard roads get (non-insane) mutations")
 	g.hard_mode = true
+	check(g.insane_mutants(), "Hard mode on a hard road: insane mutants")
+	g.route = {"name": "HIGHWAY"}
+	check(not g.insane_mutants(), "Hard mode on a normal road: ordinary mutations")
+	g.run_mutations_unlocked.clear()
+	g.run_mutation_pairs.clear()
+	g.mutation_sector_spawns = 0
 	g.sector = 25
 	g.introduce_mutations()
 	check(g.run_mutation_pairs.size() == 18 and g.run_mutations_unlocked.size() == 2,

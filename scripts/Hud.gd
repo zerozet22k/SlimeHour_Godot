@@ -1123,6 +1123,8 @@ func paint_hud() -> void:
 	draw_rect(Rect2(0, 709, 1280 * xr, 10), Color("b48cff"))
 	slant(Rect2(14, 682, 84, 30), Color("b48cff"), Color(0, 0, 0, 0), 8)
 	txt("LV %d" % g.level, Vector2(56, 705), 22, Color.WHITE, 1, bold, 4)
+	# Every level is a card: say so, with how close the next one is.
+	txt("NEXT CARD  %d%%" % int(xr * 100.0), Vector2(108, 703), 15, Color("d6c2ff"), 0, bold, 3)
 	# --- weapons
 	for i in range(g.guns.size()):
 		paint_gun_slot(g.guns[i], i, Vector2(110 + i * 196, 636))
@@ -1741,7 +1743,7 @@ func paint_characters() -> void:
 	paint_menu_bg()
 	panel(Rect2(28, 38, 1224, 632), Color("0a1020", 0.95), Color("467f95"), 2)
 	txt("CHOOSE YOUR RUNNER", Vector2(640, 112), 54, Color.WHITE, 1, bold, 4)
-	txt(("HARD ROAD" if g.hard_mode else "STANDARD ROAD") + "  /  STARTING WEAPON AND A SMALL TRADE-OFF", Vector2(640, 148), 18, Color("a4bed2"), 1, bold)
+	txt(("HARD MODE" if g.hard_mode else "NORMAL MODE") + "  /  STARTING WEAPON AND A SMALL TRADE-OFF", Vector2(640, 148), 18, Color("a4bed2"), 1, bold)
 	var selected = Characters.get_character(g.selected_character)
 	for i in range(Characters.ROSTER.size()):
 		var ch = Characters.ROSTER[i]
@@ -2146,7 +2148,7 @@ func bestiary_detail(kind: String, r: Rect2) -> void:
 				r.position.x + 32, r.position.y + 220, r.size.x - 64, 19,
 				Color("c9e8de"), 27, body, false, 5)
 		else:
-			txt("HARD ROAD ONLY",
+			txt("NORMAL  SECTOR %d  (ELITE/HELL ROADS)" % int(recipe["normal_sector"]),
 				Vector2(r.get_center().x, r.position.y + 184), 20, Color("e1d4aa"), 1, bold)
 			txt("HARD  SECTOR %d" % int(recipe["hard_sector"]),
 				Vector2(r.get_center().x, r.position.y + 225), 20, Color("ffb29a"), 1, bold)

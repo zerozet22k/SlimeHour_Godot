@@ -51,7 +51,7 @@ static func recalc(g) -> void:
 	if not g.hero.is_empty():
 		# Max HP grows with YOUR level (+22 per level), not with the sector:
 		# levelling up is what makes you sturdier.
-		var maxhp = maxf(20.0, 130.0 + 22.0 * maxi(0, int(g.level) - 1) + float(S.get("maxhp", 0.0)))
+		var maxhp = maxf(20.0, 130.0 + 22.0 * maxi(0, int(g.growth_levels())) + float(S.get("maxhp", 0.0)))
 		var diff = maxhp - float(g.hero["maxhp"])
 		g.hero["maxhp"] = maxhp
 		if diff > 0:

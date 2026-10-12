@@ -20,7 +20,7 @@ static func info(kind: String) -> Array:
 			var donor := str(pair[1])
 			var sigs: Array = [MutationKit.payload_for(kind, body), MutationKit.payload_for(kind, donor)]
 			return [FusionGenome.trait_name(body, donor).to_upper() + " GRAFT",
-				FusionGenome.description(body, donor) + " HARD ROAD: it also unleashes " + MutationKit.move_name_for(sigs) + ". " + MutationKit.move_desc_for(sigs),
+				FusionGenome.description(body, donor) + " INSANE (Hard mode, Elite/Hell roads): it also unleashes " + MutationKit.move_name_for(sigs) + ". " + MutationKit.move_desc_for(sigs),
 				"Punish its base monster's normal recovery and the graft's separate wind-up; interrupts stop healing and follow-through."]
 		return ["MUTATION", "A body-part variation from two familiar species.", "Identify both attacks and avoid being surrounded."]
 	return NOTES.get(kind, ["UNKNOWN", "No information available.", "Watch this enemy carefully."])

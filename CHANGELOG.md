@@ -1,3 +1,15 @@
+## v0.1.107 — Mutations by mode and road; a card every level
+
+- **Where mutations appear:**
+  - **Normal mode:** only on hard roads (Elite and Hell). Normal roads have none.
+  - **Hard mode:** on every road. On normal roads they're regular mutations.
+  - **Hard mode on Elite/Hell roads:** mutations are *insane*. They keep their graft and also fire the combined signature move (Prism Beam, Mend Beam…).
+  - Elite and Hell node descriptions say mutations roam there from sector 25.
+- **A card on every level-up.** Before, you only got a card on every other level after level 4. Levels after 4 now need more XP, so you get about the same number of cards per run as before. Your max HP still grows at the same pace.
+- A **NEXT CARD %** label next to your level shows how close your next card is.
+- The setup screen says NORMAL MODE / HARD MODE, so "road" always means the map path.
+- v0.1.106 briefly limited mutations to Hard mode only. That's reverted.
+
 ## v0.1.106 — Mutations are a Hard Road feature
 
 - **Mutations now only appear on the Hard Road.** Normal runs never unlock or spawn them. The Mutation Book marks locked entries "HARD ROAD ONLY".

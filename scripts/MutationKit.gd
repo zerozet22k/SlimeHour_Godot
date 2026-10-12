@@ -2,7 +2,7 @@ extends RefCounted
 const FusionGenome = preload("res://scripts/FusionGenome.gd")
 ## Mutations fight with a behavior graft (FusionGenome): the body keeps its
 ## own AI and inherits one real mechanic from the other parent.
-## On the HARD ROAD they ALSO charge a combined signature move built from
+## INSANE mutants (Hard mode, Elite/Hell roads) ALSO charge a combined move from
 ## both parents' powers ("fusion moves" below, data/fusion.json). The body
 ## decides WHAT the move does, the other parent HOW it is delivered:
 ##   Laser Larry body + Medic  -> lasers spun out all round it
@@ -155,9 +155,9 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 		return
 	# Every fusion fights with its behavior graft (FusionGenome).
 	FusionGenome.tick(g, e, dt)
-	# HARD ROAD: on top of the graft, the mutant also charges a combined
+	# INSANE (Hard mode on an Elite/Hell road): on top of the graft, it charges a combined
 	# SIGNATURE MOVE built from both parents (data/fusion.json, below).
-	if g.hard_mode:
+	if g.insane_mutants():
 		e["mut_move_t"] = float(e.get("mut_move_t", 2.2)) - dt
 		if float(e["mut_move_t"]) <= 0.0 and Vector2(e["pos"]).distance_to(g.hero["pos"]) < 640.0:
 			signature_move(g, e)
@@ -168,8 +168,8 @@ static func on_attack(g, e, pos: Vector2, hit_player: bool) -> void:
 	if float(e.get("graft_cd", 2.3)) <= 0.55:
 		e["graft_cd"] = 0.0
 		FusionGenome.cast(g, e)
-	# Hard: the body's attack sets the signature move off once nearly ready.
-	if g.hard_mode and float(e.get("mut_move_t", 2.2)) <= 1.2:
+	# Insane: the body's attack sets the signature move off once nearly ready.
+	if g.insane_mutants() and float(e.get("mut_move_t", 2.2)) <= 1.2:
 		signature_move(g, e)
 
 ## The body attacked without a projectile (a dash, a slam, a sweep...).
@@ -193,12 +193,12 @@ static func _c(e: Dictionary, fallback: String) -> String:
 
 static func fusion_move(g, e: Dictionary) -> void:
 	# Kaboomba contact and other explicit signature triggers use the same
-	# graft as every other parent; on Hard the signature move goes too.
+	# graft as every other parent; an insane mutant's signature move goes too.
 	FusionGenome.cast(g, e)
-	if g.hard_mode:
+	if g.insane_mutants():
 		signature_move(g, e)
 
-## Hard-only combined move: the body decides WHAT it does, the other parent
+## Insane-only combined move: the body decides WHAT it does, the other parent
 ## HOW it is delivered, all in the mutant's own colour, with a callout.
 static func signature_move(g, e: Dictionary) -> void:
 	var sigs := signatures(g, mut_kind(e))
