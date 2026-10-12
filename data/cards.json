@@ -3186,7 +3186,7 @@
       "cat": "defense",
       "rarity": 0,
       "max": 3,
-      "desc": "+5 max HP. Leveling up heals 25 HP.",
+      "desc": "+5 max HP. Leveling up heals 40 HP.",
       "art": "a growing plant",
       "mods": {
         "maxhp": 5
@@ -3195,7 +3195,7 @@
         {
           "on": "level",
           "do": "heal",
-          "hp": 25
+          "hp": 40
         }
       ]
     },
@@ -3548,14 +3548,14 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "6% of kills drop extra gold.",
+      "desc": "12% of kills drop extra gold.",
       "art": "a gold miner",
       "mods": {},
       "procs": [
         {
           "on": "kill",
           "do": "drop",
-          "chance": 0.06,
+          "chance": 0.12,
           "kind": "gold",
           "n": 1
         }
@@ -3651,7 +3651,7 @@
       "cat": "loot",
       "rarity": 0,
       "max": 2,
-      "desc": "Leveling up drops 3 gold.",
+      "desc": "Leveling up drops 8 gold.",
       "art": "a credit card with coins",
       "mods": {},
       "procs": [
@@ -3659,7 +3659,7 @@
           "on": "level",
           "do": "drop",
           "kind": "gold",
-          "n": 3,
+          "n": 8,
           "at": "hero"
         }
       ]
@@ -3716,14 +3716,14 @@
       "cat": "loot",
       "rarity": 2,
       "max": 1,
-      "desc": "0.05% of kills drop a treasure chest. JACKPOT!",
+      "desc": "0.15% of kills drop a treasure chest. JACKPOT!",
       "art": "a slot machine jackpot",
       "mods": {},
       "procs": [
         {
           "on": "kill",
           "do": "drop",
-          "chance": 0.0005,
+          "chance": 0.0015,
           "kind": "chest",
           "n": 1,
           "say": "JACKPOT!"
@@ -3843,7 +3843,7 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "Killing an elite drops 12 gold.",
+      "desc": "Killing an elite drops 5 gold.",
       "art": "a wanted poster",
       "mods": {},
       "procs": [
@@ -3851,7 +3851,7 @@
           "on": "kill",
           "do": "drop",
           "kind": "gold",
-          "n": 12,
+          "n": 5,
           "if": "elite"
         }
       ]
@@ -3862,7 +3862,7 @@
       "cat": "loot",
       "rarity": 1,
       "max": 2,
-      "desc": "Leveling up blasts a 24-bullet ring (30 base damage each).",
+      "desc": "Leveling up blasts a 24-bullet ring (45 base damage each).",
       "art": "a lightbulb exploding with ideas",
       "mods": {},
       "procs": [
@@ -3870,7 +3870,7 @@
           "on": "level",
           "do": "nova",
           "n": 24,
-          "dmg": 30
+          "dmg": 45
         }
       ]
     },
@@ -4115,15 +4115,15 @@
       "name": "Lottery Ticket",
       "cat": "chaos",
       "rarity": 1,
-      "max": 2,
-      "desc": "20% chance on level up to get a treasure chest.",
+      "max": 1,
+      "desc": "10% chance on level up to get a treasure chest.",
       "art": "a lottery ticket",
       "mods": {},
       "procs": [
         {
           "on": "level",
           "do": "drop",
-          "chance": 0.2,
+          "chance": 0.1,
           "kind": "chest",
           "n": 1,
           "at": "hero"
@@ -5283,7 +5283,7 @@
       "cat": "loot",
       "rarity": 2,
       "max": 1,
-      "desc": "Killing an elite drops 15 gold and heals 10 HP.",
+      "desc": "Killing an elite drops 6 gold and heals 10 HP.",
       "art": "a bag of bloody coins",
       "mods": {},
       "procs": [
@@ -5291,7 +5291,7 @@
           "on": "kill",
           "do": "drop",
           "kind": "gold",
-          "n": 15,
+          "n": 6,
           "if": "elite"
         },
         {
@@ -5346,14 +5346,14 @@
       "cat": "defense",
       "rarity": 0,
       "max": 3,
-      "desc": "Leveling up heals 15 HP and gives a shield charge.",
+      "desc": "Leveling up heals 25 HP and gives a shield charge.",
       "art": "a roll of bandages",
       "mods": {},
       "procs": [
         {
           "on": "level",
           "do": "heal",
-          "hp": 15
+          "hp": 25
         },
         {
           "on": "level",

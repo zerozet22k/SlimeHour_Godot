@@ -1473,7 +1473,7 @@ func offer_tools(r: Rect2, o: Dictionary, i: int) -> void:
 		rbox(Rect2(r.position.x, y, r.size.x, 30), Color("ffd24d", 0.85), 10)
 		txt("LOCKED  ·  BACK NEXT LEVEL", Vector2(r.get_center().x, y + 21), 13, Color("0b1224"), 1, bold)
 		return
-	var cost: int = g.lock_cost()
+	var cost: int = g.lock_cost(o)
 	button(Rect2(r.position.x, y, half, 30), "LOCK %d G" % cost, "lock_offer_%d" % i, false, 13, g.gold >= cost)
 	if str(o["type"]) == "card":
 		button(Rect2(r.position.x + half + 8.0, y, half, 30), "BANISH (%d)" % g.banishes, "banish_offer_%d" % i, false, 13, g.banishes > 0)
@@ -2622,10 +2622,10 @@ func paint_shop() -> void:
 				var by: float = r.end.y + 6.0
 				button(Rect2(r.position.x, by, cw * 0.5 - 3.0, 32), "%d G" % price, "shop_buy_%d" % i, true, 17, g.gold >= price)
 				if not bool(item.get("locked", false)):
-					button(Rect2(r.position.x + cw * 0.5 + 3.0, by, cw * 0.25 - 4.0, 32), "LOCK", "shop_lock_%d" % i, false, 11, g.gold >= g.lock_cost())
+					button(Rect2(r.position.x + cw * 0.5 + 3.0, by, cw * 0.25 - 4.0, 32), "LOCK %d" % g.lock_cost(item), "shop_lock_%d" % i, false, 11, g.gold >= g.lock_cost(item))
 				if str(item.get("kind", "")) == "offer" and str(item["offer"]["type"]) == "card":
 					button(Rect2(r.position.x + cw * 0.75 + 1.0, by, cw * 0.25 - 1.0, 32), "BAN", "shop_banish_%d" % i, false, 11, g.banishes > 0)
-		txt("LOCK %d G: keeps an item for your next shop   ·   BAN: never offered again (%d left)" % [g.lock_cost(), g.banishes], Vector2(W * 0.5, H - 108), 14, Color("9fb8d0"), 1, body, 3)
+		txt("LOCK (25%% of the price): keeps an item for your next shop   ·   BAN: never offered again (%d left)" % [g.banishes], Vector2(W * 0.5, H - 108), 14, Color("9fb8d0"), 1, body, 3)
 		button(Rect2(W * 0.5 - 330, H - 96, 300, 60), "REROLL  %d G" % g.shop_reroll_cost, "shop_reroll", false, 24, g.gold >= g.shop_reroll_cost)
 		button(Rect2(W * 0.5 + 30, H - 96, 300, 60), "LEAVE", "map_continue", true, 30)
 	if g.portrait:

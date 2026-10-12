@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.107"
+const GAME_VERSION = "v0.1.108"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -2826,18 +2826,30 @@ func take_offer(o: Dictionary) -> void:
 			banner("EVOLVED!", Weapons.display_name(self, w2), 2.0)
 	Effects.recalc(self)
 
-## Gold to lock a card so it comes back next time (a late-game gold sink).
-func lock_cost() -> int:
-	return 15 + 4 * sector
+## CARD VALUE: what a card is worth at this stage is its shop price for its
+## rarity this sector (Effects.card_price). Skip, lock and sell all follow it:
+##   sell 40%  /  skip 25% of the offers you pass on  /  lock 35% of the card.
+func offer_value(o: Dictionary) -> int:
+	return Effects.card_price(self, Effects.offer_rarity(self, o))
+
+## Gold to lock an item so it comes back next time: 35% of its value.
+## With no item given, the cost of locking a typical (Common) card.
+func lock_cost(o = null) -> int:
+	if o is Dictionary:
+		if o.has("price"):
+			return maxi(8, roundi(float(o["price"]) * 0.25))
+		return maxi(8, roundi(float(offer_value(o)) * 0.35))
+	return maxi(8, roundi(float(Effects.card_price(self, 0)) * 0.35))
 
 ## Locking a level-up card: pay once, it is offered again at the next level-up.
 func lock_offer(i: int) -> void:
 	if state != "levelup" or i < 0 or i >= offers.size() or bool(offers[i].get("locked", false)):
 		return
-	if gold < lock_cost():
+	var cost := lock_cost(offers[i])
+	if gold < cost:
 		sfx.play("deny")
 		return
-	gold -= lock_cost()
+	gold -= cost
 	offers[i]["locked"] = true
 	locked_offers.append(offers[i].duplicate(true))
 	sfx.play("buy")
@@ -2873,10 +2885,11 @@ func lock_shop(i: int) -> void:
 	var item = shop_items[i]
 	if bool(item["sold"]) or bool(item.get("locked", false)):
 		return
-	if gold < lock_cost():
+	var cost := lock_cost(item)
+	if gold < cost:
 		sfx.play("deny")
 		return
-	gold -= lock_cost()
+	gold -= cost
 	item["locked"] = true
 	sfx.play("buy")
 
@@ -2906,8 +2919,14 @@ func sell_card(id: String) -> void:
 		hud.inspected_card_id = ""
 	sfx.play("coin")
 
+## Skipping pays a quarter of what the cards you pass on are worth.
 func skip_gold() -> int:
-	return 3 + sector
+	if offers.is_empty():
+		return 3 + sector
+	var total := 0.0
+	for o in offers:
+		total += float(offer_value(o))
+	return maxi(3 + sector, roundi(total / float(offers.size()) * 0.25))
 
 func reroll_offers() -> void:
 	if state != "levelup" or rerolls <= 0:

@@ -1,3 +1,25 @@
+## v0.1.108 — Fair economy: card values, bounties, skip and lock
+
+- **Every card has a value at each stage:** its shop price for its rarity in that sector. Skip, lock and sell all follow it.
+
+  | Sector | Common | Rare | Epic | Legendary |
+  |---|---|---|---|---|
+  | 1 | 37 | 59 | 127 | 219 |
+  | 10 | 64 | 95 | 190 | 300 |
+  | 20 | 94 | 135 | 260 | 390 |
+  | 30 | 124 | 175 | 330 | 480 |
+
+- **Skip** pays 25% of the average value of the cards you pass on, e.g. 9 gold at sector 1 and 16 at sector 10. More if the offer had rare cards. It was a flat 3 + sector.
+- **Lock** costs 35% of that card's value, so Commons are cheap to lock and Epics cost more. In the shop, locking costs 25% of the item's price. It was a flat 15 + 4 × sector for everything.
+- **Selling** still returns 40% of the card's value.
+- **Monster bounties:** tougher monsters drop gold more often. For example, a Blob drops a coin on about 12% of kills, a Chonk about 32%, and mutants more. Overall income stays about the same as before: roughly 20–35 gold per sector early, 60–90 mid-run and 100–130 late.
+- **Card fixes based on that income:**
+  - **Lottery Ticket:** 20% → 10% chest chance per level-up, max 1 copy. It was far too strong now that every level gives a card.
+  - **Bounty Board:** 12 → 5 gold per elite. **Blood Money:** 15 → 6 gold per elite, still heals 10 HP. Elites are about 10% of mid-game crowds, so these were paying 150–200 gold per sector.
+  - **Gold Rush:** 6% → 12% of kills. It was strictly worse than Piñata at the same rarity.
+  - **Jackpot:** 0.05% → 0.15% of kills drop a chest. It almost never paid out.
+  - **Level-up cards** fire less often now that levels after 4 are longer, so they hit harder: Cashback 3 → 8 gold, Growth Spurt heal 25 → 40, Field Dressing heal 15 → 25, Eureka 30 → 45 damage per bullet.
+
 ## v0.1.107 — Mutations by mode and road; a card every level
 
 - **Where mutations appear:**
