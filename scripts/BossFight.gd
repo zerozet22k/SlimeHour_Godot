@@ -266,8 +266,14 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 	e["bf_owned"] = int(e.get("bf_owned", 0)) + 1
 	return s
 
+## Later bosses fill the screen with more bullets: patterns gain up to 70%
+## more shots by sector 30.
+static func density(g) -> float:
+	return clampf(1.0 + 0.028 * float(int(g.sector) - 5), 1.0, 1.7)
+
 static func ring(g, e: Dictionary, origin: Vector2, count: int, speed: float, offset: float, o: Dictionary = {},
 		gap_angle: float = INF, gap_half: float = 0.0, start_r: float = -1.0) -> void:
+	count = maxi(count, roundi(float(count) * density(g)))
 	var lift: float = float(e["r"]) * 0.8 if start_r < 0.0 else start_r
 	for i in range(count):
 		var angle: float = offset + TAU * float(i) / float(count)
@@ -277,6 +283,8 @@ static func ring(g, e: Dictionary, origin: Vector2, count: int, speed: float, of
 		fire(g, e, origin + d * lift, d, speed, o)
 
 static func fan(g, e: Dictionary, origin: Vector2, dir: Vector2, count: int, spread: float, speed: float, o: Dictionary = {}) -> void:
+	if count > 1:
+		count = maxi(count, roundi(float(count) * density(g)))
 	for i in range(count):
 		var t: float = 0.0 if count == 1 else float(i) / float(count - 1) - 0.5
 		fire(g, e, origin, dir.rotated(t * spread), speed, o)

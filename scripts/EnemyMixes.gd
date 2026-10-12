@@ -102,8 +102,9 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 ## Hard: reveal one every two sectors, with higher encounter pressure.
 ## Keep normal enemies dominant so progression is legible; all other pairs
 ## remain constructible for debug and pre-existing bestiary data only.
-const FIRST_FUSION_SECTOR = 16
-const NORMAL_FUSION_SPACING = 4
+## Mutations start only once every normal species has debuted (sector 23).
+const FIRST_FUSION_SECTOR = 25
+const NORMAL_FUSION_SPACING = 3
 const HARD_FUSION_SPACING = 2
 const RECIPES = [
 	{"a": "zoomer", "b": "skitter", "name": "Volt Runner", "style": "flank"},

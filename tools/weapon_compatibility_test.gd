@@ -63,15 +63,15 @@ func _run() -> void:
 	check(Compatibility.applies_to(g, "hydra"), "Hydra still offers a meaningful returning-weapon conversion")
 	g.guns = [Weapons.new_gun(g, "grenade")]
 	check(Compatibility.applies_to(g, "return_sender"), "Return to Sender works on ordinary flying grenades")
-	check(Main.introduction_for(4) == "nurse" and Main.ROUTE_INTRO_ORDER.has("larry") and Main.introduction_for(40) == "larry", "Medic returns early and Laser Larry enters late")
-	check(Main.available_enemies(15).has("nurse") and not Main.available_enemies(15).has("larry") and Main.available_enemies(40).has("larry"), "Normal enemy introductions progress from early Medic to late Larry")
-	check(not EnemyMixes.allowed(Main.available_enemies(15), 15), "New base types appear before combinations")
-	var available = Main.available_enemies(16)
-	check(EnemyMixes.allowed(available, 16), "Dynamic combinations unlock after base species")
+	check(Main.introduction_for(4) == "nurse" and Main.ROUTE_INTRO_ORDER.has("larry") and Main.introduction_for(23) == "larry", "Medic returns early and Laser Larry debuts last (sector 23)")
+	check(Main.available_enemies(15).has("nurse") and not Main.available_enemies(22).has("larry") and Main.available_enemies(23).has("larry"), "Normal enemy introductions progress from early Medic to late Larry")
+	check(not EnemyMixes.allowed(Main.available_enemies(24), 24), "New base types appear before combinations")
+	var available = Main.available_enemies(24)
+	check(EnemyMixes.allowed(available, 25), "Dynamic combinations unlock after base species")
 	var seen = {}
 	var recent: Array = []
 	for i in range(50):
-		var hybrid = EnemyMixes.roll(g.enemy_db, available, 16, false, recent)
+		var hybrid = EnemyMixes.roll(g.enemy_db, available, 25, false, recent)
 		if hybrid == "":
 			continue
 		check(g.enemy_db[hybrid]["mix"].size() == 2 and hybrid != EnemyMixes.id_for("nurse", "larry"), "Early authored fusion has exactly two compatible parents")
@@ -80,15 +80,15 @@ func _run() -> void:
 		if recent.size() > 9:
 			recent.pop_front()
 	check(seen.size() == 1 and seen.has(EnemyMixes.recipe_id(0)),
-		"Sector 16 only introduces the first authored mutation, not random cross-pairs")
+		"Sector 25 only introduces the first authored mutation, not random cross-pairs")
 	seen.clear()
 	recent.clear()
-	var later = Main.available_enemies(23)
+	var later = Main.available_enemies(30)
 	for i in range(90):
-		var hybrid = EnemyMixes.roll(g.enemy_db, later, 24, false, recent)
+		var hybrid = EnemyMixes.roll(g.enemy_db, later, 31, false, recent)
 		if hybrid != "":
 			seen[hybrid] = true
-	check(seen.size() == 3, "Normal sector 24 exposes exactly three distinct mutation recipes")
+	check(seen.size() == 3, "Normal sector 31 exposes exactly three distinct mutation recipes")
 	for kind in seen:
 		check(g.enemy_db[kind]["mix"].size() == 2, "Every unlocked mutation inherits exactly two normal enemies")
 	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")

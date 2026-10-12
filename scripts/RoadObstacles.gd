@@ -148,13 +148,9 @@ static func generate(sector: int, half: float, start_y: float, length: float, bo
 			var zone_len: float = 380.0
 			for end_y in [zy, zy - zone_len]:
 				place(result, "barrier", Vector2(side * lane_mid, end_y), 38.0, 65.0 + sector * 3.0)
-			var cy: float = zy - 45.0
-			while cy > zy - zone_len + 30.0:
-				place(result, "cone", Vector2(side * (inner + 6.0), cy), 17.0, 18.0 + sector)
-				cy -= 58.0
-			for k in range(3):
-				var u: float = float(k + 1) / 4.0
-				place(result, "cone", Vector2(side * lerpf(outer - 12.0, inner + 6.0, u), zy + 40.0 + (1.0 - u) * 150.0), 17.0, 18.0 + sector)
+			# A third sawhorse in the middle of the closed lane (cones were too
+			# small to read and looked like targets).
+			place(result, "barrier", Vector2(side * lane_mid, zy - zone_len * 0.5), 38.0, 65.0 + sector * 3.0)
 	# Parked cars sit in the parking lane from Sector 6, never in traffic.
 	if sector >= 6 and not boss and float(st["park"]) > 0.0:
 		var cars: int = 3 + mini(10, (sector - 6) / 2)
@@ -222,6 +218,8 @@ static func build_index(obstacles: Array) -> Dictionary:
 ## Obstacles whose centre is within REACH (plus the largest obstacle size) of Y.
 static func near(idx: Dictionary, y: float, reach: float) -> Array:
 	var out: Array = []
+	# A runaway displacement must never turn into a scan of the whole road.
+	reach = minf(reach, 600.0)
 	var k0 := floori((y - reach - 90.0) / BUCKET)
 	var k1 := floori((y + reach + 90.0) / BUCKET)
 	for k in range(k0, k1 + 1):
@@ -229,6 +227,30 @@ static func near(idx: Dictionary, y: float, reach: float) -> Array:
 		if arr != null:
 			out.append_array(arr)
 	return out
+
+## Roadblocks and parked cars slide when shot or dashed into; trees stay put.
+static func movable(obstacle: Dictionary) -> bool:
+	return str(obstacle.get("kind", "")) in ["barrier", "car"]
+
+static func shove(obstacle: Dictionary, impulse: Vector2) -> void:
+	if not movable(obstacle):
+		return
+	var heavy := 2.2 if str(obstacle["kind"]) == "car" else 1.0
+	obstacle["vel"] = Vector2(obstacle.get("vel", Vector2.ZERO)) + impulse / heavy
+
+## Slides shoved obstacles, with friction, and keeps them on the road.
+static func update_moving(obstacles: Array, road_half: float, dt: float) -> void:
+	for ob in obstacles:
+		var v: Vector2 = ob.get("vel", Vector2.ZERO)
+		if v.length_squared() < 4.0:
+			continue
+		var p: Vector2 = Vector2(ob["pos"]) + v * dt
+		var lim: float = road_half - float(ob["radius"])
+		if absf(p.x) > lim:
+			p.x = signf(p.x) * lim
+			v.x = -v.x * 0.4
+		ob["pos"] = p
+		ob["vel"] = v * exp(-3.2 * dt)
 
 static func push_circle(pos: Vector2, radius: float, obstacles: Array) -> Vector2:
 	var result = pos

@@ -22,17 +22,17 @@ func _test() -> void:
 	game.start_run()
 	check(game.available_enemies(1) == game.STARTER_ENEMIES, "Sector 1 has only starters")
 	check(game.introduction_for(6) == "skitter", "Skitter debuts at Sector 6")
-	check(game.introduction_for(8) == "sapper", "Sapper debuts at Sector 8")
-	check(game.introduction_for(10) == "mirror", "Mirror debuts at Sector 10")
-	check(game.introduction_for(12) == "burrower", "Burrower debuts at Sector 12")
-	check(game.introduction_for(15) == "", "New base types precede hybrids")
+	check(game.introduction_for(7) == "sapper", "Sapper debuts at Sector 7")
+	check(game.introduction_for(8) == "mirror", "Mirror debuts at Sector 8")
+	check(game.introduction_for(9) == "burrower", "Burrower debuts at Sector 9")
+	check(game.introduction_for(24) == "" and game.introduction_for(23) != "", "Every normal species debuts (by 23) before hybrids")
 	check(not EnemyMixes.allowed(game.available_enemies(15), 15), "Hybrids remain locked until Sector 16")
-	check(EnemyMixes.allowed(game.available_enemies(15), 16), "Hybrid spawning unlocks at Sector 16")
+	check(EnemyMixes.allowed(game.available_enemies(24), 25) and not EnemyMixes.allowed(game.available_enemies(23), 24), "Hybrid spawning unlocks at Sector 25")
 	check(game.introduction_for(4) == "nurse" and game.available_enemies(4).has("nurse"), "Medic is an early normal monster in sector 4")
-	check(game.ROUTE_INTRO_ORDER.has("larry") and game.introduction_for(40) == "larry", "Laser Larry is the late-game normal monster in sector 40")
-	check(not game.available_enemies(8).has("mirror"), "Later species do not debut prematurely")
+	check(game.ROUTE_INTRO_ORDER.has("larry") and game.introduction_for(23) == "larry", "Laser Larry is the last normal monster to debut (sector 23)")
+	check(not game.available_enemies(7).has("mirror"), "Later species do not debut prematurely")
 	for i in range(game.ROUTE_INTRO_ORDER.size()):
-		var sector = 6 + i * 2
+		var sector = 6 + i
 		var species = str(game.ROUTE_INTRO_ORDER[i])
 		check(game.introduction_for(sector) == species, species + " appears in its own introduction sector")
 		check(not game.available_enemies(sector - 1).has(species), species + " is not available early")
@@ -67,7 +67,7 @@ func _test() -> void:
 	var capped_rush: int = game.rush_size()
 	check(capped_budget + capped_rush < 500, "Late Normal crowd stops below 500 total enemies per sector")
 	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Late Normal live enemies and spawn throughput are capped")
-	check(is_equal_approx(game.late_enemy_hp_multiplier(25), 1.25), "Late Normal substitutes up to 25 percent regular HP")
+	check(is_equal_approx(game.late_enemy_hp_multiplier(25), 1.52) and is_equal_approx(game.late_enemy_hp_multiplier(40), 1.6), "Smaller late crowds are tougher (up to +60% HP)")
 	game.sector = 40
 	check(game.budget_for(40) == capped_budget and game.rush_size() == capped_rush, "Crowd budget and rush remain flat after sector 25")
 	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Sector 40 cannot restore unlimited spawn density")
@@ -75,23 +75,23 @@ func _test() -> void:
 	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
 	var boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
 	# The endgame multiplier only activates AFTER WIN_SECTOR, not before.
-	var boss_expected: float = 2400.0 * game.enemy_scale() * 2.0
-	check(is_equal_approx(float(boss["max_hp"]), boss_expected), "Crowd HP adjustment does not affect boss scaling")
+	var boss_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(maxi(0, game.sector - 12)))
+	check(is_equal_approx(float(boss["max_hp"]), boss_expected), "Bosses use their own HP multiplier, not the crowd one")
 	game.sector = game.WIN_SECTOR + 1
 	var endgame_boss = game.spawn_enemy("chonkzilla", game.hero["pos"] + Vector2(0, -420), true, false)
-	var endgame_expected: float = 2400.0 * game.enemy_scale() * 2.0 * 1.8
-	check(is_equal_approx(float(endgame_boss["max_hp"]), endgame_expected), "Post-victory boss scaling remains unchanged")
+	var endgame_expected: float = 2400.0 * game.enemy_scale() * 3.5 * (1.0 + 0.08 * float(game.sector - 12)) * 1.8
+	check(is_equal_approx(float(endgame_boss["max_hp"]), endgame_expected), "Post-victory bosses add their endgame multiplier")
 	game.sector = 40
 	game.hard_mode = true
 	check(game.budget_for(40) > capped_budget and game.rush_size() > capped_rush, "Hard keeps a larger but finite population")
 	check(game.enemy_cap() <= 175 and game.sector_spawn_rate(1.0) <= 17.251 and game.rush_spawn_rate() == 13.0, "Hard has separate bounded simultaneous and spawn caps")
 	# Introduction is a basic species, not an obligatory hybrid.
 	game.hard_mode = false
-	game.sector = 12
+	game.sector = 9
 	game.begin_sector()
 	game.spawn_acc = 1.0
 	game.update_director(0.0)
-	check(game.intro_spawned and game.enemies.size() > 0 and str(game.enemies[0]["kind"]) == "burrower", "Sector 12 introduces its base species first")
+	check(game.intro_spawned and game.enemies.size() > 0 and str(game.enemies[0]["kind"]) == "burrower", "Sector 9 introduces its base species first")
 	game.queue_free()
 	await process_frame
 	print("ROSTER CHECK: ", "PASS" if failures == 0 else str(failures) + " failed")

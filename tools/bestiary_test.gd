@@ -15,7 +15,7 @@ func _check() -> void:
 			missing += 1
 	# Base species debut every two sectors; generic hybrids unlock only
 	# after a broader range of main types has been introduced.
-	var introductions = {"nurse": 4, "larry": 40, "skitter": 6, "sapper": 8, "mirror": 10, "burrower": 12, "leech": 14, "ashwing": 16, "siren": 18}
+	var introductions = {"nurse": 4, "larry": 23, "skitter": 6, "sapper": 7, "mirror": 8, "burrower": 9, "leech": 10, "ashwing": 11, "siren": 12}
 	var roster_data = JSON.parse_string(FileAccess.get_file_as_string("res://data/enemies.json"))
 	if main.mob_order().size() != 25:
 		missing += 1

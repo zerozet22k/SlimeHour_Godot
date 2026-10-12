@@ -1,3 +1,23 @@
+## v0.1.91 — Late game fixed, map-wide bosses, smarter roads
+
+- **Fixed: the game froze around sector 53+.** A mutant with the Frenzied (rush) augment never ended its speed burst, sped up every frame until it flew off to infinity, and drawing it at an infinite position froze the game. Sprints now last their real duration. As safety nets, knockback speed is capped and a broken position is reset.
+- **Fewer, tougher monsters:**
+  - Late sectors have about 200 monsters per sector instead of 400+.
+  - At most 72-90 are alive at once (100 hard limit), and spawning pauses until there is room.
+  - Late monsters get up to +60% HP.
+- **Every normal monster comes first:** a new species debuts every sector from 6 to 23, then mutations start at sector 25.
+- **Mutations lock their halves:** once two species fuse in a run, those two parents only appear as the mutation from then on.
+- **Boss fights are map wide:** no more arena walls.
+- **Each sector is a fixed stretch of road:** a ROAD CLOSED barrier ahead stops you running forward forever.
+- **Bosses hit harder and last longer:**
+  - 3.5x HP, plus 8% more per sector after 12, so sector 10-25 and later bosses are real fights.
+  - Their bullet patterns fire up to 70% more shots by sector 30.
+- **Obstacles:**
+  - The small target-like traffic cones are gone.
+  - Roadblocks and parked cars slide when you shoot them, and a dash shoves them out of the way.
+  - Dashing slips past trees, and walking slides around them instead of getting stuck.
+- **Fixed:** a shot destroying a roadblock could remove the wrong obstacle.
+
 ## v0.1.90 — Lancer early, Spitter later
 
 - **Lancer and Spitter swapped places:** Lancer is now a starting monster and Spitter arrives later, around sector 26.

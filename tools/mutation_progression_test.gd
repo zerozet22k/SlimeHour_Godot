@@ -22,13 +22,13 @@ func _run() -> void:
 	for item in roster:
 		db[str(item["id"])] = item
 	check(Mixes.RECIPES.size() == 18, "Exactly 18 authored mutations")
-	check(Mixes.unlock_count(15) == 0 and Mixes.unlock_count(16) == 1, "No early mutations before sector 16")
-	check(Mixes.unlock_count(19) == 1 and Mixes.unlock_count(20) == 2, "Normal adds one mutation every four sectors")
-	check(Mixes.unlock_count(24) == 3 and Mixes.unlock_count(40) == 7, "Normal limits sector 40 to seven recipes")
-	check(Mixes.unlock_count(17, true) == 1 and Mixes.unlock_count(18, true) == 2, "Hard adds one every two sectors")
-	check(Mixes.unlock_count(40, true) == 13, "Hard exposes thirteen mutations by sector 40")
-	check(Mixes.encounter_chance(15) == 0.0 and Mixes.encounter_chance(40) <= 0.15, "Normal stays rare and gradual")
-	check(Mixes.encounter_chance(40, true) > 0.40, "Hard is deliberately aggressive")
+	check(Mixes.unlock_count(24) == 0 and Mixes.unlock_count(25) == 1, "No mutations until every normal species has debuted (sector 25)")
+	check(Mixes.unlock_count(27) == 1 and Mixes.unlock_count(28) == 2, "Normal adds one mutation every three sectors")
+	check(Mixes.unlock_count(40) == 6, "Normal limits sector 40 to six recipes")
+	check(Mixes.unlock_count(26, true) == 1 and Mixes.unlock_count(27, true) == 2, "Hard adds one every two sectors")
+	check(Mixes.unlock_count(40, true) == 8, "Hard exposes eight mutations by sector 40")
+	check(Mixes.encounter_chance(24) == 0.0 and Mixes.encounter_chance(40) <= 0.15, "Normal stays rare and gradual")
+	check(Mixes.encounter_chance(40, true) > Mixes.encounter_chance(40), "Hard is more aggressive than Normal")
 	var seen_ids: Dictionary = {}
 	for i in range(Mixes.RECIPES.size()):
 		var key = Mixes.recipe_id(i)
@@ -51,21 +51,21 @@ func _run() -> void:
 	check(not g.mutation_is_unlocked(Mixes.recipe_id(9)), "Best-sector 40 doesn't unlock future recipes")
 	g.introduce_mutations()
 	check(g.run_mutations_unlocked.is_empty(), "Sector 1 has no mutation introductions")
-	g.sector = 16
+	g.sector = 25
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 1 and g.run_mutations_unlocked.has(Mixes.recipe_id(0)), "Sector 16 unlocks only the first mutation in this run")
-	check(not g.mutation_is_unlocked(Mixes.recipe_id(1)), "Sector 20 mutation remains locked at sector 16")
-	g.sector = 20
+	check(g.run_mutations_unlocked.size() == 1 and g.run_mutations_unlocked.has(Mixes.recipe_id(0)), "Sector 25 unlocks only the first mutation in this run")
+	check(not g.mutation_is_unlocked(Mixes.recipe_id(1)), "Sector 28 mutation remains locked at sector 25")
+	g.sector = 28
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 2, "Second mutation introduces at sector 20")
+	check(g.run_mutations_unlocked.size() == 2, "Second mutation introduces at sector 28")
 	g.sector = 1
 	g.run_mutations_unlocked.clear()
 	check(g.run_mutations_unlocked.is_empty() and g.mutation_is_discovered(Mixes.recipe_id(0)), "Starting next run resets eligibility but keeps discovery")
-	g.sector = 18
+	g.sector = 27
 	g.hard_mode = true
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 2, "Hard run unlocks two recipes by sector 18")
-	check(not g.mutation_is_unlocked(Mixes.recipe_id(2)), "Third recipe remains locked on Hard before sector 20")
+	check(g.run_mutations_unlocked.size() == 2, "Hard run unlocks two recipes by sector 27")
+	check(not g.mutation_is_unlocked(Mixes.recipe_id(2)), "Third recipe remains locked on Hard before sector 29")
 	g.free()
 	var main_source = FileAccess.get_file_as_string("res://scripts/Main.gd")
 	var hud_source = FileAccess.get_file_as_string("res://scripts/Hud.gd")

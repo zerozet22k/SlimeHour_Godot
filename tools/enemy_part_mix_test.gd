@@ -25,7 +25,7 @@ func _run() -> void:
 	check(Mixes.usable("nurse") and Mixes.usable("larry"), "Medic and Laser Larry are eligible mutation parents")
 	check(Mixes.usable("mix_larry_nurse") and Mixes.usable("mix_blob_nurse"),
 		"Old Medic/Larry hybrid records stay compatible with player saves")
-	check(not Mixes.allowed(["blob", "bull"], 15) and Mixes.allowed(["blob", "bull"], 16),
+	check(not Mixes.allowed(["blob", "bull"], 24) and Mixes.allowed(["blob", "bull"], 25),
 		"New main archetypes are introduced before mixtures can spawn")
 	check(Mixes.ensure(db, "blob", "nurse") != "" and Mixes.ensure(db, "larry", "bull") != "",
 		"Medic and Larry can both contribute a single anatomical hybrid feature")

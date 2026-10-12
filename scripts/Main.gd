@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.90"
+const GAME_VERSION = "v0.1.91"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -30,7 +30,7 @@ func landscape_rect() -> Rect2:
 	return Rect2(landscape_left, 0.0, landscape_width, 720.0)
 const SECTOR_LEN = 4800.0
 const HERO_SCREEN_Y = 470.0
-const MAX_ENEMIES = 110
+const MAX_ENEMIES = 100
 const MAX_SHOTS = 500
 const MAX_SHOTS_LIMIT = 500
 ## Clear this sector to win; the run can continue after it (every sector is then a boss).
@@ -731,20 +731,21 @@ func enemy_cap() -> int:
 	# Quality over quantity: fewer, tougher monsters keep fights readable and
 	# the frame rate high in the late game.
 	match sector:
-		6: return 90
-		7: return 92
-		8: return 95
-		9: return 96
-		10: return 98
-		11: return 100
-		12: return 105
-	var normal_cap: int = mini(115, 105 + (sector - 12))
+		6: return 72
+		7: return 74
+		8: return 76
+		9: return 78
+		10: return 80
+		11: return 80
+		12: return 82
+	var normal_cap: int = mini(90, 82 + (sector - 12) / 2)
 	return mini(MAX_ENEMIES, int(ceil(float(normal_cap) * (1.15 if hard_mode else 1.0))))
 
 ## A gentle durability substitution for the capped late-game population.
 ## This does NOT affect bosses (which already have their own HP scaling).
 func late_enemy_hp_multiplier(s: int) -> float:
-	return 1.0 + minf(0.25, 0.02 * float(maxi(0, s - 12)))
+	# Fewer monsters late, so each one is tougher.
+	return 1.0 + minf(0.6, 0.04 * float(maxi(0, s - 12)))
 
 func sector_spawn_rate(p: float) -> float:
 	var rate: float = (1.6 + (sector - 1) * 0.75 + p * 2.2) * pow(1.035, float(maxi(0, sector - 5))) * float(route.get("spawns", 1.0)) * midgame_relief()
@@ -927,7 +928,16 @@ func move_hero(dt: float) -> void:
 	h["flash"] = maxf(0.0, float(h["flash"]) - dt)
 	clamp_hero()
 	if not obstacles.is_empty():
-		h["pos"] = RoadObstacles.resolve_movement(prev, h["pos"], RoadObstacles.HERO_RADIUS, obstacles)
+		RoadObstacles.update_moving(obstacles, road_half, dt)
+		if dashing:
+			# A dash shoves roadblocks out of the way and slips past trees:
+			# nothing stops a dash, you are only nudged clear once it ends.
+			for ob in obstacles:
+				if RoadObstacles.movable(ob) and Vector2(ob["pos"]).distance_to(h["pos"]) < float(ob["radius"]) + RoadObstacles.HERO_RADIUS + 10.0:
+					RoadObstacles.shove(ob, Vector2(h["dash_dir"]) * 520.0)
+		else:
+			# Walking slides around obstacles instead of sticking to them.
+			h["pos"] = RoadObstacles.push_circle(h["pos"], RoadObstacles.HERO_RADIUS, obstacles)
 		clamp_hero()
 	if dashing:
 		dash_contact_line(prev, h["pos"])
@@ -985,11 +995,10 @@ func clamp_hero() -> void:
 	var p: Vector2 = hero["pos"]
 	var half = road_half - 18.0
 	p.x = clampf(p.x, -half, half)
-	# Walk anywhere in this sector; the barrier behind the sector start blocks the previous one.
+	# Each sector is a fixed stretch of road: a barrier behind the start and a
+	# roadblock ahead. Boss fights use the whole stretch (no separate arena).
 	front_y = minf(front_y, p.y)
-	p.y = minf(p.y, back_limit())
-	if boss_arena_on and boss_alive():
-		p.y = clampf(p.y, boss_arena_y - BOSS_ARENA_UP, boss_arena_y + BOSS_ARENA_DOWN)
+	p.y = clampf(p.y, front_limit(), back_limit())
 	hero["pos"] = p
 
 ## R: reload every gun that is not full (beams and returning discs have nothing to reload).
@@ -1005,6 +1014,10 @@ func manual_reload() -> void:
 
 func back_limit() -> float:
 	return sector_start_y + 380.0
+
+## How far ahead you can run in a sector: about three screens of road.
+func front_limit() -> float:
+	return sector_start_y - 2200.0
 
 func try_dash() -> void:
 	var h = hero
@@ -1434,18 +1447,19 @@ func budget_for(s: int) -> int:
 	var hard_mul = 1.25 if hard_mode else 1.0
 	var total: float
 	if s >= 13:
-		total = (60.0 + 12.0 * 12.0) * crowd_ramp(12) + 6.0 * float(mini(s - 12, 13))
+		# Late sectors keep a steady, readable crowd instead of 400+ monsters.
+		total = 150.0 + 3.0 * float(mini(s - 12, 13))
 	else:
-		total = (60.0 + 12.0 * float(mini(s, 25)) + 4.0 * float(maxi(0, s - 25))) * early_ease(0.55, s) * crowd_ramp(s)
+		total = minf(150.0, (60.0 + 12.0 * float(mini(s, 25)) + 4.0 * float(maxi(0, s - 25))) * early_ease(0.55, s) * crowd_ramp(s))
 	return int(total * float(route.get("spawns", 1.0)) * hard_mul)
 
 func rush_size() -> int:
 	var hard_mul = 1.25 if hard_mode else 1.0
 	var total: float
 	if sector >= 13:
-		total = (30.0 + 9.0 * 12.0) * crowd_ramp(12) + 3.0 * float(mini(sector - 12, 13))
+		total = 50.0 + 2.0 * float(mini(sector - 12, 13))
 	else:
-		total = (30.0 + 9.0 * float(mini(sector, 25)) + 3.0 * float(maxi(0, sector - 25))) * early_ease(0.55) * crowd_ramp()
+		total = minf(50.0, (30.0 + 9.0 * float(mini(sector, 25)) + 3.0 * float(maxi(0, sector - 25))) * early_ease(0.55) * crowd_ramp())
 	return int(total * float(route.get("spawns", 1.0)) * hard_mul)
 
 ## Establish fresh base types first. Legacy Nurse/Larry live in old save
@@ -1464,8 +1478,8 @@ static func mix_id(pair: Array) -> String:
 static func introduction_for(s: int) -> String:
 	if s == 4:
 		return "nurse"
-	if s >= 6 and (s - 6) % 2 == 0:
-		var i = int((s - 6) / 2)
+	if s >= 6:
+		var i = s - 6
 		return ROUTE_INTRO_ORDER[i] if i < ROUTE_INTRO_ORDER.size() else ""
 	return ""
 
@@ -1474,7 +1488,7 @@ static func available_enemies(s: int) -> Array:
 	if s >= 4:
 		out.append("nurse")
 	for i in range(ROUTE_INTRO_ORDER.size()):
-		if s >= 6 + 2 * i:
+		if s >= 6 + i:
 			out.append(ROUTE_INTRO_ORDER[i])
 	return out
 
@@ -1491,15 +1505,13 @@ func pick_enemy() -> String:
 	var known = available_enemies(sector - 1)
 	# Spawn only staged and authored fusion recipes. Normal stays sparse,
 	# Hard increases pressure, but neither exposes every possible pair.
-	var mix_chance = EnemyMixes.encounter_chance(sector, hard_mode)
-	if randf() < mix_chance:
-		var hybrid = EnemyMixes.roll(enemy_db, known, sector, totems.size() >= 2, recent_enemy_mixes, hard_mode)
-		# A permanent Bestiary discovery is NOT an encounter unlock.
-		if hybrid != "" and run_mutations_unlocked.has(hybrid):
-			recent_enemy_mixes.append(hybrid)
-			if recent_enemy_mixes.size() > 9:
-				recent_enemy_mixes.pop_front()
-			return hybrid
+	# Once two species fuse in this run, their halves are locked into the
+	# mutation: where either parent would spawn, the mutation spawns instead.
+	var fused: Dictionary = {}
+	for mix_id in run_mutations_unlocked:
+		if enemy_db.has(mix_id):
+			for parent in enemy_db[mix_id].get("mix", []):
+				fused[str(parent)] = str(mix_id)
 	var total = 0.0
 	for name in base:
 		if name == "totem" and totems.size() >= 2:
@@ -1517,7 +1529,7 @@ func pick_enemy() -> String:
 			w = maxf(w * 2.5, 3.0)
 		roll -= w
 		if roll <= 0.0:
-			return str(name)
+			return str(fused.get(str(name), name))
 	return "blob"
 
 func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -> Dictionary:
@@ -1537,8 +1549,9 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 		hp = float(d["hp"]) * scale * (1.5 if hard_mode else 1.0)
 		if sector > WIN_SECTOR:
 			hp *= pow(1.8, float(mini(sector - WIN_SECTOR, 20)))
-		# Preserve boss-only two-times HP. The crowd balance never modifies it.
-		hp *= 2.0
+		# Bosses are big fights: 3.5x HP, plus 8% more per sector after 12 so
+		# late bosses keep pace with a grown build.
+		hp *= 3.5 * (1.0 + 0.08 * float(maxi(0, sector - 12)))
 	elif kind != "goblin":
 		hp *= late_enemy_hp_multiplier(sector)
 	serial += 1

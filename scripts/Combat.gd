@@ -415,13 +415,15 @@ static func update_shots(g, dt: float) -> void:
 			var obstacle_idx = RoadObstacles.bullet_target(s["last"], s["pos"], float(s["r"]), local_obstacles)
 			if obstacle_idx >= 0:
 				var hazard: Dictionary = local_obstacles[obstacle_idx]
-				# Destructible car wrecks and barriers take full projectile damage.
+				# Destructible car wrecks and barriers take full projectile damage,
+				# and every hit shoves them along the road.
 				if bool(s["friendly"]) and float(hazard["hp"]) > 0.0:
+					RoadObstacles.shove(hazard, Vector2(s["vel"]).normalized() * (60.0 + float(s.get("knock", 50.0)) * 0.8))
 					hazard["hp"] = float(hazard["hp"]) - float(s["dmg"])
 					if float(hazard["hp"]) <= 0.0:
 						g.spawn_burst(hazard["pos"], Color("ffaa64"), 13 if hazard["kind"] == "car" else 6, 220.0, 4.0)
 						g.sfx.play("boom" if hazard["kind"] == "car" else "thunk")
-						g.obstacles.remove_at(obstacle_idx)
+						g.obstacles.erase(hazard)
 				ProjectileVfx.impact(g, s["pos"], s["vel"].normalized(), "heavy", 11.0)
 				s["dead"] = true
 				continue
@@ -1608,15 +1610,30 @@ static func update_enemies(g, dt: float) -> void:
 		if float(e["charge"]) > 0.0 and not disabled:
 			e["vel"] = e["cdir"] * (640.0 if body_kind == "skitter" else 560.0)
 		e["dizzy_t"] = maxf(0.0, float(e.get("dizzy_t", 0.0)) - dt)
+		# A sprint speeds up this step's movement only. It used to multiply the
+		# STORED velocity every frame, which compounded to infinity on bodies
+		# whose AI never ended the sprint (rush augment on a non-Zoomer).
+		var move_vel: Vector2 = e["vel"]
 		if float(e.get("sprint_t", 0.0)) > 0.0 and not disabled:
-			e["vel"] *= 1.85
+			move_vel = move_vel * 1.85
+			if body_kind != "zoomer":
+				e["sprint_t"] = maxf(0.0, float(e["sprint_t"]) - dt)
 		# Late-run scaling, HASTED elites, and Siren auras can multiply sprint
 		# velocity. Zoomer stays quick without suddenly crossing a whole screen.
 		if body_kind == "zoomer":
-			e["vel"] = zoomer_speed_limit(e["vel"], g.hard_mode)
+			move_vel = zoomer_speed_limit(move_vel, g.hard_mode)
 		var skitter_dashing = body_kind == "skitter" and float(e["charge"]) > 0.0 and not disabled
 		var before_dash_move: Vector2 = e["pos"]
-		e["pos"] += (e["vel"] + e["kb"]) * dt
+		# Knockback is capped: stacked late-game knockback could otherwise
+		# snowball through crowd collisions into absurd speeds.
+		if Vector2(e["kb"]).length_squared() > 1600.0 * 1600.0:
+			e["kb"] = Vector2(e["kb"]).normalized() * 1600.0
+		e["pos"] += (move_vel + e["kb"]) * dt
+		if not Vector2(e["pos"]).is_finite():
+			# Safety net: a broken position is put back near the player.
+			e["pos"] = hero_pos + Vector2(randf_range(-200, 200), -420)
+			e["vel"] = Vector2.ZERO
+			e["kb"] = Vector2.ZERO
 		var kb_len = e["kb"].length()
 		e["kb"] = e["kb"] * exp(-5.5 * dt)
 		# Road walls
@@ -1631,7 +1648,7 @@ static func update_enemies(g, dt: float) -> void:
 		# Dense trees, medians and parked traffic block monsters as well.
 		var before_obstacle_push: Vector2 = e["pos"]
 		if not g.obstacles.is_empty():
-			var local_obs: Array = RoadObstacles.near(g.obstacle_index, float(e["pos"].y), float(e["r"]) + absf(float(e["pos"].y) - before_dash_move.y))
+			var local_obs: Array = RoadObstacles.near(g.obstacle_index, float(e["pos"].y), float(e["r"]) + (absf(float(e["pos"].y) - before_dash_move.y) if skitter_dashing else 0.0))
 			if skitter_dashing:
 				# Sweep the dash to prevent tunneling through thin obstacles.
 				e["pos"] = RoadObstacles.resolve_movement(before_dash_move, e["pos"], float(e["r"]), local_obs)

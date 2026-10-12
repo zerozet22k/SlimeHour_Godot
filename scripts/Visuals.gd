@@ -298,6 +298,17 @@ func paint_road() -> void:
 		draw_rect(Rect2(left, by - 2, right - left, 4), Color("ffd24d"))
 		draw_rect(Rect2(left, by + 18, right - left, 4), Color("ffd24d"))
 		text_c("NO WAY BACK", Vector2(640 - g.cam_x, by + 52), 22, Color(1, 0.82, 0.3, 0.9), 4)
+	# Roadblock ahead: the end of this sector's stretch of road.
+	var fy = P(Vector2(0, g.front_limit() - 26.0)).y
+	if fy > g.view_top - 60.0 and g.phase == "fight":
+		draw_rect(Rect2(left, g.view_top - 60.0, right - left, fy - g.view_top + 60.0), Color(0, 0, 0, 0.45))
+		var n2 = int((right - left) / 40.0) + 1
+		for i in range(n2):
+			var x2 = left + i * 40.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x2, fy - 18.0), Vector2(minf(x2 + 20.0, right), fy - 18.0), Vector2(minf(x2 + 34.0, right), fy), Vector2(minf(x2 + 14.0, right), fy)]), Color("ffd24d"))
+		draw_rect(Rect2(left, fy - 20, right - left, 4), Color("ffd24d"))
+		draw_rect(Rect2(left, fy, right - left, 4), Color("ffd24d"))
+		text_c("ROAD CLOSED", Vector2(640 - g.cam_x, fy - 34), 22, Color(1, 0.82, 0.3, 0.9), 4)
 
 ## Houses along both edges: roofs seen from above with ridges, chimneys,
 ## a lit window and a front step onto the pavement.
@@ -1230,7 +1241,6 @@ func paint_barrels() -> void:
 			dot(mp, 3.5, Color("ff3a3a") if blink else Color("601818"))
 
 func paint_telegraphs() -> void:
-	paint_boss_arena()
 	for d in g.delayed:
 		if d.has("source") and bool(d["source"].get("dead", false)):
 			continue
@@ -1340,28 +1350,6 @@ func paint_telegraphs() -> void:
 			elif enemy_has_role(e, "riot"):
 				# Shield bash wind-up: the shield glows and leans forward.
 				draw_arc(p + Vector2(e["aim"]) * float(e["r"]), float(e["r"]) * 0.9, Vector2(e["aim"]).angle() - 1.0, Vector2(e["aim"]).angle() + 1.0, 14, Color("c8d8ff", 0.85), 4.0, true)
-
-## Energy barriers at both ends of a locked boss arena.
-func paint_boss_arena() -> void:
-	if not bool(g.boss_arena_on) or not g.boss_alive():
-		return
-	var col := Color("ff5a7a")
-	for e in g.enemies:
-		if bool(e["boss"]) and not bool(e["dead"]):
-			col = Color(BossFight.PALETTE.get(str(e["kind"]), "ff5a7a"))
-			break
-	for edge in [float(g.boss_arena_y) - float(g.BOSS_ARENA_UP) - 40.0, float(g.boss_arena_y) + float(g.BOSS_ARENA_DOWN) + 30.0]:
-		var y: float = P(Vector2(0, edge)).y
-		if y < g.view_top - 20.0 or y > g.view_bottom + 20.0:
-			continue
-		var x0: float = P(Vector2(-g.road_half, 0)).x
-		var x1: float = P(Vector2(g.road_half, 0)).x
-		draw_rect(Rect2(Vector2(x0, y - 9.0), Vector2(x1 - x0, 18.0)), Color(col, 0.10))
-		draw_line(Vector2(x0, y), Vector2(x1, y), Color(col, 0.35 + 0.2 * sin(g.anim_t * 4.0)), 4.0)
-		var x := x0 + fmod(g.anim_t * 50.0, 40.0)
-		while x < x1:
-			draw_line(Vector2(x, y - 7.0), Vector2(x + 16.0, y + 7.0), Color(col.lightened(0.4), 0.6), 2.0)
-			x += 40.0
 
 func danger_circle(p: Vector2, r: float, k: float, col: Color, d: Dictionary) -> void:
 	dot(p, r, Color(col, 0.07))

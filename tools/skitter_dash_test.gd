@@ -83,6 +83,6 @@ func _run() -> void:
 	check(Hud.should_show_enemy_arrows(5, true, false), "Arrows shown with five remaining threats")
 	check(not Hud.should_show_enemy_arrows(1, true, true), "No arrows during boss intro")
 	var main_source = FileAccess.get_file_as_string("res://scripts/Main.gd")
-	check(main_source.contains("hp *= 2.0"), "Boss-only final HP multiplier remains two times")
+	check(main_source.contains("hp *= 3.5 * (1.0 + 0.08"), "Bosses get their own HP multiplier that grows late")
 	print("SKITTER DASH TEST: ", "PASS" if failures == 0 else str(failures) + " failures")
 	quit(1 if failures > 0 else 0)
