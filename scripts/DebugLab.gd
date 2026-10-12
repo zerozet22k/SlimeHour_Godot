@@ -169,7 +169,7 @@ static func spawn(g, id: String, elite: bool = false) -> bool:
 	g.debug_notice = "SPAWNED: " + str(g.enemy_db[id]["name"])
 	if id.begins_with("mix_"):
 		var pair: Array = g.enemy_db[id].get("mix", [])
-		g.debug_notice += "  (%s body, %s attacks)" % [str(pair[0]).to_upper(), str(pair[1]).to_upper()]
+		g.debug_notice += "  (%s body + %s)" % [str(pair[0]).to_upper(), str(pair[1]).to_upper()]
 	return true
 
 static func items(g, tab: String, category: String = "ALL", query: String = "") -> Array:
@@ -196,7 +196,7 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 			var seen: Dictionary = {}
 			for id in g.enemy_db:
 				var kind = str(id)
-				if not EnemyMixes.usable(kind):
+				if not EnemyMixes.usable(kind) or kind.begins_with("mix_"):
 					continue
 				var monster: Dictionary = g.enemy_db[id]
 				var group = "MUTATIONS" if kind.begins_with("mix_") else ("BOSSES" if bool(monster.get("boss", false)) else "NORMAL")
@@ -207,25 +207,23 @@ static func items(g, tab: String, category: String = "ALL", query: String = "") 
 					"search_extra": "%s %s %s %s" % [notes[0], notes[1], notes[2], str(ENEMY_SEARCH_ALIASES.get(kind, ""))]
 				})
 				seen[kind] = true
-			# Include every authored mutation, even if this run has not yet
-			# generated it. Debug-only creation happens when it is clicked.
-			for i in range(EnemyMixes.RECIPES.size()):
-				var recipe: Dictionary = EnemyMixes.RECIPES[i]
-				var id = EnemyMixes.recipe_id(i)
-				if seen.has(id) or not g.enemy_db.has(str(recipe["a"])) or not g.enemy_db.has(str(recipe["b"])):
+			# MUTATIONS is a picker: choose any two normal monsters and the
+			# lab fuses and spawns them. No pile of old generated records.
+			for kind in g.enemy_db:
+				var mon: Dictionary = g.enemy_db[kind]
+				if str(kind).begins_with("mix_") or bool(mon.get("boss", false)) or not EnemyMixes.usable(str(kind)):
 					continue
-				var notes: Array = Bestiary.info(id)
-				var pair: Array = MutationKit.parents_for_id(id)
-				result.append({
-					"id": id, "label": "%s  (%s + %s)" % [str(recipe["name"]), str(pair[0]).capitalize(), str(pair[1]).capitalize()],
-					"category": "MUTATIONS",
-					"detail": "Body: %s · switches to %s attacks · %s" % [str(pair[0]).capitalize(), str(pair[1]).capitalize(), str(notes[0])],
-					"search_extra": "%s %s %s %s %s %s" % [recipe["a"], recipe["b"], recipe["style"], notes[0], notes[1], notes[2]]
-				})
+				var picked: bool = str(g.debug_fuse_a) == str(kind)
+				var detail := "Picked - now choose the second monster" if picked else ("Fuse with " + str(g.enemy_db[g.debug_fuse_a]["name"]) if str(g.debug_fuse_a) != "" else "Pick as the first half")
+				result.append({"id": "fuse_" + str(kind), "label": ("> " if picked else "") + str(mon.get("name", kind)),
+					"category": "MUTATIONS", "detail": detail, "action": "debug_fuse_" + str(kind),
+					"search_extra": str(kind)})
 	var needle = query.strip_edges().to_lower()
 	var filtered: Array = []
 	for entry in result:
 		if category != "ALL" and str(entry["category"]) != category:
+			continue
+		if category == "ALL" and str(entry.get("action", "")).begins_with("debug_fuse_"):
 			continue
 		var haystack = "%s %s %s %s %s" % [entry["label"], entry["id"], entry["category"], entry["detail"], entry.get("search_extra", "")]
 		if needle != "" and not haystack.to_lower().contains(needle):
@@ -330,6 +328,20 @@ static func run_action(g, action: String) -> void:
 		return
 	if action.begins_with("debug_gun_"):
 		give_gun(g, action.trim_prefix("debug_gun_"))
+		return
+	if action.begins_with("debug_fuse_"):
+		var pick := action.trim_prefix("debug_fuse_")
+		if g.debug_fuse_a == "" :
+			g.debug_fuse_a = pick
+			g.debug_notice = "PICKED " + str(g.enemy_db[pick]["name"]).to_upper() + " - CHOOSE THE SECOND MONSTER"
+		elif g.debug_fuse_a == pick:
+			g.debug_fuse_a = ""
+			g.debug_notice = "PICK CLEARED"
+		else:
+			var id: String = EnemyMixes.ensure(g.enemy_db, g.debug_fuse_a, pick)
+			g.debug_fuse_a = ""
+			if id != "":
+				spawn(g, id)
 		return
 	if action.begins_with("debug_spawn_"):
 		spawn(g, action.trim_prefix("debug_spawn_"))

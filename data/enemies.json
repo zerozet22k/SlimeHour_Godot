@@ -1,6 +1,6 @@
 [
   {
-    "id": "blob",
+    "id": "blob", "gives": ["glue"],
     "name": "Blob",
     "hp": 26,
     "speed": 95,
@@ -11,7 +11,7 @@
     "color": "ff7b93"
   },
   {
-    "id": "zoomer",
+    "id": "zoomer", "gives": ["rush"],
     "name": "Zoomer",
     "hp": 14,
     "speed": 190,
@@ -22,7 +22,7 @@
     "color": "ffb36b"
   },
   {
-    "id": "chonk",
+    "id": "chonk", "gives": ["slam"],
     "name": "Chonk",
     "hp": 170,
     "speed": 55,
@@ -33,7 +33,7 @@
     "color": "c0507a"
   },
   {
-    "id": "spitter",
+    "id": "spitter", "gives": ["poison"],
     "name": "Spitter",
     "hp": 34,
     "speed": 75,
@@ -45,7 +45,7 @@
     "range": 270
   },
   {
-    "id": "kaboomba",
+    "id": "kaboomba", "gives": ["explode"],
     "name": "Kaboomba",
     "hp": 22,
     "speed": 150,
@@ -56,7 +56,7 @@
     "color": "ff5a4a"
   },
   {
-    "id": "mitosis",
+    "id": "mitosis", "gives": ["split"],
     "name": "Mitosis",
     "hp": 60,
     "speed": 80,
@@ -67,7 +67,7 @@
     "color": "7dffcf"
   },
   {
-    "id": "mini",
+    "id": "mini", "gives": ["rush"],
     "name": "Mini",
     "hp": 20,
     "speed": 120,
@@ -78,7 +78,7 @@
     "color": "3fcf9a"
   },
   {
-    "id": "riot",
+    "id": "riot", "gives": ["shield"],
     "name": "Riot",
     "hp": 90,
     "speed": 70,
@@ -89,7 +89,7 @@
     "color": "3b4fd8"
   },
   {
-    "id": "bull",
+    "id": "bull", "gives": ["shove"],
     "name": "Bull",
     "hp": 110,
     "speed": 70,
@@ -100,7 +100,7 @@
     "color": "6b6f7f"
   },
   {
-    "id": "mama",
+    "id": "mama", "gives": ["hatch"], "pulse": true,
     "name": "Mama Blob",
     "hp": 150,
     "speed": 45,
@@ -111,7 +111,7 @@
     "color": "ff9ad1"
   },
   {
-    "id": "mortar",
+    "id": "mortar", "gives": ["shell"],
     "name": "Mortar Mike",
     "hp": 60,
     "speed": 50,
@@ -130,7 +130,7 @@
     }
   },
   {
-    "id": "totem",
+    "id": "totem", "gives": ["guard"], "pulse": true,
     "name": "Hype Totem",
     "hp": 150,
     "speed": 0,
@@ -141,7 +141,7 @@
     "color": "2e8fff"
   },
   {
-    "id": "blinky",
+    "id": "blinky", "gives": ["blink"],
     "name": "Blinky",
     "hp": 45,
     "speed": 85,
@@ -152,7 +152,7 @@
     "color": "c58cff"
   },
   {
-    "id": "tick",
+    "id": "tick", "gives": ["latch"],
     "name": "Lil Tick",
     "hp": 26,
     "speed": 175,
@@ -163,7 +163,7 @@
     "color": "4fd93a"
   },
   {
-    "id": "goblin",
+    "id": "goblin", "gives": ["steal"], "pulse": true,
     "name": "Gold Goblin",
     "hp": 70,
     "speed": 165,
@@ -174,7 +174,7 @@
     "color": "ffe83a"
   },
   {
-    "id": "ashwing",
+    "id": "ashwing", "gives": ["fire"],
     "name": "Ashwing",
     "hp": 42,
     "speed": 105,
@@ -185,7 +185,7 @@
     "color": "ff7a1f"
   },
   {
-    "id": "mirror",
+    "id": "mirror", "gives": ["shards"],
     "name": "Mirror Mimic",
     "hp": 65,
     "speed": 92,
@@ -196,7 +196,7 @@
     "color": "9fd4e6"
   },
   {
-    "id": "burrower",
+    "id": "burrower", "gives": ["quake"],
     "name": "Burrower",
     "hp": 85,
     "speed": 75,
@@ -207,7 +207,7 @@
     "color": "8b5e3c"
   },
   {
-    "id": "siren",
+    "id": "siren", "gives": ["rally"], "pulse": true,
     "name": "Siren",
     "hp": 70,
     "speed": 65,
@@ -218,7 +218,7 @@
     "color": "e63fd6"
   },
   {
-    "id": "skitter",
+    "id": "skitter", "gives": ["rush"],
     "name": "Skitter",
     "hp": 32,
     "speed": 170,
@@ -234,7 +234,7 @@
     }
   },
   {
-    "id": "sapper",
+    "id": "sapper", "gives": ["sticky"],
     "name": "Sapper",
     "hp": 70,
     "speed": 68,
@@ -252,7 +252,7 @@
     }
   },
   {
-    "id": "lancer",
+    "id": "lancer", "gives": ["spear"],
     "name": "Lancer",
     "hp": 82,
     "speed": 105,
@@ -268,7 +268,7 @@
     }
   },
   {
-    "id": "leech",
+    "id": "leech", "gives": ["drain"],
     "name": "Leechling",
     "hp": 46,
     "speed": 118,
@@ -284,7 +284,7 @@
     }
   },
   {
-    "id": "nurse",
+    "id": "nurse", "gives": ["heal"], "pulse": true,
     "name": "Medic",
     "hp": 54,
     "speed": 100,
@@ -302,7 +302,7 @@
     }
   },
   {
-    "id": "larry",
+    "id": "larry", "gives": ["laser"],
     "name": "Laser Larry",
     "hp": 115,
     "speed": 58,

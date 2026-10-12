@@ -1677,7 +1677,7 @@ func paint_debug_panel() -> void:
 				var label = str(entry["label"]).to_upper()
 				if g.debug_tab == "CARDS":
 					label += "  x%d" % int(g.owned.get(id, 0))
-				var action = ("debug_card_" if g.debug_tab == "CARDS" else ("debug_gun_" if g.debug_tab == "WEAPONS" else "debug_spawn_")) + id
+				var action = str(entry.get("action", ("debug_card_" if g.debug_tab == "CARDS" else ("debug_gun_" if g.debug_tab == "WEAPONS" else "debug_spawn_")) + id))
 				var tile = Rect2(px + 22.0 + col * (cw + 12.0), row_start + row * 52.0, cw, 46.0)
 				var hovered = tile.has_point(g.mouse_screen)
 				var accent = Color("dd9eff") if str(entry["category"]) == "MUTATIONS" else (Color("ffb59a") if str(entry["category"]) == "BOSSES" else Color("5beaff"))

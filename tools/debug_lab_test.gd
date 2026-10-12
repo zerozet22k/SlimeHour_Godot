@@ -76,7 +76,9 @@ func _run() -> void:
 	game.enemy_db["chonkzilla"] = {"name": "Chonkzilla", "boss": true}
 	var mutation_id = EnemyMixes.id_for("mirror", "blob")
 	var mutation_list = DebugLab.items(game, "ENEMIES", "MUTATIONS")
-	check(mutation_list.size() >= 1 and mutation_list[0]["id"] == mutation_id, "Mutations list contains authored uncreated recipes")
+	check(mutation_list.size() >= 2 and mutation_list.all(func(m): return str(m["action"]).begins_with("debug_fuse_")), "Mutations tab is a two-monster fusion picker")
+	game.debug_fuse_a = ""
+	check(DebugLab.items(game, "ENEMIES", "ALL").all(func(m): return not str(m["id"]).begins_with("mix_")), "Old generated mutation records are not listed")
 	check(not game.enemy_db.has(mutation_id), "Browsing the debug catalog does not generate mutations")
 	check(DebugLab.items(game, "ENEMIES", "BOSSES", "earthbreaker").size() == 1, "Bosses are searchable by distinctive mechanics")
 	check(DebugLab.items(game, "ENEMIES", "NORMAL", "mirror").size() == 1, "Normal monster search excludes mutation names")

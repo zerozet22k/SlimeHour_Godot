@@ -183,7 +183,7 @@ static func augment(ci: CanvasItem, c: Vector2, r: float, payload: String, accen
 				ci.draw_line(c + Vector2(r * 0.28, -r * 1.4), c + Vector2(r * 0.28, -r * 1.4) + Vector2.from_angle(a) * r * (0.18 + 0.08 * glow), spark, 2.0)
 			ci.draw_circle(c + Vector2(r * 0.28, -r * 1.4), r * 0.1, Color.WHITE)
 		"poison", "glue":
-			var drip: Color = Color("8dff5a") if payload == "poison" else Color("e8f4ff")
+			var drip: Color = Color("ff3a3a") if payload == "poison" else Color("e8f4ff")
 			for k in range(3):
 				var x := (float(k) - 1.0) * r * 0.45
 				var drop_len := r * (0.3 + 0.15 * sin(t * 3.0 + k))

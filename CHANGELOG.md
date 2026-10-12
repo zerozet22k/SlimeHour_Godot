@@ -1,3 +1,22 @@
+## v0.1.95 — Real fusion moves
+
+- **Mutations now have one signature move that combines both parents.** Mutants no longer swap between their two parents.
+  - The **body** parent decides **what** the move does. The **other** parent decides **how** it's delivered.
+  - Laser Larry + Medic: lasers spin out all around it.
+  - Laser Larry + Mirror: points fly out and hang in a ring around you, then each one fires a laser at you.
+  - Mirror + Riot: a shield wall slams down across your path and every shield bursts into mirror shards.
+  - Spitter + Ashwing: a bombing run of acid pools across you.
+  - Support bodies like Medic aim their move at their friends, e.g. healing lasers.
+- The mutant calls out its move name (e.g. "PRISM BEAM!").
+- Everything a mutant does, including its normal attacks, uses one colour: the colour it's drawn in.
+- Between signature moves, a mutant fights like its body parent.
+- Riot now lends its shield wall.
+- A bomber-bodied mutant fires its move as it blows up.
+- Every fusion is built from data (`data/fusion.json` plus each monster's `gives`), so new monsters combine with all the others automatically.
+- **F3 Debug Lab:** pick one monster, then a second, to spawn their fusion. The old long mutation list and the "AS X" labels are gone.
+- **All enemy ground hazards are one shared red.** This covers acid pools, acid trails, Spitter globs and their splashes, and hellfire. Your own poison stays teal and your fire stays orange.
+- Mutant acid and fire make one big pool instead of a scatter of small patches.
+
 ## v0.1.94 — Mutants are really both parents
 
 - **Mutations fight as both halves.** A mutant spends about 6 seconds fighting as its body parent, flashes, then about 4 seconds using its other parent's attacks, and so on. For example, Tunnel Harpoon burrows and erupts like a Burrower, then switches to Lancer spear throws and sweeps. Before, mutants played almost exactly like their body parent.

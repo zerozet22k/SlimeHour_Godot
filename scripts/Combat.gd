@@ -220,8 +220,12 @@ static func update_delayed(g, dt: float) -> void:
 			_:
 				if str(item["fn"]).begins_with("bf_"):
 					BossFight.resolve(g, item)
-				elif str(item["fn"]) == "mut_pulse":
-					MutationKit.resolve(g, item)
+				elif str(item["fn"]) == "mut_anchor":
+					MutationKit.resolve_anchor(g, item)
+				elif str(item["fn"]) == "mut_hit":
+					MutationKit.resolve_hit(g, item)
+				elif str(item["fn"]) == "mut_strike":
+					MutationKit.resolve_strike(g, item)
 
 # ================================================================= projectiles
 const ENEMY_SHOT_SAFETY := 2500
@@ -489,8 +493,8 @@ static func expire(g, s: Dictionary) -> void:
 		if bool(s.get("acid_trail", false)):
 			EnemyIdentity.place(g, "acid", s["pos"], 44.0, float(s.get("trail_dmg", s["dmg"])) * 0.3, 4.0, 0.15)
 			# Splash: droplets and a ring as the glob hits the road.
-			g.spawn_burst(s["pos"], Color("9dff4a"), 9, 170.0, 4.5)
-			g.spawn_ring_fx(s["pos"], Color("8dff5a"), 40.0)
+			g.spawn_burst(s["pos"], Color(0.95, 0.12, 0.16), 9, 170.0, 4.5)
+			g.spawn_ring_fx(s["pos"], Color(1.0, 0.62, 0.55), 40.0)
 		if s.has("mut_src"):
 			MutationKit.on_attack(g, s["mut_src"], s["pos"], false)
 		return
@@ -1446,32 +1450,6 @@ static func has_role(g, e: Dictionary, role: String) -> bool:
 	var kind = str(e["kind"])
 	return kind == role or (kind.begins_with("mix_") and MutationKit.acting(g, e) == role)
 
-## Swaps which parent a mutant fights as. Waits for any attack in progress to
-## finish, then clears that parent's half-done states so nothing gets stuck
-## (a burrowed mole surfaces before it starts throwing spears).
-static func mutant_switch(g, e: Dictionary, kind: String, dt: float) -> void:
-	var parents: Array = MutationKit.parents(g, kind)
-	if parents.size() < 2:
-		return
-	e["mut_phase_t"] = float(e.get("mut_phase_t", 5.0 + randf() * 2.0)) - dt
-	if float(e["mut_phase_t"]) > 0.0:
-		return
-	if float(e.get("wind", 0.0)) > 0.0 or float(e.get("charge", 0.0)) > 0.0 or float(e.get("laser_t", 0.0)) > 0.0 \
-			or float(e.get("rumble_t", 0.0)) > 0.0 or float(e.get("hop_air", 0.0)) > 0.0:
-		return
-	var body := str(parents[0])
-	var to_giver := str(e.get("mut_acting", body)) == body
-	e["mut_acting"] = str(parents[1]) if to_giver else body
-	e["mut_phase_t"] = 4.0 if to_giver else 6.0
-	if bool(e.get("burrowing", false)):
-		e["burrowing"] = false
-		g.spawn_burst(e["pos"], Color("c8a66e"), 10, 220.0, 4.0)
-	for key in ["exposed_t", "tether_t", "dizzy_t", "sprint_t"]:
-		e[key] = 0.0
-	e["latched"] = false
-	e["cd"] = minf(float(e.get("cd", 0.0)), 0.5)
-	g.spawn_ring_fx(e["pos"], Color(str(g.enemy_db[kind].get("color", "ffffff"))), float(e["r"]) + 22.0)
-
 static func update_enemies(g, dt: float) -> void:
 	var hero_pos: Vector2 = g.hero["pos"]
 	var hero_r = 11.0 * (0.6 if g.st("tiny") > 0 else 1.0)
@@ -1618,6 +1596,10 @@ static func update_enemies(g, dt: float) -> void:
 			desired = BossFight.minion_move(g, e, dir)
 		elif not disabled:
 			var mut_start: int = g.delayed.size()
+			var cd_before: float = float(e.get("cd", 0.0))
+			var shots_before: int = g.shots.size()
+			var beams_before: int = g.beams.size()
+			var fx_before: int = g.fx.size()
 			if g.perf_detail:
 				g.prof["e.status_to_ai"] = float(g.prof.get("e.status_to_ai", 0.0)) + float(Time.get_ticks_usec() - p_iter)
 			var pa := Time.get_ticks_usec() if g.perf_detail else 0
@@ -1626,10 +1608,32 @@ static func update_enemies(g, dt: float) -> void:
 				g.prof["ai." + body_kind] = float(g.prof.get("ai." + body_kind, 0.0)) + float(Time.get_ticks_usec() - pa)
 				p_iter = Time.get_ticks_usec()
 			if e.has("mut_of"):
+				# One fusion, one colour: everything its body attack just made
+				# (shots, beams, warnings, swipes) takes the mutant's colour.
+				if not e.has("mut_col"):
+					e["mut_col"] = MutationKit.move_color(g, str(e["mut_of"]))
+				var mut_col := Color(str(e["mut_col"]))
+				for k in range(shots_before, g.shots.size()):
+					if not bool(g.shots[k]["friendly"]):
+						g.shots[k]["color"] = mut_col
+				for k in range(beams_before, g.beams.size()):
+					g.beams[k]["color"] = mut_col if not g.beams[k]["color"] is Color or Color(g.beams[k]["color"]).get_luminance() < 0.85 else mut_col.lightened(0.7)
+				for k in range(fx_before, g.fx.size()):
+					if str(g.fx[k].get("kind", "")) == "slash":
+						g.fx[k]["color"] = mut_col
+				for k in range(mut_start, g.delayed.size()):
+					if g.delayed[k].has("color") and not bool(g.delayed[k].get("mut_payload", false)):
+						g.delayed[k]["color"] = str(e["mut_col"])
+				var tagged := false
 				for k in range(mut_start, g.delayed.size()):
 					var item: Dictionary = g.delayed[k]
 					if not item.has("src_enemy") and not bool(item.get("mut_payload", false)):
 						item["src_enemy"] = e
+						tagged = true
+				# A body attack with no projectile or delayed strike of its own
+				# (dash, eruption, sweep, slam): unleash the fusion's other half.
+				if float(e.get("cd", 0.0)) > cd_before + 0.3 and g.shots.size() == shots_before and not tagged:
+					MutationKit.strike(g, e)
 		if bool(e["dead"]):
 			continue
 		e["vel"] = e["vel"].lerp(desired * float(e["speed"]) * speed_mul, 1.0 - exp(-8.0 * dt))
@@ -1783,6 +1787,9 @@ static func update_enemies(g, dt: float) -> void:
 					damage(g, target_enemy, float(e["dmg"]) * 2.0 + 10.0 * ss, false, {"gen": 1, "pos": target_enemy["pos"]})
 		elif not disabled and not BossFight.contact_safe(e) and e["pos"].distance_to(hero_pos) < float(e["r"]) + hero_r and float(e["dmg"]) > 0.0:
 			if body_kind == "kaboomba":
+				# A bomber-bodied mutant goes out with its fusion move.
+				if e.has("mut_of"):
+					MutationKit.fusion_move(g, e)
 				# kill() must see a live enemy or it silently returns without a fuse.
 				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
@@ -1871,12 +1878,10 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 	if bool(e.get("half", false)):
 		return mitosis_half_ai(g, e, dir, dt)
 	if kind.begins_with("mix_"):
-		# A mutant is BOTH parents: ~6s fighting as its body parent, then ~4s
-		# with the other parent's attacks, switching only between attacks.
-		# Every attack also carries the other parent's payload (MutationKit).
+		# A mutant fights as its body parent; every attack carries the other
+		# parent's payload (MutationKit).
 		e["mut_of"] = kind
 		MutationKit.tick(g, e, dt)
-		mutant_switch(g, e, kind, dt)
 		e["kind"] = MutationKit.acting(g, e)
 		var motion: Vector2 = ai(g, e, dir, dist, dt, charmed)
 		e["kind"] = kind

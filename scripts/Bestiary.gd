@@ -16,13 +16,9 @@ static func info(kind: String) -> Array:
 		var pair: Array = MutationKit.parents_for_id(kind)
 		if pair.size() == 2:
 			var body: String = str(pair[0])
-			var payload: String = MutationKit.payload_for(kind, str(pair[1]))
-			var how: String = "attacks like a " + body.capitalize()
-			if body in MutationKit.PULSE_TAKERS:
-				how = "fires it as a 6-way star of lines" if payload in ["laser", "spear", "shards"] else "pulses it in a warned ring"
-			var giver: String = str(pair[1])
-			return [str(MutationKit.PAYLOAD_NAMES.get(payload, "MUTANT")).to_upper() + " MUTATION",
-				"Both halves fight: it " + how + ", then switches to " + giver.capitalize() + " attacks for a few seconds (it flashes when it switches). Every attack carries " + str(MutationKit.PAYLOAD_DESC.get(payload, "an extra effect")) + ".",
-				"Watch for the flash: learn both the " + body.capitalize() + " and the " + giver.capitalize() + " tells."]
+			var sigs: Array = [MutationKit.payload_for(kind, body), MutationKit.payload_for(kind, str(pair[1]))]
+			return [MutationKit.move_name_for(sigs) + " FUSION",
+				MutationKit.move_desc_for(sigs),
+				"Between signature moves it fights like a " + body.capitalize() + ". Its callout warns you the move is coming."]
 		return ["MUTATION", "A body-part variation from two familiar species.", "Identify both attacks and avoid being surrounded."]
 	return NOTES.get(kind, ["UNKNOWN", "No information available.", "Watch this enemy carefully."])

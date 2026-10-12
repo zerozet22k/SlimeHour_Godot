@@ -757,6 +757,12 @@ func flame_tongue(base: Vector2, h: float, phase: float, alpha: float) -> void:
 	draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(sway * 0.7, -hh * 0.62),
 		base + Vector2(w * 0.5, 0), base + Vector2(0, w * 0.25)]), Color(1.0, 0.85, 0.32, alpha))
 
+## Every enemy ground hazard (acid, hellfire, globs, splashes) shares ONE red
+## palette: red always means "this hurts YOU". Your hazards keep their colours.
+const HOSTILE_RED := Color(0.95, 0.12, 0.16)
+const HOSTILE_DEEP := Color(0.24, 0.02, 0.04)
+const HOSTILE_HOT := Color(1.0, 0.62, 0.55)
+
 func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: bool, hostile: bool = false) -> void:
 	if hostile:
 		paint_hellfire(p, r, seed, fade)
@@ -773,21 +779,21 @@ func paint_fire_patch(p: Vector2, r: float, seed: float, fade: float, blaze: boo
 		var e := fmod(g.anim_t * 0.9 + float(i) * 0.33 + seed, 1.0)
 		dot(p + Vector2(sin(seed + i * 2.0) * r * 0.5, -e * r * 0.9), 2.0 * (1.0 - e), Color(1.0, 0.8, 0.4, fade * (1.0 - e)))
 
-## Enemy fire: crimson-magenta hellfire on a scorched base, with the red
-## danger rim. Your fire stays orange.
+## Enemy fire: red hellfire on a scorched base, with the red danger rim.
+## Your fire stays orange.
 func paint_hellfire(p: Vector2, r: float, seed: float, fade: float) -> void:
-	puddle_poly(p, r, seed, 0.12, 24, Color(0.18, 0.02, 0.06, 0.55 * fade))
-	puddle_poly(p, r * 0.85, seed, 0.14, 24, Color(0.85, 0.08, 0.25, 0.45 * fade))
-	dot(p, r * 0.48, Color(1.0, 0.45, 0.6, 0.45 * fade))
-	var count := clampi(int(r / 12.0), 3, 6)
+	puddle_poly(p, r, seed, 0.12, 24, Color(HOSTILE_DEEP, 0.55 * fade))
+	puddle_poly(p, r * 0.85, seed, 0.14, 24, Color(HOSTILE_RED, 0.45 * fade))
+	dot(p, r * 0.48, Color(HOSTILE_HOT, 0.45 * fade))
+	var count := clampi(int(r / 12.0), 3, 10)
 	for i in range(count):
 		var u := fmod(float(i) * 0.618 + seed, 1.0)
 		var base := p + Vector2.from_angle(seed * 3.0 + float(i) * 2.399) * r * 0.75 * sqrt(u) * Vector2(1.0, 0.86)
 		var flick := 0.72 + 0.28 * sin(g.anim_t * 15.0 + float(i) * 1.7)
 		var hh := (9.0 + 6.0 * (1.0 - u)) * flick
 		var w := hh * 0.42
-		draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(0, -hh), base + Vector2(w, 0), base + Vector2(0, w * 0.4)]), Color(0.9, 0.1, 0.35, 0.8 * fade))
-		draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.45, 0), base + Vector2(0, -hh * 0.6), base + Vector2(w * 0.45, 0)]), Color(1.0, 0.6, 0.75, 0.8 * fade))
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(0, -hh), base + Vector2(w, 0), base + Vector2(0, w * 0.4)]), Color(HOSTILE_RED, 0.8 * fade))
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.45, 0), base + Vector2(0, -hh * 0.6), base + Vector2(w * 0.45, 0)]), Color(HOSTILE_HOT, 0.8 * fade))
 	danger_rim(p, r, seed, fade)
 
 ## A dash's fire is one continuous burning stripe that dies from its tail.
@@ -818,12 +824,12 @@ func paint_fire_ribbon(z: Dictionary, fade: float) -> void:
 			n = (screen[i + 1] - screen[i]).normalized().orthogonal()
 		flame_tongue(screen[i] + n * side, 9.0 + 5.0 * live2, float(i) * 1.3, 0.85 * live2)
 
-## Your poison is a teal toxin; enemy acid is sickly yellow-green with a
-## pulsing red danger rim, so you can always tell whose puddle it is.
+## Your poison is a teal toxin; enemy acid is the shared hostile red with a
+## pulsing danger rim, so you can always tell whose puddle it is.
 func paint_poison_patch(p: Vector2, r: float, seed: float, fade: float, hostile: bool = false) -> void:
-	var base := Color(0.62, 0.9, 0.12) if hostile else Color(0.2, 0.92, 0.72)
-	var deep := Color(0.28, 0.26, 0.04) if hostile else Color(0.04, 0.3, 0.26)
-	var foam := Color(0.95, 1.0, 0.5) if hostile else Color(0.7, 1.0, 0.92)
+	var base := HOSTILE_RED if hostile else Color(0.2, 0.92, 0.72)
+	var deep := HOSTILE_DEEP if hostile else Color(0.04, 0.3, 0.26)
+	var foam := HOSTILE_HOT if hostile else Color(0.7, 1.0, 0.92)
 	puddle_poly(p, r * 1.04, seed, 0.1, 24, Color(deep, 0.4 * fade))
 	puddle_poly(p, r * 0.94, seed, 0.1, 24, Color(base, 0.3 * fade))
 	dot(p + Vector2(-r * 0.2, -r * 0.15), r * 0.33, Color(foam, 0.16 * fade))
@@ -931,16 +937,16 @@ func paint_acid_ribbon(h: Dictionary) -> void:
 		var dry := clampf(1.0 - pow(age[i], 1.6), 0.0, 1.0)
 		var taper := clampf(along[i] / 22.0, 0.0, 1.0) * clampf((total - along[i]) / 16.0, 0.0, 1.0)
 		var w := r * (0.72 + 0.42 * wobble) * dry * sqrt(taper) + 1.5 * taper * dry
-		var rim := Color(0.45, 0.06, 0.08, 0.9 * live)
-		var edge := Color(0.8, 1.0, 0.25, 0.9 * live)
-		var pool := Color(0.55, 0.8, 0.1, 0.6 * live)
+		var rim := Color(HOSTILE_DEEP, 0.9 * live)
+		var edge := Color(HOSTILE_HOT, 0.9 * live)
+		var pool := Color(HOSTILE_RED, 0.6 * live)
 		for k in range(cn):
 			var o: float = offs[k]
 			var ao := absf(o)
 			verts.append(line[i] + normal * signf(o) * (w * ao + (2.5 if ao == 1.0 else 0.0)))
 			cols.append(rim if ao > 0.9 else (edge if ao > 0.5 else pool))
 		gloss.append(line[i] + normal * w * 0.45)
-		gloss_c.append(Color(0.9, 1.0, 0.75, 0.45 * live * taper * wobble))
+		gloss_c.append(Color(1.0, 0.8, 0.75, 0.45 * live * taper * wobble))
 	var idx := PackedInt32Array()
 	for i in range(n - 1):
 		for k in range(cn - 1):
@@ -962,13 +968,13 @@ func paint_acid_ribbon(h: Dictionary) -> void:
 		var bp := line[i] + normal2 * side * r * 0.5
 		var br := 1.2 + cycle * r * 0.32
 		if cycle < 0.85:
-			draw_arc(bp, br, 0.0, TAU, 10, Color(0.85, 1.0, 0.6, 0.75 * (1.0 - age[i])), 1.3, true)
+			draw_arc(bp, br, 0.0, TAU, 10, Color(HOSTILE_HOT, 0.75 * (1.0 - age[i])), 1.3, true)
 			dot(bp + Vector2(-br * 0.35, -br * 0.35), maxf(0.6, br * 0.22), Color(1, 1, 1, 0.6 * (1.0 - age[i])))
 		else:
 			var pop := (cycle - 0.85) / 0.15
 			for j in range(4):
 				var d := Vector2.from_angle(j * TAU / 4.0 + seed * 3.0)
-				draw_line(bp + d * br * (1.0 + pop * 0.4), bp + d * br * (1.3 + pop), Color(0.85, 1.0, 0.6, 0.7 * (1.0 - pop)), 1.2)
+				draw_line(bp + d * br * (1.0 + pop * 0.4), bp + d * br * (1.3 + pop), Color(HOSTILE_HOT, 0.7 * (1.0 - pop)), 1.2)
 
 # ================================================================= gates & pitstop
 func paint_gates() -> void:
@@ -1240,6 +1246,22 @@ func paint_barrels() -> void:
 			var blink = fmod(g.anim_t * (6.0 if float(pet["arm"]) <= 0.0 else 2.0), 1.0) < 0.5
 			dot(mp, 3.5, Color("ff3a3a") if blink else Color("601818"))
 
+## A fusion move's landing point: a charging node in the carrier's colour
+## that tightens until the finisher goes off there.
+func paint_mut_anchor(d: Dictionary) -> void:
+	var k: float = 1.0 - clampf(float(d["t"]) / maxf(0.01, float(d.get("life", 0.5))), 0.0, 1.0)
+	var p: Vector2 = P(d["pos"])
+	if d.has("from"):
+		# It flies out from the mutant for the first 40% of the warning.
+		var fly: float = clampf(k / 0.4, 0.0, 1.0)
+		p = P(Vector2(d["from"]).lerp(Vector2(d["pos"]), fly)) - Vector2(0, sin(fly * PI) * 40.0)
+	var col := Color(str(d.get("color", "ffffff")))
+	draw_arc(p, 30.0 - 18.0 * k, 0.0, TAU, 20, Color(col, 0.35 + 0.5 * k), 2.5)
+	draw_set_transform(p, g.anim_t * 5.0, Vector2.ONE)
+	draw_colored_polygon(PackedVector2Array([Vector2(0, -8), Vector2(5, 0), Vector2(0, 8), Vector2(-5, 0)]), Color(col, 0.95))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	dot(p, 3.0 + 3.0 * k, Color(1, 1, 1, 0.5 + 0.5 * k))
+
 func paint_telegraphs() -> void:
 	for d in g.delayed:
 		if d.has("source") and bool(d["source"].get("dead", false)):
@@ -1250,6 +1272,9 @@ func paint_telegraphs() -> void:
 			continue
 		if fn.begins_with("bf_"):
 			paint_boss_event(d)
+			continue
+		if fn == "mut_anchor":
+			paint_mut_anchor(d)
 			continue
 		if not d.has("tele"):
 			continue
@@ -1268,7 +1293,7 @@ func paint_telegraphs() -> void:
 			pos = tgt["pos"]
 		var p = P(pos)
 		var r = float(d["tele"])
-		if fn in ["boss_blast", "elite_boom", "mut_pulse"]:
+		if fn in ["boss_blast", "elite_boom", "mut_hit"]:
 			danger_circle(p, r, k, warning_color, d)
 			continue
 		dot(p, r, Color(warning_color, 0.035 + 0.075 * k))
@@ -1588,13 +1613,13 @@ func paint_identity_hazards() -> void:
 				var tangent: Vector2 = (b - a).normalized()
 				var normal: Vector2 = tangent.orthogonal()
 				var fade: float = clampf(float(h["life"]) / maxf(0.01, float(h["max_life"])), 0.0, 1.0)
-				draw_line(a, b, Color("42752b", 0.35 * fade), r * 2.0 + 7.0)
-				draw_line(a, b, Color("aaff73", 0.34 * fade), r * 2.0)
-				draw_line(a + normal * r, b + normal * r, Color("a1f86d", 0.62 * fade), 2.0)
-				draw_line(a - normal * r, b - normal * r, Color("a1f86d", 0.62 * fade), 2.0)
+				draw_line(a, b, Color(HOSTILE_DEEP, 0.35 * fade), r * 2.0 + 7.0)
+				draw_line(a, b, Color(HOSTILE_RED, 0.34 * fade), r * 2.0)
+				draw_line(a + normal * r, b + normal * r, Color(HOSTILE_HOT, 0.62 * fade), 2.0)
+				draw_line(a - normal * r, b - normal * r, Color(HOSTILE_HOT, 0.62 * fade), 2.0)
 				for vein in range(3):
 					var offset: float = (float(vein) - 1.0) * r * 0.38
-					draw_line(a + normal * offset, b + normal * offset, Color("deff98", 0.15 * fade), 1.7)
+					draw_line(a + normal * offset, b + normal * offset, Color(HOSTILE_HOT, 0.15 * fade), 1.7)
 			"fissure":
 				var a: Vector2 = P(h["a"])
 				var b: Vector2 = P(h["b"])
@@ -1697,9 +1722,6 @@ func paint_enemies() -> void:
 			for k in range(3):
 				var th2: float = g.anim_t * 5.0 + TAU * float(k) / 3.0
 				dot(p + Vector2(cos(th2) * r * 0.9, -r - 6.0 + sin(th2) * 4.0), 3.0, Color("ffe07f"))
-		# Debug runs label every mutant with the parent it is acting as.
-		if g.debug_session and str(e["kind"]).begins_with("mix_"):
-			text_c("AS " + body.to_upper(), p + Vector2(0, -r - 34), 12, Color("8ff2ff"), 2)
 		# Elite affix labels only near you: a screen full of them is unreadable
 		# and expensive.
 		if e.has("affix") and Vector2(e["pos"]).distance_squared_to(g.hero["pos"]) < 280.0 * 280.0:
@@ -3045,18 +3067,18 @@ func paint_acid_glob(s: Dictionary, p: Vector2, d: Vector2, r: float) -> void:
 	var lift := sin(u * PI) * 26.0
 	var size := r * (2.3 + 0.35 * sin(u * PI))
 	draw_set_transform(p + Vector2(0, 3), 0.0, Vector2(1.0, 0.45))
-	dot(Vector2.ZERO, size * (1.0 - lift / 60.0), Color(0.05, 0.2, 0.02, 0.45))
+	dot(Vector2.ZERO, size * (1.0 - lift / 60.0), Color(0.2, 0.02, 0.03, 0.45))
 	var c := p - Vector2(0, lift)
 	for k in range(2):
 		var back := c - d * (size * (1.2 + k * 0.9)) + Vector2(0, k * 4.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		dot(back, size * (0.32 - k * 0.09), Color(0.55, 1.0, 0.35, 0.85 - k * 0.25))
+		dot(back, size * (0.32 - k * 0.09), Color(HOSTILE_RED, 0.85 - k * 0.25))
 	var wob := 0.12 * sin(float(s["t"]) * 14.0 + float(s["phase"]))
 	draw_set_transform(c, d.angle(), Vector2(1.12 + wob, 0.9 - wob))
-	dot(Vector2.ZERO, size, Color("2f5a12"))
-	dot(Vector2.ZERO, size * 0.8, Color("9dff4a"))
+	dot(Vector2.ZERO, size, HOSTILE_DEEP)
+	dot(Vector2.ZERO, size * 0.8, HOSTILE_RED)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	dot(c + Vector2(size * 0.25, size * 0.15), size * 0.22, Color(0.85, 1.0, 0.57, 0.8))
+	dot(c + Vector2(size * 0.25, size * 0.15), size * 0.22, Color(HOSTILE_HOT, 0.8))
 	dot(c + Vector2(-size * 0.35, -size * 0.35), size * 0.16, Color(1, 1, 1, 0.75))
 
 ## Bullet guns each get their own projectile silhouette. Returns false for

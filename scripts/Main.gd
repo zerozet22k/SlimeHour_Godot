@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.94"
+const GAME_VERSION = "v0.1.95"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -84,6 +84,8 @@ var debug_snapshot: Dictionary = {}
 var debug_tab = "ROUTE"
 var debug_page = 0
 var debug_category = "ALL"
+## Debug Lab mutation picker: the first monster picked, waiting for a second.
+var debug_fuse_a := ""
 var debug_query = ""
 var debug_slot = 0
 var debug_godmode = false

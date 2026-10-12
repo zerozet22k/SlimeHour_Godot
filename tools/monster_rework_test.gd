@@ -73,11 +73,11 @@ func _run() -> void:
 	var Mixes = load("res://scripts/EnemyMixes.gd")
 	var MK = load("res://scripts/MutationKit.gd")
 	for species in Mixes.FEATURES:
-		check(MK.GIVES.has(species), species + " gives a mutation payload")
+		check(MK.gives_of(species).size() >= 1, species + " lends its signature power (from data)")
 	g.enemies.clear()
 	g.delayed.clear()
 	var ids := {}
-	for pair in [["nurse", "larry", "laser"], ["nurse", "kaboomba", "explode"]]:
+	for pair in [["larry", "nurse", "heal"], ["kaboomba", "nurse", "heal"]]:
 		var n := 0
 		var id: String = ""
 		while true:
@@ -90,22 +90,22 @@ func _run() -> void:
 		base["mix"] = [pair[0], pair[1]]
 		base["name"] = "test"
 		g.enemy_db[id] = base
-		ids[pair[1]] = id
+		ids[pair[0]] = id
 	# Pin the augment for a deterministic check.
-	var medic = g.spawn_enemy(ids["larry"], Vector2(0, -200), false, false)
-	medic["mut_pulse_t"] = 0.0
+	var medic = g.spawn_enemy(ids["larry"], g.hero["pos"] + Vector2(0, -200), false, false)
+	medic["mut_move_t"] = 0.0
 	Combat.ai(g, medic, Vector2.DOWN, 200.0, 0.016, false)
-	check(g.delayed.filter(func(d): return str(d.get("fn", "")) == "boss_line").size() == 6, "Medic body + laser pulses a 6-way laser star")
-	check(MK.display_name(g, ids["larry"]).ends_with(" Medic"), "Mutant is named for its augment and body")
-	var seen_augments := {}
-	for k in range(40):
-		seen_augments[MK.payload_for("mix_x" + str(k), "larry")] = true
-	check(seen_augments.size() == 2, "A giver passes on either of its two augments depending on the mutation")
+	check(g.delayed.filter(func(d): return str(d.get("fn", "")) == "boss_line").size() == 10, "Laser Larry body + Medic spins lasers out all round it (Medic's ring)")
+	check(MK.display_name(g, ids["larry"]).ends_with(" Laser Larry"), "Mutant is named for its augment and body")
+	for species in Mixes.FEATURES:
+		check(MK.sig(str(MK.gives_of(species)[0])).has("does") and MK.sig(str(MK.gives_of(species)[0])).has("shape"), species + "'s power is described in data/fusion.json")
+	check(MK.move_name_for(["laser", "shards"]) == "PRISM BEAM" and MK.move_name_for(["laser", "spear"]) == "LANCE BEAM" and MK.move_name_for(["heal", "laser"]) == "BEAM MEND", "Fusion moves are named from both powers")
 	g.delayed.clear()
 	var bomber = g.spawn_enemy(ids["kaboomba"], Vector2(0, -200), false, false)
-	bomber["mut_pulse_t"] = 0.0
+	bomber["pos"] = g.hero["pos"] + Vector2(0, -200)
+	bomber["mut_move_t"] = 0.0
 	Combat.ai(g, bomber, Vector2.DOWN, 200.0, 0.016, false)
-	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "mut_pulse" and str(d.get("payload", "")) == "explode"), "Medic body + Kaboomba pulses a warned explosion")
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "mut_anchor" and str(d.get("effect", "")) == "explode"), "Kaboomba body + Medic spins bombs out all round it")
 	# Mutants show and use their body parent's attacks (tells, tethers, dashes).
 	var visual_src := FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	var combat_src := FileAccess.get_file_as_string("res://scripts/Combat.gd")
