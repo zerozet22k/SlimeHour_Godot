@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.112"
+const GAME_VERSION = "v0.1.113"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -3531,6 +3531,10 @@ func do_action(action: String) -> void:
 				buy_meta(int(action.trim_prefix("meta_")))
 			elif action.begins_with("set_"):
 				toggle_setting(action.trim_prefix("set_"))
+			elif action.begins_with("ctype_"):
+				hud.collection_type = action.trim_prefix("ctype_")
+				hud.collection_page = 0
+				hud.selected_collection_item = null
 			elif action.begins_with("cat_"):
 				hud.collection_cat = action.trim_prefix("cat_")
 				hud.collection_page = 0

@@ -1,3 +1,23 @@
+## v0.1.113 — Card types and new Bleed and Ice cards
+
+- **ELEMENTS is split into FIRE, ICE, POISON, BLEED, SHOCK and STATUS & COMBOS.** Each element has its own colour.
+- **Collection type filter:** a second row of tabs filters by card type. It works with the rarity tabs, e.g. EPIC + BLEED.
+  - Cards are filed by what they actually do, so Ice Skates shows under ICE and Steam Engine under both FIRE and ICE.
+  - On phones, the arrow selector steps through the types too.
+- **5 new Bleed cards:**
+  - Paper Cuts (Common): +15% bleed chance, +20% bleed damage.
+  - Open Wounds (Rare): bleeding enemies take +15% damage from everything.
+  - Contagious Cuts (Rare): when a bleeding enemy dies, nearby enemies start bleeding.
+  - Vampire Fang (Rare): killing a bleeding enemy heals 1 HP.
+  - Hemophilia (Epic): bleed stacks up to 16.
+- **5 new Ice cards:**
+  - Snow Day (Common): 20% chill chance.
+  - Cold Snap (Common): +40% chill buildup.
+  - Permafrost (Rare): enemies stay frozen 50% longer.
+  - Flash Freeze (Rare): a freezing enemy chills everything within 100 range.
+  - Glacier (Epic): +50% damage to frozen enemies.
+- New cards show their category icon until their art is made.
+
 ## v0.1.112 — Each status has its own role
 
 Numbers are per second on a 1000 HP elite with one card and a pistol (about 48 DPS of its own):

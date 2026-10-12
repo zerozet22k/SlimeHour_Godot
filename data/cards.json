@@ -3,7 +3,12 @@
     "volley": "VOLLEY",
     "projectile": "BULLETS",
     "chain": "CHAIN REACTION",
-    "element": "ELEMENTS",
+    "fire": "FIRE",
+    "ice": "ICE",
+    "poison": "POISON",
+    "bleed": "BLEED",
+    "shock": "SHOCK",
+    "status": "STATUS & COMBOS",
     "auto": "AUTO-WEAPONS",
     "move": "MOVEMENT",
     "defense": "DEFENSE",
@@ -1471,7 +1476,7 @@
     {
       "id": "incendiary",
       "name": "Incendiary",
-      "cat": "element",
+      "cat": "fire",
       "rarity": 0,
       "max": 3,
       "desc": "35% chance to set enemies on fire: a short, fierce 2s burn.",
@@ -1484,7 +1489,7 @@
     {
       "id": "cryo_rounds",
       "name": "Cryo Rounds",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 0,
       "max": 3,
       "desc": "30% chance to chill. Fully chilled enemies freeze solid.",
@@ -1497,7 +1502,7 @@
     {
       "id": "taser_tips",
       "name": "Taser Tips",
-      "cat": "element",
+      "cat": "shock",
       "rarity": 0,
       "max": 3,
       "desc": "30% chance to shock. Shocked enemies zap their neighbours.",
@@ -1510,7 +1515,7 @@
     {
       "id": "venom",
       "name": "Venom",
-      "cat": "element",
+      "cat": "poison",
       "rarity": 0,
       "max": 3,
       "desc": "40% chance to poison. Poison stacks up to 12, lasts 8s and fades slowly.",
@@ -1523,7 +1528,7 @@
     {
       "id": "serrated",
       "name": "Serrated",
-      "cat": "element",
+      "cat": "bleed",
       "rarity": 0,
       "max": 3,
       "desc": "35% chance to cause bleeding (up to 8 stacks). Bleeding enemies take double while moving.",
@@ -1536,7 +1541,7 @@
     {
       "id": "molasses",
       "name": "Molasses Rounds",
-      "cat": "element",
+      "cat": "status",
       "rarity": 0,
       "max": 3,
       "desc": "40% chance to slow enemies.",
@@ -1549,7 +1554,7 @@
     {
       "id": "hypnotic",
       "name": "Hypnotic Rounds",
-      "cat": "element",
+      "cat": "status",
       "rarity": 2,
       "max": 2,
       "desc": "4% chance to charm. Charmed enemies fight for you (not elites, mutants or bosses).",
@@ -1562,7 +1567,7 @@
     {
       "id": "water_balloons",
       "name": "Water Balloons",
-      "cat": "element",
+      "cat": "status",
       "rarity": 0,
       "max": 2,
       "desc": "50% chance to soak enemies. Wet enemies take double shock and chill.",
@@ -1575,7 +1580,7 @@
     {
       "id": "hot_sauce",
       "name": "Hot Sauce",
-      "cat": "element",
+      "cat": "fire",
       "rarity": 1,
       "max": 3,
       "desc": "+60% burn damage, +15% burn chance.",
@@ -1594,7 +1599,7 @@
     {
       "id": "deep_freeze",
       "name": "Freezer Burn",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 1,
       "max": 3,
       "desc": "+60% chill buildup, +10% chill chance.",
@@ -1613,7 +1618,7 @@
     {
       "id": "high_voltage",
       "name": "Licked a Battery",
-      "cat": "element",
+      "cat": "shock",
       "rarity": 1,
       "max": 3,
       "desc": "+60% shock damage, +10% shock chance.",
@@ -1632,7 +1637,7 @@
     {
       "id": "neurotoxin",
       "name": "Expired Milk",
-      "cat": "element",
+      "cat": "poison",
       "rarity": 1,
       "max": 3,
       "desc": "+60% poison damage, +10% poison chance.",
@@ -1651,7 +1656,7 @@
     {
       "id": "hemorrhage",
       "name": "Hemorrhage",
-      "cat": "element",
+      "cat": "bleed",
       "rarity": 2,
       "max": 1,
       "desc": "At 5 bleed stacks, bleed bursts for 9 base damage per stack and resets.",
@@ -1669,7 +1674,7 @@
     {
       "id": "steam_engine",
       "name": "Steam Engine",
-      "cat": "element",
+      "cat": "status",
       "rarity": 2,
       "max": 1,
       "desc": "Burning a chilled enemy (or chilling a burning one) erupts in steam: 26 base damage in a 75 radius.",
@@ -1688,7 +1693,7 @@
     {
       "id": "overload",
       "name": "Overload",
-      "cat": "element",
+      "cat": "status",
       "rarity": 2,
       "max": 1,
       "desc": "Burning a shocked enemy (or shocking a burning one) makes it explode: 30 base damage in an 80 radius.",
@@ -1707,7 +1712,7 @@
     {
       "id": "conductor",
       "name": "Conductor",
-      "cat": "element",
+      "cat": "shock",
       "rarity": 2,
       "max": 1,
       "desc": "Shocking a wet enemy arcs to every wet enemy within 260 range for 6x shock damage.",
@@ -1726,7 +1731,7 @@
     {
       "id": "shatter",
       "name": "Shatter",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 2,
       "max": 1,
       "desc": "Frozen enemies burst into 6 ice shards (10 base damage each) when killed.",
@@ -1744,7 +1749,7 @@
     {
       "id": "wildfire",
       "name": "Wildfire",
-      "cat": "element",
+      "cat": "fire",
       "rarity": 1,
       "max": 1,
       "desc": "Burning enemies set every enemy within 95 range on fire when they die.",
@@ -1762,7 +1767,7 @@
     {
       "id": "plague_doctor",
       "name": "Plague Doctor",
-      "cat": "element",
+      "cat": "poison",
       "rarity": 1,
       "max": 1,
       "desc": "Poisoned enemies leave a poison cloud (70 radius, 3s) when they die.",
@@ -1780,7 +1785,7 @@
     {
       "id": "brainwashed",
       "name": "Brainwashed",
-      "cat": "element",
+      "cat": "status",
       "rarity": 2,
       "max": 1,
       "desc": "Charm lasts twice as long. Charmed enemies explode when they die: 30 base damage in an 80 radius.",
@@ -1798,7 +1803,7 @@
     {
       "id": "rainbow_rounds",
       "name": "Rainbow Rounds",
-      "cat": "element",
+      "cat": "status",
       "rarity": 3,
       "max": 1,
       "desc": "+15% chance to burn, chill, shock and poison.",
@@ -1814,7 +1819,7 @@
     {
       "id": "napalm",
       "name": "Napalm",
-      "cat": "element",
+      "cat": "fire",
       "rarity": 1,
       "max": 2,
       "desc": "10% of hits on burning enemies leave a fire patch on the ground (55 radius, 3s).",
@@ -1840,7 +1845,7 @@
     {
       "id": "frost_nova",
       "name": "Brain Freeze",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 1,
       "max": 2,
       "desc": "Getting hit freezes every enemy within 170 range.",
@@ -1859,7 +1864,7 @@
     {
       "id": "static_field",
       "name": "Bad Hair Day",
-      "cat": "element",
+      "cat": "shock",
       "rarity": 1,
       "max": 3,
       "desc": "Every 2s, zap 2 enemies near you (12 base damage).",
@@ -1878,7 +1883,7 @@
     {
       "id": "toxic_trail",
       "name": "Toxic Trail",
-      "cat": "element",
+      "cat": "poison",
       "rarity": 1,
       "max": 2,
       "desc": "Every 90px you run leaves a poison puddle (36 radius, 3s).",
@@ -1899,7 +1904,7 @@
     {
       "id": "ice_skates",
       "name": "Ice Skates",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 0,
       "max": 2,
       "desc": "+5% move speed. Every 120px you run leaves a patch of chilling ice (42 radius, 2.5s).",
@@ -1922,7 +1927,7 @@
     {
       "id": "thermal_shock",
       "name": "Hot & Cold",
-      "cat": "element",
+      "cat": "status",
       "rarity": 2,
       "max": 2,
       "desc": "+40% damage to enemies that are both burning and chilled.",
@@ -1941,7 +1946,7 @@
     {
       "id": "oil_spill",
       "name": "Oil Spill",
-      "cat": "element",
+      "cat": "fire",
       "rarity": 1,
       "max": 2,
       "desc": "Dashing spills an oil slick (75 radius, 6s). Fire touching the oil becomes a huge blaze.",
@@ -1966,7 +1971,7 @@
     {
       "id": "voodoo",
       "name": "Voodoo",
-      "cat": "element",
+      "cat": "status",
       "rarity": 1,
       "max": 3,
       "desc": "+20% mark chance. Marked enemies take +25% more damage.",
@@ -1980,7 +1985,7 @@
     {
       "id": "frostbite",
       "name": "Frostbite",
-      "cat": "element",
+      "cat": "ice",
       "rarity": 1,
       "max": 3,
       "desc": "+15% chill chance, +20% slow chance, +20% damage to chilled enemies.",
@@ -5375,6 +5380,188 @@
         "magnet": 0.1
       },
       "procs": []
+    },
+    {
+      "id": "paper_cuts",
+      "name": "Paper Cuts",
+      "cat": "bleed",
+      "rarity": 0,
+      "max": 3,
+      "desc": "+15% bleed chance, +20% bleed damage.",
+      "art": "a sheet of paper with a razor-sharp glinting edge",
+      "mods": {
+        "bleed": 0.15,
+        "bleedpow": 0.2
+      },
+      "procs": []
+    },
+    {
+      "id": "open_wounds",
+      "name": "Open Wounds",
+      "cat": "bleed",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Bleeding enemies take +15% damage from everything.",
+      "art": "a slime with a big red bandage coming loose",
+      "mods": {
+        "bleedvuln": 0.15
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "contagious_cuts",
+      "name": "Contagious Cuts",
+      "cat": "bleed",
+      "rarity": 1,
+      "max": 1,
+      "desc": "Bleeding enemies that die make every enemy within 95 range bleed.",
+      "art": "red droplets splashing onto a crowd of slimes",
+      "mods": {},
+      "procs": [
+        {
+          "on": "kill",
+          "do": "status_area",
+          "s": "bleed",
+          "r": 95,
+          "if": "bleeding"
+        }
+      ],
+      "req": {
+        "source": [
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "vampire_fang",
+      "name": "Vampire Fang",
+      "cat": "bleed",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Killing a bleeding enemy heals 1 HP.",
+      "art": "a single shiny vampire fang dripping red",
+      "mods": {},
+      "procs": [
+        {
+          "on": "kill",
+          "do": "heal",
+          "hp": 1,
+          "if": "bleeding"
+        }
+      ],
+      "req": {
+        "source": [
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "hemophilia",
+      "name": "Hemophilia",
+      "cat": "bleed",
+      "rarity": 2,
+      "max": 1,
+      "desc": "Bleed stacks up to 16 instead of 8.",
+      "art": "an overflowing red potion bottle",
+      "mods": {
+        "bleedcap": 8
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "snow_day",
+      "name": "Snow Day",
+      "cat": "ice",
+      "rarity": 0,
+      "max": 3,
+      "desc": "20% chance to chill. Fully chilled enemies freeze solid.",
+      "art": "snowflakes falling on a school bus",
+      "mods": {
+        "freeze": 0.2
+      },
+      "procs": []
+    },
+    {
+      "id": "cold_snap",
+      "name": "Cold Snap",
+      "cat": "ice",
+      "rarity": 0,
+      "max": 3,
+      "desc": "+40% chill buildup.",
+      "art": "a thermometer plunging into the blue",
+      "mods": {
+        "freezepow": 0.4
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze"
+        ]
+      }
+    },
+    {
+      "id": "permafrost",
+      "name": "Permafrost",
+      "cat": "ice",
+      "rarity": 1,
+      "max": 2,
+      "desc": "Frozen enemies stay frozen 50% longer.",
+      "art": "a slime trapped inside a thick block of ice",
+      "mods": {
+        "freezedur": 0.5
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze"
+        ]
+      }
+    },
+    {
+      "id": "flash_freeze",
+      "name": "Flash Freeze",
+      "cat": "ice",
+      "rarity": 1,
+      "max": 1,
+      "desc": "When an enemy freezes, every enemy within 100 range is chilled.",
+      "art": "a burst of frost rippling outward",
+      "mods": {
+        "flashfreeze": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze"
+        ]
+      }
+    },
+    {
+      "id": "glacier",
+      "name": "Glacier",
+      "cat": "ice",
+      "rarity": 2,
+      "max": 1,
+      "desc": "+50% damage to frozen enemies.",
+      "art": "a huge glacier cracking a frozen slime",
+      "mods": {
+        "frozendmg": 0.5
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze"
+        ]
+      }
     }
   ]
 }

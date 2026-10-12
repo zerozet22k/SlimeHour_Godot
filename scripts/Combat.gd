@@ -913,6 +913,10 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 		m += 0.25 + g.st("markpow")
 	if float(e["chill"]) > 0.0 or float(e["frozen"]) > 0.0:
 		m += g.st("chilldmg")
+	if float(e["frozen"]) > 0.0:
+		m += g.st("frozendmg")
+	if float(e["bleed"]) > 0.0:
+		m += g.st("bleedvuln")
 		if float(e["burn"]) > 0.0:
 			m += g.st("thermal")
 	if bool(e["boss"]) or bool(e["elite"]):
@@ -1367,7 +1371,15 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			e["chill"] = float(e["chill"]) + add
 			if float(e["chill"]) >= 100.0:
 				e["chill"] = 0.0
-				e["frozen"] = (0.6 if bool(e["boss"]) else 1.6) * dur
+				e["frozen"] = (0.6 if bool(e["boss"]) else 1.6) * dur * (1.0 + g.st("freezedur"))
+				if g.st("flashfreeze") > 0.0 and not e.has("flash_freezing"):
+					# Flash Freeze: the cold bursts out and chills the neighbours.
+					e["flash_freezing"] = true
+					for o in query(g, e["pos"], 100.0):
+						if o != e and not bool(o["dead"]) and o["pos"].distance_to(e["pos"]) < 100.0:
+							apply_status(g, o, "freeze", 1.0)
+					g.spawn_ring_fx(e["pos"], Color("9fe8ff"), 100.0)
+					e.erase("flash_freezing")
 				if randf() < 0.3:
 					g.say(e["pos"] + Vector2(0, -24), "FROZEN", Color("9fe8ff"), 16)
 			if float(e["burn"]) > 0.0 and g.st("steam") > 0.0:
@@ -1390,7 +1402,7 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			e["poison_t"] = 8.0 * dur
 		"bleed":
 			# PUNISHES MOVEMENT: up to 8 stacks, double damage while it moves.
-			e["bleed"] = minf(8.0, float(e["bleed"]) + 1.0)
+			e["bleed"] = minf(8.0 + g.st("bleedcap"), float(e["bleed"]) + 1.0)
 			e["bleed_t"] = 4.0 * dur
 			if g.st("hemorrhage") > 0.0 and float(e["bleed"]) >= 5.0:
 				var burst = 9.0 * ss * float(e["bleed"]) * (1.0 + g.st("bleedpow"))

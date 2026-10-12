@@ -143,17 +143,18 @@ const STAT_NAMES = {"dmg": "DMG", "rate": "FIRE RATE", "crit": "CRIT CHANCE", "c
 	"dashdist": "DASH DISTANCE", "perfect": "PERFECT WINDOW", "dmgtaken": "DAMAGE TAKEN",
 	"life": "PROJECTILE LIFE", "pin": "PIN CHANCE", "homing": "HOMING STRENGTH",
 	"dashes": "DASH CHARGES", "slots": "GUN SLOTS", "shield": "SHIELDS",
-	"rerolls": "REROLLS", "choices": "CHOICES"}
+	"rerolls": "REROLLS", "choices": "CHOICES",
+	"bleedvuln": "BLEEDING TAKE", "frozendmg": "FROZEN DMG", "freezedur": "FREEZE TIME", "bleedcap": "MAX BLEED STACKS"}
 const PERCENT_STATS = ["dmg", "rate", "crit", "critdmg", "speed", "pspeed", "size", "range",
 	"knock", "reload", "goldp", "xp", "burn", "freeze", "shock", "poison", "bleed", "slow",
 	"wet", "charm", "mark", "burnpow", "poisonpow", "bleedpow", "shockpow", "freezepow",
 	"dur", "dodge", "fardmg", "closedmg", "fragdmg", "orbitdmg", "discount", "mag",
 	"heartdrop", "chilldmg", "spreadp", "tdmg", "blast", "dronerate", "orbitr",
-	"orbspeed", "dashcd", "dmgtaken", "life", "pin", "perfect"]
+	"orbspeed", "dashcd", "dmgtaken", "life", "pin", "perfect", "bleedvuln", "frozendmg", "freezedur"]
 const PASSIVE_FLAGS = ["boomer", "overkill", "accel", "fractal", "fragbounce", "fraghome",
 	"fragboom", "fling", "steam", "overload", "conduct", "shatter", "wildfire", "plague",
 	"hemorrhage", "brainwash", "dronerocket", "orbitguns", "orbitbleed", "dashtrail",
-	"dashreload", "dashpush", "speeddmg", "goblins", "mad", "infammo", "ghost", "instafreeze"]
+	"dashreload", "dashpush", "speeddmg", "goblins", "mad", "infammo", "ghost", "instafreeze", "flashfreeze"]
 
 static func format_mod(key: String, value: float) -> String:
 	if PERCENT_STATS.has(key):
@@ -290,6 +291,30 @@ static func trigger(g, on: String, ctx: Dictionary) -> void:
 		else:
 			act(g, p, stacks, ctx)
 
+## Every theme a card touches, read from what it actually does (its category
+## plus any status it applies, boosts or reacts to). Used by the Collection
+## type filter, so Ice Skates shows under ICE and Steam Engine under FIRE and ICE.
+const THEME_KEYS = {"burn": "fire", "burnpow": "fire", "wildfire": "fire", "thermal": "fire,ice", "steam": "fire,ice", "overload": "fire,shock",
+	"freeze": "ice", "freezepow": "ice", "chilldmg": "ice", "shatter": "ice", "freezedur": "ice", "flashfreeze": "ice", "frozendmg": "ice",
+	"poison": "poison", "poisonpow": "poison", "plague": "poison",
+	"bleed": "bleed", "bleedpow": "bleed", "hemorrhage": "bleed", "bleedvuln": "bleed", "bleedcap": "bleed",
+	"shock": "shock", "shockpow": "shock", "conduct": "shock,status",
+	"slow": "status", "charm": "status", "brainwash": "status", "wet": "status", "mark": "status", "markpow": "status", "stun": "status"}
+const THEME_CONDITIONS = {"burning": "fire", "frozen": "ice", "poisoned": "poison", "bleeding": "bleed", "shocked": "shock", "wet": "status"}
+
+static func card_themes(c: Dictionary) -> Array:
+	var out: Array = [str(c.get("cat", ""))]
+	for key in c.get("mods", {}):
+		for t in str(THEME_KEYS.get(str(key), "")).split(",", false):
+			if not out.has(t):
+				out.append(t)
+	for p in c.get("procs", []):
+		for t in [THEME_KEYS.get(str(p.get("s", "")), ""), THEME_CONDITIONS.get(str(p.get("if", "")), ""), str(ELEMENT_ZONES.get(str(p.get("s", "")), ""))]:
+			t = THEME_KEYS.get(t, t)
+			if t != "" and not out.has(t):
+				out.append(t)
+	return out
+
 static func condition(g, cond: String, ctx: Dictionary) -> bool:
 	var e = ctx.get("enemy")
 	if e == null:
@@ -303,6 +328,8 @@ static func condition(g, cond: String, ctx: Dictionary) -> bool:
 			return float(e["shock"]) > 0.0
 		"poisoned":
 			return float(e["poison"]) > 0.0
+		"bleeding":
+			return float(e["bleed"]) > 0.0
 		"wet":
 			return float(e["wet"]) > 0.0
 		"elite":

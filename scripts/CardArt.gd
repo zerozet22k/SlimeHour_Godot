@@ -3,6 +3,7 @@ extends RefCounted
 ## Every function takes the CanvasItem to draw on, so Hud (UI) and Visuals (shop stalls) look the same.
 
 const CAT_HUE = {"volley": Color("4fe0ff"), "projectile": Color("ffd24d"), "chain": Color("ff8a3d"), "element": Color("7dff9a"),
+	"fire": Color("ff7a3d"), "ice": Color("9fe8ff"), "poison": Color("8dff6b"), "bleed": Color("ff4d6a"), "shock": Color("ffe14d"), "status": Color("d6a8ff"),
 	"auto": Color("9fb8ff"), "move": Color("5bead8"), "defense": Color("8ff8ff"), "loot": Color("ffcf4d"),
 	"chaos": Color("ff8ad8"), "mastery": Color("c07bff"), "heal": Color("ff6b7a"), "shop": Color("ffd24d")}
 
@@ -40,7 +41,11 @@ static func star_pts(c: Vector2, r: float, points: int = 5, inner: float = 0.45,
 	return pts
 
 ## Icon for a card category (or shop item) centred on c, roughly 2*s wide. No frame: it sits on the card itself.
+const ELEMENT_CATS = ["fire", "ice", "poison", "bleed", "shock", "status"]
+
 static func glyph(ci: CanvasItem, cat: String, c: Vector2, s: float, col: Color) -> void:
+	if cat in ELEMENT_CATS:
+		cat = "element"
 	var dark = col.darkened(0.55)
 	var w = maxf(2.0, s * 0.12)
 	# soft halo

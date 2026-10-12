@@ -18,6 +18,12 @@ var body: Font
 var buttons: Array = []
 var peek = false
 var collection_cat = "all"
+## Second filter: card type (category or theme), "" = any type.
+var collection_type := ""
+const COLLECTION_TYPES = ["", "volley", "projectile", "chain", "fire", "ice", "poison", "bleed", "shock", "status", "auto", "move", "defense", "loot", "chaos", "mastery"]
+const COLLECTION_TYPE_LABELS = {"": "ANY TYPE", "volley": "VOLLEY", "projectile": "BULLETS", "chain": "CHAIN", "fire": "FIRE", "ice": "ICE",
+	"poison": "POISON", "bleed": "BLEED", "shock": "SHOCK", "status": "STATUS", "auto": "AUTO", "move": "MOVE", "defense": "DEFENSE",
+	"loot": "LOOT", "chaos": "CHAOS", "mastery": "MASTERY"}
 var collection_page = 0  # first visible GRID ROW, not a four-card page
 var collection_track := Rect2()
 var collection_touch_id := -1
@@ -965,9 +971,19 @@ func paint_portrait_settings() -> void:
 	txt("VERSION  " + g.GAME_VERSION, Vector2(360, g.ui_height - 20), 18, Color("9db2ce"), 1, bold)
 
 func portrait_collection_cat(delta: int) -> void:
-	var cats = COLLECTION_TABS
-	var idx = cats.find(collection_cat)
-	collection_cat = str(cats[posmod(idx + delta, cats.size())])
+	var views: Array = []
+	for c in COLLECTION_TABS:
+		views.append([str(c), ""])
+	for t in COLLECTION_TYPES:
+		if t != "":
+			views.append(["all", str(t)])
+	var idx := 0
+	for i in range(views.size()):
+		if views[i][0] == collection_cat and views[i][1] == collection_type:
+			idx = i
+	var v: Array = views[posmod(idx + delta, views.size())]
+	collection_cat = str(v[0])
+	collection_type = str(v[1])
 	collection_page = 0
 	selected_collection_item = null
 
@@ -976,7 +992,7 @@ func paint_portrait_collection() -> void:
 	portrait_bg()
 	txt("COLLECTION", Vector2(360, 92), 56, Color.WHITE, 1, bold, 6)
 	button(Rect2(28, 124, 96, 72), "<", "mobile_cat_prev", false, 34)
-	var cat_label = str(COLLECTION_TAB_LABELS.get(collection_cat, "ALL CARDS"))
+	var cat_label = str(COLLECTION_TAB_LABELS.get(collection_cat, "ALL CARDS")) if collection_type == "" else str(COLLECTION_TYPE_LABELS[collection_type]) + " CARDS"
 	rbox(Rect2(140, 128, 440, 62), Color(0, 0, 0, 0.5), 31)
 	txt(cat_label, Vector2(360, 170), fit(cat_label, 420, 28), Color("ffd24d"), 1, bold, 3)
 	button(Rect2(596, 124, 96, 72), ">", "mobile_cat_next", false, 34)
@@ -1925,6 +1941,8 @@ func get_collection_items() -> Array:
 			"epic": keep = r == 2
 			"legendary": keep = r >= 3
 			"gun_cards": keep = c.get("req", {}).has("weapon")
+		if keep and collection_type != "":
+			keep = Effects.card_themes(c).has(collection_type)
 		if keep:
 			cards.append(c)
 	cards.sort_custom(func(a, b): return [int(a["rarity"]), str(a["name"])] < [int(b["rarity"]), str(b["name"])])
@@ -1953,6 +1971,25 @@ func paint_collection() -> void:
 		txt(label, rect.get_center() + Vector2(0, 6), 16, Color("0a0e1a") if sel else Color.WHITE, 1, bold)
 		buttons.append({"rect": rect, "action": "cat_" + c})
 		tx += w + 5
+	# Card type row: find every Bleed (or Ice, Loot...) card at once.
+	if collection_cat != "weapons":
+		var font_size := 13
+		var total := 0.0
+		for t in COLLECTION_TYPES:
+			total += bold.get_string_size(str(COLLECTION_TYPE_LABELS[t]), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 14.0 + 4.0
+		if total > 880.0:
+			font_size = 11
+		var ty := 30.0
+		for t in COLLECTION_TYPES:
+			var tl := str(COLLECTION_TYPE_LABELS[t])
+			var tw: float = bold.get_string_size(tl, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 14.0
+			var trect := Rect2(ty, 118, tw, 24)
+			var tsel: bool = t == collection_type
+			var tcol: Color = CardArt.hue(t) if t != "" else CAT_COLOR
+			slant(trect, tcol if tsel else Color(tcol, 0.22), Color(0, 0, 0, 0), 6)
+			txt(tl, trect.get_center() + Vector2(0, font_size * 0.38), font_size, Color("0a0e1a") if tsel else Color.WHITE, 1, bold)
+			buttons.append({"rect": trect, "action": "ctype_" + t})
+			ty += tw + 4.0
 	var items = get_collection_items()
 	if selected_collection_item == null or not items.has(selected_collection_item):
 		selected_collection_item = items[0] if not items.is_empty() else null
@@ -1961,7 +1998,7 @@ func paint_collection() -> void:
 	collection_page = CollectionGrid.clamp_row(items.size(), cols, rows, collection_page)
 	var shown = CollectionGrid.indices(items.size(), cols, rows, collection_page)
 	txt("SCROLL TO EXPLORE  /  SELECT ANY CARD  /  " + CollectionGrid.view_label(items.size(), cols, rows, collection_page),
-		Vector2(32, 165), 18, Color("b1cbdf"), 0, bold)
+		Vector2(32, 170), 16, Color("b1cbdf"), 0, bold)
 	for i in range(shown.size()):
 		var index = int(shown[i])
 		var col = i % cols
