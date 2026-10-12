@@ -1,3 +1,10 @@
+## v0.1.103 — Full-release regression and mutation metadata fix
+
+- Replace obsolete combat regression expectations that demanded ten radiating healing lasers and explosion fans from old effect/shape mutations. Verify the new Medic triage graft on Laser Larry and Kaboomba without generic spamming.
+- Initialize color metadata on every spawned mutant, including F3 Debug Lab spawns; donated Mama eggs inherit the real mutation color.
+- Existing dash/bash controls now cancel the inherited Tick latch window so a detached parasite cannot immediately reattach on the same activation.
+- Keep procedural pair selection and all 25 data-driven behavior exports from v0.1.101–102.
+
 ## v0.1.102 — Bounded graft mobility and real counterplay
 
 - Inherited charges have finite duration, Skitter's donated ricochet works on non-Skitter bodies with a one-bounce dizzy recovery, and ordinary Skitter retains its normal three-bounce attack.

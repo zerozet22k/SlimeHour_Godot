@@ -69,58 +69,55 @@ func _run() -> void:
 		check(not EnemyMixes.FEATURES[species].is_empty(), species + " has inheritable mutation parts")
 	for part in ["nozzle", "fuse", "sucker", "megaphone", "cross"]:
 		check(EnemyMixes.TRAIT_NAMES.has(part), part + " has a mutation name")
-	# Mutations: body parent delivers, second parent supplies the payload.
+	# Every species gives an actual behavior module with receiver capabilities.
 	var Mixes = load("res://scripts/EnemyMixes.gd")
 	var MK = load("res://scripts/MutationKit.gd")
+	var Genome = load("res://scripts/FusionGenome.gd")
+	var abilities := {}
 	for species in Mixes.FEATURES:
-		check(MK.gives_of(species).size() >= 1, species + " lends its signature power (from data)")
+		var spec: Dictionary = Genome.donor_spec(str(species))
+		check(not spec.is_empty() and not Genome.body_caps(str(species)).is_empty(),
+			str(species) + " has a transferable behavior and a receiving kit")
+		abilities[str(spec["module"])] = true
+	check(abilities.size() == 25, "All 25 normal species give distinct behavior mechanics")
 	g.enemies.clear()
 	g.delayed.clear()
-	var ids := {}
-	for pair in [["larry", "nurse", "heal"], ["kaboomba", "nurse", "heal"]]:
-		var n := 0
-		var id: String = ""
-		while true:
-			id = "mix_" + pair[0] + "_t" + str(n) + "_" + pair[1]
-			if MK.payload_for(id, pair[1]) == pair[2]:
-				break
-			n += 1
-		var base: Dictionary = g.enemy_db[pair[0]].duplicate(true)
-		base["id"] = id
-		base["mix"] = [pair[0], pair[1]]
-		base["name"] = "test"
-		g.enemy_db[id] = base
-		ids[pair[0]] = id
-	# Pin the augment for a deterministic check.
-	var medic = g.spawn_enemy(ids["larry"], g.hero["pos"] + Vector2(0, -200), false, false)
-	medic["mut_move_t"] = 0.0
-	Combat.ai(g, medic, Vector2.DOWN, 200.0, 0.016, false)
-	check(g.delayed.filter(func(d): return str(d.get("fn", "")) == "boss_line").size() == 10, "Laser Larry body + Medic spins lasers out all round it (Medic's ring)")
-	check(MK.display_name(g, ids["larry"]).ends_with(" Laser Larry"), "Mutant is named for its augment and body")
-	for species in Mixes.FEATURES:
-		check(MK.sig(str(MK.gives_of(species)[0])).has("does") and MK.sig(str(MK.gives_of(species)[0])).has("shape"), species + "'s power is described in data/fusion.json")
-	check(MK.move_name_for(["laser", "shards"]) == "PRISM BEAM" and MK.move_name_for(["laser", "spear"]) == "LANCE BEAM" and MK.move_name_for(["heal", "laser"]) == "BEAM MEND", "Fusion moves are named from both powers")
+	# Medic passes real interruptible triage, not a radial laser/bomb skin.
+	var medic_id: String = Mixes.ensure(g.enemy_db, "larry", "nurse")
+	var medic = g.spawn_enemy(medic_id, Vector2(0, -200), false, false)
+	medic["graft_cd"] = 0.0
+	MK.fusion_move(g, medic)
+	check(g.delayed.size() == 1 and str(g.delayed[0].get("module", "")) == "triage",
+		"Laser Larry body + Medic supplies one warned triage action, not ten healing lasers")
+	check(MK.display_name(g, medic_id).ends_with("Laser Larry"), "Mutant identity retains its body name")
 	g.delayed.clear()
-	var bomber = g.spawn_enemy(ids["kaboomba"], Vector2(0, -200), false, false)
-	bomber["pos"] = g.hero["pos"] + Vector2(0, -200)
-	bomber["mut_move_t"] = 0.0
-	Combat.ai(g, bomber, Vector2.DOWN, 200.0, 0.016, false)
-	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "mut_anchor" and str(d.get("effect", "")) == "explode"), "Kaboomba body + Medic spins bombs out all round it")
+	var bomb_id: String = Mixes.ensure(g.enemy_db, "kaboomba", "nurse")
+	var bomber = g.spawn_enemy(bomb_id, Vector2(0, -200), false, false)
+	bomber["graft_cd"] = 0.0
+	MK.fusion_move(g, bomber)
+	check(g.delayed.size() == 1 and str(g.delayed[0].get("module", "")) == "triage",
+		"Kaboomba body + Medic gives healing, not a copied explosion fan")
 	# Mutants show and use their body parent's attacks (tells, tethers, dashes).
 	var visual_src := FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	var combat_src := FileAccess.get_file_as_string("res://scripts/Combat.gd")
 	check((visual_src.contains('enemy_has_role(e, "leech") and float(e.get("tether_t"') or visual_src.contains('body == "leech" and float(e.get("tether_t"')) and visual_src.contains('var body: String = MutationKit.acting(g, e)') and not visual_src.contains('e["kind"] == "leech"'), "A Leech-bodied mutant draws its blood tether")
 	check(combat_src.contains('var body_kind: String = MutationKit.acting(g, e)') and not combat_src.contains('str(e["kind"]) == "skitter"'), "Mutants move with the parent they are acting as (dash, ricochet)")
-	# Unrelated parents must never acquire Larry's laser beam presentation.
+	# Grafts must not invent attacks from unrelated species; egg effects inherit
+	# the body's color and are emitted from an actual Mama module.
 	for pair in [["mini", "mama"], ["mama", "mini"], ["mortar", "mini"]]:
 		g.delayed.clear()
-		var variant = g.spawn_enemy(EnemyMixes.ensure(g.enemy_db, pair[0], pair[1]), Vector2(0, -200), false, false)
+		var id: String = EnemyMixes.ensure(g.enemy_db, pair[0], pair[1])
+		var variant = g.spawn_enemy(id, Vector2(0, -200), false, false)
+		variant["graft_cd"] = 0.0
 		MK.fusion_move(g, variant)
-		check(g.delayed.all(func(d): return str(d.get("line_style", "")) != "beam" and not d.has("link")), str(pair) + " does not borrow a laser")
-		if str(pair[0]) == "mama":
+		check(g.delayed.size() == 1 and str(g.delayed[0].get("fn", "")) == "genome_graft",
+			str(pair) + " schedules one behavior-graft event without a laser barrage")
+		if str(pair[1]) == "mama":
 			g.enemy_hazards.clear()
-			MK.apply_effect(g, variant, Vector2.ZERO, "hatch", false, 1.0)
-			check(not g.enemy_hazards.is_empty() and str(g.enemy_hazards[-1].get("mut_col", "")) == str(variant["mut_col"]), "Mama's egg inherits the mutation color")
+			Genome.resolve(g, g.delayed[0])
+			check(g.enemy_hazards.size() == 1 and str(g.enemy_hazards[0].get("kind", "")) == "egg"
+				and str(g.enemy_hazards[0].get("mut_col", "")) == str(variant["mut_col"]),
+				"Donated Mama egg carries the mutant color without generic effects")
 	if errors > 0:
 		push_error("%d monster checks failed" % errors)
 		quit(1)

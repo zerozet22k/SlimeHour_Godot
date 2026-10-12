@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.102"
+const GAME_VERSION = "v0.1.103"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1077,6 +1077,8 @@ func try_dash() -> void:
 	for e in enemies:
 		if bool(e.get("latched", false)):
 			e["latched"] = false
+			if e.has("graft_latch_t"):
+				e["graft_latch_t"] = 0.0
 			e["kb"] = (e["pos"] - h["pos"]).normalized() * 700.0
 			e["stun"] = 0.8
 	var dir: Vector2 = h["vel"].normalized() if h["vel"].length() > 30.0 else h["aim"]
@@ -1166,6 +1168,8 @@ func try_bash() -> void:
 	for tick in enemies:
 		if bool(tick.get("latched", false)):
 			tick["latched"] = false
+			if tick.has("graft_latch_t"):
+				tick["graft_latch_t"] = 0.0
 			tick["kb"] = (tick["pos"] - origin).normalized() * 650.0
 			tick["stun"] = 0.8
 	var impact_count = 0
@@ -1670,6 +1674,7 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	# Cosmetic phenotype per spawn. One secondary feature only, never a full
 	# second face; all members retain the same bounded combined abilities.
 	if kind.begins_with("mix_"):
+		e["mut_col"] = str(d.get("color", "cdd3ff"))
 		var inherit_options: Array = d.get("look", {}).get("trait_options", [])
 		if not inherit_options.is_empty():
 			e["hybrid_trait"] = str(inherit_options[randi() % inherit_options.size()])
