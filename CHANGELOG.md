@@ -1,3 +1,12 @@
+## v0.1.100 — Mutation encounters are rare, bounded events
+
+- Fix the actual cause of mutation swarms: the spawn selector was replacing every spawn of either parent once a recipe unlocked, ignoring the declared mutation encounter probabilities entirely.
+- Normal mutations now obey their intended 5% starting chance and gradual encounter ramp, with **2 living mutants maximum**, **5 mutant spawns per sector**, and **2 active fusion recipes per sector**.
+- Hard raises those limits to **3 living**, **10 per sector**, and **3 active recipes**; it keeps the higher Hard-mode mutation chance.
+- The newest unlocked fusion stays in rotation; earlier unlocked recipes rotate between sectors, so the Mutation Book and ongoing run unlock progression remain intact.
+- Ordinary monsters keep spawning after their parents combine. Natural mutants cannot roll extra elite affixes on top of their already combined abilities. F3 Debug Lab can still spawn any mutation manually.
+- Add encounter-probability, live-cap, sector-budget, rotation and run-reset tests to continuous integration.
+
 ## v0.1.99 — Lancer's real two-mode reach and dual-power fusions
 
 - Lancer switches between wide directional spear melee and piercing javelin at the actual hitbox boundary. No more wasted melee sweeps against players 180–240 units away; the visual arc and damage share the same reach.

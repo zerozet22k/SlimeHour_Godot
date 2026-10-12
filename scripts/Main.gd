@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.99"
+const GAME_VERSION = "v0.1.100"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -56,6 +56,16 @@ var best = {"sector": 0, "kills": 0, "level": 0}
 var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
 ## Encounter unlocks are PER RUN. Bestiary kills remain persistent, but never grant spawn access.
 var run_mutations_unlocked: Dictionary = {}
+# Strong fusion abilities are special encounters, not default replacements for
+# their normal parent species. Both directions of a pair share one active slot.
+const MUTATION_ACTIVE_PAIRS_NORMAL := 2
+const MUTATION_ACTIVE_PAIRS_HARD := 3
+const MUTATION_LIVE_CAP_NORMAL := 2
+const MUTATION_LIVE_CAP_HARD := 3
+const MUTATION_SECTOR_BUDGET_NORMAL := 5
+const MUTATION_SECTOR_BUDGET_HARD := 10
+var mutation_spawn_sector := -1
+var mutation_sector_spawns := 0
 var unlocked_cards: Dictionary = {}
 var unlock_level: Dictionary = {}
 var unlocked_guns: Array = []
@@ -601,6 +611,8 @@ func start_run() -> void:
 	# Reset all mutation introductions even if the player reached sector 40
 	# or discovered every recipe in a previous run.
 	run_mutations_unlocked.clear()
+	mutation_spawn_sector = -1
+	mutation_sector_spawns = 0
 	state = "playing"
 	phase = "fight"
 	boss_arena_on = false
@@ -784,6 +796,8 @@ func begin_sector() -> void:
 	rush_queue = 0
 	rush_done = false
 	sector_budget = budget_for(sector)
+	mutation_spawn_sector = sector
+	mutation_sector_spawns = 0
 	front_y = hero["pos"].y
 	sector_time = 0.0
 	budget_spawned = 0
@@ -1496,53 +1510,100 @@ const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "spitter": 2.2, "kaboomba": 1.
 	"blinky": 1.0, "ashwing": 0.85, "mirror": 0.75, "burrower": 0.7, "siren": 0.55,
 	"skitter": 2.0, "sapper": 1.1, "lancer": 1.3, "leech": 0.9, "nurse": 0.24, "larry": 0.48}
 
+## Mutation recipes still unlock as the run progresses and both body orders
+## remain available in the Mutation Book. Only the newest pair plus a rotating
+## selection of older pairs can actually spawn in any one sector.
+func active_mutation_ids() -> Array:
+	var unlocked: Array = []
+	for i in range(EnemyMixes.RECIPES.size()):
+		var ids: Array = EnemyMixes.recipe_ids(i)
+		if run_mutations_unlocked.has(ids[0]) and run_mutations_unlocked.has(ids[1]):
+			unlocked.append(i)
+	if unlocked.is_empty():
+		return []
+	var pair_cap := MUTATION_ACTIVE_PAIRS_HARD if hard_mode else MUTATION_ACTIVE_PAIRS_NORMAL
+	var selected: Array = [unlocked.back()]  # Newly unlocked mechanics remain relevant.
+	var older: Array = unlocked.slice(0, unlocked.size() - 1)
+	for offset in range(mini(pair_cap - 1, older.size())):
+		var index := posmod(sector - EnemyMixes.FIRST_FUSION_SECTOR + offset, older.size())
+		selected.append(older[index])
+	var result: Array = []
+	for index in selected:
+		result.append_array(EnemyMixes.recipe_ids(int(index)))
+	return result
+
+func mutation_live_limit() -> int:
+	return MUTATION_LIVE_CAP_HARD if hard_mode else MUTATION_LIVE_CAP_NORMAL
+
+func mutation_sector_limit() -> int:
+	return MUTATION_SECTOR_BUDGET_HARD if hard_mode else MUTATION_SECTOR_BUDGET_NORMAL
+
+func mutation_alive_count() -> int:
+	var count := 0
+	for enemy in enemies:
+		if not bool(enemy.get("dead", false)) and str(enemy.get("kind", "")).begins_with("mix_"):
+			count += 1
+	return count
+
+func sync_mutation_sector() -> void:
+	if mutation_spawn_sector != sector:
+		mutation_spawn_sector = sector
+		mutation_sector_spawns = 0
+
 func pick_enemy() -> String:
 	var newcomer = introduction_for(sector)
 	var base = available_enemies(sector)
-	# Mix chance is independent of fixed map/sector numbers. Never combine
-	# a species in the sector where it first debuts.
-	var known = available_enemies(sector - 1)
-	# Spawn only staged and authored fusion recipes. Normal stays sparse,
-	# Hard increases pressure, but neither exposes every possible pair.
-	# Once two species fuse in this run, their halves are locked into the
-	# mutation: where either parent would spawn, the mutation spawns instead.
-	var fused: Dictionary = {}
-	for mix_id in run_mutations_unlocked:
-		if enemy_db.has(mix_id):
-			for parent in enemy_db[mix_id].get("mix", []):
-				if not fused.has(str(parent)):
-					fused[str(parent)] = []
-				fused[str(parent)].append(str(mix_id))
-	var total = 0.0
+	var total := 0.0
 	for name in base:
 		if name == "totem" and totems.size() >= 2:
 			continue
-		var w = float(ENEMY_WEIGHT.get(name, 1.0))
+		var w: float = float(ENEMY_WEIGHT.get(name, 1.0))
 		if name == newcomer:
 			w = maxf(w * 2.5, 3.0)
 		total += w
-	var roll = randf() * total
+	var roll := randf() * total
+	var chosen := "blob"
 	for name in base:
 		if name == "totem" and totems.size() >= 2:
 			continue
-		var w = float(ENEMY_WEIGHT.get(name, 1.0))
+		var w: float = float(ENEMY_WEIGHT.get(name, 1.0))
 		if name == newcomer:
 			w = maxf(w * 2.5, 3.0)
 		roll -= w
 		if roll <= 0.0:
-			# Either side of the fusion spawns in its parents' place.
-			var sides: Array = fused.get(str(name), [])
-			return str(sides[randi() % sides.size()]) if not sides.is_empty() else str(name)
-	return "blob"
+			chosen = str(name)
+			break
+	# Previously each unlocked pair replaced *every* spawn of either parent,
+	# accidentally ignoring encounter_chance() and flooding fights with mutants.
+	# Now the chance applies to the whole spawn roll, and any failed gate
+	# leaves a legitimate normal monster alive in the roster.
+	sync_mutation_sector()
+	if mutation_sector_spawns >= mutation_sector_limit():
+		return chosen
+	if EnemyMixes.encounter_chance(sector, hard_mode) <= 0.0:
+		return chosen
+	if randf() >= EnemyMixes.encounter_chance(sector, hard_mode):
+		return chosen
+	if mutation_alive_count() >= mutation_live_limit():
+		return chosen
+	var candidates := active_mutation_ids()
+	if candidates.is_empty():
+		return chosen
+	return str(candidates[randi() % candidates.size()])
 
 func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -> Dictionary:
+	# Count actual spawns, not candidates: direct Debug Lab spawning remains
+	# unrestricted, and forced normal introductions never use mutation budget.
+	if kind.begins_with("mix_") and not debug_session:
+		sync_mutation_sector()
+		mutation_sector_spawns += 1
 	var d: Dictionary = enemy_db.get(kind, enemy_db["blob"])
 	var scale = enemy_scale()
 	var is_boss = bool(d.get("boss", false)) or force_boss
 	var is_elite = false
 	if elite == null:
 		var base_elite = (0.02 + mini(sector, 20) * 0.005 + maxi(0, sector - 20) * 0.003) * (1.4 if hard_mode else 1.0)
-		is_elite = not is_boss and kind != "goblin" and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0)) * midgame_relief()
+		is_elite = not is_boss and kind != "goblin" and not kind.begins_with("mix_") and randf() < base_elite * (1.0 + st("elitechance")) * float(route.get("elites", 1.0)) * midgame_relief()
 	else:
 		is_elite = bool(elite)
 	# Enemy HP follows enemy_scale(); it grows a little toward the end of each sector.

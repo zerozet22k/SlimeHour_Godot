@@ -66,6 +66,57 @@ func _run() -> void:
 	g.introduce_mutations()
 	check(g.run_mutations_unlocked.size() == 4, "Hard run unlocks both sides of two recipes by sector 27")
 	check(not g.mutation_is_unlocked(Mixes.recipe_id(2)), "Third recipe remains locked on Hard before sector 29")
+
+	# Limits do not erase Mutation Book recipes; they control actual encounters.
+	g.hard_mode = false
+	g.sector = 40
+	g.introduce_mutations()
+	check(g.run_mutations_unlocked.size() == 12, "Six recipes (12 ordered forms) stay unlocked by sector 40")
+	var active_normal := g.active_mutation_ids()
+	check(active_normal.size() == 4 and active_normal.has(Mixes.recipe_id(5)),
+		"Normal limits each sector to two active mutation pairs, including the latest")
+	g.sector = 41
+	var rotated_normal := g.active_mutation_ids()
+	check(rotated_normal.size() == 4 and active_normal != rotated_normal,
+		"Older mutations rotate between sectors instead of disappearing permanently")
+	g.sector = 40
+	g.mutation_spawn_sector = 40
+	g.mutation_sector_spawns = g.mutation_sector_limit()
+	var all_normal := true
+	for i in range(150):
+		if str(g.pick_enemy()).begins_with("mix_"):
+			all_normal = false
+	check(all_normal, "A sector's encounter budget blocks further mutants without blocking normal monsters")
+	g.mutation_sector_spawns = 0
+	g.enemies = [{"kind": active_normal[0], "dead": false}, {"kind": active_normal[1], "dead": false}]
+	all_normal = true
+	for i in range(150):
+		if str(g.pick_enemy()).begins_with("mix_"):
+			all_normal = false
+	check(all_normal, "Two living mutants block additional Normal mutation spawns")
+	g.enemies.clear()
+	var sample_hits := 0
+	for i in range(500):
+		var picked: String = g.pick_enemy()
+		if picked.begins_with("mix_"):
+			sample_hits += 1
+			if not active_normal.has(picked):
+				check(false, "Inactive mutation pair never spawns in Normal")
+	check(sample_hits >= 15 and sample_hits <= 90,
+		"Encounter chance is actually honored (sample 500 rolls, not parent-replacement spam)")
+	g.mutation_sector_spawns = g.mutation_sector_limit()
+	g.sector = 41
+	check(g.pick_enemy() is String and g.mutation_sector_spawns == 0,
+		"Changing sectors resets the spawn budget for the next encounter")
+	g.hard_mode = true
+	g.sector = 40
+	g.introduce_mutations()
+	check(g.run_mutations_unlocked.size() == 16, "Hard unlocks eight recipes by sector 40")
+	var active_hard := g.active_mutation_ids()
+	check(active_hard.size() == 6 and active_hard.has(Mixes.recipe_id(7)),
+		"Hard rotates three active mutation pairs, including its latest")
+	check(g.mutation_live_limit() == 3 and g.mutation_sector_limit() == 10,
+		"Hard has a separate bounded live and per-sector mutation limit")
 	g.free()
 	var main_source = FileAccess.get_file_as_string("res://scripts/Main.gd")
 	var hud_source = FileAccess.get_file_as_string("res://scripts/Hud.gd")
