@@ -1677,7 +1677,7 @@
       "cat": "status",
       "rarity": 2,
       "max": 1,
-      "desc": "Burning a chilled enemy (or chilling a burning one) erupts in steam: 26 base damage in a 75 radius.",
+      "desc": "DUO (Fire + Ice): burning a chilled enemy (or chilling a burning one) erupts in steam: 26 base damage in a 75 radius.",
       "art": "a steam engine whistle",
       "mods": {
         "steam": 1
@@ -1696,7 +1696,7 @@
       "cat": "status",
       "rarity": 2,
       "max": 1,
-      "desc": "Burning a shocked enemy (or shocking a burning one) makes it explode: 30 base damage in an 80 radius.",
+      "desc": "DUO (Fire + Shock): burning a shocked enemy (or shocking a burning one) makes it explode: 30 base damage in an 80 radius.",
       "art": "an overloaded electric fireball",
       "mods": {
         "overload": 1
@@ -1715,7 +1715,7 @@
       "cat": "shock",
       "rarity": 2,
       "max": 1,
-      "desc": "Shocking a wet enemy arcs to every wet enemy within 260 range for 6x shock damage.",
+      "desc": "DUO (Shock + Wet): shocking a wet enemy arcs to every wet enemy within 260 range for 6x shock damage.",
       "art": "an orchestra conductor with lightning",
       "mods": {
         "conduct": 1
@@ -1930,7 +1930,7 @@
       "cat": "status",
       "rarity": 2,
       "max": 2,
-      "desc": "+40% damage to enemies that are both burning and chilled.",
+      "desc": "DUO (Fire + Ice): +40% damage to enemies that are both burning and chilled.",
       "art": "fire and ice clashing",
       "mods": {
         "thermal": 0.4
@@ -5560,6 +5560,215 @@
       "req": {
         "source": [
           "freeze"
+        ]
+      }
+    },
+    {
+      "id": "combustion",
+      "name": "Combustion",
+      "cat": "status",
+      "rarity": 2,
+      "max": 1,
+      "desc": "DUO (Fire + Poison): burning a poisoned enemy detonates its poison: 6 base damage per stack in a 75 radius.",
+      "art": "a green bubbling flask catching fire",
+      "mods": {
+        "combustion": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "burn",
+          "poison"
+        ]
+      }
+    },
+    {
+      "id": "blood_boil",
+      "name": "Blood Boil",
+      "cat": "status",
+      "rarity": 2,
+      "max": 1,
+      "desc": "DUO (Fire + Bleed): bleeding enemies that are burning take double bleed damage.",
+      "art": "a pot of red liquid boiling over a fire",
+      "mods": {
+        "blood_boil": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "burn",
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "scald",
+      "name": "Scald",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Fire + Wet): burning a soaked enemy (or soaking a burning one) bursts into scalding steam: 24 base damage in a 70 radius.",
+      "art": "a kettle whistling with a jet of steam",
+      "mods": {
+        "scald": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "burn",
+          "wet"
+        ]
+      }
+    },
+    {
+      "id": "cryo_toxin",
+      "name": "Cryo Toxin",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Ice + Poison): poisoned enemies chill 50% faster, and poison does not fade while they are frozen.",
+      "art": "a frozen green vial covered in frost",
+      "mods": {
+        "cryo_toxin": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze",
+          "poison"
+        ]
+      }
+    },
+    {
+      "id": "brittle_blood",
+      "name": "Brittle Blood",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Ice + Bleed): chilling a bleeding enemy adds a bleed stack.",
+      "art": "red icicles hanging from a frozen slime",
+      "mods": {
+        "brittle_blood": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze",
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "superconductor",
+      "name": "Superconductor",
+      "cat": "status",
+      "rarity": 2,
+      "max": 1,
+      "desc": "DUO (Ice + Shock): shock deals double damage to chilled or frozen enemies.",
+      "art": "a frosted battery crackling with lightning",
+      "mods": {
+        "superconductor": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "freeze",
+          "shock"
+        ]
+      }
+    },
+    {
+      "id": "electrolysis",
+      "name": "Electrolysis",
+      "cat": "status",
+      "rarity": 2,
+      "max": 1,
+      "desc": "DUO (Shock + Poison): shocking a poisoned enemy arcs half its poison stacks to every enemy within 120 range.",
+      "art": "lightning bolts carrying green toxic sparks",
+      "mods": {
+        "electrolysis": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "shock",
+          "poison"
+        ]
+      }
+    },
+    {
+      "id": "septic_wounds",
+      "name": "Septic Wounds",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Poison + Bleed): cutting a poisoned enemy also poisons it, and poisoning a bleeding enemy also cuts it.",
+      "art": "a rusty dagger dripping green and red",
+      "mods": {
+        "septic_wounds": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "poison",
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "blood_in_the_water",
+      "name": "Blood in the Water",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Bleed + Wet): soaked enemies always bleed as if they were moving (double bleed damage).",
+      "art": "a shark fin circling in red water",
+      "mods": {
+        "blood_in_the_water": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "bleed",
+          "wet"
+        ]
+      }
+    },
+    {
+      "id": "arc_wound",
+      "name": "Arc Wound",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Shock + Bleed): shock deals double damage to bleeding enemies.",
+      "art": "a lightning bolt striking an open wound",
+      "mods": {
+        "arc_wound": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "shock",
+          "bleed"
+        ]
+      }
+    },
+    {
+      "id": "toxic_water",
+      "name": "Toxic Water",
+      "cat": "status",
+      "rarity": 1,
+      "max": 1,
+      "desc": "DUO (Poison + Wet): soaked enemies take +60% poison damage.",
+      "art": "a puddle glowing toxic green",
+      "mods": {
+        "toxic_water": 1
+      },
+      "procs": [],
+      "req": {
+        "source": [
+          "poison",
+          "wet"
         ]
       }
     }

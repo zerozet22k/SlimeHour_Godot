@@ -1,3 +1,21 @@
+## v0.1.114 — DUO cards: element combos
+
+Eleven new **DUO** cards, one for each element pair that had no combo. Each only shows up once your build already has both elements:
+
+- **Combustion** (Fire + Poison, Epic): burning a poisoned enemy detonates its poison, dealing 6 base damage per stack in a 75 radius.
+- **Blood Boil** (Fire + Bleed, Epic): burning enemies take double bleed damage.
+- **Scald** (Fire + Wet, Rare): burning a soaked enemy, or soaking a burning one, bursts into scalding steam: 24 base damage in a 70 radius.
+- **Cryo Toxin** (Ice + Poison, Rare): poisoned enemies chill 50% faster, and poison doesn't fade while they're frozen.
+- **Brittle Blood** (Ice + Bleed, Rare): chilling a bleeding enemy adds a bleed stack.
+- **Superconductor** (Ice + Shock, Epic): double shock damage to chilled or frozen enemies.
+- **Electrolysis** (Shock + Poison, Epic): shocking a poisoned enemy arcs half its poison stacks to everything within 120 range.
+- **Septic Wounds** (Poison + Bleed, Rare): cutting a poisoned enemy also poisons it, and poisoning a bleeding enemy also cuts it.
+- **Blood in the Water** (Bleed + Wet, Rare): soaked enemies always bleed as if moving, so double bleed damage.
+- **Arc Wound** (Shock + Bleed, Rare): double shock damage to bleeding enemies.
+- **Toxic Water** (Poison + Wet, Rare): soaked enemies take +60% poison damage.
+
+The existing combos (Steam Engine, Thermal Shock, Overload, Conductor) are now labelled DUO too. All duos are listed under STATUS & COMBOS and under both of their elements in the Collection. A new automated test checks every duo actually works.
+
 ## v0.1.113 — Card types and new Bleed and Ice cards
 
 - **ELEMENTS is split into FIRE, ICE, POISON, BLEED, SHOCK and STATUS & COMBOS.** Each element has its own colour.

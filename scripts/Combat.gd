@@ -1089,15 +1089,23 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 			base = 0.35 * stacks
 			hp_ratio = 0.00022 * stacks
 			bonus = maxf(0.0, 1.0 + g.st("poisonpow"))
+			if float(e.get("wet", 0.0)) > 0.0 and g.st("toxic_water") > 0.0:
+				bonus *= 1.6
 		"bleed":
 			var movement = 2.0 if moving else 1.0
 			base = 0.4 * stacks * movement
 			hp_ratio = 0.00025 * stacks * movement
 			bonus = maxf(0.0, 1.0 + g.st("bleedpow"))
+			if float(e.get("burn", 0.0)) > 0.0 and g.st("blood_boil") > 0.0:
+				bonus *= 2.0
 		"shock":
 			base = 5.0
 			hp_ratio = 0.0005
 			bonus = maxf(0.0, 1.0 + g.st("shockpow"))
+			if (float(e.get("chill", 0.0)) > 0.0 or float(e.get("frozen", 0.0)) > 0.0) and g.st("superconductor") > 0.0:
+				bonus *= 2.0
+			if float(e.get("bleed", 0.0)) > 0.0 and g.st("arc_wound") > 0.0:
+				bonus *= 2.0
 		_:
 			return 0.0
 	var flat = base * g.sector_scale() * g.dmg_mult()
@@ -1345,6 +1353,30 @@ static func kaboom(g, pos: Vector2, r: float, dmg: float, color: Color = Color("
 			kill(g, other, {"gen": 1, "pos": other["pos"]}, 0.0)
 
 # ================================================================= statuses
+## DUO Fire + Poison: the poison goes up in flames.
+static func combust(g, e: Dictionary) -> void:
+	var stacks := float(e["poison"])
+	e["poison"] = 0.0
+	explode(g, e["pos"], 75.0, 6.0 * stacks * g.sector_scale() * g.dmg_mult(), 2, Color("b6ff4a"))
+	g.say(e["pos"] + Vector2(0, -26), "COMBUSTION!", Color("b6ff4a"), 20)
+
+## DUO Fire + Wet: scalding steam.
+static func scald(g, e: Dictionary) -> void:
+	e["wet"] = 0.0
+	explode(g, e["pos"], 70.0, 24.0 * g.sector_scale() * g.dmg_mult(), 2, Color("eef6ff"))
+	g.say(e["pos"] + Vector2(0, -26), "SCALD!", Color("eef6ff"), 18)
+
+## DUO Shock + Poison: the current carries the poison to everyone nearby.
+static func electrolyse(g, e: Dictionary) -> void:
+	var share := floorf(float(e["poison"]) * 0.5)
+	e["duo_busy"] = true
+	for o in query(g, e["pos"], 120.0):
+		if o != e and not bool(o["dead"]) and o["pos"].distance_to(e["pos"]) < 120.0:
+			g.beams.append({"a": e["pos"], "b": o["pos"], "t": 0.12, "w": 3.0, "color": Color("b6ff4a"), "zig": true})
+			for k in range(int(share)):
+				apply_status(g, o, "poison", 1.0)
+	e.erase("duo_busy")
+
 static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 	if bool(e["dead"]):
 		return
@@ -1353,6 +1385,10 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 	match s:
 		"burn":
 			e["burn"] = maxf(float(e["burn"]), 2.0 * dur)
+			if float(e["poison"]) > 0.0 and g.st("combustion") > 0.0:
+				combust(g, e)
+			if float(e["wet"]) > 0.0 and g.st("scald") > 0.0:
+				scald(g, e)
 			if (float(e["chill"]) > 0.0 or float(e["frozen"]) > 0.0) and g.st("steam") > 0.0:
 				e["chill"] = 0.0
 				e["frozen"] = 0.0
@@ -1366,6 +1402,12 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			var add = amt if amt > 1.0 else 34.0 * (1.0 + g.st("freezepow"))
 			if float(e["wet"]) > 0.0:
 				add *= 2.0
+			if float(e["poison"]) > 0.0 and g.st("cryo_toxin") > 0.0:
+				add *= 1.5
+			if float(e["bleed"]) > 0.0 and g.st("brittle_blood") > 0.0 and not e.has("duo_busy"):
+				e["duo_busy"] = true
+				apply_status(g, e, "bleed", 1.0)
+				e.erase("duo_busy")
 			if bool(e["boss"]):
 				add *= 0.3
 			e["chill"] = float(e["chill"]) + add
@@ -1386,6 +1428,8 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 				apply_status(g, e, "burn", 1.0)
 		"shock":
 			e["shock"] = 3.0 * dur
+			if float(e["poison"]) >= 2.0 and g.st("electrolysis") > 0.0 and not e.has("duo_busy"):
+				electrolyse(g, e)
 			if float(e["wet"]) > 0.0 and g.st("conduct") > 0.0 and not e.has("conducting"):
 				e["conducting"] = true
 				for o in query(g, e["pos"], 260.0):
@@ -1400,10 +1444,18 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			# what keeps poison in line with bleed (12 stacks ~ 22/s + 1% max HP/s).
 			e["poison"] = minf(POISON_CAP, float(e["poison"]) + 1.0)
 			e["poison_t"] = 8.0 * dur
+			if float(e["bleed"]) > 0.0 and g.st("septic_wounds") > 0.0 and not e.has("duo_busy"):
+				e["duo_busy"] = true
+				apply_status(g, e, "bleed", 1.0)
+				e.erase("duo_busy")
 		"bleed":
 			# PUNISHES MOVEMENT: up to 8 stacks, double damage while it moves.
 			e["bleed"] = minf(8.0 + g.st("bleedcap"), float(e["bleed"]) + 1.0)
 			e["bleed_t"] = 4.0 * dur
+			if float(e["poison"]) > 0.0 and g.st("septic_wounds") > 0.0 and not e.has("duo_busy"):
+				e["duo_busy"] = true
+				apply_status(g, e, "poison", 1.0)
+				e.erase("duo_busy")
 			if g.st("hemorrhage") > 0.0 and float(e["bleed"]) >= 5.0:
 				var burst = 9.0 * ss * float(e["bleed"]) * (1.0 + g.st("bleedpow"))
 				e["bleed"] = 0.0
@@ -1428,6 +1480,8 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 				e["turned"] = true
 		"wet":
 			e["wet"] = 4.0 * dur
+			if float(e["burn"]) > 0.0 and g.st("scald") > 0.0:
+				scald(g, e)
 		"mark":
 			e["mark"] = 4.0 * dur
 
@@ -1589,7 +1643,7 @@ static func update_enemies(g, dt: float) -> void:
 			if float(e["poison"]) > 0.0:
 				dot(g, e, status_tick_damage(g, e, "poison", float(e["poison"])), Color("8dff6b"), "POISON")
 			if float(e["bleed"]) > 0.0:
-				var moving = e["vel"].length() > 10.0
+				var moving = e["vel"].length() > 10.0 or (float(e["wet"]) > 0.0 and g.st("blood_in_the_water") > 0.0)
 				dot(g, e, status_tick_damage(g, e, "bleed", float(e["bleed"]), moving), Color("ff4d6a"))
 			if float(e["shock"]) > 0.0 and randf() < 0.5:
 				var o = null
@@ -1617,7 +1671,7 @@ static func update_enemies(g, dt: float) -> void:
 				kill(g, e, {"gen": 1, "pos": e["pos"]}, 0.0)
 				continue
 			e["chill"] = maxf(0.0, float(e["chill"]) - sdt * 14.0)
-			if float(e["poison"]) > 0.0:
+			if float(e["poison"]) > 0.0 and not (float(e["frozen"]) > 0.0 and g.st("cryo_toxin") > 0.0):
 				e["poison_t"] = float(e.get("poison_t", 0.0)) - sdt
 				if float(e["poison_t"]) <= 0.0:
 					# Poison fades instead of vanishing: half the stacks every 2s.

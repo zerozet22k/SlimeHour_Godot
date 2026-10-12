@@ -154,7 +154,8 @@ const PERCENT_STATS = ["dmg", "rate", "crit", "critdmg", "speed", "pspeed", "siz
 const PASSIVE_FLAGS = ["boomer", "overkill", "accel", "fractal", "fragbounce", "fraghome",
 	"fragboom", "fling", "steam", "overload", "conduct", "shatter", "wildfire", "plague",
 	"hemorrhage", "brainwash", "dronerocket", "orbitguns", "orbitbleed", "dashtrail",
-	"dashreload", "dashpush", "speeddmg", "goblins", "mad", "infammo", "ghost", "instafreeze", "flashfreeze"]
+	"dashreload", "dashpush", "speeddmg", "goblins", "mad", "infammo", "ghost", "instafreeze", "flashfreeze",
+	"combustion", "blood_boil", "scald", "cryo_toxin", "brittle_blood", "superconductor", "electrolysis", "septic_wounds", "blood_in_the_water", "arc_wound", "toxic_water"]
 
 static func format_mod(key: String, value: float) -> String:
 	if PERCENT_STATS.has(key):
@@ -300,12 +301,13 @@ const THEME_KEYS = {"burn": "fire", "burnpow": "fire", "wildfire": "fire", "ther
 	"bleed": "bleed", "bleedpow": "bleed", "hemorrhage": "bleed", "bleedvuln": "bleed", "bleedcap": "bleed",
 	"shock": "shock", "shockpow": "shock", "conduct": "shock,status",
 	"slow": "status", "charm": "status", "brainwash": "status", "wet": "status", "mark": "status", "markpow": "status", "stun": "status"}
+const DUO_THEMES = {"combustion": "fire,poison,status", "blood_boil": "fire,bleed,status", "scald": "fire,status", "cryo_toxin": "ice,poison,status", "brittle_blood": "ice,bleed,status", "superconductor": "ice,shock,status", "electrolysis": "shock,poison,status", "septic_wounds": "poison,bleed,status", "blood_in_the_water": "bleed,status", "arc_wound": "shock,bleed,status", "toxic_water": "poison,status"}
 const THEME_CONDITIONS = {"burning": "fire", "frozen": "ice", "poisoned": "poison", "bleeding": "bleed", "shocked": "shock", "wet": "status"}
 
 static func card_themes(c: Dictionary) -> Array:
 	var out: Array = [str(c.get("cat", ""))]
 	for key in c.get("mods", {}):
-		for t in str(THEME_KEYS.get(str(key), "")).split(",", false):
+		for t in str(THEME_KEYS.get(str(key), DUO_THEMES.get(str(key), ""))).split(",", false):
 			if not out.has(t):
 				out.append(t)
 	for p in c.get("procs", []):
