@@ -1,3 +1,11 @@
+## v0.1.99 — Lancer's real two-mode reach and dual-power fusions
+
+- Lancer switches between wide directional spear melee and piercing javelin at the actual hitbox boundary. No more wasted melee sweeps against players 180–240 units away; the visual arc and damage share the same reach.
+- Every mutation now carries both parents' gameplay abilities: the body supplies the main move, and the other parent contributes one restrained impact follow-through. Line-based attacks no longer discard the donor's special power.
+- Prism attacks can glue, fire spreads acid, fissures can launch real spears, and brood fusions can hatch or split. Secondary effects are limited to a single anchor per move to avoid bullet spam.
+- Shock attacks use warned electric paths rather than disguised round explosions; mutant spears are targeted piercing volleys rather than generic radial bullets. Mortar shells land at the actual delivery points.
+- Added automated checks for two Lancer attack ranges and distinct fusion donor mechanics.
+
 ## v0.1.98 — Mutation body color and parent attacks
 
 - The first parent now supplies every mutation's main body color, held weapon color, warnings, projectiles, explosions, and delayed effects.

@@ -1342,9 +1342,9 @@ func paint_telegraphs() -> void:
 					var sector_poly := PackedVector2Array([p])
 					for step_i in range(25):
 						var theta: float = angle - 1.152 + float(step_i) / 24.0 * 2.304
-						sector_poly.append(p + Vector2.from_angle(theta) * 166.0)
+						sector_poly.append(p + Vector2.from_angle(theta) * Combat.LANCER_SWEEP_RANGE)
 					draw_colored_polygon(sector_poly, tc(e, Color("aabaff", 0.16)))
-					draw_arc(p, 166.0, angle - 1.152, angle + 1.152, 40, tc(e, Color("c5d5ff", 0.83)), 3.0)
+					draw_arc(p, Combat.LANCER_SWEEP_RANGE, angle - 1.152, angle + 1.152, 40, tc(e, Color("c5d5ff", 0.83)), 3.0)
 				else:
 					draw_line(p, p + lance_dir * 610.0, tc(e, Color("b9ccff", 0.21)), 19.0)
 					draw_line(p, p + lance_dir * 610.0, tc(e, Color("e2eaff", 0.78)), 3.0)
@@ -2917,7 +2917,7 @@ func paint_shots() -> void:
 					continue
 				if bool(s.get("spear", false)):
 					# The Lancer's actual spear in flight, with a speed streak.
-					draw_line(p - d * 70.0, p - d * 22.0, dimc(Color("c8d5ff", 0.35)), 6.0)
+					draw_line(p - d * 70.0, p - d * 22.0, dimc(Color(Color(s.get("color", Color("c8d5ff"))), 0.35)), 6.0)
 					var side: Vector2 = d.orthogonal()
 					draw_line(p - d * 26.0, p + d * 10.0, dimc(Color("140d17")), 5.0, true)
 					draw_line(p - d * 26.0, p + d * 10.0, dimc(Color("9a6a3c")), 2.6, true)

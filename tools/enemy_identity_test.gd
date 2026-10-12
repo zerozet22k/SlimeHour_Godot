@@ -3,6 +3,7 @@ extends SceneTree
 const Main = preload("res://scripts/Main.gd")
 const Combat = preload("res://scripts/Combat.gd")
 const Mixes = preload("res://scripts/EnemyMixes.gd")
+const MutationKit = preload("res://scripts/MutationKit.gd")
 
 class SilentSfx:
 	extends RefCounted
@@ -105,10 +106,16 @@ func _run() -> void:
 	check(str(lancer.get("lancer_attack", "")) == "sweep" and float(lancer["wind"]) > 0.0, "Close-range Lancer commits to wide melee sweep")
 	lancer["wind"] = 0.0
 	lancer["cd"] = 0.0
-	Combat.ai(g, lancer, Vector2.DOWN, 400.0, 0.016, false)
+	Combat.ai(g, lancer, Vector2.DOWN, 220.0, 0.016, false)
 	check(str(lancer.get("lancer_attack", "")) == "spear" and float(lancer["wind"]) > 0.0, "Distant Lancer switches to piercing spear throw")
-	Combat.ai(g, lancer, Vector2.DOWN, 400.0, 0.90, false)
+	Combat.ai(g, lancer, Vector2.DOWN, 220.0, 0.90, false)
 	check(g.shots.size() == 1 and int(g.shots[0]["pierce"]) >= 3, "Thrown spear is a real heavy piercing projectile")
+	check(Combat.lancer_mode(177.0) == "sweep" and Combat.lancer_mode(178.0) == "spear",
+		"Two Lancer modes switch precisely at real melee reach, not the old 240px dead zone")
+	check(Combat.lancer_sweep_hits(Vector2.ZERO, Vector2.RIGHT, Vector2(170, 0)) and not Combat.lancer_sweep_hits(Vector2.ZERO, Vector2.RIGHT, Vector2(220, 0)),
+		"Sweep hits in range, but cannot damage beyond its visible warning")
+	check(not Combat.lancer_sweep_hits(Vector2.ZERO, Vector2.RIGHT, Vector2(-100, 0)),
+		"Sweep cannot hit enemies behind its directional sector")
 	g.delayed.clear()
 	g.shots.clear()
 	var mole = specimen(g, "burrower")
@@ -147,6 +154,21 @@ func _run() -> void:
 	phoenix["rebirth_t"] = 0.0
 	Combat.kill(g, phoenix, {"gen": 1, "pos": phoenix["pos"]}, 0.0)
 	check(float(phoenix.get("rebirth_t", 0.0)) > 0.0 and not bool(phoenix["dead"]), "Adult Ashwing can produce a second egg and repeat indefinitely")
+	# The donor must participate in the real attack, including line attacks.
+	var fusion_a := Mixes.ensure(g.enemy_db, "mirror", "blob")
+	var fusion_b := Mixes.ensure(g.enemy_db, "burrower", "lancer")
+	var mut_src = specimen(g, fusion_a, 83)
+	mut_src["mut_of"] = fusion_a
+	g.delayed.clear()
+	MutationKit.launch(g, mut_src, MutationKit.signatures(g, fusion_a))
+	check(g.delayed.any(func(d): return str(d.get("effect", "")) == "shards" and str(d.get("lender", "")) == "glue"),
+		"Mirror + Blob carries real glue as well as the prism projectile attack")
+	mut_src = specimen(g, fusion_b, 84)
+	mut_src["mut_of"] = fusion_b
+	g.delayed.clear()
+	MutationKit.launch(g, mut_src, MutationKit.signatures(g, fusion_b))
+	check(g.delayed.any(func(d): return str(d.get("effect", "")) == "" and str(d.get("lender", "")) == "spear"),
+		"Burrower + Lancer fissure lines preserve a real spear follow-through")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('enemy_has_role(e, "leech")') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
 	check(visuals.contains('"acid_trail"') and visuals.contains('"blink_slash"') and visuals.contains("lancer_attack"), "The five mechanics have visible, hitbox-matched tells")

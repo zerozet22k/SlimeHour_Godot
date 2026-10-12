@@ -326,11 +326,23 @@ static func launch(g, e: Dictionary, sigs: Array) -> void:
 			if extend > 0.0 and a.distance_to(b) < extend:
 				b = a + (b - a).normalized() * extend
 			C.schedule_boss_line(g, a, b, float(skin.get("width", 12.0)), dmg * 0.55, l[2], col, str(p["effect"]))
+		# A line power no longer deletes the second parent's actual signature.
+		# Give its donor ONE telegraphed follow-through, not a barrage per spoke.
+		if not lines.is_empty():
+			var tt: float = float(lines[0][2]) + 0.12
+			g.delayed.append({"fn": "mut_anchor", "pos": target, "t": tt, "life": tt,
+				"src_enemy": e, "effect": "", "lender": str(p["lender"]),
+				"k": 0.42, "color": col, "support": false})
 		return
 	var k := clampf(1.3 / sqrt(float(maxi(1, points.size()))), 0.45, 1.0)
-	for pt in points:
+	for index in range(points.size()):
+		var pt = points[index]
 		var item := {"fn": "mut_anchor", "pos": pt[0], "t": pt[1], "life": pt[1], "src_enemy": e,
 			"effect": p["effect"], "k": k, "color": col}
+		# The first impact carries the donor's real power; remaining impacts
+		# only carry the body effect, preventing 12× duplicate bombs/lasers.
+		if index == 0:
+			item["lender"] = str(p["lender"])
 		if pt[2] != null:
 			item["from"] = pt[2]
 		if support:
@@ -352,11 +364,99 @@ static func resolve_anchor(g, item: Dictionary) -> void:
 		g.spawn_ring_fx(pos, col, 24.0)
 	g.spawn_ring_fx(pos, col, 26.0)
 	var before: int = g.delayed.size()
-	apply_effect(g, src, pos, str(item.get("effect", "")), false, float(item.get("k", 1.0)))
+	if str(item.get("effect", "")) != "":
+		apply_effect(g, src, pos, str(item["effect"]), false, float(item.get("k", 1.0)))
+	if str(item.get("lender", "")) != "":
+		inherited_strike(g, src, pos, str(item["lender"]), bool(item.get("support", false)), col)
 	for k in range(before, g.delayed.size()):
 		g.delayed[k]["mut_payload"] = true
 		if src.has("mut_col"):
 			g.delayed[k]["mut_col"] = str(src["mut_col"])
+
+## Second-parent abilities are delivered at ONE impact of the body move.
+## This makes fusion mechanical: glue traps follow prism shards, acid follows
+## fire, a lancer's fissure sprouts actual spears, and brood powers really hatch.
+## Keep the donor intentionally lighter than the body power.
+static func inherited_strike(g, e: Dictionary, pos: Vector2, lender: String, support: bool, col: Color) -> void:
+	var C = load("res://scripts/Combat.gd")
+	var EI = load("res://scripts/EnemyIdentity.gd")
+	var hero: Vector2 = g.hero["pos"]
+	var toward: Vector2 = (hero - pos).normalized() if hero.distance_squared_to(pos) > 1.0 else Vector2.DOWN
+	var dmg: float = float(e["dmg"])
+	# A support-body mutation must not turn its friend's buff into player damage.
+	if support:
+		for ally in g.enemies_near(pos, 160.0):
+			if bool(ally.get("dead", false)) or bool(ally.get("boss", false)):
+				continue
+			match lender:
+				"rush", "shove", "blink", "spear":
+					ally["sprint_t"] = maxf(float(ally.get("sprint_t", 0.0)), 1.6)
+				"shield", "shell", "guard", "slam":
+					ally["siphon_empowered_t"] = maxf(float(ally.get("siphon_empowered_t", 0.0)), 1.8)
+				_:
+					ally["hp"] = minf(float(ally["max_hp"]), float(ally["hp"]) + float(ally["max_hp"]) * 0.05)
+		g.spawn_ring_fx(pos, col, 58.0)
+		return
+	match lender:
+		"glue", "latch":
+			# Actual slowing hazard rather than an unrelated explosion.
+			if hero.distance_to(pos) < 75.0:
+				g.hero["arena_corrosion_t"] = maxf(float(g.hero.get("arena_corrosion_t", 0.0)), 1.0)
+			g.spawn_ring_fx(pos, col, 72.0)
+		"poison":
+			EI.place(g, "acid", pos, 65.0, dmg * 0.18, 2.6, 0.24, col.to_html(false))
+		"fire":
+			EI.place(g, "fire", pos, 66.0, dmg * 0.18, 1.8, 0.34, col.to_html(false))
+		"shards":
+			# Mirror contribution: a compact pinwheel of real projectiles.
+			for i in range(4):
+				var sd := toward.rotated((float(i) - 1.5) * 0.43)
+				C.shot(g, pos, sd, dmg * 0.22, {"friendly": false, "speed": 430.0,
+					"life": 1.0, "r": 4.0, "kind": "enemy", "color": col, "src": "mutant mirror shards"})
+		"spear":
+			var sp = C.shot(g, pos, toward, dmg * 0.45, {"friendly": false,
+				"speed": 740.0, "life": 1.15, "r": 7.0, "kind": "enemy", "color": col, "src": "a mutant lance"})
+			if sp != null:
+				sp["pierce"] = 3
+				sp["spear"] = true
+		"quake":
+			C.schedule_boss_line(g, pos, pos + toward * 185.0, 11.0, dmg * 0.35, 0.35, col.to_html(false), "quake")
+		"shock":
+			var side := toward.orthogonal()
+			C.schedule_boss_line(g, pos, pos + toward * 190.0 + side * 45.0, 7.0, dmg * 0.3, 0.35, col.to_html(false), "shock")
+		"rush":
+			# Skitter / Zoomer blood: a short dash that changes the body's attack
+			# position, with a retained speed buff after the strike.
+			e["sprint_t"] = maxf(float(e.get("sprint_t", 0.0)), 1.5)
+			g.spawn_ring_fx(pos, col, 36.0)
+		"shove", "slam", "shield":
+			if hero.distance_to(pos) < 110.0:
+				g.hero["push"] = Vector2(g.hero.get("push", Vector2.ZERO)) + toward * 200.0
+			g.spawn_ring_fx(pos, col, 90.0)
+		"split", "hatch":
+			# Budget is per move. No infinite mini/egg multiplication.
+			apply_effect(g, e, pos, lender, false, 0.65)
+		"heal", "guard", "rally":
+			apply_effect(g, e, pos, lender, false, 0.5)
+		"drain":
+			if hero.distance_to(pos) < 90.0:
+				e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.07)
+				g.spawn_ring_fx(pos, col, 50.0)
+		"blink":
+			# The body keeps control; the donor leaves a visible rift on impact.
+			g.spawn_ring_fx(pos, col, 80.0)
+		"sticky":
+			# Sticky payload on the hit position; must catch the player first.
+			g.delayed.append({"fn": "mut_hit", "pos": pos, "t": 0.5, "life": 0.5,
+				"tele": 53.0, "color": col.to_html(false), "src_enemy": e, "payload": "sticky"})
+		"shell", "explode":
+			C.schedule_boss_blast(g, pos, 48.0, dmg * 0.33, 0.48, col.to_html(false))
+		"laser":
+			C.schedule_boss_line(g, pos, pos + toward * 380.0, 6.0, dmg * 0.28, 0.55, col.to_html(false))
+		"steal":
+			if hero.distance_to(pos) <= 70.0 and g.gold > 0:
+				g.gold -= 1
+				g.say(hero + Vector2(0, -28), "-1 GOLD", col, 15)
 
 ## On-hit powers (glue, steal, sticky...) landing away from you become a warned
 ## circle that applies them if it catches you.
@@ -435,8 +535,11 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				g.hero["arena_stagger_t"] = maxf(float(g.hero.get("arena_stagger_t", 0.0)), 1.0)
 			else:
 				var hops := maxi(1, roundi(3.0 * k))
+				var prev: Vector2 = pos
 				for b in range(hops):
-					C.schedule_boss_blast(g, pos.lerp(hero, float(b + 1) / float(hops)), 44.0, dmg * 0.5, 0.45 + 0.2 * b, _c(e, "9fd0ff"))
+					var next: Vector2 = pos.lerp(hero, float(b + 1) / float(hops))
+					C.schedule_boss_line(g, prev, next, 9.0, dmg * 0.38, 0.4 + 0.16 * b, _c(e, "9fd0ff"), "shock")
+					prev = next
 		"drain":
 			e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.15)
 			g.spawn_ring_fx(e["pos"], Color(_c(e, "b77dff")), 30.0)
@@ -463,8 +566,11 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				if e.has("mut_col") and g.enemy_hazards.size() > hazards_before:
 					g.enemy_hazards[-1]["mut_col"] = str(e["mut_col"])
 		"shell":
-			for b in range(maxi(1, roundi(3.0 * k))):
-				C.schedule_boss_blast(g, hero + Vector2(randf_range(-70, 70), randf_range(-70, 70)), 54.0, dmg * 0.6, 0.9 + 0.25 * b, _c(e, "f2ad6b"))
+			# Land on the delivery anchors, not three generic bombs at the
+			# hero's *current* position regardless of the inherited pattern.
+			for b in range(maxi(1, roundi(2.0 * k))):
+				var spread: Vector2 = Vector2.ZERO if b == 0 else Vector2(randf_range(-48, 48), randf_range(-48, 48))
+				C.schedule_boss_blast(g, pos + spread, 54.0, dmg * 0.58, 0.75 + 0.18 * b, _c(e, "f2ad6b"))
 		"blink":
 			var from: Vector2 = e["pos"]
 			e["pos"] = pos
@@ -495,12 +601,14 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				g.hero["sticky_bomb"] = {"t": 2.2, "dmg": dmg * 1.2, "color": _c(e, "ff7a46")}
 				g.say(hero + Vector2(0, -40), "STICKY BOMB! DASH!", Color("ffb07a"), 18)
 		"spear":
-			# Piercing spears: a starburst alone, a fan at you from an anchor.
-			var count := maxi(3, roundi(8.0 * k))
+			# Targeted piercing javelins, NOT the same eight-way radial burst
+			# inherited by every mutation. Wide sweep lives in Lancer's melee mode.
+			var count := maxi(1, roundi(3.0 * k))
 			for b in range(count):
-				var sd: Vector2 = Vector2.from_angle(toward.angle() + TAU * float(b) / float(count)) if k >= 1.0 else toward.rotated((float(b) / float(count - 1) - 0.5) * 0.9)
-				var sp = C.shot(g, pos + sd * 14.0, sd, dmg * 0.6, {"friendly": false, "speed": 620.0,
-					"life": 1.1, "r": 7.0, "kind": "enemy", "color": Color(_c(e, "c8d5ff")), "src": "a mutant spear"})
+				var offset: float = (float(b) - float(count - 1) * 0.5) * 0.21
+				var sd: Vector2 = toward.rotated(offset)
+				var sp = C.shot(g, pos + sd * 14.0, sd, dmg * 0.62, {"friendly": false, "speed": 700.0,
+					"life": 1.4, "r": 7.0, "kind": "enemy", "color": Color(_c(e, "c8d5ff")), "src": "a mutant spear"})
 				if sp != null:
 					sp["pierce"] = 3
 					sp["spear"] = true

@@ -16,6 +16,25 @@ const CELL = 72.0
 const TOTEM_R = 230.0
 const STATUSES = ["burn", "freeze", "shock", "poison", "bleed", "slow", "charm", "wet", "mark"]
 
+# Lancer has two real modes. The transition must not exceed the hit-tested sweep.
+const LANCER_SWEEP_RANGE := 166.0
+const LANCER_MELEE_SWITCH := 177.0
+const LANCER_THROW_RANGE := 610.0
+
+static func lancer_mode(distance: float) -> String:
+	return "sweep" if distance <= LANCER_MELEE_SWITCH else "spear"
+
+static func lancer_sweep_hits(origin: Vector2, locked: Vector2, target: Vector2, hero_radius: float = 11.0) -> bool:
+	var offset := target - origin
+	var reach := LANCER_SWEEP_RANGE + hero_radius
+	if offset.length_squared() > reach * reach:
+		return false
+	if offset.length_squared() < 0.001:
+		return true
+	if locked.length_squared() < 0.001:
+		return false
+	return locked.normalized().dot(offset.normalized()) >= cos(1.152)
+
 # ================================================================= grid
 static func build_grid(g) -> void:
 	var grid = {}
@@ -1974,10 +1993,10 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 						aim = dir
 					if str(e.get("lancer_attack", "spear")) == "sweep":
 						var toward: Vector2 = hero_pos - Vector2(e["pos"])
-						if toward.length_squared() <= 166.0 * 166.0 and (toward.length_squared() < 0.01 or aim.dot(toward.normalized()) >= 0.4067):
+						if lancer_sweep_hits(Vector2(e["pos"]), aim, hero_pos):
 							g.hurt(float(e["dmg"]) * 1.25, e["pos"], "a Lancer's wide spear sweep")
 						g.fx.append({"kind": "slash", "pos": e["pos"], "vel": Vector2.ZERO, "t": 0.0, "life": 0.32,
-							"color": Color("c8d5ff"), "size": 166.0, "dir": aim.angle(), "arc": 1.15})
+							"color": Color(str(e.get("mut_col", "c8d5ff"))), "size": LANCER_SWEEP_RANGE, "dir": aim.angle(), "arc": 1.152})
 						e["swing_at"] = float(e["t"])
 						e["swing_dir"] = aim.angle()
 					else:
@@ -1987,10 +2006,12 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 							spear["dmg"] = float(e["dmg"]) * 1.15
 							spear["life"] = 1.8
 							spear["spear"] = true
+							spear["color"] = Color(str(e.get("mut_col", "c8d5ff")))
 						e["throw_at"] = float(e["t"])
 				return Vector2.ZERO
-			if float(e["cd"]) <= 0.0 and dist < 610.0:
-				if dist <= 240.0:
+			if float(e["cd"]) <= 0.0 and dist < LANCER_THROW_RANGE:
+				var mode := lancer_mode(dist)
+				if mode == "sweep":
 					e["lancer_attack"] = "sweep"
 					e["cd"] = 2.65 if not g.hard_mode else 2.20
 					e["wind"] = 0.60
@@ -1998,7 +2019,7 @@ static func ai(g, e: Dictionary, dir: Vector2, dist: float, dt: float, charmed: 
 					e["lancer_attack"] = "spear"
 					e["cd"] = 3.0 if not g.hard_mode else 2.45
 					e["wind"] = 0.55
-				e["lock"] = hero_pos + g.hero["vel"] * (0.10 if dist <= 240.0 else 0.31)
+				e["lock"] = hero_pos + Vector2(g.hero["vel"]) * (0.10 if mode == "sweep" else 0.31)
 				return Vector2.ZERO
 			return dir if dist > 170.0 else -dir * 0.25
 		"leech":
