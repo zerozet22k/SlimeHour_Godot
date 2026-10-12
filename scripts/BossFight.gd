@@ -13,7 +13,6 @@ extends RefCounted
 ##  * Bullet rings leave room to slip between bullets or a deliberate gap.
 ##  * Bullets and hazards are owned by the boss and vanish with it.
 
-const OWNED_CAP := 210
 const HAZARD_CAP := 96
 const TRANSITION_TIME := 1.5
 
@@ -239,8 +238,7 @@ static func src(g, e: Dictionary) -> String:
 ## accel/min/max (speed change), turn (rad/s), stop_t, aim_t, aim_speed,
 ## aim_point, homing + homing_t, wave, split (+ split_speed/split_shape).
 static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: Dictionary = {}) -> Variant:
-	if int(e.get("bf_owned", 0)) >= int(OWNED_CAP * density(g)) or g.shots.size() >= g.shot_cap() - 6:
-		return null
+	# No per-boss bullet cap: monsters are capped, bullets are not.
 	var kind: String = str(e["kind"])
 	var color: Color = o.get("color", Color(PALETTE.get(kind, "ff9944")))
 	var s = C().shot(g, pos, dir, float(e["dmg"]) * float(o.get("dmg", 0.3)),

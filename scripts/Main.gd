@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.92"
+const GAME_VERSION = "v0.1.93"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -49,7 +49,7 @@ var state = "menu"          # menu settings collection playing paused levelup re
 var settings_back = "menu"
 var phase = "fight"         # fight | cleared | map | shop | rest | treasure
 var arsenal_back = "playing"
-var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "shake": 1.0, "numbers": true, "particles": true, "vfx_quality": "medium",
+var settings = {"sfx": 0.7, "music": 0.45, "sensitivity": 1.0, "cursor": 1.0, "shake": 1.0, "numbers": true, "particles": true, "vfx_quality": "medium", "live_eyes": false,
 	"aim": "auto" if OS.has_feature("mobile") else "mouse",
 	"autofire": OS.has_feature("mobile"), "hints": true, "touch": "auto", "controls_v2": true}
 var best = {"sector": 0, "kills": 0, "level": 0}
@@ -3400,6 +3400,11 @@ func toggle_setting(key: String) -> void:
 		"fullscreen":
 			var win = get_window()
 			win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_EXCLUSIVE_FULLSCREEN else Window.MODE_EXCLUSIVE_FULLSCREEN
+		"live_eyes":
+			# Eyes that follow you are drawn live; the default bakes still
+			# pupils into the sprites, which is much cheaper in big crowds.
+			settings["live_eyes"] = not bool(settings.get("live_eyes", false))
+			visuals.rebake_eyes()
 		_:
 			if settings.has(key):
 				settings[key] = not bool(settings[key])

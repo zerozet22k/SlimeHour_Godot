@@ -933,7 +933,7 @@ func paint_portrait_settings() -> void:
 	var rows = [
 		["SOUND", "%d%%" % roundi(float(g.settings["sfx"]) * 100), "sfx"],
 		["MUSIC", "%d%%" % roundi(float(g.settings["music"]) * 100), "music"],
-		["SENSITIVITY", "%d%%" % roundi(float(g.settings["sensitivity"]) * 100), "sensitivity"],
+		["MONSTER EYES", "FOLLOW YOU" if bool(g.settings.get("live_eyes", false)) else "STATIC (FAST)", "live_eyes"],
 		["CURSOR", cursor_label(), "cursor"],
 		["TOUCH", str(g.settings["touch"]).to_upper(), "touch"],
 		["AIM", "AUTO" if g.settings["aim"] == "auto" else "MANUAL", "aim"],
@@ -1860,7 +1860,7 @@ func paint_settings() -> void:
 	var rows = [
 		["SOUND", "%d%%" % roundi(float(s["sfx"]) * 100), "sfx"],
 		["MUSIC", "%d%%" % roundi(float(s["music"]) * 100), "music"],
-		["SENSITIVITY", "%d%%" % roundi(float(s["sensitivity"]) * 100), "sensitivity"],
+		["MONSTER EYES", "FOLLOW YOU" if bool(s.get("live_eyes", false)) else "STATIC (FAST)", "live_eyes"],
 		["CURSOR SIZE", cursor_label(), "cursor"],
 		["TOUCH CONTROLS", ("AUTO" if s.get("touch", "auto") == "auto" else str(s["touch"]).to_upper()) if OS.has_feature("mobile") else "OFF (DESKTOP)", "touch"],
 		["AIM", "AUTO-TARGET" if s["aim"] == "auto" else ("TOUCH" if OS.has_feature("mobile") else "MOUSE"), "aim"],

@@ -1753,7 +1753,24 @@ class Baker extends Node2D:
 			if elite or bool(v.g.enemy_db[kind].get("boss", false)):
 				draw_circle(Vector2.ZERO, 47.0, Color(1.0, 0.82, 0.3, 0.22))
 			v.draw_enemy_body(self, kind, elite, 40.0, Color(str(v.g.enemy_db[kind]["color"])), false, portrait)
+			if v.baked_pupils() and not bool(v.g.enemy_db[kind].get("boss", false)):
+				v.bake_pupils(self, kind, 40.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## Static pupils baked into the sprites (the default, for performance).
+func baked_pupils() -> bool:
+	return not bool(g.settings.get("live_eyes", false))
+
+func bake_pupils(ci: CanvasItem, kind: String, r: float) -> void:
+	if str(g.enemy_db[kind].get("look", {}).get("face", "")) == "visor":
+		return
+	var eye_r := maxf(3.5, r * 0.3)
+	for ex in ([0.0] if kind == "necro" else [-0.36, 0.36]):
+		ci.draw_circle(Vector2(ex * r, -r * 0.18 + eye_r * 0.2), eye_r * 0.5, Color("120810"))
+
+func rebake_eyes() -> void:
+	if atlas != null:
+		bake_enemies()
 
 func bake_enemies() -> void:
 	if DisplayServer.get_name() == "headless":
@@ -1978,7 +1995,8 @@ func draw_enemy(e: Dictionary, p: Vector2, r: float) -> void:
 			var ep = p + Vector2(ex * r * sx, ey)
 			# Pupils use the clean dot texture and are drawn in the extras
 			# pass, so pass 1 stays one unbroken batch of atlas sprites.
-			if not extras:
+			# With live eyes off they are baked into the sprite instead.
+			if not extras or baked_pupils():
 				pass
 			elif big_head:
 				dot_rect(Rect2(ep - Vector2(eye_r, eye_r) * 1.6, Vector2(eye_r, eye_r) * 3.2), Color.WHITE)

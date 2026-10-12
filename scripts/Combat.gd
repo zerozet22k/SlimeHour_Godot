@@ -224,11 +224,15 @@ static func update_delayed(g, dt: float) -> void:
 					MutationKit.resolve(g, item)
 
 # ================================================================= projectiles
+const ENEMY_SHOT_SAFETY := 2500
+
 static func shot(g, pos: Vector2, dir: Vector2, dmg: float, o: Dictionary) -> Variant:
 	var friendly = bool(o.get("friendly", true))
 	if friendly and g.shots.size() >= g.shot_cap():
 		return null
-	if not friendly and g.shots.size() >= g.shot_cap():
+	# Enemy bullets are not capped by the player's shot budget: only a very
+	# high safety net, so dense boss patterns always fire in full.
+	if not friendly and g.shots.size() >= ENEMY_SHOT_SAFETY:
 		return null
 	var spd = float(o.get("speed", 700.0))
 	var radius = minf(float(o.get("r", 4.0)), g.projectile_size_cap()) if friendly else float(o.get("r", 4.0))

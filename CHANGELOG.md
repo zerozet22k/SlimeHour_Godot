@@ -1,3 +1,8 @@
+## v0.1.93 — Uncapped boss bullets, Monster Eyes option
+
+- **Bullets are not capped:** the per-boss bullet limit is gone and enemy bullets no longer share your shot budget, so dense late patterns always fire in full. Monsters stay capped.
+- **New setting, MONSTER EYES:** STATIC (FAST) by default bakes the pupils into the sprites, which is cheaper in big fights. FOLLOW YOU brings back eyes that track you. This replaces the Sensitivity setting, which no longer did anything.
+
 ## v0.1.92 — Late bosses fill the screen
 
 - Late boss bullet patterns keep getting denser after sector 30: up to 2.6x the shots by sector 50 (was capped at 1.7x). The per-boss bullet limit grows with them.

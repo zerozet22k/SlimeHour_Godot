@@ -107,7 +107,7 @@ func fight(g, kind: String) -> void:
 			check(seen.has(attack), kind + ": performed " + str(attack))
 	check(phases_seen.size() == 3, kind + ": went through all three phases")
 	check(max_shots >= 30, kind + ": bullet-hell density (%d bullets)" % max_shots)
-	check(max_shots <= int(BossFight.OWNED_CAP * BossFight.density(g)) and max_hazards <= BossFight.HAZARD_CAP, kind + ": bullets and hazards stay bounded")
+	check(max_hazards <= BossFight.HAZARD_CAP, kind + ": warned hazards stay bounded")
 	Combat.kill(g, boss, {"gen": 0, "pos": boss["pos"]}, 0.0)
 	check(not g.delayed.any(func(d): return int(d.get("owner", -1)) == int(boss["id"])), kind + ": warnings vanish on death")
 	check(not g.shots.any(func(s): return int(s.get("boss_owner", -1)) == int(boss["id"]) and not bool(s["dead"])), kind + ": bullets vanish on death")
