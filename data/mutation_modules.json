@@ -1,0 +1,356 @@
+{
+  "_doc": "Transferable monster identities. No pairing references or canned effect + shape attacks. Each donor lends one module; receiver advertises affordances; generic event interpreter executes the module, bounded by cooldown and threat cost.",
+  "receivers": {
+    "blob": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "zoomer": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "chonk": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "spitter": [
+      "active",
+      "mobile",
+      "projectile"
+    ],
+    "kaboomba": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "mitosis": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "mini": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "riot": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "bull": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "mama": [
+      "active",
+      "mobile",
+      "support"
+    ],
+    "mortar": [
+      "active",
+      "mobile",
+      "projectile"
+    ],
+    "totem": [
+      "active",
+      "support"
+    ],
+    "blinky": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "tick": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "goblin": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "ashwing": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "mirror": [
+      "active",
+      "mobile",
+      "projectile"
+    ],
+    "burrower": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "siren": [
+      "active",
+      "mobile",
+      "support"
+    ],
+    "skitter": [
+      "active",
+      "mobile",
+      "contact"
+    ],
+    "sapper": [
+      "active",
+      "mobile",
+      "projectile"
+    ],
+    "lancer": [
+      "active",
+      "mobile",
+      "projectile"
+    ],
+    "leech": [
+      "active",
+      "mobile",
+      "support"
+    ],
+    "nurse": [
+      "active",
+      "mobile",
+      "support"
+    ],
+    "larry": [
+      "active",
+      "mobile",
+      "projectile"
+    ]
+  },
+  "donors": {
+    "blob": {
+      "module": "pack_link",
+      "label": "pack linking",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 2,
+      "cooldown": 5.5
+    },
+    "zoomer": {
+      "module": "orbit_sprint",
+      "label": "orbit sprint",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 2,
+      "cooldown": 5.5
+    },
+    "chonk": {
+      "module": "belly_shock",
+      "label": "belly shock",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "spitter": {
+      "module": "acid_track",
+      "label": "acid trail",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "kaboomba": {
+      "module": "death_fuse",
+      "label": "delayed fuse",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "mitosis": {
+      "module": "cell_bud",
+      "label": "live splitting",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    },
+    "mini": {
+      "module": "aim_evasion",
+      "label": "aim evasiveness",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 2,
+      "cooldown": 5.5
+    },
+    "riot": {
+      "module": "front_guard",
+      "label": "directional shield",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "bull": {
+      "module": "impact_charge",
+      "label": "obstacle-shoving charge",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "mama": {
+      "module": "lay_egg",
+      "label": "breakable egg",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    },
+    "mortar": {
+      "module": "aimed_shell",
+      "label": "predicted artillery",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "totem": {
+      "module": "ward_link",
+      "label": "ally protection",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "blinky": {
+      "module": "rift_slash",
+      "label": "teleport slash",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "tick": {
+      "module": "parasite_latch",
+      "label": "clinging parasite",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "goblin": {
+      "module": "coin_snatch",
+      "label": "gold theft",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 2,
+      "cooldown": 5.5
+    },
+    "ashwing": {
+      "module": "phoenix_egg",
+      "label": "single breakable rebirth",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 5,
+      "cooldown": 6.8
+    },
+    "mirror": {
+      "module": "reflect_shot",
+      "label": "projectile reflection",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    },
+    "burrower": {
+      "module": "burrow_ambush",
+      "label": "underground ambush",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    },
+    "siren": {
+      "module": "command_pulse",
+      "label": "synchronized rally",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "skitter": {
+      "module": "ricochet_dash",
+      "label": "ricocheting dash and rounds",
+      "requires_any": [
+        "mobile"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "sapper": {
+      "module": "sticky_throw",
+      "label": "removable sticky charge",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "lancer": {
+      "module": "piercing_lance",
+      "label": "piercing spear",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "leech": {
+      "module": "blood_link",
+      "label": "breakable blood conduit",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    },
+    "nurse": {
+      "module": "triage",
+      "label": "interruptible ally treatment",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 3,
+      "cooldown": 5.5
+    },
+    "larry": {
+      "module": "overheat_beam",
+      "label": "channeled beam and overheat",
+      "requires_any": [
+        "active"
+      ],
+      "cost": 4,
+      "cooldown": 6.8
+    }
+  }
+}

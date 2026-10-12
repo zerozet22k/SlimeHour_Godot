@@ -4,6 +4,7 @@ const Main = preload("res://scripts/Main.gd")
 const Combat = preload("res://scripts/Combat.gd")
 const Mixes = preload("res://scripts/EnemyMixes.gd")
 const MutationKit = preload("res://scripts/MutationKit.gd")
+const FusionGenome = preload("res://scripts/FusionGenome.gd")
 
 class SilentSfx:
 	extends RefCounted
@@ -154,21 +155,27 @@ func _run() -> void:
 	phoenix["rebirth_t"] = 0.0
 	Combat.kill(g, phoenix, {"gen": 1, "pos": phoenix["pos"]}, 0.0)
 	check(float(phoenix.get("rebirth_t", 0.0)) > 0.0 and not bool(phoenix["dead"]), "Adult Ashwing can produce a second egg and repeat indefinitely")
-	# The donor must participate in the real attack, including line attacks.
+	# The live mutation interpreter grafts real behavior modules, not a
+	# shape that spams the body effect at donor-chosen points.
 	var fusion_a := Mixes.ensure(g.enemy_db, "mirror", "blob")
 	var fusion_b := Mixes.ensure(g.enemy_db, "burrower", "lancer")
 	var mut_src = specimen(g, fusion_a, 83)
 	mut_src["mut_of"] = fusion_a
+	mut_src["graft_cd"] = 0.0
 	g.delayed.clear()
-	MutationKit.launch(g, mut_src, MutationKit.signatures(g, fusion_a))
-	check(g.delayed.any(func(d): return str(d.get("effect", "")) == "shards" and str(d.get("lender", "")) == "glue"),
-		"Mirror + Blob carries real glue as well as the prism projectile attack")
+	MutationKit.fusion_move(g, mut_src)
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "genome_graft" and str(d.get("module", "")) == "pack_link"),
+		"Mirror + Blob inherits pack linking rather than generic shard/glue waves")
 	mut_src = specimen(g, fusion_b, 84)
 	mut_src["mut_of"] = fusion_b
+	mut_src["graft_cd"] = 0.0
 	g.delayed.clear()
-	MutationKit.launch(g, mut_src, MutationKit.signatures(g, fusion_b))
-	check(g.delayed.any(func(d): return str(d.get("effect", "")) == "" and str(d.get("lender", "")) == "spear"),
-		"Burrower + Lancer fissure lines preserve a real spear follow-through")
+	MutationKit.fusion_move(g, mut_src)
+	check(g.delayed.any(func(d): return str(d.get("fn", "")) == "genome_graft" and str(d.get("module", "")) == "piercing_lance"),
+		"Burrower + Lancer inherits one piercing spear, not a twelve-lane quake barrage")
+	check(Mixes.ensure(g.enemy_db, "zoomer", "skitter") != "" and
+		FusionGenome.trait_name("zoomer", "skitter") != FusionGenome.trait_name("skitter", "zoomer"),
+		"Skitter ricochet and Zoomer orbit are distinct donor mechanics")
 	var visuals = FileAccess.get_file_as_string("res://scripts/Visuals.gd")
 	check(visuals.contains('enemy_has_role(e, "leech")') and visuals.contains('e.get("burrowing", false)'), "Unique warning geometry is actually drawn")
 	check(visuals.contains('"acid_trail"') and visuals.contains('"blink_slash"') and visuals.contains("lancer_attack"), "The five mechanics have visible, hitbox-matched tells")

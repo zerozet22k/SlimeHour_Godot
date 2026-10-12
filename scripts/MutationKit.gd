@@ -1,4 +1,5 @@
 extends RefCounted
+const FusionGenome = preload("res://scripts/FusionGenome.gd")
 ## Mutations fuse their parents' signature powers into ONE combined move
 ## (see "fusion moves" below and data/fusion.json). The body decides WHAT
 ## the move does, the other parent HOW it is delivered:
@@ -87,7 +88,7 @@ static func display_name(g, kind: String) -> String:
 	var p := parents(g, kind)
 	if p.size() < 2:
 		return ""
-	return str(PAYLOAD_NAMES.get(payload_for(kind, str(p[1])), "Mutant")) + " " + str(g.enemy_db[str(p[0])]["name"])
+	return FusionGenome.trait_name(str(p[0]), str(p[1])).capitalize() + " " + str(g.enemy_db[str(p[0])]["name"])
 
 ## ---------------------------------------------------------------- fusion moves
 ## Nothing here knows any particular pair: a new monster only needs "gives"
@@ -151,15 +152,15 @@ static func move_name(g, kind: String) -> String:
 static func tick(g, e: Dictionary, dt: float) -> void:
 	if not str(e["kind"]).begins_with("mix_"):
 		return
-	e["mut_move_t"] = float(e.get("mut_move_t", 2.2)) - dt
-	if float(e["mut_move_t"]) <= 0.0 and Vector2(e["pos"]).distance_to(g.hero["pos"]) < 640.0:
-		fusion_move(g, e)
+	# All live fusions use behavior grafts. The old effect/shape interpreter is
+	# kept below for historic save migration but is never invoked by live AI.
+	FusionGenome.tick(g, e, dt)
 
 static func on_attack(g, e, pos: Vector2, hit_player: bool) -> void:
 	if e == null or bool(e.get("dead", false)) or not is_mutant(g, e):
 		return
-	if float(e.get("mut_move_t", 2.2)) <= 1.2:
-		fusion_move(g, e)
+	if float(e.get("graft_cd", 2.3)) <= 0.55:
+		FusionGenome.cast(g, e)
 
 ## The body attacked without a projectile (a dash, a slam, a sweep...).
 static func strike(g, e: Dictionary) -> void:
@@ -181,20 +182,10 @@ static func _c(e: Dictionary, fallback: String) -> String:
 	return str(e.get("mut_col", fallback))
 
 static func fusion_move(g, e: Dictionary) -> void:
-	var sigs := signatures(g, mut_kind(e))
-	e["mut_col"] = move_color(g, mut_kind(e))
-	e["mut_move_t"] = MOVE_CD * (0.8 if g.hard_mode else 1.0)
-	if sigs.is_empty() or g.delayed.size() >= 110:
-		return
-	e["mut_budget"] = 2
-	var before: int = g.delayed.size()
-	launch(g, e, sigs)
-	for k in range(before, g.delayed.size()):
-		g.delayed[k]["mut_payload"] = true
-		g.delayed[k]["mut_col"] = str(e["mut_col"])
-	g.say(Vector2(e["pos"]) + Vector2(0, -float(e["r"]) - 28.0), move_name_for(sigs) + "!", Color(str(e["mut_col"])), 16)
+	# Kaboomba contact and other explicit signature triggers use the same
+	# graft as every other parent; never force a legacy starburst.
+	FusionGenome.cast(g, e)
 
-## Friends a support move is aimed at (nearest first), or itself if alone.
 static func friends(g, e: Dictionary, n: int) -> Array:
 	var near: Array = []
 	for ally in g.enemies_near(e["pos"], 420.0):

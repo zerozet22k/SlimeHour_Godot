@@ -9,6 +9,7 @@ const EnemyIdentity = preload("res://scripts/EnemyIdentity.gd")
 const BossFight = preload("res://scripts/BossFight.gd")
 const Trails = preload("res://scripts/Trails.gd")
 const MutationKit = preload("res://scripts/MutationKit.gd")
+const FusionGenome = preload("res://scripts/FusionGenome.gd")
 const Weapons = preload("res://scripts/Weapons.gd")
 const WeaponSignatures = preload("res://scripts/WeaponSignatures.gd")
 const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
@@ -244,6 +245,8 @@ static func update_delayed(g, dt: float) -> void:
 			_:
 				if str(item["fn"]).begins_with("bf_"):
 					BossFight.resolve(g, item)
+				elif str(item["fn"]) == "genome_graft":
+					FusionGenome.resolve(g, item)
 				elif str(item["fn"]) == "mut_anchor":
 					MutationKit.resolve_anchor(g, item)
 				elif str(item["fn"]) == "mut_hit":
@@ -666,7 +669,7 @@ static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool
 		return false
 	if float(e["stun"]) > 0.0 or float(e["frozen"]) > 0.0:
 		return false
-	if has_role(g, e, "mirror") and float(e.get("mirror_cd", 0.0)) <= 0.0:
+	if (has_role(g, e, "mirror") or FusionGenome.may_reflect(g, e)) and float(e.get("mirror_cd", 0.0)) <= 0.0:
 		# Toned down: a longer recharge, and slower, weaker reflections. The
 		# reflection keeps YOUR shot's look and deals 20% of its damage.
 		e["mirror_cd"] = 1.8
@@ -694,7 +697,7 @@ static func guard_shot(g, s: Dictionary, e: Dictionary, impact: Vector2) -> bool
 		g.spawn_ring_fx(impact, Color("bff8ff"), 26.0)
 		g.sfx.play("block")
 		return true
-	if has_role(g, e, "riot") and g.st("ap") <= 0.0 and float(e.get("shield_hp", float(e["max_hp"]) * 0.8)) > 0.0:
+	if (has_role(g, e, "riot") or FusionGenome.may_guard(g, e)) and g.st("ap") <= 0.0 and float(e.get("shield_hp", float(e["max_hp"]) * 0.8)) > 0.0:
 		var heading: Vector2 = Vector2(s["vel"]).normalized()
 		if heading.dot(e["aim"]) < -0.35:
 			e["shield_hp"] = float(e.get("shield_hp", float(e["max_hp"]) * 0.8)) - float(s["dmg"])
@@ -884,7 +887,7 @@ static func hit(g, e: Dictionary, dmg: float, ctx: Dictionary) -> bool:
 		return false
 	# A phoenix egg can be destroyed to kill Ashwing permanently.
 	# Killing the revived adult only creates another egg, with no fixed life limit.
-	if float(e.get("rebirth_t", 0.0)) > 0.0 and has_role(g, e, "ashwing"):
+	if float(e.get("rebirth_t", 0.0)) > 0.0 and (has_role(g, e, "ashwing") or FusionGenome.donor_is(g, e, "ashwing")):
 		e["cocoon_hp"] = float(e.get("cocoon_hp", float(e["max_hp"]) * 0.35)) - dmg
 		if float(e["cocoon_hp"]) <= 0.0:
 			e["cocoon_broken"] = true
@@ -1134,6 +1137,8 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 		g.say(e["pos"] + Vector2(0, -float(e["r"]) - 15.0), "REBIRTH!", Color("ffae61"), 20)
 		g.spawn_ring_fx(e["pos"], Color("ffae61"), 48.0)
 		g.sfx.play("whoosh")
+		return
+	if FusionGenome.try_rebirth(g, e):
 		return
 	e["dead"] = true
 	# Setpieces and subordinate encounter actors must vanish with their owner.
@@ -1651,6 +1656,8 @@ static func update_enemies(g, dt: float) -> void:
 				g.prof["e.status_to_ai"] = float(g.prof.get("e.status_to_ai", 0.0)) + float(Time.get_ticks_usec() - p_iter)
 			var pa := Time.get_ticks_usec() if g.perf_detail else 0
 			desired = ai(g, e, dir, dist, dt, charmed)
+			if e.has("mut_of"):
+				desired = FusionGenome.motion(g, e, desired)
 			if g.perf_detail:
 				g.prof["ai." + body_kind] = float(g.prof.get("ai." + body_kind, 0.0)) + float(Time.get_ticks_usec() - pa)
 				p_iter = Time.get_ticks_usec()
@@ -2452,6 +2459,7 @@ static func enemy_fire(g, e: Dictionary, dir: Vector2, n: int, spread: float, sp
 			g.sfx.play_projectile("boss_fire", boss_style)
 		if last != null and e.has("mut_of"):
 			last["mut_src"] = e
+			FusionGenome.decorate_projectile(g, e, last)
 	return last
 
 # ================================================================= area effects

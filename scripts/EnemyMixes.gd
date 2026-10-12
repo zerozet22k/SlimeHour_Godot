@@ -7,6 +7,7 @@ extends RefCounted
 ## Hybrid inheritance is anatomical, NOT a second complete monster face.
 ## Every second parent supplies one recognizable peripheral body feature.
 const MutationKit = preload("res://scripts/MutationKit.gd")
+const FusionGenome = preload("res://scripts/FusionGenome.gd")
 const MonsterKit = preload("res://scripts/MonsterKit.gd")
 const RETIRED = [] # Medic and Laser Larry are active normal monster species.
 const FEATURES = {
@@ -55,7 +56,7 @@ static func id_for(a: String, b: String) -> String:
 	return "mix_" + a + "_" + b
 
 static func ensure(db: Dictionary, a: String, b: String) -> String:
-	if a == b or not usable(a) or not usable(b) or not db.has(a) or not db.has(b):
+	if a == b or not usable(a) or not usable(b) or not db.has(a) or not db.has(b) or not FusionGenome.compatible(a, b):
 		return ""
 	if bool(db[a].get("boss", false)) or bool(db[b].get("boss", false)):
 		return ""
@@ -76,13 +77,15 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	var ca = Color(str(MonsterKit.SPECS[primary]["body"])) if MonsterKit.SPECS.has(primary) else Color(str(first["color"]))
 	db[id] = {
 		"id": id, "name": str(MutationKit.PAYLOAD_NAMES.get(MutationKit.payload_for(id, secondary), "Mutated")) + " " + str(first["name"]),
-		"hp": (float(first["hp"]) + float(second["hp"])) * 0.71,
-		"speed": (float(first["speed"]) + float(second["speed"])) * 0.5,
-		"dmg": maxf(float(first["dmg"]), float(second["dmg"])),
+		"hp": float(first["hp"]) * 1.22,
+		"speed": float(first["speed"]) * (1.0 + minf(0.10, float(second["speed"]) * 0.0004)),
+		"dmg": float(first["dmg"]) * 1.10,
 		"r": maxf(float(first["r"]), float(second["r"])) + 2.0,
 		"xp": maxi(int(first["xp"]), int(second["xp"])) + 2,
 		"mass": maxf(float(first["mass"]), float(second["mass"])),
 		"color": ca.to_html(false), "mix": [primary, secondary],
+		"graft": str(FusionGenome.donor_spec(secondary).get("module", "")),
+		"threat_cost": int(FusionGenome.donor_spec(secondary).get("cost", 2)),
 		"look": {"body": one.get("body", "round"), "face": one.get("face", "normal"),
 			"second_color": str(second["color"]), "gear": one.get("gear", []).duplicate(),
 			"trait": feature, "trait_options": options.duplicate(),
@@ -227,3 +230,18 @@ static func roll(db: Dictionary, base: Array, sector: int, limited_totems: bool 
 	var picked: Dictionary = recipes[chosen]
 	# Either side of the recipe can show up: two monsters per pair.
 	return prepare(db, picked, randf() < 0.5)
+
+## Procedural choices are unordered pairs with both directed variants supported.
+## Historic named recipes above exist only for old Mutation Book saves.
+static func run_candidates(db: Dictionary, roster: Array) -> Array:
+	var out: Array = []
+	for i in range(roster.size()):
+		for j in range(i + 1, roster.size()):
+			var a := str(roster[i])
+			var b := str(roster[j])
+			if db.has(a) and db.has(b) and not bool(db[a].get("boss", false)) and not bool(db[b].get("boss", false)) and compatible_pair(a, b):
+				out.append([a, b])
+	return out
+
+static func compatible_pair(a: String, b: String) -> bool:
+	return FusionGenome.compatible(a, b) and FusionGenome.compatible(b, a)

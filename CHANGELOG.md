@@ -1,3 +1,12 @@
+## v0.1.101 — Procedural behavior grafts (no pair-specific combat recipes)
+
+- Added `FusionGenome` and `data/mutation_modules.json`: all 25 normal monsters export a distinctive, transferable gameplay mechanic, with receiver capabilities and power costs. No combination IDs are hardcoded in combat.
+- Live mutations retain their actual body-parent AI and add a timed **behavior graft**, replacing the old body-effect multiplied by donor-shape spam. Grafts include Skitter ricochet, Zoomer orbit, Mirror reflection, Riot shield, Burrower tunnel, Blinky rift slash, Ashwing breakable one-time resurrection, Leech conduit, Medic triage, Lancer piercing weapons, Siren rally, eggs, and sticky bombs.
+- Unusable donor/body capabilities are rejected rather than silently converted to unrelated lasers or explosions. All supported ordered combinations may be built on demand in F3 Debug Lab.
+- New runs shuffle compatible species pairings, keep a fixed count of unlock slots, rotate previously found pairs and preserve per-sector/live spawn caps. Permanent historical mutation discoveries remain in the Mutation Book.
+- Base-parent HP and speed now dominate fused stats rather than blending entirely unrelated movement identities. No new mutations acquire natural elite affixes.
+- Update encounter and enemy-identity regression tests to verify the graft interpreter and procedural plans.
+
 ## v0.1.100 — Mutation encounters are rare, bounded events
 
 - Fix the actual cause of mutation swarms: the spawn selector was replacing every spawn of either parent once a recipe unlocked, ignoring the declared mutation encounter probabilities entirely.

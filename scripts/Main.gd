@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.100"
+const GAME_VERSION = "v0.1.101"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -56,6 +56,7 @@ var best = {"sector": 0, "kills": 0, "level": 0}
 var profile = {"xp": 0, "level": 0, "goo": 0, "ups": {}, "mobs": {}, "announced_mobs": {}}
 ## Encounter unlocks are PER RUN. Bestiary kills remain persistent, but never grant spawn access.
 var run_mutations_unlocked: Dictionary = {}
+var run_mutation_pairs: Array = [] # Procedural, never a fixed authored recipe sequence.
 # Strong fusion abilities are special encounters, not default replacements for
 # their normal parent species. Both directions of a pair share one active slot.
 const MUTATION_ACTIVE_PAIRS_NORMAL := 2
@@ -611,6 +612,7 @@ func start_run() -> void:
 	# Reset all mutation introductions even if the player reached sector 40
 	# or discovered every recipe in a previous run.
 	run_mutations_unlocked.clear()
+	run_mutation_pairs.clear()
 	mutation_spawn_sector = -1
 	mutation_sector_spawns = 0
 	state = "playing"
@@ -850,15 +852,48 @@ func begin_sector() -> void:
 ## New entries unlock on their configured sector, not simply whenever two
 ## parent enemies happen to be in the spawn pool. Keep permanent book receipts,
 ## but each fresh run still respects its Normal/Hard sector progression.
+## Build a new run's ordered fusion schedule from compatible species pairs.
+## Body and donor are interchangeable; names are derived from the modules.
+func generate_run_mutation_pairs() -> void:
+	if not run_mutation_pairs.is_empty():
+		return
+	var candidates: Array = EnemyMixes.run_candidates(enemy_db, available_enemies(24))
+	candidates.shuffle()
+	var usage: Dictionary = {}
+	# Spread the 18 recipes across the roster rather than letting one favorite
+	# donor dominate. The per-sector rotation and live caps still apply.
+	for pair in candidates:
+		var a := str(pair[0])
+		var b := str(pair[1])
+		if int(usage.get(a, 0)) >= 2 or int(usage.get(b, 0)) >= 2:
+			continue
+		run_mutation_pairs.append(pair)
+		usage[a] = int(usage.get(a, 0)) + 1
+		usage[b] = int(usage.get(b, 0)) + 1
+		if run_mutation_pairs.size() >= 18:
+			break
+	# The roster may grow or shrink later; lack of suitable diverse pairs
+	# should never silently prevent late encounters altogether.
+	if run_mutation_pairs.size() < 18:
+		for pair in candidates:
+			if not run_mutation_pairs.has(pair):
+				run_mutation_pairs.append(pair)
+				if run_mutation_pairs.size() >= 18:
+					break
+
 func introduce_mutations() -> void:
-	var available = EnemyMixes.available_recipes(enemy_db, available_enemies(sector - 1), sector, hard_mode)
-	for recipe in available:
-		# Both sides unlock together: A-bodied and B-bodied are two monsters.
+	if sector < EnemyMixes.FIRST_FUSION_SECTOR:
+		return
+	generate_run_mutation_pairs()
+	var count: int = mini(run_mutation_pairs.size(), EnemyMixes.unlock_count(sector, hard_mode))
+	for i in range(count):
+		var pair: Array = run_mutation_pairs[i]
 		for flipped in [false, true]:
-			var id = EnemyMixes.prepare(enemy_db, recipe, flipped)
+			var body := str(pair[1] if flipped else pair[0])
+			var donor := str(pair[0] if flipped else pair[1])
+			var id := EnemyMixes.ensure(enemy_db, body, donor)
 			if id != "" and not run_mutations_unlocked.has(id):
 				run_mutations_unlocked[id] = true
-				# One toast per recipe, for its authored side.
 				if not flipped and autotest == "":
 					unlock_toasts.append({"type": "mutation", "id": id, "t": 3.4})
 
@@ -1515,21 +1550,23 @@ const ENEMY_WEIGHT = {"blob": 6.0, "zoomer": 3.5, "spitter": 2.2, "kaboomba": 1.
 ## selection of older pairs can actually spawn in any one sector.
 func active_mutation_ids() -> Array:
 	var unlocked: Array = []
-	for i in range(EnemyMixes.RECIPES.size()):
-		var ids: Array = EnemyMixes.recipe_ids(i)
-		if run_mutations_unlocked.has(ids[0]) and run_mutations_unlocked.has(ids[1]):
-			unlocked.append(i)
+	for pair in run_mutation_pairs:
+		var forward: String = EnemyMixes.id_for(str(pair[0]), str(pair[1]))
+		var reverse: String = EnemyMixes.id_for(str(pair[1]), str(pair[0]))
+		if run_mutations_unlocked.has(forward) and run_mutations_unlocked.has(reverse):
+			unlocked.append(pair)
 	if unlocked.is_empty():
 		return []
 	var pair_cap := MUTATION_ACTIVE_PAIRS_HARD if hard_mode else MUTATION_ACTIVE_PAIRS_NORMAL
-	var selected: Array = [unlocked.back()]  # Newly unlocked mechanics remain relevant.
+	var selected: Array = [unlocked.back()]
 	var older: Array = unlocked.slice(0, unlocked.size() - 1)
 	for offset in range(mini(pair_cap - 1, older.size())):
 		var index := posmod(sector - EnemyMixes.FIRST_FUSION_SECTOR + offset, older.size())
 		selected.append(older[index])
 	var result: Array = []
-	for index in selected:
-		result.append_array(EnemyMixes.recipe_ids(int(index)))
+	for pair in selected:
+		result.append(EnemyMixes.id_for(str(pair[0]), str(pair[1])))
+		result.append(EnemyMixes.id_for(str(pair[1]), str(pair[0])))
 	return result
 
 func mutation_live_limit() -> int:
@@ -2404,7 +2441,11 @@ func note_mob(kind: String) -> void:
 
 ## Collection order: street tiers, the extras, then bosses.
 func mutation_book_ids() -> Array:
-	return EnemyMixes.book_ids()
+	var ids: Array = EnemyMixes.book_ids() # Keep old save discoveries readable.
+	for id in run_mutations_unlocked:
+		if not ids.has(id):
+			ids.append(id)
+	return ids
 
 func mutation_is_unlocked(kind: String) -> bool:
 	return run_mutations_unlocked.has(kind)
