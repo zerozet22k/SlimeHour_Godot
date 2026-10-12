@@ -1617,13 +1617,14 @@ static func update_enemies(g, dt: float) -> void:
 					if not bool(g.shots[k]["friendly"]):
 						g.shots[k]["color"] = mut_col
 				for k in range(beams_before, g.beams.size()):
-					g.beams[k]["color"] = mut_col if not g.beams[k]["color"] is Color or Color(g.beams[k]["color"]).get_luminance() < 0.85 else mut_col.lightened(0.7)
+					g.beams[k]["color"] = mut_col
 				for k in range(fx_before, g.fx.size()):
 					if str(g.fx[k].get("kind", "")) == "slash":
 						g.fx[k]["color"] = mut_col
 				for k in range(mut_start, g.delayed.size()):
 					if g.delayed[k].has("color") and not bool(g.delayed[k].get("mut_payload", false)):
 						g.delayed[k]["color"] = str(e["mut_col"])
+						g.delayed[k]["mut_tint"] = true
 				var tagged := false
 				for k in range(mut_start, g.delayed.size()):
 					var item: Dictionary = g.delayed[k]

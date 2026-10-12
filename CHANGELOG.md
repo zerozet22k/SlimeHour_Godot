@@ -1,3 +1,8 @@
+## v0.1.96 — Mutant warnings match the mutant
+
+- **A mutant's warnings now use its exact body colour.** This covers its own attack tells (Laser Larry's aim line, Lancer's sweep cone, Blinky's rift, Leech's tether and the rest) and the rims of its danger circles and lines. Before, they kept the parent's colour or a lighter tint, so a red Blinky + Larry mutant flashed purple warnings.
+- Other monsters' warnings are unchanged.
+
 ## v0.1.95 — Real fusion moves
 
 - **Mutations now have one signature move that combines both parents.** Mutants no longer swap between their two parents.

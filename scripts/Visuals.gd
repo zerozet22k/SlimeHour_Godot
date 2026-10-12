@@ -1341,46 +1341,55 @@ func paint_telegraphs() -> void:
 					for step_i in range(25):
 						var theta: float = angle - 1.152 + float(step_i) / 24.0 * 2.304
 						sector_poly.append(p + Vector2.from_angle(theta) * 166.0)
-					draw_colored_polygon(sector_poly, Color("aabaff", 0.16))
-					draw_arc(p, 166.0, angle - 1.152, angle + 1.152, 40, Color("c5d5ff", 0.83), 3.0)
+					draw_colored_polygon(sector_poly, tc(e, Color("aabaff", 0.16)))
+					draw_arc(p, 166.0, angle - 1.152, angle + 1.152, 40, tc(e, Color("c5d5ff", 0.83)), 3.0)
 				else:
-					draw_line(p, p + lance_dir * 610.0, Color("b9ccff", 0.21), 19.0)
-					draw_line(p, p + lance_dir * 610.0, Color("e2eaff", 0.78), 3.0)
+					draw_line(p, p + lance_dir * 610.0, tc(e, Color("b9ccff", 0.21)), 19.0)
+					draw_line(p, p + lance_dir * 610.0, tc(e, Color("e2eaff", 0.78)), 3.0)
 			elif enemy_has_role(e, "larry"):
 				var lock: Vector2 = e.get("lock", g.hero["pos"])
 				var beam_dir: Vector2 = (lock - e["pos"]).normalized()
-				draw_line(p, p + beam_dir * 900.0, Color("ff5a82", 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0)), 3.0)
+				draw_line(p, p + beam_dir * 900.0, tc(e, Color("ff5a82", 0.25 + 0.5 * fmod(g.anim_t * 8.0, 1.0))), 3.0)
 			elif e.has("tele") and enemy_has_role(e, "chonk"):
-				draw_arc(p, float(e["tele"]), 0, TAU, 40, Color(1, 0.3, 0.3, 0.8), 3.0)
-				dot(p, float(e["tele"]), Color(1, 0.2, 0.2, 0.12))
+				draw_arc(p, float(e["tele"]), 0, TAU, 40, tc(e, Color(1, 0.3, 0.3, 0.8)), 3.0)
+				dot(p, float(e["tele"]), tc(e, Color(1, 0.2, 0.2, 0.12)))
 			elif enemy_has_role(e, "bull") or enemy_has_role(e, "zoomer") or enemy_has_role(e, "skitter"):
-				var color = Color("83eaff") if enemy_has_role(e, "skitter") else Color(1, 0.6, 0.2)
-				draw_line(p, P(g.hero["pos"]), Color(color, 0.45), 5.0)
+				var color = tc(e, Color("83eaff")) if enemy_has_role(e, "skitter") else tc(e, Color(1, 0.6, 0.2))
+				draw_line(p, P(g.hero["pos"]), tc(e, Color(color, 0.45)), 5.0)
 			elif enemy_has_role(e, "blinky"):
 				var depart: Vector2 = P(e.get("rift_origin", e["pos"]))
 				var arrive: Vector2 = P(e.get("lock", g.hero["pos"]))
-				draw_arc(arrive, 22.0, 0, TAU, 24, Color("c79cff", 0.68), 3.0)
+				draw_arc(arrive, 22.0, 0, TAU, 24, tc(e, Color("c79cff", 0.68)), 3.0)
 				# This preview is the exact dash slash segment, not a player prediction.
-				draw_line(depart, arrive, Color("b88bff", 0.21), 30.0)
-				draw_line(depart, arrive, Color("ebd5ff", 0.83), 2.5)
+				draw_line(depart, arrive, tc(e, Color("b88bff", 0.21)), 30.0)
+				draw_line(depart, arrive, tc(e, Color("ebd5ff", 0.83)), 2.5)
 			elif enemy_has_role(e, "leech"):
 				var drain_to = P(e.get("lock", g.hero["pos"]))
 				var pulse = 0.34 + 0.26 * sin(g.anim_t * 14.0)
-				draw_line(p, drain_to, Color(0.84, 0.34, 1.0, pulse), 4.5)
-				draw_arc(drain_to, 27.0, 0, TAU, 30, Color("d9a3ff", 0.80), 3.0)
-				draw_arc(p, float(e["r"]) + 8.0, 0, TAU, 24, Color("d9a3ff", 0.90), 3.5)
+				draw_line(p, drain_to, tc(e, Color(0.84, 0.34, 1.0, pulse)), 4.5)
+				draw_arc(drain_to, 27.0, 0, TAU, 30, tc(e, Color("d9a3ff", 0.80)), 3.0)
+				draw_arc(p, float(e["r"]) + 8.0, 0, TAU, 24, tc(e, Color("d9a3ff", 0.90)), 3.5)
 			elif enemy_has_role(e, "spitter"):
 				# Its acid is slow (~240 px/s) and easy to watch, so no aim line: only the body cue.
-				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, Color("a2ff83", 0.80), 2.5)
+				draw_arc(p, float(e["r"]) + 5.0, 0, TAU, 24, tc(e, Color("a2ff83", 0.80)), 2.5)
 			elif enemy_has_role(e, "riot"):
 				# Shield bash wind-up: the shield glows and leans forward.
-				draw_arc(p + Vector2(e["aim"]) * float(e["r"]), float(e["r"]) * 0.9, Vector2(e["aim"]).angle() - 1.0, Vector2(e["aim"]).angle() + 1.0, 14, Color("c8d8ff", 0.85), 4.0, true)
+				draw_arc(p + Vector2(e["aim"]) * float(e["r"]), float(e["r"]) * 0.9, Vector2(e["aim"]).angle() - 1.0, Vector2(e["aim"]).angle() + 1.0, 14, tc(e, Color("c8d8ff", 0.85)), 4.0, true)
+
+## A mutant shows its body parent's tells in its exact body colour, matching
+## every other part of its attack (MutationKit.move_color). Others keep theirs.
+func tc(e: Dictionary, c: Color) -> Color:
+	if not e.has("mut_col"):
+		return c
+	return Color(Color(str(e["mut_col"])), c.a)
 
 func danger_circle(p: Vector2, r: float, k: float, col: Color, d: Dictionary) -> void:
 	dot(p, r, Color(col, 0.07))
 	dot(p, r * k, Color(col, 0.14 + 0.22 * k))
 	draw_arc(p, r, 0.0, TAU, 48, Color(0, 0, 0, 0.45), 5.0, true)
-	draw_arc(p, r, 0.0, TAU, 48, Color(col.lightened(0.35), 0.95), 2.5, true)
+	# A mutant's warning keeps its exact body colour; others get a lighter rim.
+	var rim: Color = col if bool(d.get("mut_payload", false)) or d.has("mut_tint") else col.lightened(0.35)
+	draw_arc(p, r, 0.0, TAU, 48, Color(rim, 0.95), 2.5, true)
 	if k > 0.78:
 		draw_arc(p, r, 0.0, TAU, 48, Color(1, 1, 1, (k - 0.78) / 0.22 * 0.9), 3.5, true)
 	var drop: float = (1.0 - k) * 150.0
@@ -1423,9 +1432,10 @@ func danger_line(a: Vector2, b: Vector2, w: float, k: float, col: Color, d: Dict
 	draw_colored_polygon(PackedVector2Array([a + n * w, b + n * w, b - n * w, a - n * w]), Color(col, 0.07))
 	var inner: float = w * k
 	draw_colored_polygon(PackedVector2Array([a + n * inner, b + n * inner, b - n * inner, a - n * inner]), Color(col, 0.14 + 0.22 * k))
+	var rim: Color = col if bool(d.get("mut_payload", false)) or d.has("mut_tint") else col.lightened(0.35)
 	for side in [-1.0, 1.0]:
 		draw_line(a + n * w * side, b + n * w * side, Color(0, 0, 0, 0.45), 4.0)
-		draw_line(a + n * w * side, b + n * w * side, Color(col.lightened(0.35), 0.95), 2.0)
+		draw_line(a + n * w * side, b + n * w * side, Color(rim, 0.95), 2.0)
 	if k > 0.78:
 		draw_line(a, b, Color(1, 1, 1, (k - 0.78) / 0.22 * 0.8), maxf(2.0, w * 0.5))
 	var length: float = a.distance_to(b)
