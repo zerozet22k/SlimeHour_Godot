@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.110"
+const GAME_VERSION = "v0.1.111"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -754,22 +754,14 @@ func crowd_ramp(s: int = -1) -> float:
 
 ## Keep the first twelve sectors unchanged. After sector 12, difficulty
 ## shifts from raw population to tougher base enemies and authored mutations.
-## Hard retains a higher density, but both modes have a strict late-game cap.
+## Hard mode is all mutants, so it fields FEWER at once: 80% of Normal's cap.
 func enemy_cap() -> int:
-	if sector <= 5:
-		return 22 + (sector - 1) * 14
-	# Quality over quantity: fewer, tougher monsters keep fights readable and
-	# the frame rate high in the late game.
-	match sector:
-		6: return 72
-		7: return 74
-		8: return 76
-		9: return 78
-		10: return 80
-		11: return 80
-		12: return 82
-	var normal_cap: int = mini(90, 82 + (sector - 12) / 2)
-	return mini(MAX_ENEMIES, int(ceil(float(normal_cap) * (1.15 if hard_mode else 1.0))))
+	var cap := normal_enemy_cap()
+	return int(ceil(float(cap) * 0.8)) if hard_mode else cap
+
+func normal_enemy_cap() -> int:
+	# About 60% of the sector's crowd can be on screen at once (22..90).
+	return clampi(int(ceil(crowd_for(sector) * 0.6)), 22, mini(90, MAX_ENEMIES))
 
 ## A gentle durability substitution for the capped late-game population.
 ## This does NOT affect bosses (which already have their own HP scaling).
@@ -781,13 +773,13 @@ func sector_spawn_rate(p: float) -> float:
 	var rate: float = (1.6 + (sector - 1) * 0.75 + p * 2.2) * pow(1.035, float(maxi(0, sector - 5))) * float(route.get("spawns", 1.0)) * midgame_relief()
 	if sector >= 13:
 		# No exponential spawn-rate growth when fused enemies arrive.
-		var ceiling: float = (12.0 + 0.25 * float(mini(sector - 12, 12))) * (1.15 if hard_mode else 1.0) * float(route.get("spawns", 1.0))
+		var ceiling: float = (12.0 + 0.25 * float(mini(sector - 12, 12))) * float(route.get("spawns", 1.0))
 		rate = minf(rate, ceiling)
 	return rate
 
 func rush_spawn_rate() -> float:
 	if sector >= 13:
-		return 13.0 if hard_mode else 10.0
+		return 10.0
 	return 12.0 if sector >= 8 and sector <= 11 else 20.0
 
 func shot_cap() -> int:
@@ -1509,24 +1501,36 @@ func early_ease(start: float, s: int = -1) -> float:
 ## Sector 1-12 population is unchanged. Later sectors grow at a modest,
 ## bounded pace until sector 25, then hold steady as enemy HP and new mutation
 ## mechanics provide the progression. Route and Hard multipliers still matter.
+## CROWD SIZE: a steady, linear climb. 40 monsters in sector 1, +4 per sector,
+## topping out at 160 (sector 31); the rush wave adds a third on top. Hard mode
+## sends the same count (every one is a mutant). Roads still scale it.
+func crowd_for(s: int) -> float:
+	return minf(160.0, 40.0 + 4.0 * float(maxi(0, s - 1)))
+
 func budget_for(s: int) -> int:
-	var hard_mul = 1.25 if hard_mode else 1.0
-	var total: float
-	if s >= 13:
-		# Late sectors keep a steady, readable crowd instead of 400+ monsters.
-		total = 150.0 + 3.0 * float(mini(s - 12, 13))
-	else:
-		total = minf(150.0, (60.0 + 12.0 * float(mini(s, 25)) + 4.0 * float(maxi(0, s - 25))) * early_ease(0.55, s) * crowd_ramp(s))
-	return int(total * float(route.get("spawns", 1.0)) * hard_mul)
+	return int(crowd_for(s) * float(route.get("spawns", 1.0)))
 
 func rush_size() -> int:
-	var hard_mul = 1.25 if hard_mode else 1.0
-	var total: float
-	if sector >= 13:
-		total = 50.0 + 2.0 * float(mini(sector - 12, 13))
+	return int(crowd_for(sector) / 3.0 * float(route.get("spawns", 1.0)))
+
+## The crowd used to be far bigger (~200 a sector by sector 8). Each kill is
+## worth proportionally more EXP and gold, so cards and gold per sector stay
+## where they were tuned while there are fewer monsters to wade through.
+func reward_scale(s: int = -1) -> float:
+	var x: int = sector if s < 0 else s
+	return clampf(legacy_crowd(x) / (crowd_for(x) * 4.0 / 3.0), 1.0, 2.5)
+
+## The previous crowd (budget + rush) the economy and card pace were tuned on.
+func legacy_crowd(x: int) -> float:
+	var budget: float
+	var rush: float
+	if x >= 13:
+		budget = 150.0 + 3.0 * float(mini(x - 12, 13))
+		rush = 50.0 + 2.0 * float(mini(x - 12, 13))
 	else:
-		total = minf(50.0, (30.0 + 9.0 * float(mini(sector, 25)) + 3.0 * float(maxi(0, sector - 25))) * early_ease(0.55) * crowd_ramp())
-	return int(total * float(route.get("spawns", 1.0)) * hard_mul)
+		budget = minf(150.0, (60.0 + 12.0 * float(x)) * early_ease(0.55, x) * crowd_ramp(x))
+		rush = minf(50.0, (30.0 + 9.0 * float(x)) * early_ease(0.55, x) * crowd_ramp(x))
+	return budget + rush
 
 ## Establish fresh base types first. Legacy Nurse/Larry live in old save
 ## records but are no longer hard-coded as standard roster introductions.
@@ -2780,7 +2784,7 @@ func collect(p: Dictionary) -> void:
 			sfx.play("chest")
 
 func gain_xp(amount: float) -> void:
-	xp += amount * 0.7 * (1.0 + st("xp")) * float(route.get("xpmul", 1.0)) * Characters.xp_multiplier(selected_character)
+	xp += amount * reward_scale() * 0.7 * (1.0 + st("xp")) * float(route.get("xpmul", 1.0)) * Characters.xp_multiplier(selected_character)
 	while xp >= xp_need:
 		xp -= xp_need
 		level += 1

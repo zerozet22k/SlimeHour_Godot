@@ -1,3 +1,10 @@
+## v0.1.111 — Smaller, linear crowds; Hard mode fields fewer
+
+- **Crowds grow in a straight line:** 40 monsters in sector 1, +4 per sector, topping out at 160 from sector 31. The rush wave adds a third on top. A sector is now 53 monsters at sector 1, 101 at 10, 154 at 20 and 213 from 31 on. Before, it was about 200 by sector 8 and 265 by sector 25.
+- **The alive cap follows the crowd:** about 60% of the sector's crowd can be on screen at once, between 22 and 90.
+- **Each kill pays more EXP and gold** to make up for fewer monsters. It's scaled by how much smaller the crowd is (about ×2 mid-game, ×1.24 late), so cards and gold per sector stay where they were.
+- **Hard mode** sends the same count as Normal, since every monster is already a mutant. It allows 80% of Normal's alive cap, up to 72 at once, and spawns no faster than Normal.
+
 ## v0.1.110 — Hard mode is all mutants
 
 - **In Hard mode every monster is a mutation, from sector 1.** Each rolled species becomes the body, and a species you've already met donates its graft. There's no sector-25 wait and no 3-alive cap. Bosses stay bosses.

@@ -1207,12 +1207,12 @@ static func kill(g, e: Dictionary, ctx: Dictionary, overkill: float) -> void:
 		# BOUNTY: tougher monsters pay more. Expected coins = 0.065 + 0.05 x its
 		# EXP value (Blob 0.12, Lancer 0.27, Chonk 0.32, mutants more), thinning
 		# out late in the run because shops are the sink.
-		var bounty: float = (0.065 + 0.05 * float(e["xp"])) * clampf(1.0 - 0.03 * float(maxi(0, g.sector - 8)), 0.5, 1.0)
+		var bounty: float = (0.065 + 0.05 * float(e["xp"])) * g.reward_scale() * clampf(1.0 - 0.03 * float(maxi(0, g.sector - 8)), 0.5, 1.0)
 		var coins: int = int(bounty) + (1 if randf() < fmod(bounty, 1.0) else 0)
 		if coins > 0:
 			g.spawn_pickup("gold", pos, coins)
 		if bool(e["elite"]):
-			for i in range(4):
+			for i in range(roundi(4.0 * g.reward_scale())):
 				g.spawn_pickup("gold", pos, 1)
 			var chest_chance = 0.012 if g.hard_mode else 0.02
 			if g.sector_elite_chests < 1 and randf() < chest_chance:

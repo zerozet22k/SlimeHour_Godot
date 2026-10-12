@@ -70,7 +70,9 @@ func _test() -> void:
 	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Late Normal live enemies and spawn throughput are capped")
 	check(is_equal_approx(game.late_enemy_hp_multiplier(25), 1.52) and is_equal_approx(game.late_enemy_hp_multiplier(40), 1.6), "Smaller late crowds are tougher (up to +60% HP)")
 	game.sector = 40
-	check(game.budget_for(40) == capped_budget and game.rush_size() == capped_rush, "Crowd budget and rush remain flat after sector 25")
+	check(game.budget_for(40) == 160 and game.budget_for(40) >= capped_budget, "Crowd climbs linearly and tops out at 160 (sector 31)")
+	check(game.budget_for(1) == 40 and game.budget_for(11) == 80, "Crowd grows by 4 a sector from 40")
+	check(game.reward_scale(10) > 1.5 and game.reward_scale(40) >= 1.0, "Fewer monsters pay proportionally more EXP and gold")
 	check(game.enemy_cap() <= 115 and game.sector_spawn_rate(1.0) <= 15.001, "Sector 40 cannot restore unlimited spawn density")
 	var normal_mob = game.spawn_enemy("blob", game.hero["pos"] + Vector2(0, -280), false, false)
 	check(normal_mob["max_hp"] > 26.0 * game.enemy_scale(), "Regular mob HP has increased at late sectors")
@@ -84,8 +86,8 @@ func _test() -> void:
 	check(is_equal_approx(float(endgame_boss["max_hp"]), endgame_expected), "Post-victory bosses add their endgame multiplier")
 	game.sector = 40
 	game.hard_mode = true
-	check(game.budget_for(40) > capped_budget and game.rush_size() > capped_rush, "Hard keeps a larger but finite population")
-	check(game.enemy_cap() <= 175 and game.sector_spawn_rate(1.0) <= 17.251 and game.rush_spawn_rate() == 13.0, "Hard has separate bounded simultaneous and spawn caps")
+	check(game.budget_for(40) == 160, "Hard sends the same crowd as Normal (all mutants)")
+	check(game.enemy_cap() == int(ceil(90 * 0.8)), "Hard fields 80% of Normal's live cap")
 	# Introduction is a basic species, not an obligatory hybrid.
 	game.hard_mode = false
 	game.sector = 9
