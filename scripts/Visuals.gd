@@ -1388,7 +1388,7 @@ func danger_circle(p: Vector2, r: float, k: float, col: Color, d: Dictionary) ->
 	dot(p, r * k, Color(col, 0.14 + 0.22 * k))
 	draw_arc(p, r, 0.0, TAU, 48, Color(0, 0, 0, 0.45), 5.0, true)
 	# A mutant's warning keeps its exact body colour; others get a lighter rim.
-	var rim: Color = col if bool(d.get("mut_payload", false)) or d.has("mut_tint") else col.lightened(0.35)
+	var rim: Color = col if d.has("mut_col") else col.lightened(0.35)
 	draw_arc(p, r, 0.0, TAU, 48, Color(rim, 0.95), 2.5, true)
 	if k > 0.78:
 		draw_arc(p, r, 0.0, TAU, 48, Color(1, 1, 1, (k - 0.78) / 0.22 * 0.9), 3.5, true)
@@ -1432,7 +1432,7 @@ func danger_line(a: Vector2, b: Vector2, w: float, k: float, col: Color, d: Dict
 	draw_colored_polygon(PackedVector2Array([a + n * w, b + n * w, b - n * w, a - n * w]), Color(col, 0.07))
 	var inner: float = w * k
 	draw_colored_polygon(PackedVector2Array([a + n * inner, b + n * inner, b - n * inner, a - n * inner]), Color(col, 0.14 + 0.22 * k))
-	var rim: Color = col if bool(d.get("mut_payload", false)) or d.has("mut_tint") else col.lightened(0.35)
+	var rim: Color = col if d.has("mut_col") else col.lightened(0.35)
 	for side in [-1.0, 1.0]:
 		draw_line(a + n * w * side, b + n * w * side, Color(0, 0, 0, 0.45), 4.0)
 		draw_line(a + n * w * side, b + n * w * side, Color(rim, 0.95), 2.0)
@@ -3226,8 +3226,22 @@ func paint_beams() -> void:
 		var e = P(b["b"])
 		var c: Color = b["color"]
 		var w = float(b["w"])
-		if bool(b.get("zig", false)):
+		var style := str(b.get("style", "beam"))
+		if style == "shock" or bool(b.get("zig", false)):
 			zigzag(a, e, c, w)
+		elif style == "spear":
+			var forward: Vector2 = (e - a).normalized()
+			var side: Vector2 = forward.orthogonal()
+			draw_line(a, e - forward * 13.0, Color("302a31"), maxf(3.0, w * 0.46))
+			draw_line(a, e - forward * 13.0, c, maxf(2.0, w * 0.23))
+			draw_colored_polygon(PackedVector2Array([e, e - forward * 19.0 + side * 7.0, e - forward * 19.0 - side * 7.0]), Color("e7e0d0"))
+		elif style == "quake" or style == "rush":
+			var side: Vector2 = (e - a).normalized().orthogonal()
+			draw_line(a, e, Color(c, 0.45), w * 0.75)
+			for step in range(1, 7):
+				var p: Vector2 = a.lerp(e, float(step) / 7.0)
+				var delta: Vector2 = side * w * (0.55 if style == "quake" else 0.28)
+				draw_line(p - delta, p + delta, Color(c, 0.75), 3.0)
 		elif bool(b.get("rail", false)):
 			var k = clampf(float(b["t"]) / 0.22, 0.0, 1.0)
 			draw_line(a, e, Color(c, 0.3 * k), w * 3.0)

@@ -79,8 +79,8 @@ func _run() -> void:
 		recent.append(hybrid)
 		if recent.size() > 9:
 			recent.pop_front()
-	check(seen.size() == 1 and seen.has(EnemyMixes.recipe_id(0)),
-		"Sector 25 only introduces the first authored mutation, not random cross-pairs")
+	check(seen.size() == 2 and seen.has(EnemyMixes.recipe_id(0)) and seen.has(EnemyMixes.recipe_ids(0)[1]),
+		"Sector 25 introduces both sides of the first authored mutation")
 	seen.clear()
 	recent.clear()
 	var later = Main.available_enemies(30)
@@ -88,10 +88,10 @@ func _run() -> void:
 		var hybrid = EnemyMixes.roll(g.enemy_db, later, 31, false, recent)
 		if hybrid != "":
 			seen[hybrid] = true
-	check(seen.size() == 3, "Normal sector 31 exposes exactly three distinct mutation recipes")
+	check(seen.size() == 6, "Normal sector 31 exposes both sides of three mutation recipes")
 	for kind in seen:
 		check(g.enemy_db[kind]["mix"].size() == 2, "Every unlocked mutation inherits exactly two normal enemies")
-	check(EnemyMixes.id_for("blob", "mirror") == EnemyMixes.id_for("mirror", "blob"), "Pair identities are canonical")
+	check(EnemyMixes.id_for("blob", "mirror") != EnemyMixes.id_for("mirror", "blob"), "Pair identities preserve body order")
 	g.free()
 	print("COMPATIBILITY + PROCEDURAL ENEMY TESTS: ", "PASS" if failed == 0 else "%d failures" % failed)
 	quit(1 if failed > 0 else 0)

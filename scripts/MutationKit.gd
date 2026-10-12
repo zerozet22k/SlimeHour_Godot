@@ -38,12 +38,7 @@ const PAYLOAD_NAMES = {
 ## Parents in the same order EnemyMixes.ensure assigns them (body first).
 static func parents_for_id(id: String) -> Array:
 	var pair: Array = Array(id.trim_prefix("mix_").split("_"))
-	if pair.size() != 2:
-		return []
-	pair.sort()
-	if posmod(id.hash(), 2) == 1:
-		pair.reverse()
-	return pair
+	return pair if pair.size() == 2 else []
 
 ## Payloads that help monsters instead of hurting you.
 const SUPPORT = ["heal", "guard", "rally"]
@@ -196,6 +191,7 @@ static func fusion_move(g, e: Dictionary) -> void:
 	launch(g, e, sigs)
 	for k in range(before, g.delayed.size()):
 		g.delayed[k]["mut_payload"] = true
+		g.delayed[k]["mut_col"] = str(e["mut_col"])
 	g.say(Vector2(e["pos"]) + Vector2(0, -float(e["r"]) - 28.0), move_name_for(sigs) + "!", Color(str(e["mut_col"])), 16)
 
 ## Friends a support move is aimed at (nearest first), or itself if alone.
@@ -329,7 +325,7 @@ static func launch(g, e: Dictionary, sigs: Array) -> void:
 			var b: Vector2 = l[1]
 			if extend > 0.0 and a.distance_to(b) < extend:
 				b = a + (b - a).normalized() * extend
-			C.schedule_boss_line(g, a, b, float(skin.get("width", 12.0)), dmg * 0.55, l[2], col)
+			C.schedule_boss_line(g, a, b, float(skin.get("width", 12.0)), dmg * 0.55, l[2], col, str(p["effect"]))
 		return
 	var k := clampf(1.3 / sqrt(float(maxi(1, points.size()))), 0.45, 1.0)
 	for pt in points:
@@ -355,6 +351,8 @@ static func resolve_anchor(g, item: Dictionary) -> void:
 	apply_effect(g, src, pos, str(item.get("effect", "")), false, float(item.get("k", 1.0)))
 	for k in range(before, g.delayed.size()):
 		g.delayed[k]["mut_payload"] = true
+		if src.has("mut_col"):
+			g.delayed[k]["mut_col"] = str(src["mut_col"])
 
 ## On-hit powers (glue, steal, sticky...) landing away from you become a warned
 ## circle that applies them if it catches you.
@@ -446,7 +444,7 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				g.hero["push"] = Vector2(g.hero.get("push", Vector2.ZERO)) + toward * (460.0 if payload != "slam" else 340.0) * maxf(k, 0.6)
 		"rush":
 			# A stampede: a warned charge lane from the spot straight through you.
-			C.schedule_boss_line(g, pos, pos + toward * 300.0, 20.0, dmg * 0.6, 0.55, _c(e, "ffb06a"))
+			C.schedule_boss_line(g, pos, pos + toward * 300.0, 20.0, dmg * 0.6, 0.55, _c(e, "ffb06a"), "rush")
 			e["sprint_t"] = maxf(float(e.get("sprint_t", 0.0)), 1.4)
 		"split":
 			if int(e.get("mut_budget", 2)) > 0 and g.enemies.size() < g.enemy_cap():
@@ -482,7 +480,7 @@ static func apply_effect(g, e: Dictionary, pos: Vector2, payload: String, hit_pl
 				C.shot(g, pos + d * 10.0, d, dmg * 0.4, {"friendly": false, "speed": 320.0, "life": 1.6, "r": 4.0,
 					"kind": "enemy", "color": Color(_c(e, "bff8ff")), "src": "mirror shards"})
 		"quake":
-			C.schedule_boss_line(g, pos, pos + toward * 420.0 * maxf(k, 0.6), 18.0, dmg * 0.6, 0.7, _c(e, "e4b873"))
+			C.schedule_boss_line(g, pos, pos + toward * 420.0 * maxf(k, 0.6), 18.0, dmg * 0.6, 0.7, _c(e, "e4b873"), "quake")
 			if k >= 1.0:
 				C.schedule_boss_blast(g, hero, 56.0, dmg * 0.7, 0.95, _c(e, "e4b873"))
 		"sticky":

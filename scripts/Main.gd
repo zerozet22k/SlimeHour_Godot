@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.96"
+const GAME_VERSION = "v0.1.97"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -321,10 +321,10 @@ func _ready() -> void:
 	# encounter locks for new playthroughs.
 	for i in range(EnemyMixes.RECIPES.size()):
 		var recipe: Dictionary = EnemyMixes.RECIPES[i]
-		var id = EnemyMixes.recipe_id(i)
-		if enemy_db.has(id):
-			enemy_db[id]["name"] = str(recipe["name"])
-			enemy_db[id]["fusion_style"] = str(recipe["style"])
+		var ids: Array = EnemyMixes.recipe_ids(i)
+		for side in range(2):
+			if enemy_db.has(ids[side]):
+				EnemyMixes.prepare(enemy_db, recipe, side == 1)
 	if not OS.has_feature("mobile") and not portrait_preview:
 		settings["touch"] = "off"
 	elif portrait_preview:
@@ -839,17 +839,14 @@ func begin_sector() -> void:
 func introduce_mutations() -> void:
 	var available = EnemyMixes.available_recipes(enemy_db, available_enemies(sector - 1), sector, hard_mode)
 	for recipe in available:
-		var id = EnemyMixes.id_for(str(recipe["a"]), str(recipe["b"]))
-		if run_mutations_unlocked.has(id):
-			continue
-		var result = EnemyMixes.ensure(enemy_db, str(recipe["a"]), str(recipe["b"]))
-		if result == "":
-			continue
-		enemy_db[id]["name"] = str(recipe["name"])
-		enemy_db[id]["fusion_style"] = str(recipe["style"])
-		run_mutations_unlocked[id] = true
-		if autotest == "":
-			unlock_toasts.append({"type": "mutation", "id": id, "t": 3.4})
+		# Both sides unlock together: A-bodied and B-bodied are two monsters.
+		for flipped in [false, true]:
+			var id = EnemyMixes.prepare(enemy_db, recipe, flipped)
+			if id != "" and not run_mutations_unlocked.has(id):
+				run_mutations_unlocked[id] = true
+				# One toast per recipe, for its authored side.
+				if not flipped and autotest == "":
+					unlock_toasts.append({"type": "mutation", "id": id, "t": 3.4})
 
 
 func is_boss_sector() -> bool:
@@ -1513,7 +1510,9 @@ func pick_enemy() -> String:
 	for mix_id in run_mutations_unlocked:
 		if enemy_db.has(mix_id):
 			for parent in enemy_db[mix_id].get("mix", []):
-				fused[str(parent)] = str(mix_id)
+				if not fused.has(str(parent)):
+					fused[str(parent)] = []
+				fused[str(parent)].append(str(mix_id))
 	var total = 0.0
 	for name in base:
 		if name == "totem" and totems.size() >= 2:
@@ -1531,7 +1530,9 @@ func pick_enemy() -> String:
 			w = maxf(w * 2.5, 3.0)
 		roll -= w
 		if roll <= 0.0:
-			return str(fused.get(str(name), name))
+			# Either side of the fusion spawns in its parents' place.
+			var sides: Array = fused.get(str(name), [])
+			return str(sides[randi() % sides.size()]) if not sides.is_empty() else str(name)
 	return "blob"
 
 func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -> Dictionary:
@@ -2342,10 +2343,7 @@ func note_mob(kind: String) -> void:
 
 ## Collection order: street tiers, the extras, then bosses.
 func mutation_book_ids() -> Array:
-	var ids: Array = []
-	for i in range(EnemyMixes.RECIPES.size()):
-		ids.append(EnemyMixes.recipe_id(i))
-	return ids
+	return EnemyMixes.book_ids()
 
 func mutation_is_unlocked(kind: String) -> bool:
 	return run_mutations_unlocked.has(kind)

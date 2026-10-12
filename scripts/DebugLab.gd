@@ -149,11 +149,7 @@ static func prepare_enemy(g, id: String) -> bool:
 	var recipe: Dictionary = EnemyMixes.recipe_for_id(id)
 	if recipe.is_empty():
 		return false
-	if EnemyMixes.ensure(g.enemy_db, str(recipe["a"]), str(recipe["b"])) != id:
-		return false
-	g.enemy_db[id]["name"] = str(recipe["name"])
-	g.enemy_db[id]["fusion_style"] = str(recipe["style"])
-	return true
+	return EnemyMixes.prepare(g.enemy_db, recipe, bool(recipe.get("flipped", false))) == id
 
 static func spawn(g, id: String, elite: bool = false) -> bool:
 	if not prepare_enemy(g, id):

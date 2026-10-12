@@ -2205,7 +2205,7 @@ func paint_bestiary() -> void:
 				unlocked += 1
 			if int(g.profile["mobs"].get(id, 0)) > 0:
 				defeated += 1
-		txt("%d RUN UNLOCKED  /  %d PERMANENTLY FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+		txt("%d RUN UNLOCKED  /  %d PERMANENTLY FOUND  /  %d TOTAL" % [unlocked, defeated, g.mutation_book_ids().size()],
 			Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
 	else:
 		txt("%d / %d SPECIES DISCOVERED" % [known, g.mob_order().size()], Vector2(36, 99), 18, Color("a6d8f5"), 0, bold)
@@ -2252,7 +2252,7 @@ func paint_portrait_bestiary() -> void:
 				unlocked += 1
 			if int(g.profile["mobs"].get(id, 0)) > 0:
 				defeated += 1
-		txt("%d RUN UNLOCKED  /  %d FOUND  /  %d TOTAL" % [unlocked, defeated, MutationRecipes.RECIPES.size()],
+		txt("%d RUN UNLOCKED  /  %d FOUND  /  %d TOTAL" % [unlocked, defeated, g.mutation_book_ids().size()],
 			Vector2(360, 110), 20, Color("a6d8f5"), 1, bold)
 	else:
 		txt("%d / %d DISCOVERED" % [known, g.mob_order().size()], Vector2(360, 110), 21, Color("a6d8f5"), 1, bold)

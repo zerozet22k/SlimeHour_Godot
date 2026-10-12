@@ -1,3 +1,9 @@
+## v0.1.97 — Two sides to every mutation
+
+- Each authored fusion can now appear in both parent orders. The first parent supplies the body and its attack; the second supplies the delivery shape and inherited parts. Both versions unlock together and appear separately in the Mutation Book.
+- Mutant warning colors now carry through to their resulting attack effects.
+- Spear, shock, quake, and rush fusion strikes have their own visuals instead of sharing the laser beam effect. Laser beams remain on laser attacks.
+
 ## v0.1.96 — Mutant warnings match the mutant
 
 - **A mutant's warnings now use its exact body colour.** This covers its own attack tells (Laser Larry's aim line, Lancer's sweep cone, Blinky's rift, Leech's tether and the rest) and the rims of its danger circles and lines. Before, they kept the parent's colour or a lighter tint, so a red Blinky + Larry mutant flashed purple warnings.
@@ -789,3 +795,4 @@ Rewrote the squad shooter as a single-hero, weapon-driven action roguelite.
 - **Procedural audio**: every sound and a looping beat are synthesized at startup. There are no audio files.
 - **Art** is bundled with the project.
 - Removed: the old 70-card catalog, squad soldiers and active powers.
+

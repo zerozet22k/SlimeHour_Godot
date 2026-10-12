@@ -53,18 +53,18 @@ func _run() -> void:
 	check(g.run_mutations_unlocked.is_empty(), "Sector 1 has no mutation introductions")
 	g.sector = 25
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 1 and g.run_mutations_unlocked.has(Mixes.recipe_id(0)), "Sector 25 unlocks only the first mutation in this run")
+	check(g.run_mutations_unlocked.size() == 2 and g.run_mutations_unlocked.has(Mixes.recipe_id(0)) and g.run_mutations_unlocked.has(Mixes.recipe_ids(0)[1]), "Sector 25 unlocks both sides of the first mutation")
 	check(not g.mutation_is_unlocked(Mixes.recipe_id(1)), "Sector 28 mutation remains locked at sector 25")
 	g.sector = 28
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 2, "Second mutation introduces at sector 28")
+	check(g.run_mutations_unlocked.size() == 4, "Both sides of the second mutation introduce at sector 28")
 	g.sector = 1
 	g.run_mutations_unlocked.clear()
 	check(g.run_mutations_unlocked.is_empty() and g.mutation_is_discovered(Mixes.recipe_id(0)), "Starting next run resets eligibility but keeps discovery")
 	g.sector = 27
 	g.hard_mode = true
 	g.introduce_mutations()
-	check(g.run_mutations_unlocked.size() == 2, "Hard run unlocks two recipes by sector 27")
+	check(g.run_mutations_unlocked.size() == 4, "Hard run unlocks both sides of two recipes by sector 27")
 	check(not g.mutation_is_unlocked(Mixes.recipe_id(2)), "Third recipe remains locked on Hard before sector 29")
 	g.free()
 	var main_source = FileAccess.get_file_as_string("res://scripts/Main.gd")

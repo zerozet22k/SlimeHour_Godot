@@ -37,13 +37,14 @@ func _test() -> void:
 		check(game.introduction_for(sector) == species, species + " appears in its own introduction sector")
 		check(not game.available_enemies(sector - 1).has(species), species + " is not available early")
 		check(game.available_enemies(sector).has(species), species + " is available after debut")
-	# All combinations are buildable on demand (canonical regardless of parent order).
+	# Both parent orders are buildable as distinct monsters.
 	for pair in [["blob", "zoomer"], ["mirror", "sapper"], ["ashwing", "burrower"], ["skitter", "spitter"]]:
 		var first = str(pair[0])
 		var second = str(pair[1])
 		var id = EnemyMixes.ensure(game.enemy_db, first, second)
 		check(id != "" and game.enemy_db.has(id), first + "+" + second + " can combine")
-		check(id == EnemyMixes.ensure(game.enemy_db, second, first), first + "+" + second + " canonical regardless of order")
+		var flipped = EnemyMixes.ensure(game.enemy_db, second, first)
+		check(flipped != id and game.enemy_db[flipped]["mix"] == [second, first], first + "+" + second + " keeps body order")
 		var hybrid = game.spawn_enemy(id, game.hero["pos"] + Vector2(0, -300), false, false)
 		Combat.ai(game, hybrid, Vector2.DOWN, 300.0, 0.1, false)
 		check(str(hybrid["kind"]) == id, id + " spawns as a valid enemy")

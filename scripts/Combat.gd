@@ -138,7 +138,12 @@ static func update_delayed(g, dt: float) -> void:
 		if float(item["t"]) <= 0.0:
 			due.append(item)
 			g.delayed.remove_at(i)
+	var tint: Dictionary = {}
 	for item in due:
+		# Whatever a mutant's warning spawns when it goes off (beams, slashes,
+		# flashes, shots) takes the mutant's colour too, not just the warning.
+		tint_mutant_output(g, tint)
+		tint = {"col": str(item["mut_col"]), "beams": g.beams.size(), "fx": g.fx.size(), "shots": g.shots.size()} if item.has("mut_col") else {}
 		match item["fn"]:
 			"proc":
 				Effects.act(g, item["p"], int(item["stacks"]), item["ctx"])
@@ -205,7 +210,7 @@ static func update_delayed(g, dt: float) -> void:
 				var b: Vector2 = item["b"]
 				var w: float = float(item["tele"])
 				var col = Color(str(item.get("color", "ff9944")))
-				g.beams.append({"a": a, "b": b, "t": 0.24, "w": w * 2.0, "color": col, "zig": false})
+				g.beams.append({"a": a, "b": b, "t": 0.24, "w": w * 2.0, "color": col, "style": str(item.get("line_style", "beam"))})
 				g.spawn_ring_fx((a + b) * 0.5, col, w * 2.0)
 				g.sfx.play_projectile("boss_impact")
 				if seg_dist2(a, b, g.hero["pos"]) <= pow(w + 11.0, 2.0):
@@ -226,6 +231,20 @@ static func update_delayed(g, dt: float) -> void:
 					MutationKit.resolve_hit(g, item)
 				elif str(item["fn"]) == "mut_strike":
 					MutationKit.resolve_strike(g, item)
+	tint_mutant_output(g, tint)
+
+static func tint_mutant_output(g, tint: Dictionary) -> void:
+	if tint.is_empty():
+		return
+	var col := Color(str(tint["col"]))
+	for k in range(int(tint["beams"]), g.beams.size()):
+		g.beams[k]["color"] = col
+	for k in range(int(tint["fx"]), g.fx.size()):
+		if g.fx[k].has("color"):
+			g.fx[k]["color"] = col
+	for k in range(int(tint["shots"]), g.shots.size()):
+		if not bool(g.shots[k]["friendly"]):
+			g.shots[k]["color"] = col
 
 # ================================================================= projectiles
 const ENEMY_SHOT_SAFETY := 2500
@@ -1619,12 +1638,12 @@ static func update_enemies(g, dt: float) -> void:
 				for k in range(beams_before, g.beams.size()):
 					g.beams[k]["color"] = mut_col
 				for k in range(fx_before, g.fx.size()):
-					if str(g.fx[k].get("kind", "")) == "slash":
+					if g.fx[k].has("color"):
 						g.fx[k]["color"] = mut_col
 				for k in range(mut_start, g.delayed.size()):
-					if g.delayed[k].has("color") and not bool(g.delayed[k].get("mut_payload", false)):
+					g.delayed[k]["mut_col"] = str(e["mut_col"])
+					if g.delayed[k].has("color"):
 						g.delayed[k]["color"] = str(e["mut_col"])
-						g.delayed[k]["mut_tint"] = true
 				var tagged := false
 				for k in range(mut_start, g.delayed.size()):
 					var item: Dictionary = g.delayed[k]
@@ -1842,12 +1861,12 @@ static func schedule_boss_blast(g, pos: Vector2, radius: float, damage: float, t
 
 ## Line strikes are warned, fixed-in-world and dodgeable; never instantly
 ## follow a player after the telegraph starts.
-static func schedule_boss_line(g, a: Vector2, b: Vector2, width: float, dmg: float, delay: float, color: String = "ff9944") -> void:
+static func schedule_boss_line(g, a: Vector2, b: Vector2, width: float, dmg: float, delay: float, color: String = "ff9944", line_style: String = "beam") -> void:
 	if g.delayed.size() >= 145:
 		return
 	var t = maxf(0.48, delay)
 	g.delayed.append({"fn": "boss_line", "pos": (a + b) * 0.5, "a": a, "b": b,
-		"tele": width, "t": t, "life": t, "dmg": dmg, "color": color})
+		"tele": width, "t": t, "life": t, "dmg": dmg, "color": color, "line_style": line_style})
 
 ## Mitosis halves crawl toward each other and fuse back into a whole cell.
 static func mitosis_half_ai(g, e: Dictionary, dir: Vector2, dt: float) -> Vector2:
