@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.115"
+const GAME_VERSION = "v0.1.116"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1472,7 +1472,8 @@ func update_director(dt: float) -> void:
 		spawn_enemy("goblin", Vector2(randf_range(-300, 300), cam_y - maxf(380.0, ui_height * 0.5 + 80.0)))
 		say(hero["pos"] + Vector2(0, -80), "A GOLD GOBLIN!", Color("ffd24d"), 24)
 	if is_boss_sector() and not boss_spawned and regular_crowd_defeated():
-		var bosses = ["heli", "chonkzilla", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine"]
+		# One boss every 5 sectors up to the final Hive Empress at sector 50.
+		var bosses = ["heli", "chonkzilla", "necro", "kingblob", "coilqueen", "glassoracle", "voidweaver", "dreadengine", "stormtitan", "hiveempress"]
 		var kind = bosses[((sector - WIN_SECTOR - 1) if sector > WIN_SECTOR else (int(sector / 5) - 1)) % bosses.size()]
 		begin_boss_reveal(kind)
 	update_gates()
@@ -3225,6 +3226,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			"paused":
 				if code in [KEY_ESCAPE, KEY_P, KEY_ENTER]:
 					state = "playing"
+				elif code == KEY_B:
+					do_action("bestiary")
+				elif code == KEY_C:
+					do_action("collection")
 			"arsenal":
 				if code in [KEY_ESCAPE, KEY_TAB]:
 					do_action("arsenal_close")

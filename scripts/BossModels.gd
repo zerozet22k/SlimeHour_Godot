@@ -1,5 +1,5 @@
 extends RefCounted
-## Hand-drawn vector models for the eight bosses and their minions.
+## Hand-drawn vector models for the ten bosses and their minions.
 ## Bosses are single actors, so they are drawn live every frame: rotors spin,
 ## legs walk, crowns wobble, cracks spread with each phase and every attack
 ## wind-up is visible on the body itself.
@@ -79,6 +79,8 @@ static func draw(ci: CanvasItem, kind: String, r: float, a: Dictionary = {}) -> 
 		"glassoracle": oracle(ci, r, a)
 		"voidweaver": weaver(ci, r, a)
 		"dreadengine": engine(ci, r, a)
+		"stormtitan": storm(ci, r, a)
+		"hiveempress": hive(ci, r, a)
 	if bool(a.get("flash", false)):
 		ci.draw_circle(Vector2.ZERO, r * 1.05, Color(1, 1, 1, 0.35))
 
@@ -179,7 +181,7 @@ static func chonkzilla(ci: CanvasItem, r: float, a: Dictionary) -> void:
 			var th3: float = t * 4.0 + TAU * float(i) / 3.0
 			star(ci, Vector2(cos(th3) * r * 0.6, -r * 1.0 + sin(th3) * r * 0.15), r * 0.13, Color("ffe07f"), t * 3.0)
 
-# ================================================================ HELI-COPTER
+# ================================================================ SKY REAPER
 ## Top-down attack gunship: nose toward the player, rotor blur, wing pods.
 static func heli(ci: CanvasItem, r: float, a: Dictionary) -> void:
 	var t: float = float(a.get("t", 0.0))
@@ -239,7 +241,7 @@ static func heli(ci: CanvasItem, r: float, a: Dictionary) -> void:
 	if stage == 2 and fmod(t * 7.0, 1.0) < 0.3:
 		ci.draw_line(Vector2(r * 0.3, -r * 0.2), Vector2(r * 0.45, -r * 0.05), Color("fff3a0"), 2.5)
 
-# ================================================================ NECRO-DAD
+# ================================================================ GRAVE LORD
 ## A hooded lich with a very dad moustache, a soul-orb staff and orbiting wisps.
 static func necro(ci: CanvasItem, r: float, a: Dictionary) -> void:
 	var t: float = float(a.get("t", 0.0))
@@ -667,3 +669,104 @@ static func minion(ci: CanvasItem, role: String, r: float, a: Dictionary) -> voi
 			ci.draw_line(Vector2.ZERO, aim * r * 1.4, INK, 8.0)
 			ci.draw_line(Vector2.ZERO, aim * r * 1.4, Color("9ea3b3"), 5.0)
 			ci.draw_circle(Vector2.ZERO, r * 0.3, Color("ff6a3d") if fmod(t * 2.0, 1.0) < 0.5 else Color("8a2a14"))
+
+# ================================================================ STORM TITAN
+## A thundercloud colossus: a stone face set in a churning storm cloud, two
+## crackling lightning arms, and a halo of orbiting thunder runes.
+static func storm(ci: CanvasItem, r: float, a: Dictionary) -> void:
+	var t: float = float(a.get("t", 0.0))
+	var stage: int = int(a.get("stage", 0))
+	var tell: float = float(a.get("tell", 0.0))
+	var cloud := Color("3a4566")
+	var cloud_hi := Color("6f7fa8")
+	var bolt := Color("ffe14d")
+	var spark := Color("9fd0ff")
+	shadow(ci, Vector2(0, r * 1.05), r * 1.1)
+	glow(ci, Vector2.ZERO, r * 1.6, spark, 0.6 + tell)
+	# Cloud body: overlapping puffs that drift.
+	for k in range(7):
+		var ang: float = TAU * float(k) / 7.0 + t * 0.25
+		var c := Vector2.from_angle(ang) * r * 0.62
+		ci.draw_circle(c, r * 0.52 + 3.0, INK)
+	for k in range(7):
+		var ang2: float = TAU * float(k) / 7.0 + t * 0.25
+		var c2 := Vector2.from_angle(ang2) * r * 0.62
+		ci.draw_circle(c2, r * 0.52, cloud)
+		ci.draw_circle(c2 + Vector2(-r * 0.1, -r * 0.12), r * 0.3, cloud_hi)
+	ci.draw_circle(Vector2.ZERO, r * 0.78, cloud)
+	# Lightning arms.
+	for side in [-1.0, 1.0]:
+		var pts := PackedVector2Array()
+		var base := Vector2(side * r * 0.8, r * 0.1)
+		pts.append(base)
+		for k in range(1, 5):
+			var jitter: float = sin(t * 23.0 + float(k) * 3.1 + side) * r * 0.12
+			pts.append(base + Vector2(side * r * 0.28 * float(k), r * 0.18 * float(k) + jitter))
+		ci.draw_polyline(pts, Color(spark, 0.6), 9.0, true)
+		ci.draw_polyline(pts, bolt, 4.0, true)
+	# Stone face.
+	var face := Rect2(-r * 0.42, -r * 0.4, r * 0.84, r * 0.8)
+	ci.draw_rect(face.grow(3.0), INK)
+	ci.draw_rect(face, Color("8a8f9c"))
+	ci.draw_rect(Rect2(face.position, Vector2(face.size.x, r * 0.12)), Color("a9aebb"))
+	for side2 in [-1.0, 1.0]:
+		var eye_c := Vector2(side2 * r * 0.18, -r * 0.08)
+		ci.draw_circle(eye_c, r * 0.11, INK)
+		ci.draw_circle(eye_c, r * 0.08, bolt.lerp(Color.WHITE, 0.3 + 0.5 * tell))
+	ci.draw_rect(Rect2(-r * 0.22, r * 0.16, r * 0.44, r * 0.08), INK)
+	# Cracks per phase.
+	if stage >= 1:
+		ci.draw_polyline(PackedVector2Array([Vector2(-r * 0.3, -r * 0.4), Vector2(-r * 0.2, -r * 0.2), Vector2(-r * 0.28, 0)]), bolt, 2.5, true)
+	if stage >= 2:
+		ci.draw_polyline(PackedVector2Array([Vector2(r * 0.34, -r * 0.4), Vector2(r * 0.22, -r * 0.15), Vector2(r * 0.32, r * 0.1)]), bolt, 2.5, true)
+	# Rune halo.
+	for i in range(6):
+		var th: float = t * 0.9 + TAU * float(i) / 6.0
+		var p := Vector2.from_angle(th) * r * 1.4
+		star(ci, p, r * 0.1, spark if i % 2 == 0 else bolt, th)
+
+# ================================================================ HIVE EMPRESS
+## The final boss: a crowned queen bee slime with buzzing wings, a striped
+## abdomen, a stinger and an orbit of honeycomb plates.
+static func hive(ci: CanvasItem, r: float, a: Dictionary) -> void:
+	var t: float = float(a.get("t", 0.0))
+	var stage: int = int(a.get("stage", 0))
+	var tell: float = float(a.get("tell", 0.0))
+	var gold := Color("ffc23d")
+	var amber := Color("ff7a3d")
+	var stripe := Color("2b1a10")
+	shadow(ci, Vector2(0, r * 1.1), r * 1.15)
+	glow(ci, Vector2.ZERO, r * 1.5, gold, 0.5 + tell)
+	# Wings (buzzing).
+	var flap: float = 0.55 + 0.45 * sin(t * 40.0)
+	for side in [-1.0, 1.0]:
+		ell(ci, Vector2(side * r * 0.85, -r * 0.55), r * 0.62, r * 0.3 * flap + r * 0.08, Color(0.85, 0.95, 1.0, 0.45), side * 0.5)
+		ell(ci, Vector2(side * r * 0.7, -r * 0.15), r * 0.45, r * 0.22 * flap + r * 0.06, Color(0.85, 0.95, 1.0, 0.35), side * 0.25)
+	# Abdomen with stripes and stinger.
+	var ab := Vector2(0, r * 0.45)
+	ci.draw_colored_polygon(PackedVector2Array([ab + Vector2(-r * 0.12, r * 0.6), ab + Vector2(0, r * 0.95 + tell * r * 0.2), ab + Vector2(r * 0.12, r * 0.6)]), INK)
+	ell(ci, ab, r * 0.62 + 3.0, r * 0.6 + 3.0, INK)
+	ell(ci, ab, r * 0.62, r * 0.6, gold)
+	for k in range(3):
+		var y: float = ab.y - r * 0.25 + float(k) * r * 0.25
+		ci.draw_line(Vector2(-r * 0.56, y), Vector2(r * 0.56, y), stripe, r * 0.1)
+	# Head / thorax.
+	ci.draw_circle(Vector2(0, -r * 0.3), r * 0.5 + 3.0, INK)
+	ci.draw_circle(Vector2(0, -r * 0.3), r * 0.5, gold.lightened(0.15))
+	for side2 in [-1.0, 1.0]:
+		eye(ci, Vector2(side2 * r * 0.2, -r * 0.34), r * 0.12, Vector2.DOWN, Color("2b1a10"))
+		ci.draw_line(Vector2(side2 * r * 0.15, -r * 0.75), Vector2(side2 * r * 0.35, -r * 1.05), INK, 4.0)
+		ci.draw_circle(Vector2(side2 * r * 0.35, -r * 1.05), r * 0.07, amber)
+	# Crown.
+	var crown := PackedVector2Array([Vector2(-r * 0.32, -r * 0.72), Vector2(-r * 0.32, -r * 0.95), Vector2(-r * 0.16, -r * 0.82),
+		Vector2(0, -r * 1.02), Vector2(r * 0.16, -r * 0.82), Vector2(r * 0.32, -r * 0.95), Vector2(r * 0.32, -r * 0.72)])
+	outlined(ci, crown, Color("ffe08a"))
+	# Honeycomb plates orbiting (more each phase).
+	var plates: int = 4 + stage * 2
+	for i in range(plates):
+		var th: float = -t * 0.7 + TAU * float(i) / float(plates)
+		var c := Vector2.from_angle(th) * r * 1.45
+		var hexp := PackedVector2Array()
+		for k in range(6):
+			hexp.append(c + Vector2.from_angle(TAU * float(k) / 6.0 + th) * r * 0.16)
+		outlined(ci, hexp, amber if i % 2 == 0 else gold, INK, 2.0)

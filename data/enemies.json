@@ -334,7 +334,7 @@
   },
   {
     "id": "heli",
-    "name": "HELI-COPTER",
+    "name": "SKY REAPER",
     "hp": 2000,
     "speed": 110,
     "dmg": 14,
@@ -346,7 +346,7 @@
   },
   {
     "id": "necro",
-    "name": "NECRO-DAD",
+    "name": "GRAVE LORD",
     "hp": 2200,
     "speed": 60,
     "dmg": 16,
@@ -433,6 +433,40 @@
     "look": {
       "body": "round",
       "face": "visor",
+      "gear": []
+    }
+  },
+  {
+    "id": "stormtitan",
+    "name": "STORM TITAN",
+    "hp": 3800,
+    "speed": 100,
+    "dmg": 24,
+    "r": 58,
+    "xp": 100,
+    "mass": 42,
+    "color": "ffe14d",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "normal",
+      "gear": []
+    }
+  },
+  {
+    "id": "hiveempress",
+    "name": "HIVE EMPRESS",
+    "hp": 4300,
+    "speed": 110,
+    "dmg": 26,
+    "r": 60,
+    "xp": 120,
+    "mass": 45,
+    "color": "ffc23d",
+    "boss": true,
+    "look": {
+      "body": "round",
+      "face": "normal",
       "gear": []
     }
   }

@@ -36,6 +36,9 @@ var bestiary_selected = ""
 var hover_card = null
 var hp_trail = 1.0
 var last_click_frame = -1
+var last_click_ms := -1000
+var compare_offer: Dictionary = {}
+var compare_at := Rect2()
 var selected_collection_item = null
 var inspected_card_id = ""
 var press_action = ""
@@ -201,13 +204,9 @@ func button(r: Rect2, label: String, action: String, primary = false, size = 24,
 	var tc: Color
 	if primary and enabled:
 		cbox(fr, accent.lightened(0.15) if hover else accent, cut)
-		# Dark stripe along the bottom and a notch block, like a hazard plate.
-		draw_rect(Rect2(fr.position.x + cut + 6, fr.end.y - 6, fr.size.x * 0.35, 2), Color(0, 0, 0, 0.35))
-		draw_rect(Rect2(fr.end.x - 16, fr.position.y + 6, 8, 4), Color(0, 0, 0, 0.45))
 		tc = BTN_TEXT_DARK
 	else:
 		cbox(fr, Color(accent, 0.2) if hover else Color(0.03, 0.05, 0.08, 0.92), cut, Color(accent, 0.95 if hover else 0.7), 2)
-		draw_rect(Rect2(fr.position.x + 5, fr.position.y + cut + 2, 3, fr.size.y - cut - 9), accent)
 		tc = accent.lerp(Color.WHITE, 0.55 if hover else 0.25) if enabled else Color("6d768a")
 	var fitted = fit(label, r.size.x - 28, size, bold, 12)
 	txt(label, Vector2(fr.get_center().x, fr.get_center().y + fitted * 0.34), fitted, tc, 1, bold)
@@ -235,9 +234,13 @@ func icon_button(c: Vector2, rad: float, action: String, icon: String) -> void:
 
 func click(pos: Vector2) -> void:
 	var f = Engine.get_process_frames()
-	if f == last_click_frame:
+	# One click = one action: ignore a second event within 150 ms (a touch-capable
+	# PC can send both a touch and a mouse click for one press).
+	var now := Time.get_ticks_msec()
+	if f == last_click_frame or now - last_click_ms < 150:
 		return
 	last_click_frame = f
+	last_click_ms = now
 	if g.state == "collection" and collection_track.has_point(pos) and (not g.portrait or selected_collection_item == null):
 		var total = get_collection_items().size()
 		var cols = CollectionGrid.columns(g.portrait)
@@ -250,7 +253,10 @@ func click(pos: Vector2) -> void:
 		if buttons[i]["rect"].has_point(pos):
 			press_action = str(buttons[i]["action"])
 			press_t = g.anim_t
-			g.do_action(buttons[i]["action"])
+			var act = buttons[i]["action"]
+			# The screen may change: drop the old targets until it is redrawn.
+			buttons.clear()
+			g.do_action(act)
 			return
 
 func scroll(d: int) -> void:
@@ -495,11 +501,13 @@ func paint_portrait() -> void:
 		"paused":
 			paint_portrait_hud()
 			dim(0.72)
-			panel(Rect2(90, h * 0.3, 540, 470), PANEL, PANEL_EDGE, 3)
-			txt("PAUSED", Vector2(360, h * 0.3 + 92), 70, Color.WHITE, 1, bold, 6)
-			button(Rect2(140, h * 0.3 + 140, 440, 90), "RESUME", "resume", true, 38)
-			button(Rect2(140, h * 0.3 + 254, 440, 76), "SETTINGS", "settings", false, 28)
-			button(Rect2(140, h * 0.3 + 354, 440, 76), "MAIN MENU", "menu", false, 28)
+			panel(Rect2(90, h * 0.24, 540, 600), PANEL, PANEL_EDGE, 3)
+			txt("PAUSED", Vector2(360, h * 0.24 + 92), 70, Color.WHITE, 1, bold, 6)
+			button(Rect2(140, h * 0.24 + 140, 440, 90), "RESUME", "resume", true, 38)
+			button(Rect2(140, h * 0.24 + 250, 212, 76), "BESTIARY", "bestiary", false, 26)
+			button(Rect2(368, h * 0.24 + 250, 212, 76), "CARDS", "collection", false, 26)
+			button(Rect2(140, h * 0.24 + 346, 440, 76), "SETTINGS", "settings", false, 28)
+			button(Rect2(140, h * 0.24 + 442, 440, 76), "MAIN MENU", "menu", false, 28)
 		"levelup":
 			if peek:
 				paint_portrait_arsenal()
@@ -809,7 +817,8 @@ func portrait_offer_row(r: Rect2, info: Dictionary, appear: float = 1.0) -> void
 	txt(rl, Vector2(r.end.x - 12 - cw * 0.5, r.position.y + 31), 15, Color("0b1224"), 1, bold)
 	var title = str(info["title"]).to_upper()
 	txt(title, Vector2(tx, r.position.y + 42), fit(title, tw - cw - 8, 30, bold, 16), Color.WHITE, 0, bold, 3)
-	txt(str(info["cat"]).to_upper(), Vector2(tx, r.position.y + 66), 16, rc.lerp(Color.WHITE, 0.25), 0, bold)
+	var cat_text := str(info["cat"]).to_upper()
+	txt(cat_text, Vector2(tx, r.position.y + 66), fit(cat_text, tw, 16, bold, 10), rc.lerp(Color.WHITE, 0.25), 0, bold)
 	var stack = str(info.get("stack", ""))
 	var lines = maxi(1, mini(4, int((r.size.y - 112 - (24 if stack != "" else 0)) / 24.0)))
 	var y = wrap_text(str(info["desc"]), tx, r.position.y + 94, tw, 20, Color("dbe4f5"), 24, body, false, lines)
@@ -1346,6 +1355,84 @@ func best_gun_dps() -> float:
 		best = maxf(best, float(gun_numbers(w)["dps"]))
 	return best
 
+## Gun comparison tooltip beside a hovered gun offer: bars for DPS, damage,
+## fire rate, magazine and reload, NEW vs YOUR GUN (or BEFORE vs AFTER).
+func gun_compare_rows(o: Dictionary) -> Dictionary:
+	var a_w: Dictionary = {}
+	var b_w: Dictionary = {}
+	var title := ""
+	var left := "NOW"
+	var right := "NEW"
+	match str(o.get("type", "")):
+		"gun_new":
+			b_w = Weapons.new_gun(g, str(o["gun"]), int(o.get("tier", 0)))
+			var best := -1.0
+			for w in g.guns:
+				var dps := float(gun_numbers(w)["dps"])
+				if dps > best:
+					best = dps
+					a_w = w
+			title = "VS YOUR " + (Weapons.display_name(g, a_w).to_upper() if not a_w.is_empty() else "EMPTY HANDS")
+			left = "YOURS"
+		"gun_up", "evolve":
+			a_w = g.guns[int(o["slot"])]
+			b_w = a_w.duplicate(true)
+			if str(o["type"]) == "gun_up":
+				b_w["lvl"] = int(a_w["lvl"]) + 1
+				title = "LV %d  >  LV %d" % [int(a_w["lvl"]), int(b_w["lvl"])]
+			else:
+				b_w["evolved"] = true
+				title = "EVOLUTION"
+			left = "BEFORE"
+			right = "AFTER"
+		_:
+			return {}
+	var rows: Array = []
+	var nb := gun_numbers(b_w)
+	var na: Dictionary = gun_numbers(a_w) if not a_w.is_empty() else {"dps": 0.0, "dmg": 0.0, "rate": 0.0, "pellets": 1}
+	rows.append(["DPS", float(na["dps"]), float(nb["dps"]), true])
+	rows.append(["DAMAGE", float(na["dmg"]) * float(na["pellets"]), float(nb["dmg"]) * float(nb["pellets"]), true])
+	rows.append(["FIRE RATE", float(na["rate"]), float(nb["rate"]), true])
+	if not bool(nb["beam"]):
+		rows.append(["MAGAZINE", float(Weapons.mag_size(g, a_w)) if not a_w.is_empty() else 0.0, float(Weapons.mag_size(g, b_w)), true])
+		rows.append(["RELOAD", Weapons.reload_time(g, a_w) if not a_w.is_empty() else 0.0, Weapons.reload_time(g, b_w), false])
+	return {"title": title, "left": left, "right": right, "rows": rows}
+
+func gun_compare_panel(anchor: Rect2, o: Dictionary) -> void:
+	var data := gun_compare_rows(o)
+	if data.is_empty():
+		return
+	var w := 300.0
+	var h := 58.0 + 46.0 * float(data["rows"].size())
+	var x: float = anchor.end.x + 14.0
+	if x + w > 1270.0:
+		x = anchor.position.x - w - 14.0
+	var r := Rect2(x, clampf(anchor.position.y + 20.0, 10.0, 710.0 - h), w, h)
+	rbox(Rect2(r.position + Vector2(4, 6), r.size), Color(0, 0, 0, 0.5), 14)
+	rbox(r, Color("0a1020", 0.97), 14, Color("4fe0ff"), 2)
+	txt(str(data["title"]), Vector2(r.position.x + 16, r.position.y + 28), fit(str(data["title"]), w - 32, 17, bold, 11), Color("4fe0ff"), 0, bold)
+	txt(str(data["left"]), Vector2(r.end.x - 118, r.position.y + 48), 12, Color("9fb8d0"), 1, bold)
+	txt(str(data["right"]), Vector2(r.end.x - 46, r.position.y + 48), 12, Color("ffd24d"), 1, bold)
+	var y := r.position.y + 58.0
+	for row in data["rows"]:
+		var old_v: float = float(row[1])
+		var new_v: float = float(row[2])
+		var higher_better: bool = bool(row[3])
+		var better: bool = (new_v > old_v + 0.001) if higher_better else (new_v < old_v - 0.001)
+		var worse: bool = (new_v < old_v - 0.001) if higher_better else (new_v > old_v + 0.001)
+		var col := Color("7dff9a") if better else (Color("ff6b7a") if worse else Color.WHITE)
+		txt(str(row[0]), Vector2(r.position.x + 16, y + 16), 14, Color("c9d6e8"), 0, bold)
+		txt(short_num(old_v) + ("s" if str(row[0]) == "RELOAD" else ""), Vector2(r.end.x - 118, y + 16), 15, Color("9fb8d0"), 1, bold)
+		txt(short_num(new_v) + ("s" if str(row[0]) == "RELOAD" else ""), Vector2(r.end.x - 46, y + 16), 17, col, 1, bold)
+		# Bars on a shared scale: grey = yours/before, colour = new/after.
+		var top: float = maxf(0.001, maxf(old_v, new_v))
+		var bw := w - 32.0
+		draw_rect(Rect2(r.position.x + 16, y + 24, bw, 5), Color(1, 1, 1, 0.08))
+		draw_rect(Rect2(r.position.x + 16, y + 24, bw * old_v / top, 5), Color("6d7a92"))
+		draw_rect(Rect2(r.position.x + 16, y + 31, bw, 5), Color(1, 1, 1, 0.08))
+		draw_rect(Rect2(r.position.x + 16, y + 31, bw * new_v / top, 5), col)
+		y += 46.0
+
 func offer_info(o: Dictionary) -> Dictionary:
 	match o["type"]:
 		"card":
@@ -1358,7 +1445,13 @@ func offer_info(o: Dictionary) -> Dictionary:
 				var adapted = Compatibility.card_interaction(g, str(o["id"]))
 				if adapted != "":
 					desc_text += "  With your guns: " + adapted
-			return {"title": c["name"], "desc": desc_text, "rar": int(c["rarity"]), "cat": g.categories.get(c["cat"], ""),
+			# A card can belong to several elements at once: list every one.
+			var tags: Array = []
+			for t in Effects.card_themes(c):
+				var tag := str(g.categories.get(t, str(t).to_upper()))
+				if not tags.has(tag):
+					tags.append(tag)
+			return {"title": c["name"], "desc": desc_text, "rar": int(c["rarity"]), "cat": "  ·  ".join(tags),
 				"catc": CAT_COLOR, "catid": str(c["cat"]), "art": (g.tex("res://assets/cards/hydra.svg") if str(o["id"]) == "hydra" else (g.tex("res://assets/cards/%s.webp" % o["id"]) if str(o["id"]) in ["double_tap", "twin_barrels"] else g.tex("res://assets/cards/%s.png" % o["id"]))), "foot": foot,
 				"stack": Effects.stack_preview(g, str(o["id"]), owned_view),
 				"max": "MAX %d" % int(c["max"]), "cursed": c.get("cursed", false), "icon": false}
@@ -1376,9 +1469,9 @@ func offer_info(o: Dictionary) -> Dictionary:
 				numbers = gun_stat_line(n, int(trial["mag_max"]))
 				if not g.guns.is_empty() and not bool(n["beam"]):
 					numbers += "  |  YOUR BEST GUN: DPS %d" % roundi(best_gun_dps())
-				stats = ""
+				stats = "HOVER TO COMPARE"
 			return {"title": d["name"], "desc": d["desc"], "rar": tier, "cat": "NEW GUN", "gun_class": Weapons.gun_class(str(o["gun"])), "catc": CAT_COLOR,
-				"art": g.tex("res://assets/weapons/%s.png" % o["gun"]), "foot": "" if bool(o.get("preview", false)) else stats, "stack": numbers,
+				"art": g.tex("res://assets/weapons/%s.png" % o["gun"]), "foot": "" if bool(o.get("preview", false)) else stats,
 				"rarlabel": "RANDOM TIER" if bool(o.get("preview", false)) else RARITY[tier], "max": "", "icon": true}
 		"gun_up":
 			var w = g.guns[int(o["slot"])]
@@ -1396,7 +1489,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 				desc += " UNLOCK: " + str(d2["lv3"])
 			elif nl == 5:
 				desc += " UNLOCK: " + str(d2["lv5"]) + ". Then it can EVOLVE."
-			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "stack": up_line, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "gun_class": Weapons.gun_class(str(w["id"])), "catc": CAT_COLOR,
+			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "gun_class": Weapons.gun_class(str(w["id"])), "catc": CAT_COLOR,
 				"art": g.tex("res://assets/weapons/%s.png" % w["id"]), "foot": "LV %d  >  LV %d" % [nl - 1, nl], "max": "", "icon": true}
 		"evolve":
 			var w2 = g.guns[int(o["slot"])]
@@ -1404,7 +1497,7 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var evo_w: Dictionary = w2.duplicate(true)
 			evo_w["evolved"] = true
 			var evo_after := gun_numbers(evo_w)
-			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2), "stack": "DPS %d > %d" % [roundi(float(evo_before["dps"])), roundi(float(evo_after["dps"]))],
+			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2),
 				"rar": maxi(3, int(w2.get("tier", 0))), "cat": "EVOLUTION", "gun_class": Weapons.gun_class(str(w2["id"])), "catc": CAT_COLOR, "art": g.tex("res://assets/weapons/%s.png" % w2["id"]),
 				"foot": str(g.weapon_db[w2["id"]]["name"]) + " is ready", "max": "", "icon": true}
 	return {}
@@ -1502,6 +1595,7 @@ func paint_levelup() -> void:
 	var wob = sin(g.anim_t * 3.0) * 3.0
 	txt(head, Vector2(640, 96 + wob), int(64 * pop), hc, 1, bold, 8)
 	txt("LEVEL %d  ·  PICK ONE" % g.level if not chest else "A FREE CARD. PICK ONE", Vector2(640, 128), 20, Color.WHITE, 1, bold, 4)
+	compare_offer = {}
 	var n = g.offers.size()
 	var cw = 250.0 if n <= 3 else 230.0
 	var gap = 24.0
@@ -1520,9 +1614,14 @@ func paint_levelup() -> void:
 		if appear >= 1.0:
 			buttons.append({"rect": r, "action": "offer%d" % i})
 			offer_tools(r, g.offers[i], i)
+		if hover and appear >= 1.0 and str(g.offers[i].get("type", "")) != "card":
+			compare_at = r
+			compare_offer = g.offers[i]
 	button(Rect2(130, 608, 220, 52), "HIDE BUILD" if peek else "PEEK BUILD", "toggle_peek", false, 20)
 	button(Rect2(390, 608, 230, 52), "REROLL (%d)" % g.rerolls, "reroll", false, 22, g.rerolls > 0)
 	button(Rect2(660, 608, 230, 52), "SKIP  +%d G" % g.skip_gold(), "skip", false, 22)
+	if not compare_offer.is_empty():
+		gun_compare_panel(compare_at, compare_offer)
 	txt("Tap card to pick   ·   R reroll   ·   X skip" if g.is_touch_active() else "1-%d pick   ·   R reroll   ·   X skip   ·   TAB peek at your build" % n, Vector2(640, 690), 15, Color("9fb8d0"), 1, body, 3)
 
 ## LOCK (paid: the card returns at the next level-up) and BANISH (the card
@@ -1758,45 +1857,43 @@ func paint_debug_panel() -> void:
 	var status = "LAST: " + g.debug_notice if g.debug_notice != "" else "Choose a tab or jump directly to a test sector."
 	txt(status, Vector2(px + 24, py + ph - 30), fit(status, pw - 48, 18, bold, 12), Color("a8ffc1"), 0, bold)
 
-func paint_menu_bg() -> void:
+func paint_menu_bg(bright: bool = false) -> void:
 	draw_rect(g.landscape_rect(), Color("07080f"))
 	var art = g.tex("res://assets/ui/title.png")
 	if art != null:
 		var drift = sin(g.anim_t * 0.2) * 12.0
-		draw_texture_rect(art, Rect2(g.landscape_left - 20.0 + drift, -12, g.landscape_width + 40.0, 744), false, Color(0.6, 0.6, 0.7))
-	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.35))
-	# A conga line of blobs running across the bottom.
-	for i in range(9):
-		var x = fposmod(g.anim_t * 120.0 + i * 160.0, 1440.0) - 80.0
-		var y = 676.0 - absf(sin(g.anim_t * 8.0 + i)) * 10.0
-		var c = [Color("ff7b93"), Color("ffb36b"), Color("7dffcf"), Color("ff5a4a")][i % 4]
-		draw_circle(Vector2(x, y), 16, c.darkened(0.4))
-		draw_circle(Vector2(x, y - 1), 14, c)
-		draw_circle(Vector2(x - 5, y - 4), 5, Color.WHITE)
-		draw_circle(Vector2(x + 5, y - 4), 5, Color.WHITE)
-		draw_circle(Vector2(x - 3, y - 4), 2.5, Color.BLACK)
-		draw_circle(Vector2(x + 7, y - 4), 2.5, Color.BLACK)
+		var tint := Color(0.92, 0.92, 0.98) if bright else Color(0.5, 0.5, 0.62)
+		draw_texture_rect(art, Rect2(g.landscape_left - 20.0 + drift, -12, g.landscape_width + 40.0, 744), false, tint)
+	if not bright:
+		draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.45))
 
+## Main menu: the key art fills the screen; the menu sits in a dark column on
+## the left so nothing covers the picture.
 func paint_menu() -> void:
-	paint_menu_bg()
-	panel(Rect2(380, 50, 520, 620), Color(0.025, 0.045, 0.09, 0.92), Color("304868"), 2)
-	glitch_txt("SLIME HOUR", Vector2(640, 172), 92, Color.WHITE)
-	txt("//  D O N ' T   S T O P   S H O O T I N G  //", Vector2(640, 212), 20, NEON, 1, body)
-	profile_bar(Vector2(640, 262), 380.0)
-	button(Rect2(450, 290, 380, 70), "PLAY", "play", true, 34)
-	button(Rect2(450, 376, 185, 56), "HARD MODE", "play_hard", false, 22)
-	button(Rect2(645, 376, 185, 56), "UPGRADES", "upgrades", false, 22)
-	button(Rect2(450, 448, 121, 56), "COLLECTION", "collection", false, 17)
-	button(Rect2(580, 448, 121, 56), "BESTIARY", "bestiary", false, 17)
-	button(Rect2(710, 448, 121, 56), "MUTATIONS", "mutation_book", false, 16)
-	button(Rect2(450, 520, 185, 50), "SETTINGS", "settings", false, 20)
-	button(Rect2(645, 520, 185, 50), "QUIT", "quit", false, 20)
+	paint_menu_bg(true)
+	var left: float = g.landscape_left
+	var fade := PackedVector2Array([Vector2(left, 0), Vector2(left + 700.0, 0), Vector2(left + 700.0, 720), Vector2(left, 720)])
+	draw_polygon(fade, PackedColorArray([Color(0.02, 0.025, 0.06, 0.96), Color(0.02, 0.025, 0.06, 0.0), Color(0.02, 0.025, 0.06, 0.0), Color(0.02, 0.025, 0.06, 0.96)]))
+	draw_rect(Rect2(left, 690, g.landscape_width, 30), Color(0.02, 0.025, 0.06, 0.7))
+	var cx := 330.0
+	glitch_txt("SLIME HOUR", Vector2(cx, 118), 84, Color.WHITE)
+	txt("//  D O N ' T   S T O P   S H O O T I N G  //", Vector2(cx, 156), 18, NEON, 1, body)
+	profile_bar(Vector2(cx, 204), 380.0)
+	var x := cx - 190.0
+	button(Rect2(x, 240, 380, 68), "PLAY", "play", true, 34)
+	button(Rect2(x, 318, 380, 52), "HARD MODE", "play_hard", false, 22)
+	button(Rect2(x, 380, 380, 52), "UPGRADES", "upgrades", false, 22)
+	button(Rect2(x, 442, 124, 50), "CARDS", "collection", false, 17)
+	button(Rect2(x + 128, 442, 124, 50), "BESTIARY", "bestiary", false, 17)
+	button(Rect2(x + 256, 442, 124, 50), "MUTATIONS", "mutation_book", false, 16)
+	button(Rect2(x, 502, 188, 46), "SETTINGS", "settings", false, 19)
+	button(Rect2(x + 192, 502, 188, 46), "QUIT", "quit", false, 19)
 	if g.update_available:
-		button(Rect2(510, 577, 260, 42), "UPDATE " + g.update_version, "update", true, 19)
-	goo_chip(Vector2(640, 635))
-	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(640, 688), 16, MUTED, 1, body)
-	txt(g.GAME_VERSION, Vector2(1244, 699), 16, Color("adc0d7"), 2, bold)
-	button(Rect2(32, 640, 175, 44), "DEBUG LAB  F3", "debug_open", false, 17)
+		button(Rect2(x, 558, 380, 42), "UPDATE " + g.update_version, "update", true, 19)
+	goo_chip(Vector2(cx, 624))
+	txt("BEST  SECTOR %d   /   %d KILLS   /   LV %d" % [g.best["sector"], g.best["kills"], g.best["level"]], Vector2(cx, 664), 15, MUTED, 1, body)
+	txt(g.GAME_VERSION, Vector2(1244, 711), 15, Color("adc0d7"), 2, bold)
+	button(Rect2(1080, 652, 170, 36), "DEBUG LAB  F3", "debug_open", false, 15)
 
 
 ## Character identities are presentation/data, not permanent power unlocks.
@@ -1906,10 +2003,13 @@ func paint_update_screen() -> void:
 
 func paint_pause() -> void:
 	draw_rect(g.landscape_rect(), Color(0.02, 0.02, 0.06, 0.75))
-	txt("PAUSED", Vector2(640, 200), 80, Color.WHITE, 1, bold, 10)
-	button(Rect2(500, 260, 280, 62), "RESUME", "resume", true, 30)
-	button(Rect2(500, 336, 280, 54), "SETTINGS", "settings", false, 24)
-	button(Rect2(500, 402, 280, 54), "MAIN MENU", "menu", false, 24)
+	txt("PAUSED", Vector2(640, 170), 80, Color.WHITE, 1, bold, 10)
+	button(Rect2(500, 220, 280, 62), "RESUME", "resume", true, 30)
+	button(Rect2(500, 296, 136, 54), "BESTIARY", "bestiary", false, 20)
+	button(Rect2(644, 296, 136, 54), "CARDS", "collection", false, 20)
+	button(Rect2(500, 362, 280, 54), "SETTINGS", "settings", false, 24)
+	button(Rect2(500, 428, 280, 54), "MAIN MENU", "menu", false, 24)
+	txt("B  bestiary   ·   C  cards   ·   ESC  resume", Vector2(640, 516), 15, Color("9fb8d0"), 1, body, 3)
 	txt("SLIME HOUR  " + g.GAME_VERSION, Vector2(1244, 696), 16, Color("adc0d7"), 2, bold)
 
 func cursor_label() -> String:
@@ -2433,6 +2533,9 @@ func paint_upgrades() -> void:
 	draw_rect(Rect2(0, 0, w, hh), Color(0.02, 0.02, 0.05, 0.72))
 	glitch_txt("UPGRADES", Vector2(w * 0.5, 92 if not g.portrait else 120), 64, Color.WHITE)
 	goo_chip(Vector2(w * 0.5, 126 if not g.portrait else 160))
+	if not g.portrait:
+		paint_upgrade_groups(w, hh)
+		return
 	var cols = 1 if g.portrait else 3
 	var rw = 400.0 if not g.portrait else 648.0
 	var rh = 84.0 if not g.portrait else minf(96.0, (hh - 420.0) / g.META_UPS.size())
@@ -2456,6 +2559,59 @@ func paint_upgrades() -> void:
 		var b = Rect2(r.end.x - 140, r.position.y + (rh - 50) * 0.5, 124, 50)
 		button(b, "MAXED" if maxed else "%d GOO" % g.meta_cost(u), "meta_%d" % i, can, 20, not maxed)
 	button(Rect2(w * 0.5 - 120, hh - (82 if not g.portrait else 130), 240, 56 if not g.portrait else 84), "BACK", "menu", true, 26)
+
+const UPGRADE_GROUPS = [
+	["OFFENSE", "ff8a3d", ["dmg", "rate", "speed", "dash"]],
+	["SURVIVAL", "7dff9a", ["hp", "armor", "revive", "magnet"]],
+	["CARDS", "c07bff", ["reroll", "choices", "luck", "startcard"]],
+	["ECONOMY", "ffd24d", ["xp", "gold", "banish", "haggle"]],
+]
+
+## Desktop upgrades: four themed columns of compact rows with price pills.
+func paint_upgrade_groups(w: float, hh: float) -> void:
+	var index := {}
+	for i in range(g.META_UPS.size()):
+		index[str(g.META_UPS[i]["id"])] = i
+	var col_w := 292.0
+	var gap := 14.0
+	var x0: float = w * 0.5 - (col_w * 4.0 + gap * 3.0) * 0.5
+	var top := 160.0
+	var row_h := 100.0
+	for c in range(UPGRADE_GROUPS.size()):
+		var grp: Array = UPGRADE_GROUPS[c]
+		var hue := Color(str(grp[1]))
+		var x: float = x0 + float(c) * (col_w + gap)
+		slant(Rect2(x, top, col_w, 30), Color(hue, 0.22), Color(0, 0, 0, 0), 8)
+		txt(str(grp[0]), Vector2(x + 14, top + 22), 17, hue, 0, bold)
+		var y: float = top + 40.0
+		for id in grp[2]:
+			if not index.has(id):
+				continue
+			var i: int = int(index[id])
+			var u: Dictionary = g.META_UPS[i]
+			var lv: int = g.meta_level(str(u["id"]))
+			var mx := int(u["max"])
+			var maxed := lv >= mx
+			var cost: int = g.meta_cost(u)
+			var can: bool = not maxed and int(g.profile.get("goo", 0)) >= cost
+			var r := Rect2(x, y, col_w, row_h - 10.0)
+			var hover := r.has_point(g.mouse_screen) and not maxed
+			cbox(r, Color(hue, 0.1) if hover else Color(0.03, 0.05, 0.08, 0.92), 12, Color(hue if can else PANEL_EDGE, 0.85 if can else 0.6), 2)
+			txt(str(u["name"]), r.position + Vector2(14, 28), fit(str(u["name"]), col_w - 28, 19, bold, 12), Color.WHITE, 0, bold)
+			txt(str(u["desc"]), r.position + Vector2(14, 50), fit(str(u["desc"]), col_w - 28, 14, body, 10), MUTED, 0, body)
+			for p in range(mx):
+				draw_rect(Rect2(r.position.x + 14 + p * 16, r.end.y - 18, 12, 5), hue if p < lv else Color(1, 1, 1, 0.15))
+			# Price pill: green when affordable, dim when not, a tick when maxed.
+			var label := "MAX" if maxed else "%d GOO" % cost
+			var pw: float = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 22.0
+			var pill := Rect2(r.end.x - pw - 10.0, r.end.y - 30.0, pw, 24.0)
+			cbox(pill, Color("7dff9a") if can else Color(0, 0, 0, 0.4), 6, Color(hue, 0.5) if not can else Color(0, 0, 0, 0), 0 if can else 1)
+			txt(label, pill.get_center() + Vector2(0, 5), 15, Color("0b1224") if can else (Color("7d8aa3") if not maxed else hue), 1, bold)
+			if not maxed:
+				buttons.append({"rect": r, "action": "meta_%d" % i})
+			y += row_h
+	txt("Click an upgrade to buy its next level. GOO is earned at the end of every run.", Vector2(w * 0.5, top + 40.0 + row_h * 4.0 + 18.0), 15, Color("9fb8d0"), 1, body, 3)
+	button(Rect2(w * 0.5 - 120, hh - 74, 240, 54), "BACK", "menu", true, 26)
 
 func epic_plus_odds() -> float:
 	var w = Effects.rarity_odds(g)
@@ -2664,6 +2820,7 @@ func paint_shop() -> void:
 	status_chips(96 if g.portrait else 74)
 	if g.shop_luck() > 0.0:
 		txt("RISKY ROADS PAID OFF: +%d LUCK ON THIS SHOP" % roundi(g.shop_luck()), Vector2(W * 0.5, 156 if g.portrait else 134), 18, Color("7dff9a"), 1, bold, 2)
+	compare_offer = {}
 	var items = g.shop_items
 	var n = maxi(1, items.size())
 	if g.portrait:
@@ -2693,6 +2850,9 @@ func paint_shop() -> void:
 				shop_tile(r, shop_item_info(item), r.has_point(g.mouse_screen))
 			else:
 				draw_card(r, shop_item_info(item), r.has_point(g.mouse_screen), 1.0, -1)
+			if r.has_point(g.mouse_screen) and not bool(item["sold"]) and str(item.get("kind", "")) == "offer" and str(item["offer"].get("type", "")) != "card":
+				compare_at = r
+				compare_offer = item["offer"]
 			if bool(item.get("locked", false)) and not bool(item["sold"]):
 				rbox(Rect2(r.position.x + 10, r.position.y - 12, 76, 20), Color("ffd24d"), 8)
 				txt("LOCKED", Vector2(r.position.x + 48, r.position.y + 3), 12, Color("0b1224"), 1, bold)
@@ -2710,6 +2870,8 @@ func paint_shop() -> void:
 		txt("LOCK (25%% of the price): keeps an item for your next shop   ·   BAN: never offered again (%d left)" % [g.banishes], Vector2(W * 0.5, H - 108), 14, Color("9fb8d0"), 1, body, 3)
 		button(Rect2(W * 0.5 - 330, H - 96, 300, 60), "REROLL  %d G" % g.shop_reroll_cost, "shop_reroll", false, 24, g.gold >= g.shop_reroll_cost)
 		button(Rect2(W * 0.5 + 30, H - 96, 300, 60), "LEAVE", "map_continue", true, 30)
+		if not compare_offer.is_empty():
+			gun_compare_panel(compare_at, compare_offer)
 	if g.portrait:
 		icon_button(Vector2(660, 62), 28, "open_arsenal", "bag")
 

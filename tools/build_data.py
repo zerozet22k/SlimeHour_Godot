@@ -131,8 +131,8 @@ E = [
     dict(id="burrower", name="Burrower", hp=85, speed=75, dmg=14, r=18, xp=4, mass=1.5, color="c8a66e"),
     dict(id="siren", name="Siren", hp=70, speed=65, dmg=8, r=18, xp=4, mass=1.3, color="f194da"),
     dict(id="chonkzilla", name="CHONKZILLA", hp=2400, speed=45, dmg=30, r=62, xp=60, mass=40, color="e86a8a", boss=True),
-    dict(id="heli", name="HELI-COPTER", hp=2000, speed=110, dmg=14, r=50, xp=60, mass=40, color="ffb36b", boss=True),
-    dict(id="necro", name="NECRO-DAD", hp=2200, speed=60, dmg=16, r=48, xp=60, mass=40, color="b48cff", boss=True),
+    dict(id="heli", name="SKY REAPER", hp=2000, speed=110, dmg=14, r=50, xp=60, mass=40, color="ffb36b", boss=True),
+    dict(id="necro", name="GRAVE LORD", hp=2200, speed=60, dmg=16, r=48, xp=60, mass=40, color="b48cff", boss=True),
     dict(id="kingblob", name="KING BLOB", hp=1500, speed=70, dmg=20, r=58, xp=40, mass=30, color="ff7b93", boss=True),
 ]
 

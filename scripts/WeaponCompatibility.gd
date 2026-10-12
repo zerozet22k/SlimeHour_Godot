@@ -3,12 +3,12 @@ extends RefCounted
 ## capacity and volley budget; overflow converts to modest strength, never a
 ## second invisible magazine, infinite returning weapons, or unlimited AoE.
 const CAPACITY = {
-	"pistol": 24, "revolver": 6, "shotgun": 8, "smg": 90,
-	"minigun": 320, "sniper": 8, "rocket": 6, "grenade": 12,
-	"laser": 1, "tesla": 30, "flame": 220, "disc": 6,
-	"boomerang": 3, "rail": 3, "bees": 16, "bowling": 6,
-	"nailgun": 100, "chicken": 10, "bubble": 12, "pinball": 32,
-	"splitbow": 12, "snow": 16
+	"pistol": 30, "revolver": 6, "shotgun": 12, "smg": 110,
+	"minigun": 320, "sniper": 10, "rocket": 10, "grenade": 14,
+	"laser": 1, "tesla": 30, "flame": 340, "disc": 6,
+	"boomerang": 3, "rail": 3, "bees": 16, "bowling": 8,
+	"nailgun": 100, "chicken": 12, "bubble": 16, "pinball": 40,
+	"splitbow": 16, "snow": 20
 }
 ## Maximum entities/hitscan traces emitted by any ordinary trigger, before
 ## existing global frame and sector safety caps. This protects explosive guns

@@ -1,3 +1,41 @@
+## v0.1.116 — Bosses overhaul, two new bosses, UI pass
+
+**Bosses**
+- **The fight covers the whole road.** Boss patterns span the full road and the full visible height, so you can't walk out of them.
+- **Every boss has its own mechanic.** Most bosses used to share the same "find the safe square" checkerboard. Now:
+  - Chonkzilla: meteors stalk your path and burst into rock rings.
+  - Sky Reaper: bombing runs ripple across the road.
+  - Void Weaver: spins a spider web of spokes and snapping rings around you.
+- **Full-screen tides:** each boss has its own wave, e.g. the Sky Reaper's strafe curtain, Grave Lord's skull curtain, Coil Queen's serpent tide and Void Weaver's spiral arms. Bosses throw a tide at every phase change, every other attack in phase 2 and every attack in the final phase.
+- **Later bosses scale up.** They fire more bullets (×1.25 at sector 5 up to ×3 at sector 50), faster bullets (up to +32%) and rest less between attacks.
+- **Two new bosses complete the road to sector 50:**
+  - **Storm Titan** (sector 45): forked lightning, stalking storm pillars, tempest walls, Eye of the Storm.
+  - **Hive Empress** (sector 50): honeycomb blooms, homing stingers, drone swarms, Royal Jelly, Hive Storm.
+- **Hard mode boss mechanics:**
+  - **Shadow Echo:** from phase 2, every boss bullet is fired again, mirrored across the road.
+  - **Desperation:** at 15% HP the boss turns invulnerable for 7 seconds and throws everything. Survive it, then finish it.
+- Heli-Copter is now the **Sky Reaper** and Necro-Dad is the **Grave Lord**.
+
+**UI**
+- **Main menu:** a left-hand menu column over a dark fade, so the key art is no longer hidden behind a panel. The bouncing blobs that ran behind footer text on menu screens are gone.
+- **Upgrades:** grouped into OFFENSE, SURVIVAL, CARDS and ECONOMY columns, with price pills instead of a wall of yellow buttons. The BACK button no longer overlaps the list.
+- **Pause menu:** adds BESTIARY and CARDS buttons, also on the B and C keys, so you can check them mid-run.
+- **Gun comparison:** hovering a gun offer at level-up or in the shop shows bars for DPS, damage, fire rate, magazine and reload, new vs your gun (or before vs after an upgrade). The numbers are no longer crammed into the card text.
+- **Cards list every element they belong to,** e.g. "STATUS & COMBOS · FIRE · ICE".
+- **Buttons:** the decorative notch and stripe marks are removed.
+- **Clicks:** one click can no longer trigger two actions.
+
+**Guns and cards**
+- **Bigger magazines** for guns that ran dry fast. Deadeye stays at 6 and Gauss Lance at 3.
+  - Breacher 4 → 6, Payload 3 → 5, Longshot 4 → 5, Cinder 110 → 170, Service Nine 12 → 15, Cyclone 36 → 45.
+  - Hydra Bow, Pressure Pop, Ricochet, Frostcaster, Rebound, Impact Cannon and Fowl Play also get more shots.
+- **Clearer card names**, for example:
+  - Licked a Battery → High Voltage
+  - Ghost of Bullets Past → Bullet Ghosts
+  - Bullets With a Degree → Smart Rounds
+  - Mutually Assured Destruction → Mutual Doom
+  - Honey I Shrunk Me → Shrink Ray
+
 ## v0.1.115 — Gun info in numbers; status combos toned down
 
 - **Gun offers show real numbers for your build**, including your cards, level, tier and character:

@@ -399,7 +399,7 @@
     },
     {
       "id": "overpressure",
-      "name": "Too Much Gunpowder",
+      "name": "Overpressure",
       "cat": "volley",
       "rarity": 1,
       "max": 3,
@@ -543,7 +543,7 @@
     },
     {
       "id": "smart_rounds",
-      "name": "Bullets With a Degree",
+      "name": "Smart Rounds",
       "cat": "projectile",
       "rarity": 2,
       "max": 2,
@@ -600,7 +600,7 @@
     },
     {
       "id": "muzzle_velocity",
-      "name": "Zoom Zoom Bullets",
+      "name": "Muzzle Velocity",
       "cat": "projectile",
       "rarity": 0,
       "max": 3,
@@ -1132,7 +1132,7 @@
     },
     {
       "id": "bouncy_fragments",
-      "name": "Superball Shrapnel",
+      "name": "Bouncy Shrapnel",
       "cat": "chain",
       "rarity": 1,
       "max": 2,
@@ -1335,7 +1335,7 @@
     },
     {
       "id": "grim_echo",
-      "name": "Ghost of Bullets Past",
+      "name": "Bullet Ghosts",
       "cat": "chain",
       "rarity": 1,
       "max": 2,
@@ -1617,7 +1617,7 @@
     },
     {
       "id": "high_voltage",
-      "name": "Licked a Battery",
+      "name": "High Voltage",
       "cat": "shock",
       "rarity": 1,
       "max": 3,
@@ -2067,7 +2067,7 @@
     },
     {
       "id": "sharpened_steel",
-      "name": "Whetstone Wednesday",
+      "name": "Whetstone",
       "cat": "auto",
       "rarity": 1,
       "max": 3,
@@ -2392,7 +2392,7 @@
     },
     {
       "id": "overclocked_drones",
-      "name": "Caffeinated Drones",
+      "name": "Hyper Drones",
       "cat": "auto",
       "rarity": 1,
       "max": 2,
@@ -2704,7 +2704,7 @@
     },
     {
       "id": "momentum",
-      "name": "Can't Stop Won't Stop",
+      "name": "Momentum",
       "cat": "move",
       "rarity": 1,
       "max": 3,
@@ -2981,7 +2981,7 @@
     },
     {
       "id": "regeneration",
-      "name": "Band-Aid Subscription",
+      "name": "Band-Aids",
       "cat": "defense",
       "rarity": 1,
       "max": 3,
@@ -3334,7 +3334,7 @@
     },
     {
       "id": "guardian_drone",
-      "name": "Helicopter Parent",
+      "name": "Guardian Drone",
       "cat": "defense",
       "rarity": 1,
       "max": 2,
@@ -3431,7 +3431,7 @@
     },
     {
       "id": "super_magnet",
-      "name": "Black Friday Magnet",
+      "name": "Super Magnet",
       "cat": "loot",
       "rarity": 1,
       "max": 2,
@@ -3568,7 +3568,7 @@
     },
     {
       "id": "treasure_sense",
-      "name": "Loot Goblin Instinct",
+      "name": "Treasure Sense",
       "cat": "loot",
       "rarity": 1,
       "max": 2,
@@ -3932,7 +3932,7 @@
     },
     {
       "id": "shrunk",
-      "name": "Honey I Shrunk Me",
+      "name": "Shrink Ray",
       "cat": "chaos",
       "rarity": 1,
       "max": 1,
@@ -4414,7 +4414,7 @@
     },
     {
       "id": "mad",
-      "name": "Mutually Assured Destruction",
+      "name": "Mutual Doom",
       "cat": "chaos",
       "rarity": 5,
       "max": 1,

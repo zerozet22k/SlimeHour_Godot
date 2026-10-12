@@ -13,6 +13,7 @@ extends RefCounted
 ##  * Bullet rings leave room to slip between bullets or a deliberate gap.
 ##  * Bullets and hazards are owned by the boss and vanish with it.
 
+const BossTides = preload("res://scripts/BossTides.gd")
 const HAZARD_CAP := 96
 const TRANSITION_TIME := 1.5
 
@@ -20,11 +21,13 @@ const TRANSITION_TIME := 1.5
 const PALETTE = {
 	"chonkzilla": "ff8a5c", "heli": "ffc14d", "necro": "c79bff", "kingblob": "ff7fb8",
 	"coilqueen": "5ff0a8", "glassoracle": "7fe8ff", "voidweaver": "b48cff", "dreadengine": "ffaa55",
+	"stormtitan": "ffe14d", "hiveempress": "ffc23d",
 }
 ## Second bullet colour, used to separate interleaved patterns.
 const PALETTE_ALT = {
 	"chonkzilla": "ffd36b", "heli": "ff7a4d", "necro": "9dffcf", "kingblob": "ffd0ea",
 	"coilqueen": "d8ff6b", "glassoracle": "e6d0ff", "voidweaver": "ff7ad9", "dreadengine": "ff6a3d",
+	"stormtitan": "9fd0ff", "hiveempress": "ff7a3d",
 }
 
 ## Movesets per phase. The first attack of phases 2 and 3 is the one the
@@ -62,6 +65,14 @@ const MOVES = {
 		["piston_bank", "assembly_line", "furnace_breath"],
 		["mortar_barrage", "piston_bank", "assembly_line", "furnace_breath"],
 		["overdrive", "piston_bank", "mortar_barrage", "assembly_line", "furnace_breath"]],
+	"stormtitan": [
+		["thunder_lattice", "chain_bolts", "storm_pillars"],
+		["tempest_wall", "thunder_lattice", "storm_pillars", "chain_bolts"],
+		["eye_of_storm", "tempest_wall", "storm_pillars", "thunder_lattice", "chain_bolts"]],
+	"hiveempress": [
+		["honeycomb", "stinger_volley", "drone_swarm"],
+		["royal_jelly", "honeycomb", "stinger_volley", "drone_swarm"],
+		["hive_storm", "royal_jelly", "honeycomb", "stinger_volley", "drone_swarm"]],
 }
 
 ## [display name, tell seconds, base duration, rest after]
@@ -108,6 +119,16 @@ const ATTACKS = {
 	"furnace_breath": ["FURNACE BREATH", 0.6, 2.6, 0.8],
 	"mortar_barrage": ["MORTAR BARRAGE", 0.6, 3.0, 0.8],
 	"overdrive": ["OVERDRIVE", 1.0, 6.5, 0.4],
+	"thunder_lattice": ["THUNDER LATTICE", 0.8, 4.0, 0.8],
+	"chain_bolts": ["CHAIN BOLTS", 0.6, 3.2, 0.8],
+	"storm_pillars": ["STORM PILLARS", 0.6, 3.6, 0.8],
+	"tempest_wall": ["TEMPEST WALL", 0.8, 4.2, 0.9],
+	"eye_of_storm": ["EYE OF THE STORM", 1.0, 6.5, 1.0],
+	"honeycomb": ["HONEYCOMB", 0.7, 3.6, 0.8],
+	"stinger_volley": ["STINGER VOLLEY", 0.6, 3.0, 0.8],
+	"drone_swarm": ["DRONE SWARM", 0.6, 1.5, 0.7],
+	"royal_jelly": ["ROYAL JELLY", 0.7, 5.0, 0.9],
+	"hive_storm": ["HIVE STORM", 1.0, 6.5, 1.0],
 }
 
 const HEAT_COST = {"piston_bank": 30.0, "assembly_line": 25.0, "furnace_breath": 30.0,
@@ -170,7 +191,7 @@ static func contact_safe(e: Dictionary) -> bool:
 
 ## Armour and vulnerability windows. Shared by bullets, AoE and DoT.
 static func damage_factor(g, e: Dictionary) -> float:
-	if str(e.get("bf_state", "")) == "transition":
+	if str(e.get("bf_state", "")) in ["transition", "desperate"]:
 		return 0.0
 	match str(e["kind"]):
 		"chonkzilla":
@@ -185,13 +206,15 @@ static func damage_factor(g, e: Dictionary) -> float:
 
 # ================================================================= arena helpers
 ## The fight happens in the visible part of the road around the player.
+## The fight covers the WHOLE road (every spot the player can walk) and the
+## whole visible height, so no pattern can be sidestepped by walking off it.
 static func arena(g) -> Dictionary:
 	var hero: Vector2 = g.hero["pos"]
-	var visible_half: float = 360.0 if bool(g.portrait) else float(g.landscape_width) * 0.5
-	var half: float = minf(float(g.road_half) - 30.0, visible_half - 70.0)
-	var cx: float = clampf(float(g.cam_x), -float(g.road_half) + half + 30.0, float(g.road_half) - half - 30.0)
-	return {"cx": cx, "half": half, "y": hero.y, "top": hero.y - 330.0, "bottom": hero.y + 215.0,
-		"left": cx - half, "right": cx + half}
+	var half: float = float(g.road_half) - 10.0
+	var view_half: float = float(g.ui_height) * 0.5
+	var cy: float = float(g.cam_y)
+	return {"cx": 0.0, "half": half, "y": hero.y, "top": minf(hero.y - 300.0, cy - view_half + 30.0), "bottom": maxf(hero.y + 200.0, cy + view_half - 20.0),
+		"left": -half, "right": half}
 
 static func lead(g, seconds: float) -> Vector2:
 	var p: Vector2 = g.hero["pos"] + Vector2(g.hero.get("vel", Vector2.ZERO)) * seconds
@@ -241,6 +264,9 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 	# No per-boss bullet cap: monsters are capped, bullets are not.
 	var kind: String = str(e["kind"])
 	var color: Color = o.get("color", Color(PALETTE.get(kind, "ff9944")))
+	if not o.has("echo"):
+		speed *= speed_scale(g)
+		BossTides.echo_bullet(g, e, pos, dir, speed, o)
 	var s = C().shot(g, pos, dir, float(e["dmg"]) * float(o.get("dmg", 0.3)),
 		{"friendly": false, "kind": "bossbullet", "speed": speed, "life": float(o.get("life", 5.0)),
 		"r": float(o.get("r", 5.0)), "color": color, "bounce": int(o.get("bounce", 0)),
@@ -268,9 +294,12 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 ## then steeper, up to 2.6x by sector 50.
 static func density(g) -> float:
 	var s := int(g.sector)
-	if s <= 30:
-		return clampf(1.0 + 0.028 * float(s - 5), 1.0, 1.7)
-	return minf(2.6, 1.7 + 0.045 * float(s - 30))
+	var d: float = clampf(1.25 + 1.75 * float(s - 5) / 45.0, 1.25, 3.0)
+	return d * (1.2 if g.hard_mode else 1.0)
+
+## Later bosses also shoot faster bullets (up to +32% at sector 50).
+static func speed_scale(g) -> float:
+	return clampf(1.0 + 0.007 * float(int(g.sector) - 5), 1.0, 1.32)
 
 static func ring(g, e: Dictionary, origin: Vector2, count: int, speed: float, offset: float, o: Dictionary = {},
 		gap_angle: float = INF, gap_half: float = 0.0, start_r: float = -1.0) -> void:
@@ -365,9 +394,16 @@ static func update(g, e: Dictionary, dir: Vector2, dist: float, dt: float) -> Ve
 		begin_transition(g, e, stage)
 	# Phases never go backwards, even if wards or devoured blobs heal the boss.
 	stage = int(e["bf_phase"])
+	if str(e["bf_state"]) not in ["desperate", "transition"]:
+		BossTides.check_desperation(g, e)
 	e["bf_t"] = float(e["bf_t"]) - dt
 	var move := Vector2.ZERO
 	match str(e["bf_state"]):
+		"desperate":
+			move = BossTides.desperate_step(g, e, dt)
+			if float(e["bf_t"]) <= 0.0:
+				e["bf_state"] = "rest"
+				e["bf_t"] = 0.6
 		"transition":
 			move = seek(e, home_spot(g, e), 1.4)
 			if float(e["bf_t"]) <= 0.0:
@@ -416,6 +452,8 @@ static func begin_transition(g, e: Dictionary, stage: int) -> void:
 				sparkles += 1
 				g.spawn_burst(s["pos"], Color("fff4c2"), 1, 60.0, 3.0)
 	g.delayed = g.delayed.filter(func(d): return int(d.get("owner", -1)) != int(e["id"]))
+	# Each new phase opens with the boss's full-screen tide.
+	BossTides.throw(g, e, stage)
 	var hero_off: Vector2 = g.hero["pos"] - e["pos"]
 	if hero_off.length() < 190.0:
 		g.hero["push"] = Vector2(g.hero.get("push", Vector2.ZERO)) + hero_off.normalized() * 520.0
@@ -463,7 +501,11 @@ static func start_attack(g, e: Dictionary, stage: int) -> void:
 static func finish_attack(g, e: Dictionary) -> void:
 	var attack: String = str(e["bf_attack"])
 	e["bf_state"] = "rest"
-	e["bf_t"] = float(ATTACKS[attack][3]) * (0.85 if g.hard_mode else 1.0)
+	e["bf_t"] = float(ATTACKS[attack][3]) * (0.85 if g.hard_mode else 1.0) * clampf(1.0 - 0.01 * float(int(g.sector) - 5), 0.6, 1.0)
+	# Phase 2 throws a full-screen tide every other attack, the final phase every attack.
+	var stage: int = int(e.get("bf_phase", 0))
+	if stage >= 2 or (stage == 1 and int(e["bf_i"]) % 2 == 0):
+		BossTides.throw(g, e, stage)
 	e["bf_vanish"] = false
 	e["burrowing"] = false
 	e["bf_hop"] = 0.0
@@ -606,6 +648,9 @@ static func update_leap(g, e: Dictionary, dt: float) -> bool:
 static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 	var a: Dictionary = arena(g)
 	var hero: Vector2 = g.hero["pos"]
+	if attack in BossTides.NEW_ATTACKS:
+		BossTides.begin(g, e, attack, stage)
+		return
 	match attack:
 		"quake_slam":
 			e["bf_len"] = 1.35 * float(1 + stage) + 0.35
@@ -618,13 +663,12 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 		"strafe_run":
 			e["bf_len"] = 2.3 if stage == 0 else 4.4
 		"meteor_shower":
-			var waves: int = 3 if stage < 2 else 4
-			grid_waves(g, e, 6, 4, waves, 1.25, 0.85, 0.75, 2)
-			e["bf_len"] = 1.25 + 0.85 * waves + 0.2
+			# A stream of meteors that stalks where you are going (see step()).
+			e["bf_len"] = 3.6 + 0.6 * stage
 		"grave_march":
 			# Soul pillars erupt column by column across the whole arena:
 			# wait for the pillar in front of you, then cross behind it.
-			var cols2 := 8 + stage
+			var cols2: int = maxi(8 + stage, roundi(2.0 * float(a["half"]) / 95.0))
 			var going: float = 1.0 if randf() < 0.5 else -1.0
 			var cw: float = 2.0 * float(a["half"]) / float(cols2)
 			for c in range(cols2):
@@ -656,21 +700,24 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 					{"shape": "big", "r": 28.0, "dmg": 0.55, "life": 5.6,
 					"box": [float(a["left"]), float(a["right"]), float(a["top"]) - 60.0, float(a["bottom"]) + 40.0]})
 		"carpet_bomb":
-			var cols := 7
-			var rows := 5
-			var w: float = 2.0 * float(a["half"]) / float(cols)
-			var h: float = (float(a["bottom"]) - float(a["top"])) / float(rows)
-			var gap: int = clampi(int(round((hero.x - float(a["left"])) / w - 0.5)) + (2 if randf() < 0.5 else -2), 0, cols - 1)
-			for r in range(rows):
-				for c in range(cols):
-					if c == gap:
+			# Bombing runs: a line of bombs ripples across the whole road, pass by
+			# pass, each at the height you are standing, with one hole in it.
+			var passes: int = 2 + stage
+			var span: float = 2.0 * float(a["half"])
+			var n: int = maxi(8, roundi(span / 80.0))
+			for p in range(passes):
+				var y: float = clampf(hero.y + randf_range(-60.0, 60.0) - 40.0 * p, float(a["top"]) + 40.0, float(a["bottom"]) - 30.0)
+				var from_left: bool = p % 2 == 0
+				var hole: int = clampi(int((hero.x - float(a["left"])) / span * float(n)) + (2 if randf() < 0.5 else -2), 0, n - 1)
+				for k in range(n):
+					if abs(k - hole) <= 0:
 						continue
-					var pos := Vector2(float(a["left"]) + (c + 0.5) * w, float(a["top"]) + (r + 0.5) * h)
-					circle(g, e, pos, minf(w, h) * 0.5, 1.2 + r * 0.34, 0.6)
-				gap = clampi(gap + (1 if randf() < 0.5 else -1), 0, cols - 1)
-			e["bf_len"] = 1.2 + rows * 0.34 + 0.6
+					var idx: int = k if from_left else n - 1 - k
+					var pos := Vector2(float(a["left"]) + (float(idx) + 0.5) * span / float(n), y)
+					circle(g, e, pos, span / float(n) * 0.62, 1.0 + p * 1.1 + k * 0.06, 0.6, {"bomb": true, "burst": 4 if k % 2 == 0 else 0})
+			e["bf_len"] = 1.0 + passes * 1.1 + 0.8
 		"piston_bank":
-			var lanes := 5
+			var lanes: int = maxi(5, roundi(2.0 * float(a["half"]) / 130.0))
 			var passes: int = 2 + mini(stage, 1)
 			var lane_w: float = 2.0 * float(a["half"]) / float(lanes)
 			var gap2: int = randi() % lanes
@@ -688,17 +735,16 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 					1.15 + passes * 0.75, 0.5, {"piston": true})
 			e["bf_len"] = 1.15 + passes * 0.75 + 0.4
 		"web_lattice":
-			var waves2: int = 2 if stage < 2 else 3
-			for wv in range(waves2):
-				var t0: float = 1.25 + wv * 1.0
-				var shift: float = 0.5 if wv % 2 == 1 else 0.0
-				for r in range(3):
-					var y: float = float(a["top"]) + (r + 0.5 + shift) * (float(a["bottom"]) - float(a["top"])) / 3.5
-					line(g, e, Vector2(float(a["left"]) - 20.0, y), Vector2(float(a["right"]) + 20.0, y), 14.0, t0, 0.5, {"web": true})
-				for c in range(4):
-					var x2: float = float(a["left"]) + (c + 0.5 + shift) * 2.0 * float(a["half"]) / 4.5
-					line(g, e, Vector2(x2, float(a["top"]) - 20.0), Vector2(x2, float(a["bottom"]) + 20.0), 14.0, t0 + 0.3, 0.5, {"web": true})
-			e["bf_len"] = 1.25 + waves2 * 1.0 + 0.4
+			# A spider web spun around you: spokes from the Weaver, then its rings snap shut.
+			var spokes: int = 7 + stage
+			var base: float = randf() * TAU
+			for k in range(spokes):
+				var d := Vector2.from_angle(base + TAU * float(k) / float(spokes))
+				line(g, e, hero + d * 40.0, hero + d * 900.0, 14.0, 1.0 + 0.08 * k, 0.5, {"web": true})
+			for r in range(2 + stage):
+				var inner: float = 70.0 + 110.0 * r
+				event(g, e, "bf_ring", hero, 1.7 + 0.45 * r, {"inner": inner, "outer": inner + 46.0, "dmg": float(e["dmg"]) * 0.55, "tele": inner + 46.0})
+			e["bf_len"] = 1.7 + 0.45 * (2 + stage) + 0.4
 		"constrict":
 			pass # squeezes are staggered in step()
 		"venom_squeeze":
@@ -759,11 +805,13 @@ static func begin(g, e: Dictionary, attack: String, stage: int) -> void:
 				var at: Vector2 = hist[idx] if idx >= 0 and idx < hist.size() else hero
 				event(g, e, "bf_echo", at, 0.85 + i * 0.4, {"tele": 26.0, "stage": stage})
 
+## (Storm Titan / Hive Empress attacks live in BossTides.)
 ## Map-wide grid hazard: alternating cells on each wave, so a safe cell
 ## always exists one step away. modulo 2 = checkerboard, 3 = diagonal stripes.
 static func grid_waves(g, e: Dictionary, cols: int, rows: int, waves: int, first: float, spacing: float,
 		dmg_scale: float, modulo: int, extra: Dictionary = {}) -> void:
 	var a: Dictionary = arena(g)
+	cols = maxi(cols, roundi(2.0 * float(a["half"]) / 120.0))
 	var w: float = 2.0 * float(a["half"]) / float(cols)
 	var h: float = (float(a["bottom"]) - float(a["top"])) / float(rows)
 	var radius: float = minf(w, h) * 0.5 * 0.86
@@ -793,6 +841,9 @@ static func squeeze(g, e: Dictionary, delay: float, corridor_x: float = INF) -> 
 
 # ================================================================= attacks: per-frame
 static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: float) -> void:
+	if attack in BossTides.NEW_ATTACKS:
+		BossTides.step(g, e, attack, stage, T, dt)
+		return
 	var me: Vector2 = e["pos"]
 	var a: Dictionary = arena(g)
 	var hero: Vector2 = g.hero["pos"]
@@ -821,6 +872,10 @@ static func step(g, e: Dictionary, attack: String, stage: int, T: float, dt: flo
 					"grav": grav, "split": 8 + 2 * stage, "split_speed": 140.0, "dmg": 0.4})
 				circle(g, e, land, 30.0, flight, 0.0, {"marker": true})
 		"meteor_shower":
+			# Meteors land on your predicted path one after another and burst into rock rings.
+			for _i in range(every(e, "meteor", 0.24 - 0.04 * stage, dt, 0.2)):
+				var land: Vector2 = lead(g, 0.75) + Vector2(randf_range(-90.0, 90.0), randf_range(-70.0, 70.0))
+				circle(g, e, land, 62.0, 0.8, 0.7, {"boulder": true, "burst": 8 + 2 * stage, "burst_shape": "boulder"})
 			for _i in range(every(e, "aim", 0.95, dt, 0.4)):
 				fan(g, e, me, aim_from(g, me), 3, 0.5, 210.0, {"r": 5.5})
 		"belly_roll":
@@ -1314,6 +1369,10 @@ static func resolve(g, item: Dictionary) -> void:
 		return
 	var pos: Vector2 = item["pos"]
 	match str(item["fn"]):
+		"bf_tide":
+			BossTides.resolve_tide(g, boss, item)
+		"bf_mirror":
+			fire(g, boss, pos, item["dir"], float(item["speed"]), item["o"])
 		"bf_lock":
 			# Missile launches from the aircraft toward the locked reticle and
 			# only steers for a moment, so a late sidestep beats it.

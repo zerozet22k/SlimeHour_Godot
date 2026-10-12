@@ -115,8 +115,9 @@ func fight(g, kind: String) -> void:
 
 ## Every simultaneous wave of a map-wide attack leaves somewhere to stand.
 func check_safe_cells(g) -> void:
-	var grids = {"chonkzilla": "meteor_shower", "necro": "grave_march", "heli": "carpet_bomb",
-		"dreadengine": "piston_bank", "voidweaver": "web_lattice"}
+	# (Chonkzilla's meteors now stalk you one by one, so they are not a wave.)
+	var grids = {"necro": "grave_march", "heli": "carpet_bomb",
+		"dreadengine": "piston_bank", "voidweaver": "web_lattice", "stormtitan": "thunder_lattice", "hiveempress": "honeycomb"}
 	for kind in grids:
 		reset(g)
 		var boss = g.spawn_enemy(kind, Vector2(0, -290), true)
