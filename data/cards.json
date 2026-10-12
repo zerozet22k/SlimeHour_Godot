@@ -1513,7 +1513,7 @@
       "cat": "element",
       "rarity": 0,
       "max": 3,
-      "desc": "40% chance to poison. Poison stacks.",
+      "desc": "40% chance to poison. Poison stacks up to 12.",
       "art": "a dripping venom bullet",
       "mods": {
         "poison": 0.4
@@ -1552,7 +1552,7 @@
       "cat": "element",
       "rarity": 2,
       "max": 2,
-      "desc": "4% chance to charm. Charmed enemies fight for you.",
+      "desc": "4% chance to charm. Charmed enemies fight for you (not elites, mutants or bosses).",
       "art": "a hypnotic spiral eye",
       "mods": {
         "charm": 0.04
@@ -4136,7 +4136,7 @@
       "cat": "chaos",
       "rarity": 2,
       "max": 2,
-      "desc": "3% of hits charm the enemy. They switch sides.",
+      "desc": "3% of hits charm the enemy. They switch sides (not elites, mutants or bosses).",
       "art": "a pirate mutiny",
       "mods": {},
       "procs": [

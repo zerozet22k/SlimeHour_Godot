@@ -16,6 +16,7 @@ const Compatibility = preload("res://scripts/WeaponCompatibility.gd")
 const CELL = 72.0
 const TOTEM_R = 230.0
 const STATUSES = ["burn", "freeze", "shock", "poison", "bleed", "slow", "charm", "wet", "mark"]
+const POISON_CAP := 12.0
 
 # Lancer has two real modes. The transition must not exceed the hit-tested sweep.
 const LANCER_SWEEP_RANGE := 166.0
@@ -1074,8 +1075,9 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 	var bonus = 1.0
 	match kind:
 		"burn":
-			base = 1.6
-			hp_ratio = 0.0008
+			# One stack that is easy to keep up: ~12/s + 0.5% max HP/s.
+			base = 3.0
+			hp_ratio = 0.0012
 			bonus = maxf(0.0, 1.0 + g.st("burnpow"))
 		"poison":
 			base = 0.45 * stacks
@@ -1087,7 +1089,7 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 			hp_ratio = 0.00025 * stacks * movement
 			bonus = maxf(0.0, 1.0 + g.st("bleedpow"))
 		"shock":
-			base = 4.0
+			base = 5.0
 			hp_ratio = 0.0005
 			bonus = maxf(0.0, 1.0 + g.st("shockpow"))
 		_:
@@ -1380,7 +1382,9 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 			if float(e["burn"]) > 0.0 and g.st("overload") > 0.0:
 				apply_status(g, e, "burn", 1.0)
 		"poison":
-			e["poison"] = minf(30.0, float(e["poison"]) + 1.0)
+			# Every hit refreshes the timer, so stacks never fall off: the cap is
+			# what keeps poison in line with bleed (12 stacks ~ 22/s + 1% max HP/s).
+			e["poison"] = minf(POISON_CAP, float(e["poison"]) + 1.0)
 			e["poison_t"] = 4.0 * dur
 		"bleed":
 			e["bleed"] = minf(10.0, float(e["bleed"]) + 1.0)
@@ -1396,7 +1400,9 @@ static func apply_status(g, e: Dictionary, s: String, amt: float) -> void:
 		"stun":
 			e["stun"] = maxf(float(e["stun"]), amt)
 		"charm":
-			if not bool(e["boss"]):
+			# A charm takes a monster out of the fight, so the big threats
+			# (bosses, elites and mutants) shrug it off.
+			if not bool(e["boss"]) and not bool(e["elite"]) and not str(e["kind"]).begins_with("mix_"):
 				e["charm"] = 5.0 * dur * (2.0 if g.st("brainwash") > 0.0 else 1.0)
 				g.say(e["pos"] + Vector2(0, -24), "<3", Color("ff8ad8"), 22)
 				# A charmed monster is on your side: it stops counting toward the

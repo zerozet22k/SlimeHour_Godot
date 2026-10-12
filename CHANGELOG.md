@@ -1,3 +1,13 @@
+## v0.1.109 — Status effect balance
+
+Numbers are per second on a 1000 HP elite with one card and a pistol (about 48 DPS of its own):
+
+- **Poison** now stacks to 12 (was 30). Every hit refreshes the timer, so stacks never fell off and poison climbed to ~80/s, more than the gun itself. It's now ~32/s at the cap, in line with Bleed. Venom's text says so.
+- **Burn** roughly doubled, ~9 → ~17/s. It was the weakest status by far: it only has one stack, but it's the easiest to keep up and has the most combo cards (Wildfire, Chain Reaction, Napalm, Steam, Overload).
+- **Shock** neighbour zaps are 25% stronger.
+- **Charm** (Hypnotic, Mutiny) no longer works on elites or mutants. Bosses were already immune. A charm takes a monster out of the fight, which made fast guns delete elites.
+- **Bleed**, **Freeze**, **Slow**, **Wet** and **Mark** are unchanged. They're already in line.
+
 ## v0.1.108 — Fair economy: card values, bounties, skip and lock
 
 - **Every card has a value at each stage:** its shop price for its rarity in that sector. Skip, lock and sell all follow it.
