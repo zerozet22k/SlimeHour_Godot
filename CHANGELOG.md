@@ -1,3 +1,7 @@
+## v0.1.92 — Late bosses fill the screen
+
+- Late boss bullet patterns keep getting denser after sector 30: up to 2.6x the shots by sector 50 (was capped at 1.7x). The per-boss bullet limit grows with them.
+
 ## v0.1.91 — Late game fixed, map-wide bosses, smarter roads
 
 - **Fixed: the game froze around sector 53+.** A mutant with the Frenzied (rush) augment never ended its speed burst, sped up every frame until it flew off to infinity, and drawing it at an infinite position froze the game. Sprints now last their real duration. As safety nets, knockback speed is capped and a broken position is reset.

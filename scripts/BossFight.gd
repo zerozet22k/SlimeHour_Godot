@@ -239,7 +239,7 @@ static func src(g, e: Dictionary) -> String:
 ## accel/min/max (speed change), turn (rad/s), stop_t, aim_t, aim_speed,
 ## aim_point, homing + homing_t, wave, split (+ split_speed/split_shape).
 static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: Dictionary = {}) -> Variant:
-	if int(e.get("bf_owned", 0)) >= OWNED_CAP or g.shots.size() >= g.shot_cap() - 6:
+	if int(e.get("bf_owned", 0)) >= int(OWNED_CAP * density(g)) or g.shots.size() >= g.shot_cap() - 6:
 		return null
 	var kind: String = str(e["kind"])
 	var color: Color = o.get("color", Color(PALETTE.get(kind, "ff9944")))
@@ -266,10 +266,13 @@ static func fire(g, e: Dictionary, pos: Vector2, dir: Vector2, speed: float, o: 
 	e["bf_owned"] = int(e.get("bf_owned", 0)) + 1
 	return s
 
-## Later bosses fill the screen with more bullets: patterns gain up to 70%
-## more shots by sector 30.
+## Later bosses fill the screen with more bullets: +70% shots by sector 30,
+## then steeper, up to 2.6x by sector 50.
 static func density(g) -> float:
-	return clampf(1.0 + 0.028 * float(int(g.sector) - 5), 1.0, 1.7)
+	var s := int(g.sector)
+	if s <= 30:
+		return clampf(1.0 + 0.028 * float(s - 5), 1.0, 1.7)
+	return minf(2.6, 1.7 + 0.045 * float(s - 30))
 
 static func ring(g, e: Dictionary, origin: Vector2, count: int, speed: float, offset: float, o: Dictionary = {},
 		gap_angle: float = INF, gap_half: float = 0.0, start_r: float = -1.0) -> void:
