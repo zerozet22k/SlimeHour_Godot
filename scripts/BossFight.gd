@@ -443,6 +443,7 @@ static func update(g, e: Dictionary, dir: Vector2, dist: float, dt: float) -> Ve
 			var attack: String = str(e["bf_attack"])
 			var elapsed: float = float(e["bf_len"]) - float(e["bf_t"])
 			step(g, e, attack, stage, elapsed, dt)
+			BossTides.hunt(g, e, attack, stage, dt)
 			move = attack_move(g, e, attack, stage, elapsed, dt, dir)
 			if float(e["bf_t"]) <= 0.0 and not bool(e.get("bf_air", false)):
 				finish_attack(g, e)

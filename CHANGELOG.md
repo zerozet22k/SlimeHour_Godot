@@ -1,3 +1,21 @@
+## v0.1.119 — Every boss hunts you; tides you have to run for
+
+- **Every tide works like Chonkzilla's shockwave ring:**
+  - The gap is on the far side from you, so you have to run for it.
+  - The waves are denser.
+  - Every boss ends its tide with its own 46-bullet ring in its own bullet shape (skulls, shards, gears, stingers…), with the gap turned away from you.
+- **Hunter layer:** during every attack, each boss (apart from Chonkzilla) keeps dropping its own hazard where you're heading. It comes faster each phase, and faster still during attacks that would otherwise only spray around the boss.
+  - Sky Reaper: bombs
+  - Grave Lord: Grave Hands
+  - King Blob: jelly splats
+  - Coil Queen: venom pools
+  - Glass Oracle: shard bursts on your trail
+  - Void Weaver: rifts
+  - Dread Engine: mortar shells
+  - Storm Titan: lightning pillars
+  - Hive Empress: honey cells
+- **Boss benchmark:** now also counts hits taken, HP per hit, dodges (bullets that came within 40px without hitting), blocked hits and dodge rate. This separates few big hits from many small ones.
+
 ## v0.1.118 — Grave Lord, Sky Reaper and Glass Oracle hit harder
 
 Benchmark bots lost about 107% HP against Chonkzilla but only 11% against the Grave Lord, so the soft bosses now hunt you the way Chonkzilla does.

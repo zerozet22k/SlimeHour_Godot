@@ -80,7 +80,7 @@ func bar(frac: float, width: int, col: String) -> String:
 	var n := clampi(roundi(frac * float(width)), 0, width)
 	return "[color=%s]%s[/color][color=#33405a]%s[/color]" % [col, "█".repeat(n), "█".repeat(width - n)]
 
-func update_board(g, e, boss: String, s: int, trial: int, trials: int, hard: bool, guns: String, t: float, lost: float, max_hp: float, bullets: int) -> void:
+func update_board(g, e, boss: String, s: int, trial: int, trials: int, hard: bool, guns: String, t: float, lost: float, max_hp: float, bullets: int, live_dodges: int = 0) -> void:
 	if board == null:
 		return
 	var hero_frac: float = float(g.hero["hp"]) / maxf(1.0, float(g.hero["maxhp"]))
@@ -90,7 +90,7 @@ func update_board(g, e, boss: String, s: int, trial: int, trials: int, hard: boo
 	txt += "[color=#9fb8d0]%s  ·  %d cards  ·  %d bullets[/color]\n\n" % [guns.to_upper().replace("+", " + "), g.owned_order.size(), bullets]
 	txt += "BOSS %s %d%%\n" % [bar(boss_frac, 22, "#ffb84d"), roundi(boss_frac * 100.0)]
 	txt += "BOT  %s %d%%\n" % [bar(hero_frac, 22, "#7dff9a" if hero_frac > 0.35 else "#ff6b7a"), roundi(hero_frac * 100.0)]
-	txt += "[color=#9fb8d0]%.1fs  ·  HP lost so far %d%%[/color]\n\n" % [t, roundi(lost / max_hp * 100.0)]
+	txt += "[color=#9fb8d0]%.1fs  ·  HP lost %d%%  ·  hits %d  ·  close calls %d[/color]\n\n" % [t, roundi(lost / max_hp * 100.0), int(g.bench_stats["hits"]), live_dodges]
 	for h in history.slice(maxi(0, history.size() - 6)):
 		txt += str(h) + "\n"
 	board.text = txt
@@ -120,7 +120,7 @@ func go() -> void:
 	var f := FileAccess.open(out_path, FileAccess.READ_WRITE if not new_file else FileAccess.WRITE)
 	f.seek_end()
 	if new_file:
-		f.store_line("boss,sector,mode,trial,guns,cards,seconds,killed,died,hp_lost_pct,peak_bullets")
+		f.store_line("boss,sector,mode,trial,guns,cards,seconds,killed,died,hp_lost_pct,peak_bullets,hits,avg_hit_pct,dodges,blocked,dodge_rate")
 	for boss in list:
 		var s := 5 * (BOSSES.find(boss) + 1)
 		for trial in range(trials):
@@ -145,6 +145,8 @@ func go() -> void:
 			var last_hp: float = float(g.hero["hp"])
 			var died := false
 			var peak := 0
+			g.bench_stats = {"hits": 0, "blocked": 0}
+			var dodges := 0
 			var peak_by := {}
 			while not bool(e["dead"]) and t < TIME_LIMIT:
 				await physics_frame
@@ -155,9 +157,15 @@ func go() -> void:
 				last_hp = hp
 				var n := 0
 				var by := {}
+				var hero_p: Vector2 = g.hero["pos"]
 				for sh in g.shots:
 					if not bool(sh["friendly"]):
 						n += 1
+						# A bullet that comes within 40px is a close call; if it never
+						# lands, that is a dodge (counted once per bullet).
+						if not sh.has("bench_close") and Vector2(sh["pos"]).distance_to(hero_p) < 40.0:
+							sh["bench_close"] = true
+							dodges += 1
 						by[str(sh.get("src", "?"))] = int(by.get(str(sh.get("src", "?")), 0)) + 1
 				if n > peak:
 					peak = n
@@ -167,12 +175,18 @@ func go() -> void:
 					break
 				if g.state != "playing":
 					g.state = "playing"
-				update_board(g, e, boss, s, trial, trials, hard, guns, t, lost, max_hp, n)
+				update_board(g, e, boss, s, trial, trials, hard, guns, t, lost, max_hp, n, dodges)
 				if OS.get_environment("BENCH_DEBUG") != "" and fmod(t, 10.0) < Engine.time_scale / 60.0:
 					print("  t=%d boss=%s state=%s attack=%s hp=%d%% dist=%d boss_pos=%s hero_pos=%s bullets=%d" % [int(t), str(e["kind"]), str(e.get("bf_state", "")), str(e.get("bf_attack", "")), roundi(float(e["hp"]) / float(e["max_hp"]) * 100.0), roundi(Vector2(e["pos"]).distance_to(g.hero["pos"])), str(Vector2(e["pos"]).round()), str(Vector2(g.hero["pos"]).round()), n])
-			var row := "%s,%d,%s,%d,%s,%d,%.1f,%d,%d,%d,%d" % [boss, s, "hard" if hard else "normal", trial, guns,
-				g.owned_order.size(), t, 1 if bool(e["dead"]) else 0, 1 if died else 0, roundi(lost / max_hp * 100.0), peak]
-			history.append(("[color=#7dff9a]WON[/color]  %s in %.0fs  (%s, lost %d%% HP)" if bool(e["dead"]) else ("[color=#ff6b7a]DIED[/color] to %s after %.0fs  (%s, lost %d%% HP)" if died else "[color=#ffd24d]TIMEOUT[/color] %s at %.0fs  (%s, lost %d%% HP)")) % [str(g.enemy_db[boss]["name"]), t, guns, roundi(lost / max_hp * 100.0)])
+			var hits: int = int(g.bench_stats["hits"])
+			# Close calls that turned into hits are not dodges.
+			dodges = maxi(0, dodges - hits)
+			var avg_hit: float = lost / max_hp * 100.0 / maxf(1.0, float(hits))
+			var rate: float = float(dodges) / maxf(1.0, float(dodges + hits)) * 100.0
+			var row := "%s,%d,%s,%d,%s,%d,%.1f,%d,%d,%d,%d,%d,%.1f,%d,%d,%d" % [boss, s, "hard" if hard else "normal", trial, guns,
+				g.owned_order.size(), t, 1 if bool(e["dead"]) else 0, 1 if died else 0, roundi(lost / max_hp * 100.0), peak,
+				hits, avg_hit, dodges, int(g.bench_stats["blocked"]), roundi(rate)]
+			history.append(("[color=#7dff9a]WON[/color]  %s in %.0fs  (%d hits, %d dodges)" if bool(e["dead"]) else ("[color=#ff6b7a]DIED[/color] to %s after %.0fs  (%d hits, %d dodges)" if died else "[color=#ffd24d]TIMEOUT[/color] %s at %.0fs  (%d hits, %d dodges)")) % [str(g.enemy_db[boss]["name"]), t, hits, dodges])
 			f.store_line(row)
 			f.flush()
 			print("BENCH ", row)

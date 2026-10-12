@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.118"
+const GAME_VERSION = "v0.1.119"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -101,6 +101,8 @@ var debug_fuse_a := ""
 var debug_query = ""
 var debug_slot = 0
 var debug_godmode = false
+## Hit tally for the boss benchmark: hits taken and attacks blocked.
+var bench_stats := {"hits": 0, "blocked": 0}
 var debug_notice = ""
 var sfx = null
 var music_refresh_t = 0.0
@@ -1221,6 +1223,7 @@ func hurt(amount: float, src: Vector2, who: String = "something") -> bool:
 	if state != "playing" or float(h["iframe"]) > 0.0:
 		if float(h["dash_window"]) > 0.0:
 			perfect_dodge()
+		bench_stats["blocked"] = int(bench_stats["blocked"]) + 1
 		return false
 	if float(h["dash_window"]) > 0.0:
 		perfect_dodge()
@@ -1230,6 +1233,7 @@ func hurt(amount: float, src: Vector2, who: String = "something") -> bool:
 		h["iframe"] = 0.25
 		return false
 	if int(h["shield"]) > 0:
+		bench_stats["blocked"] = int(bench_stats["blocked"]) + 1
 		h["shield"] = int(h["shield"]) - 1
 		h["iframe"] = 0.5
 		say(h["pos"] + Vector2(0, -30), "BLOCKED", Color("8ff8ff"), 20)
@@ -1240,6 +1244,7 @@ func hurt(amount: float, src: Vector2, who: String = "something") -> bool:
 	dmg = maxf(1.0, dmg)
 	h["hp"] = float(h["hp"]) - dmg
 	damage_taken += dmg
+	bench_stats["hits"] = int(bench_stats["hits"]) + 1
 	h["iframe"] = 0.65 + S.get("iframe", 0.0)
 	h["flash"] = 0.25
 	last_hit_by = who

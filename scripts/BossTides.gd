@@ -26,9 +26,32 @@ static func throw(g, e: Dictionary, stage: int) -> void:
 	var waves: int = 2 + stage + (1 if int(g.sector) >= 30 else 0)
 	for w in range(waves):
 		BF().event(g, e, "bf_tide", e["pos"], 0.35 + 0.75 * float(w), {"wave": w, "stage": stage})
+	if kind != "chonkzilla":
+		BF().event(g, e, "bf_tide", e["pos"], 0.35 + 0.75 * float(waves), {"wave": -1, "stage": stage})
 	g.say(Vector2(e["pos"]) + Vector2(0, -float(e["r"]) - 52.0), str(TIDE_NAMES[kind]) + "!", Color(BF().PALETTE.get(kind, "ffffff")).lightened(0.3), 22)
 
 ## Bullets every `step` px across [left, right], skipping a `gap`-wide hole.
+## A spot on the far side of the road from x: at least ~220 px away.
+static func away_x(x: float, left: float, right: float) -> float:
+	var cx := (left + right) * 0.5
+	if x < cx:
+		return randf_range(minf(right - 80.0, x + 220.0), right - 70.0)
+	return randf_range(left + 70.0, maxf(left + 80.0, x - 220.0))
+
+## The signature finisher every tide ends with: a dense ring from the boss
+## with its gap turned away from you (Chonkzilla's shockwave, in each boss's
+## own bullet shape).
+const RING_SHAPE = {"heli": "rice", "chonkzilla": "orb", "necro": "skull", "kingblob": "big", "coilqueen": "rice",
+	"glassoracle": "shard", "voidweaver": "orb", "dreadengine": "gear", "stormtitan": "shard", "hiveempress": "missile"}
+
+static func finisher_ring(g, e: Dictionary, stage: int) -> void:
+	var B = BF()
+	var hero: Vector2 = g.hero["pos"]
+	var gap_a: float = (hero - Vector2(e["pos"])).angle() + (0.9 if randf() < 0.5 else -0.9)
+	var kind := str(e["kind"])
+	B.ring(g, e, e["pos"], 46, 185.0 + 15.0 * stage, randf() * TAU, {"r": 7.0, "shape": str(RING_SHAPE.get(kind, "orb")),
+		"color": Color(B.PALETTE_ALT.get(kind, "ffffff")), "life": 5.0}, gap_a, 0.32)
+
 static func row_points(left: float, right: float, step: float, gap_x: float, gap: float) -> Array:
 	var out: Array = []
 	var x := left
@@ -51,12 +74,16 @@ static func resolve_tide(g, e: Dictionary, item: Dictionary) -> void:
 	var right: float = float(a["right"]) + 10.0
 	var top: float = float(a["top"]) - 70.0
 	var bottom: float = float(a["bottom"]) + 30.0
-	var gap_x: float = clampf(hero.x + randf_range(-160.0, 160.0), left + 70.0, right - 70.0)
+	# Like Chonkzilla's shockwave, the way out is AWAY from you: run for it.
+	var gap_x: float = away_x(hero.x, left, right)
 	var speed_k: float = 1.0 + 0.1 * float(stage)
+	if wave < 0:
+		finisher_ring(g, e, stage)
+		return
 	match kind:
 		"heli":
 			# A curtain of rounds sweeping down the road with one gap.
-			for x in row_points(left, right, 30.0, gap_x, 96.0):
+			for x in row_points(left, right, 22.0, gap_x, 96.0):
 				B.fire(g, e, Vector2(x, top), Vector2.DOWN, 230.0 * speed_k, {"r": 5.0, "color": col if wave % 2 == 0 else alt, "life": 4.0})
 		"chonkzilla":
 			# Expanding shockwave rings out of the kaiju, gap turned away from you.
@@ -69,10 +96,10 @@ static func resolve_tide(g, e: Dictionary, item: Dictionary) -> void:
 				if absf(x2 - gap_x) > 50.0:
 					for k in range(2):
 						B.fire(g, e, Vector2(x2, top - k * 40.0), Vector2.DOWN, 150.0 * speed_k, {"shape": "skull", "r": 6.0, "wave": 26.0, "color": col if k == 0 else alt, "life": 6.0})
-				x2 += 70.0
+				x2 += 52.0
 		"kingblob":
 			# Jelly blobs lobbed up from the King that rain back down everywhere.
-			var count: int = int(float(14 + 4 * stage) * B.density(g))
+			var count: int = int(float(26 + 6 * stage) * B.density(g))
 			for i in range(count):
 				var land_x: float = randf_range(left, right)
 				if absf(land_x - gap_x) < 60.0:
@@ -81,13 +108,13 @@ static func resolve_tide(g, e: Dictionary, item: Dictionary) -> void:
 		"coilqueen":
 			# A serpent of venom slithering across the whole road from one side.
 			var from_left: bool = wave % 2 == 0
-			var gap_y: float = clampf(hero.y + randf_range(-90.0, 90.0), top + 90.0, bottom - 60.0)
+			var gap_y: float = clampf(hero.y + (-1.0 if hero.y > (top + bottom) * 0.5 else 1.0) * randf_range(180.0, 260.0), top + 90.0, bottom - 60.0)
 			var y := top
 			while y <= bottom:
 				if absf(y - gap_y) > 48.0:
 					B.fire(g, e, Vector2(left if from_left else right, y), Vector2.RIGHT if from_left else Vector2.LEFT, 210.0 * speed_k,
 						{"r": 6.0, "wave": 34.0, "color": col if int(y / 30.0) % 2 == 0 else alt, "life": 6.0})
-				y += 26.0
+				y += 22.0
 		"glassoracle":
 			# Two crystal walls crossing diagonally from the top corners.
 			for side in [-1.0, 1.0]:
@@ -95,7 +122,8 @@ static func resolve_tide(g, e: Dictionary, item: Dictionary) -> void:
 				var dir := Vector2(side, 1.0).normalized()
 				var normal := dir.orthogonal()
 				for k in range(-14, 15):
-					if abs(k - (3 if wave % 2 == 0 else -3)) <= 1:
+					var gap_k: int = roundi((gap_x - origin.x) * side / 34.0 * 0.7)
+					if abs(k - clampi(gap_k, -12, 12)) <= 1:
 						continue
 					B.fire(g, e, origin + normal * float(k) * 34.0, dir, 200.0 * speed_k, {"shape": "shard", "r": 5.0, "color": col if side > 0.0 else alt, "life": 5.0})
 		"voidweaver":
@@ -111,23 +139,66 @@ static func resolve_tide(g, e: Dictionary, item: Dictionary) -> void:
 			for r in range(3):
 				var y2: float = top + 80.0 + (float(r) + (0.5 if wave % 2 == 1 else 0.0)) * (bottom - top - 120.0) / 3.0
 				var from_left2: bool = (r + wave) % 2 == 0
-				var gap_x2: float = randf_range(left + 80.0, right - 80.0)
-				for x3 in row_points(left, right, 34.0, gap_x2, 110.0):
+				var gap_x2: float = away_x(hero.x, left, right)
+				for x3 in row_points(left, right, 28.0, gap_x2, 110.0):
 					var start_x: float = left - (right - left) + (x3 - left) if from_left2 else right + (x3 - left)
 					B.fire(g, e, Vector2(start_x, y2), Vector2.RIGHT if from_left2 else Vector2.LEFT, 260.0 * speed_k, {"shape": "boulder" if int(x3) % 5 == 0 else "orb", "r": 7.0, "color": col if from_left2 else alt, "life": 7.0})
 		"stormtitan":
 			# A horizontal lightning sweep, then sparks raining through it.
 			var row_y: float = clampf(hero.y + (110.0 if wave % 2 == 0 else -110.0), top + 60.0, bottom - 40.0)
 			B.line(g, e, Vector2(left, row_y), Vector2(right, row_y), 22.0, 0.75, 0.6, {"web": true})
-			for x4 in row_points(left, right, 40.0, gap_x, 100.0):
+			for x4 in row_points(left, right, 30.0, gap_x, 100.0):
 				B.fire(g, e, Vector2(x4, top), Vector2.DOWN, 240.0 * speed_k, {"r": 5.0, "shape": "shard", "color": alt, "life": 4.0})
 		"hiveempress":
 			# A wall of honey flooding down with stingers zipping across it.
-			for x5 in row_points(left, right, 28.0, gap_x, 100.0):
+			for x5 in row_points(left, right, 22.0, gap_x, 100.0):
 				B.fire(g, e, Vector2(x5, top), Vector2.DOWN, 180.0 * speed_k, {"shape": "big", "r": 7.0, "color": col, "life": 5.0})
 			for side in [-1.0, 1.0]:
 				var y3: float = clampf(hero.y + randf_range(-140.0, 40.0), top + 60.0, bottom - 40.0)
 				B.fire(g, e, Vector2(float(a["cx"]) - side * (float(a["half"]) + 30.0), y3), Vector2(side, 0.0), 360.0, {"shape": "missile", "r": 6.0, "color": alt, "life": 4.0})
+
+# ================================================================= hunter layer
+## Chonkzilla is the bar: nearly everything it does hunts you. Every other
+## boss keeps dropping its own hazard where you are heading during every
+## attack, faster each phase and faster again during the attacks that would
+## otherwise only spray around the boss or straight at you.
+const HUNT_INTERVAL = {"heli": 1.15, "necro": 1.0, "kingblob": 1.0, "coilqueen": 1.0, "glassoracle": 0.95,
+	"voidweaver": 1.0, "dreadengine": 0.95, "stormtitan": 0.9, "hiveempress": 0.85}
+const SOFT_ATTACKS = ["minigun_sweep", "missile_salvo", "jelly_fountain", "royal_decree", "summon_court",
+	"serpent_stream", "prism_lasers", "shard_bloom", "hall_of_mirrors", "void_pinwheel", "rift_crossfire",
+	"furnace_breath", "assembly_line", "chain_bolts", "stinger_volley", "drone_swarm", "raise_wards", "skull_waltz", "eye_of_storm"]
+
+static func hunt(g, e: Dictionary, attack: String, stage: int, dt: float) -> void:
+	var kind := str(e["kind"])
+	if not HUNT_INTERVAL.has(kind):
+		return
+	var B = BF()
+	var interval: float = float(HUNT_INTERVAL[kind]) * (1.0 - 0.15 * float(stage)) * (0.6 if attack in SOFT_ATTACKS else 1.0)
+	for _i in range(B.every(e, "hunt_layer", interval, dt, 0.6)):
+		var at: Vector2 = B.lead(g, 0.7) + Vector2(randf_range(-60.0, 60.0), randf_range(-45.0, 45.0))
+		match kind:
+			"heli":
+				B.circle(g, e, at, 60.0, 0.85, 0.6, {"bomb": true, "burst": 6})
+			"necro":
+				B.grave_hand(g, e, stage)
+			"kingblob":
+				B.circle(g, e, at, 74.0, 0.85, 0.65, {"burst": 10, "burst_shape": "big"})
+			"coilqueen":
+				B.circle(g, e, at, 64.0, 0.8, 0.6, {"burst": 8, "burst_shape": "rice"})
+				load("res://scripts/EnemyIdentity.gd").place(g, "acid", at, 46.0, float(e["dmg"]) * 0.25, 3.0, 0.85)
+			"glassoracle":
+				var hist: Array = e.get("bf_hist", [])
+				var past: Vector2 = hist[maxi(0, hist.size() - 3)] if not hist.is_empty() else at
+				B.circle(g, e, past, 62.0, 0.65, 0.6, {"burst": 10, "burst_shape": "shard"})
+			"voidweaver":
+				B.circle(g, e, at, 66.0, 0.8, 0.6, {"blink": true, "burst": 10})
+			"dreadengine":
+				B.circle(g, e, at, 64.0, 0.9, 0.65, {"mortar": true, "burst": 8, "burst_shape": "gear"})
+			"stormtitan":
+				var a: Dictionary = B.arena(g)
+				B.line(g, e, Vector2(at.x, float(a["top"]) - 40.0), Vector2(at.x, float(a["bottom"]) + 40.0), 30.0, 0.65, 0.6, {"piston": true})
+			"hiveempress":
+				B.circle(g, e, at, 58.0, 0.75, 0.6, {"burst": 8, "burst_shape": "missile"})
 
 # ================================================================= hard mode
 ## SHADOW ECHO: a hard-mode boss in phase 2+ repeats each bullet, mirrored

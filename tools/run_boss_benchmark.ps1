@@ -38,8 +38,9 @@ while (($procs | Where-Object { -not $_.HasExited }).Count -gt 0) {
       $line = "    {0,-13}" -f $names[$b]
       Write-Host -NoNewline $line
       foreach ($r in $done) {
-        if ($r.killed -eq "1") { Write-Host -NoNewline (" WON {0,4}s " -f [int][double]$r.seconds) -ForegroundColor Black -BackgroundColor Green }
-        elseif ($r.died -eq "1") { Write-Host -NoNewline (" DIED {0,3}s " -f [int][double]$r.seconds) -ForegroundColor White -BackgroundColor DarkRed }
+        $extra = if ($r.hits) { " {0}h/{1}d" -f $r.hits, $r.dodges } else { "" }
+        if ($r.killed -eq "1") { Write-Host -NoNewline (" WON {0,4}s{1} " -f [int][double]$r.seconds, $extra) -ForegroundColor Black -BackgroundColor Green }
+        elseif ($r.died -eq "1") { Write-Host -NoNewline (" DIED {0,3}s{1} " -f [int][double]$r.seconds, $extra) -ForegroundColor White -BackgroundColor DarkRed }
         else { Write-Host -NoNewline " TIMEOUT " -ForegroundColor Black -BackgroundColor Yellow }
         Write-Host -NoNewline " "
       }
@@ -66,6 +67,10 @@ $summary = $rows | Group-Object mode, boss | ForEach-Object {
     "Bots died" = "{0}/{1}" -f @($g | Where-Object { $_.died -eq "1" }).Count, @($g).Count
     "Avg HP lost %" = [math]::Round((($g | ForEach-Object { [double]$_.hp_lost_pct }) | Measure-Object -Average).Average)
     "Peak bullets" = (($g | ForEach-Object { [int]$_.peak_bullets }) | Measure-Object -Maximum).Maximum
+    "Hits" = [math]::Round((($g | ForEach-Object { [double]$_.hits }) | Measure-Object -Average).Average)
+    "HP per hit %" = [math]::Round((($g | ForEach-Object { [double]$_.avg_hit_pct }) | Measure-Object -Average).Average, 1)
+    "Dodges" = [math]::Round((($g | ForEach-Object { [double]$_.dodges }) | Measure-Object -Average).Average)
+    "Dodge rate %" = [math]::Round((($g | ForEach-Object { [double]$_.dodge_rate }) | Measure-Object -Average).Average)
   }
 } | Sort-Object Mode, Sector
 $table = $summary | Format-Table -AutoSize | Out-String -Width 200
