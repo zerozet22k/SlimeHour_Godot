@@ -1,3 +1,11 @@
+## v0.1.102 — Bounded graft mobility and real counterplay
+
+- Inherited charges have finite duration, Skitter's donated ricochet works on non-Skitter bodies with a one-bounce dizzy recovery, and ordinary Skitter retains its normal three-bounce attack.
+- Donated Mirror reflection recharges on non-Mirror bodies; reactive reflection and Ashwing's limited resurrection no longer create empty timed warnings.
+- Donated Lil Tick can attach to the hero and is detached by the existing dash behavior. Donated Burrower emerges from the marked target after its temporary underground travel.
+- A body's actual attack can trigger a nearly ready graft; generated enemy names reference the real donated behavior, not the old broad power labels.
+- Stronger grafts (cost 4+) consume two units of the existing per-sector mutation spawn limit. A structural regression audits all 25 monster exports and compatible ordered pairings.
+
 ## v0.1.101 — Procedural behavior grafts (no pair-specific combat recipes)
 
 - Added `FusionGenome` and `data/mutation_modules.json`: all 25 normal monsters export a distinctive, transferable gameplay mechanic, with receiver capabilities and power costs. No combination IDs are hardcoded in combat.

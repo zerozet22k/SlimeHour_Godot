@@ -1711,7 +1711,7 @@ static func update_enemies(g, dt: float) -> void:
 		# velocity. Zoomer stays quick without suddenly crossing a whole screen.
 		if body_kind == "zoomer":
 			move_vel = zoomer_speed_limit(move_vel, g.hard_mode)
-		var skitter_dashing = body_kind == "skitter" and float(e["charge"]) > 0.0 and not disabled
+		var skitter_dashing = (body_kind == "skitter" or int(e.get("graft_bounces", 0)) > 0) and float(e["charge"]) > 0.0 and not disabled
 		var before_dash_move: Vector2 = e["pos"]
 		# Knockback is capped: stacked late-game knockback could otherwise
 		# snowball through crowd collisions into absurd speeds.
@@ -1762,12 +1762,15 @@ static func update_enemies(g, dt: float) -> void:
 					normal = Vector2(0.0, -signf(Vector2(e["cdir"]).y))
 				e["cdir"] = Vector2(e["cdir"]).bounce(normal).normalized()
 				e["bounces"] = int(e.get("bounces", 0)) + 1
-				g.spawn_ring_fx(e["pos"], Color("83eaff"), 22.0)
+				g.spawn_ring_fx(e["pos"], Color(str(e.get("mut_col", "83eaff"))), 22.0)
 				g.sfx.play("bonk")
-				if int(e["bounces"]) >= 3:
+				var max_bounces := 1 if e.has("graft_bounces") else 3
+				if int(e["bounces"]) >= max_bounces:
 					e["charge"] = 0.0
 					e["stun"] = maxf(float(e["stun"]), 1.4)
 					e["dizzy_t"] = 1.4
+					e["graft_bounces"] = 0
+					e["graft_charge_t"] = 0.0
 					e["vel"] = Vector2.ZERO
 					e["wind"] = 0.0
 		if body_kind == "bull" and float(e["charge"]) > 0.0:

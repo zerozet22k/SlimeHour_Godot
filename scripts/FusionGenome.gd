@@ -65,10 +65,29 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 	e["graft_cd"] = maxf(0.0, float(e.get("graft_cd", 2.3)) - dt)
 	var id: String = str(spec.get("module", ""))
 	# Sustained states have real start/end and cannot run indefinitely.
+	if id == "reflect_shot":
+		e["mirror_cd"] = maxf(0.0, float(e.get("mirror_cd", 0.0)) - dt)
+	if float(e.get("graft_charge_t", 0.0)) > 0.0:
+		e["graft_charge_t"] = maxf(0.0, float(e["graft_charge_t"]) - dt)
+		if float(e["graft_charge_t"]) <= 0.0:
+			e["charge"] = 0.0
+			e["graft_bounces"] = 0
+	if bool(e.get("latched", false)) and id == "parasite_latch":
+		e["pos"] = Vector2(g.hero["pos"]) + Vector2(e.get("latch_off", Vector2.ZERO))
+		e["vel"] = Vector2.ZERO
+		e["kb"] = Vector2.ZERO
+		g.hero["arena_corrosion_t"] = maxf(float(g.hero.get("arena_corrosion_t", 0.0)), 0.18)
 	if float(e.get("graft_tunnel_t", 0.0)) > 0.0:
 		e["graft_tunnel_t"] = maxf(0.0, float(e["graft_tunnel_t"]) - dt)
 		if float(e["graft_tunnel_t"]) <= 0.0:
 			e["burrowing"] = false
+			var exit_at: Vector2 = e.get("graft_tunnel_target", e["pos"])
+			var back: Vector2 = (Vector2(e["pos"]) - exit_at).normalized()
+			if back.length_squared() < 0.01:
+				back = Vector2.DOWN
+			exit_at += back * 62.0
+			exit_at.x = clampf(exit_at.x, -g.road_half + float(e["r"]), g.road_half - float(e["r"]))
+			e["pos"] = exit_at
 			e["exposed_t"] = 1.2
 			g.spawn_ring_fx(e["pos"], Color(str(e.get("mut_col", "c29e77"))), 68.0)
 			if Vector2(e["pos"]).distance_to(g.hero["pos"]) < 65.0:
@@ -81,8 +100,12 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 		e["graft_guard_t"] = maxf(0.0, float(e["graft_guard_t"]) - dt)
 	if float(e.get("graft_latch_t", 0.0)) > 0.0:
 		e["graft_latch_t"] = maxf(0.0, float(e["graft_latch_t"]) - dt)
-		if Vector2(e["pos"]).distance_to(g.hero["pos"]) < 70.0:
-			g.hero["arena_corrosion_t"] = maxf(float(g.hero.get("arena_corrosion_t", 0.0)), 0.18)
+		if not bool(e.get("latched", false)) and Vector2(e["pos"]).distance_to(g.hero["pos"]) < 52.0:
+			e["latched"] = true
+			e["latch_off"] = (Vector2(e["pos"]) - Vector2(g.hero["pos"])).limit_length(14.0)
+			g.say(g.hero["pos"] + Vector2(0, -35), "LATCHED! DASH!", Color("9dff6b"), 15)
+		if float(e["graft_latch_t"]) <= 0.0:
+			e["latched"] = false
 	if float(e.get("graft_link_t", 0.0)) > 0.0:
 		e["graft_link_t"] = maxf(0.0, float(e["graft_link_t"]) - dt)
 		if Vector2(e["pos"]).distance_to(g.hero["pos"]) > 340.0:
@@ -95,6 +118,8 @@ static func tick(g, e: Dictionary, dt: float) -> void:
 				if not EI.covered(g, e["pos"], g.hero["pos"]) and g.hurt(float(e["dmg"]) * 0.18, e["pos"], "a fused blood conduit"):
 					e["hp"] = minf(float(e["max_hp"]), float(e["hp"]) + float(e["max_hp"]) * 0.025)
 					g.beams.append({"a": e["pos"], "b": g.hero["pos"], "t": 0.15, "w": 2.5, "color": Color("ad80ea"), "zig": false})
+	if id in ["phoenix_egg", "reflect_shot"]:
+		return
 	if float(e["graft_cd"]) <= 0.0 and Vector2(e["pos"]).distance_to(g.hero["pos"]) < 560.0:
 		cast(g, e)
 
@@ -104,12 +129,14 @@ static func cast(g, e: Dictionary) -> void:
 		return
 	if float(e.get("graft_cd", 0.0)) > 0.0:
 		return
+	if str(spec.get("module", "")) in ["phoenix_egg", "reflect_shot"]:
+		return
 	e["graft_cd"] = float(spec.get("cooldown", 5.5)) * (0.86 if g.hard_mode else 1.0)
 	var module: String = str(spec.get("module", ""))
 	# One telegraphed event, not a generic N-point bomb/laser barrage.
 	var target: Vector2 = g.hero["pos"]
 	var origin: Vector2 = e["pos"]
-	var pos: Vector2 = target if module in ["aimed_shell", "sticky_throw", "piercing_lance", "coin_snatch"] else origin
+	var pos: Vector2 = target if module in ["aimed_shell", "sticky_throw", "piercing_lance", "coin_snatch", "burrow_ambush"] else origin
 	var col: String = str(e.get("mut_col", str(g.enemy_db.get(str(e["kind"]), {}).get("color", "e3c2ff"))))
 	g.delayed.append({"fn": "genome_graft", "src_enemy": e, "owner": int(e["id"]),
 		"module": module, "pos": pos, "t": 0.68, "life": 0.68,
@@ -121,6 +148,8 @@ static func motion(g, e: Dictionary, desired: Vector2) -> Vector2:
 	if spec.is_empty():
 		return desired
 	var kind := str(spec.get("module", ""))
+	if kind == "parasite_latch" and bool(e.get("latched", false)):
+		return Vector2.ZERO
 	if kind == "orbit_sprint" and float(e.get("graft_orbit_t", 0.0)) > 0.0:
 		var turn := -1.0 if int(e["id"]) % 2 == 0 else 1.0
 		var dir: Vector2 = desired.normalized()
@@ -207,6 +236,7 @@ static func resolve(g, item: Dictionary) -> void:
 			e["shield_hp"] = maxf(float(e.get("shield_hp", 0.0)), float(e["max_hp"]) * 0.26)
 		"impact_charge":
 			e["charge"] = maxf(float(e.get("charge", 0.0)), 0.36)
+			e["graft_charge_t"] = 0.36
 			e["cdir"] = dir
 		"lay_egg":
 			if g.enemy_hazards.size() < 100:
@@ -242,6 +272,7 @@ static func resolve(g, item: Dictionary) -> void:
 					ally["siren_haste"] = maxf(float(ally.get("siren_haste", 0.0)), 2.3)
 		"ricochet_dash":
 			e["charge"] = maxf(float(e.get("charge", 0.0)), 0.34)
+			e["graft_charge_t"] = 0.34
 			e["cdir"] = dir
 			e["graft_bounces"] = 1
 		"sticky_throw":

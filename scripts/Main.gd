@@ -17,7 +17,7 @@ const UnlockHistory = preload("res://scripts/UnlockHistory.gd")
 const DebugLab = preload("res://scripts/DebugLab.gd")
 const EnemyMixes = preload("res://scripts/EnemyMixes.gd")
 const Characters = preload("res://scripts/Characters.gd")
-const GAME_VERSION = "v0.1.101"
+const GAME_VERSION = "v0.1.102"
 const RELEASE_URL = "https://github.com/zerozet22k/SlimeHour_Godot/releases/latest"
 const RELEASE_API = "https://api.github.com/repos/zerozet22k/SlimeHour_Godot/releases/latest"
 
@@ -1633,7 +1633,8 @@ func spawn_enemy(kind: String, pos: Vector2, force_boss = false, elite = null) -
 	# unrestricted, and forced normal introductions never use mutation budget.
 	if kind.begins_with("mix_") and not debug_session:
 		sync_mutation_sector()
-		mutation_sector_spawns += 1
+		var threat: int = int(enemy_db.get(kind, {}).get("threat_cost", 2))
+		mutation_sector_spawns += 2 if threat >= 4 else 1
 	var d: Dictionary = enemy_db.get(kind, enemy_db["blob"])
 	var scale = enemy_scale()
 	var is_boss = bool(d.get("boss", false)) or force_boss

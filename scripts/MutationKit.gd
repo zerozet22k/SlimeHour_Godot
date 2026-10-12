@@ -160,6 +160,7 @@ static func on_attack(g, e, pos: Vector2, hit_player: bool) -> void:
 	if e == null or bool(e.get("dead", false)) or not is_mutant(g, e):
 		return
 	if float(e.get("graft_cd", 2.3)) <= 0.55:
+		e["graft_cd"] = 0.0
 		FusionGenome.cast(g, e)
 
 ## The body attacked without a projectile (a dash, a slam, a sweep...).

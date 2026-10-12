@@ -76,7 +76,7 @@ static func ensure(db: Dictionary, a: String, b: String) -> String:
 	var feature = str(options[posmod(id.hash(), options.size())])
 	var ca = Color(str(MonsterKit.SPECS[primary]["body"])) if MonsterKit.SPECS.has(primary) else Color(str(first["color"]))
 	db[id] = {
-		"id": id, "name": str(MutationKit.PAYLOAD_NAMES.get(MutationKit.payload_for(id, secondary), "Mutated")) + " " + str(first["name"]),
+		"id": id, "name": FusionGenome.trait_name(primary, secondary).capitalize() + " " + str(first["name"]),
 		"hp": float(first["hp"]) * 1.22,
 		"speed": float(first["speed"]) * (1.0 + minf(0.10, float(second["speed"]) * 0.0004)),
 		"dmg": float(first["dmg"]) * 1.10,
