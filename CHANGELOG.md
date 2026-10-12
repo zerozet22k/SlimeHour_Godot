@@ -1,3 +1,15 @@
+## v0.1.115 — Gun info in numbers; status combos toned down
+
+- **Gun offers show real numbers for your build**, including your cards, level, tier and character:
+  - **New gun:** DPS, damage per shot (×pellets), fire rate and magazine, plus your best current gun's DPS to compare against. Shown at level-up and in the shop.
+  - **Gun upgrade:** before → after, e.g. "DPS 205 > 244 (+19%)", then damage and fire rate.
+  - **Evolution:** the DPS jump.
+- **The shop is fully opaque.** The route map no longer shows through, and the "ROUTE STOP" label sits above the SHOP title instead of under it.
+- **Status combos toned down.** A full Bleed build with Hemophilia and Blood Boil reached ~366/s on a 1000 HP elite, about 7.6× a pistol. It's now about 3×.
+  - The max-HP part of any status tick is capped at 0.3% of max HP, so stacking can't shred tanky enemies by percentage.
+  - Blood Boil, Superconductor and Arc Wound give +50% (was double). Toxic Water gives +40% (was +60%).
+  - Hemophilia raises the bleed cap to 12 (was 16).
+
 ## v0.1.114 — DUO cards: element combos
 
 Eleven new **DUO** cards, one for each element pair that had no combo. Each only shows up once your build already has both elements:

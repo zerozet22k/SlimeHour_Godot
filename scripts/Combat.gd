@@ -1090,26 +1090,28 @@ static func status_tick_damage(g, e: Dictionary, kind: String, stacks: float = 1
 			hp_ratio = 0.00022 * stacks
 			bonus = maxf(0.0, 1.0 + g.st("poisonpow"))
 			if float(e.get("wet", 0.0)) > 0.0 and g.st("toxic_water") > 0.0:
-				bonus *= 1.6
+				bonus *= 1.4
 		"bleed":
 			var movement = 2.0 if moving else 1.0
 			base = 0.4 * stacks * movement
 			hp_ratio = 0.00025 * stacks * movement
 			bonus = maxf(0.0, 1.0 + g.st("bleedpow"))
 			if float(e.get("burn", 0.0)) > 0.0 and g.st("blood_boil") > 0.0:
-				bonus *= 2.0
+				bonus *= 1.5
 		"shock":
 			base = 5.0
 			hp_ratio = 0.0005
 			bonus = maxf(0.0, 1.0 + g.st("shockpow"))
 			if (float(e.get("chill", 0.0)) > 0.0 or float(e.get("frozen", 0.0)) > 0.0) and g.st("superconductor") > 0.0:
-				bonus *= 2.0
+				bonus *= 1.5
 			if float(e.get("bleed", 0.0)) > 0.0 and g.st("arc_wound") > 0.0:
-				bonus *= 2.0
+				bonus *= 1.5
 		_:
 			return 0.0
 	var flat = base * g.sector_scale() * g.dmg_mult()
-	var durability = maxf(0.0, float(e.get("max_hp", 0.0))) * hp_ratio
+	# The max-HP share of a tick is capped (0.3% max HP) so piling stacks and
+	# combo multipliers cannot shred tanky enemies by percentage.
+	var durability = minf(maxf(0.0, float(e.get("max_hp", 0.0))) * hp_ratio, maxf(0.0, float(e.get("max_hp", 0.0))) * 0.003)
 	if bool(e.get("boss", false)):
 		durability *= 0.25
 	return maxf(0.0, (flat + durability) * bonus)

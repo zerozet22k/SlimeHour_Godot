@@ -1320,6 +1320,32 @@ func star(c: Vector2, r: float) -> PackedVector2Array:
 	return pts
 
 # ================================================================= cards
+## Real numbers for a gun in YOUR build (cards, level, tier, character).
+## Returns damage per shot, pellets, shots per second and damage per second.
+func gun_numbers(w: Dictionary) -> Dictionary:
+	var d: Dictionary = g.weapon_db[w["id"]]
+	var dmg: float = Weapons.shot_damage(g, w)
+	var pellets: int = maxi(1, int(d.get("pellets", 1)))
+	var rate: float = Weapons.fire_rate(g, w)
+	return {"dmg": dmg, "pellets": pellets, "rate": rate, "dps": dmg * float(pellets) * rate, "beam": str(d["kind"]) == "beam"}
+
+## 6.2 / 14 / 38: one decimal only where it matters.
+func short_num(v: float) -> String:
+	return "%.1f" % v if v < 10.0 else "%d" % roundi(v)
+
+func gun_stat_line(n: Dictionary, mag: int) -> String:
+	if bool(n["beam"]):
+		return "%d DMG/TICK  ·  CONTINUOUS BEAM" % roundi(float(n["dmg"]))
+	var per := short_num(float(n["dmg"])) if int(n["pellets"]) <= 1 else "%sx%d" % [short_num(float(n["dmg"])), int(n["pellets"])]
+	return "DPS %d  |  DMG %s  ·  %s/s  ·  MAG %d" % [roundi(float(n["dps"])), per, short_num(float(n["rate"])), mag]
+
+## Your strongest current gun's DPS, to compare a new gun against.
+func best_gun_dps() -> float:
+	var best := 0.0
+	for w in g.guns:
+		best = maxf(best, float(gun_numbers(w)["dps"]))
+	return best
+
 func offer_info(o: Dictionary) -> Dictionary:
 	match o["type"]:
 		"card":
@@ -1343,23 +1369,42 @@ func offer_info(o: Dictionary) -> Dictionary:
 			var stats = "%d DMG  ·  %.1f/s  ·  MAG %d" % [roundi(tdmg), float(d["rate"]) * Weapons.TIER_RATE[clampi(tier, 0, 5)], int(d["mag"])]
 			if d["kind"] == "beam":
 				stats = "%d DMG/tick  ·  continuous" % roundi(tdmg)
+			var numbers := ""
+			if not bool(o.get("preview", false)) and not g.hero.is_empty():
+				var trial: Dictionary = Weapons.new_gun(g, str(o["gun"]), tier)
+				var n := gun_numbers(trial)
+				numbers = gun_stat_line(n, int(trial["mag_max"]))
+				if not g.guns.is_empty() and not bool(n["beam"]):
+					numbers += "  |  YOUR BEST GUN: DPS %d" % roundi(best_gun_dps())
+				stats = ""
 			return {"title": d["name"], "desc": d["desc"], "rar": tier, "cat": "NEW GUN", "gun_class": Weapons.gun_class(str(o["gun"])), "catc": CAT_COLOR,
-				"art": g.tex("res://assets/weapons/%s.png" % o["gun"]), "foot": "" if bool(o.get("preview", false)) else stats,
+				"art": g.tex("res://assets/weapons/%s.png" % o["gun"]), "foot": "" if bool(o.get("preview", false)) else stats, "stack": numbers,
 				"rarlabel": "RANDOM TIER" if bool(o.get("preview", false)) else RARITY[tier], "max": "", "icon": true}
 		"gun_up":
 			var w = g.guns[int(o["slot"])]
 			var d2 = g.weapon_db[w["id"]]
 			var nl = int(w["lvl"]) + 1
-			var desc = "+15% damage, +6% fire rate (adds to your other bonuses)."
+			var desc = "+15% damage, +6% fire rate."
+			var before := gun_numbers(w)
+			var next_w: Dictionary = w.duplicate(true)
+			next_w["lvl"] = nl
+			var after := gun_numbers(next_w)
+			var gain: float = (float(after["dps"]) / maxf(0.01, float(before["dps"])) - 1.0) * 100.0
+			var up_line := "DPS %d > %d (+%d%%)  |  DMG %s > %s  ·  %s > %s/s" % [roundi(float(before["dps"])), roundi(float(after["dps"])), roundi(gain),
+				short_num(float(before["dmg"])), short_num(float(after["dmg"])), short_num(float(before["rate"])), short_num(float(after["rate"]))]
 			if nl == 3:
 				desc += " UNLOCK: " + str(d2["lv3"])
 			elif nl == 5:
 				desc += " UNLOCK: " + str(d2["lv5"]) + ". Then it can EVOLVE."
-			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "gun_class": Weapons.gun_class(str(w["id"])), "catc": CAT_COLOR,
+			return {"title": Weapons.display_name(g, w) + " +", "desc": desc, "stack": up_line, "rar": int(w.get("tier", 0)), "cat": "GUN UPGRADE", "gun_class": Weapons.gun_class(str(w["id"])), "catc": CAT_COLOR,
 				"art": g.tex("res://assets/weapons/%s.png" % w["id"]), "foot": "LV %d  >  LV %d" % [nl - 1, nl], "max": "", "icon": true}
 		"evolve":
 			var w2 = g.guns[int(o["slot"])]
-			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2),
+			var evo_before := gun_numbers(w2)
+			var evo_w: Dictionary = w2.duplicate(true)
+			evo_w["evolved"] = true
+			var evo_after := gun_numbers(evo_w)
+			return {"title": "EVOLVE: " + str(Weapons.EVOLVED_NAMES.get(w2["id"], "EX")), "desc": Weapons.evolution_description(w2), "stack": "DPS %d > %d" % [roundi(float(evo_before["dps"])), roundi(float(evo_after["dps"]))],
 				"rar": maxi(3, int(w2.get("tier", 0))), "cat": "EVOLUTION", "gun_class": Weapons.gun_class(str(w2["id"])), "catc": CAT_COLOR, "art": g.tex("res://assets/weapons/%s.png" % w2["id"]),
 				"foot": str(g.weapon_db[w2["id"]]["name"]) + " is ready", "max": "", "icon": true}
 	return {}
@@ -2435,9 +2480,9 @@ func paint_hub_backdrop() -> void:
 	else:
 		screen_bg()
 	draw_rect(g.landscape_rect() if not g.portrait else Rect2(0, 0, 720, g.ui_height),
-		Color(0.016, 0.025, 0.063, 0.985))
+		Color(0.016, 0.025, 0.063, 1.0))
 	var w = sw()
-	var y = 42.0 if not g.portrait else 38.0
+	var y = 16.0 if not g.portrait else 30.0
 	txt("ROUTE STOP  //  SECTOR %d" % g.sector, Vector2(w * 0.5, y), 15, Color("7b9abd"), 1, bold)
 
 ## A deliberate pause after every normal boss. The win screen still owns Sector 20.

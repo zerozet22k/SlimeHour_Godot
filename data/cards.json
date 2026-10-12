@@ -5466,10 +5466,10 @@
       "cat": "bleed",
       "rarity": 2,
       "max": 1,
-      "desc": "Bleed stacks up to 16 instead of 8.",
+      "desc": "Bleed stacks up to 12 instead of 8.",
       "art": "an overflowing red potion bottle",
       "mods": {
-        "bleedcap": 8
+        "bleedcap": 4
       },
       "procs": [],
       "req": {
@@ -5588,7 +5588,7 @@
       "cat": "status",
       "rarity": 2,
       "max": 1,
-      "desc": "DUO (Fire + Bleed): bleeding enemies that are burning take double bleed damage.",
+      "desc": "DUO (Fire + Bleed): bleeding enemies that are burning take +50% bleed damage.",
       "art": "a pot of red liquid boiling over a fire",
       "mods": {
         "blood_boil": 1
@@ -5664,7 +5664,7 @@
       "cat": "status",
       "rarity": 2,
       "max": 1,
-      "desc": "DUO (Ice + Shock): shock deals double damage to chilled or frozen enemies.",
+      "desc": "DUO (Ice + Shock): shock deals +50% damage to chilled or frozen enemies.",
       "art": "a frosted battery crackling with lightning",
       "mods": {
         "superconductor": 1
@@ -5740,7 +5740,7 @@
       "cat": "status",
       "rarity": 1,
       "max": 1,
-      "desc": "DUO (Shock + Bleed): shock deals double damage to bleeding enemies.",
+      "desc": "DUO (Shock + Bleed): shock deals +50% damage to bleeding enemies.",
       "art": "a lightning bolt striking an open wound",
       "mods": {
         "arc_wound": 1
@@ -5759,7 +5759,7 @@
       "cat": "status",
       "rarity": 1,
       "max": 1,
-      "desc": "DUO (Poison + Wet): soaked enemies take +60% poison damage.",
+      "desc": "DUO (Poison + Wet): soaked enemies take +40% poison damage.",
       "art": "a puddle glowing toxic green",
       "mods": {
         "toxic_water": 1

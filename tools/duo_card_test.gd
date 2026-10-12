@@ -82,7 +82,7 @@ func go() -> void:
 		var base: float = Combat.status_tick_damage(g, e, str(pair[1]), 3.0)
 		owning(g, str(pair[0]))
 		var boosted: float = Combat.status_tick_damage(g, e, str(pair[1]), 3.0)
-		check(boosted > base * 1.5, str(pair[0]) + " boosts " + str(pair[1]) + " damage")
+		check(boosted > base * 1.3, str(pair[0]) + " boosts " + str(pair[1]) + " damage")
 	g.free()
 	print("DUO CARDS: ", "PASS" if failures == 0 else str(failures) + " failures")
 	quit(1 if failures else 0)
